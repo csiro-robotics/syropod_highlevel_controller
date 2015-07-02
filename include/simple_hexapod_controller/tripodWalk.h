@@ -15,10 +15,11 @@ struct TripodWalk
   Vector3d localStanceTipPositions[3][2];
   Vector2d localVelocity;
   double curvature;
+  double walkPhase;
   struct LegStepper
   {
     double phase; // 0 to 2pi
-    Vector2d velocity; // length gives ground velocity
+    double phaseOffset; // 0 to 2pi
     Vector2d strideVector; // length gives stride length
     
     Vector3d getPosition(double liftHeight);
@@ -33,6 +34,7 @@ struct TripodWalk
   
   // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
   // bodyOffset is body pose relative to the basic stance pose, note that large offsets may prevent achievable leg positions
+  // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
   void walk(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset = NULL);
 
   double getTurningRadius(double curvature){ return (stanceRadius / max(0.0001, curvature)) - stanceRadius; }
