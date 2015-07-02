@@ -2,7 +2,6 @@
    This software is provided under the terms of Schedule 1 of the license agreement between CSIRO, 3DLM and GeoSLAM.
 */
 #include "../include/simple_hexapod_controller/standardIncludes.h"
-#include <boost/concept_check.hpp>
 
 /*
 struct Leg
