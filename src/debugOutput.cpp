@@ -119,7 +119,7 @@ void DebugOutput::drawPoints(const vector<Vector3d>& points, const Vector4d &col
   geometry_msgs::Point point;
   for(unsigned int i = 0; i < points.size(); ++i)
   {
-    Vector3d pos = rotate90 * points[0];
+    Vector3d pos = rotate90 * points[i];
     point.x = pos[0];
     point.y = pos[1];
     point.z = pos[2];

@@ -4,15 +4,7 @@
 Vector3d TripodWalk::LegStepper::getPosition(double liftHeight)
 {
   Vector3d strideVec(strideVector[0], strideVector[1], 0);
-  if (abs(phase) < pi/2.0) // stance
-  {
-    // I use a quartic to let the trajectory decelerate, but much flatter stance height than using a quadratic
-    double t = phase*2.0/pi;
-    Vector3d pos = strideVec * 0.5 * t;
-    pos[2] = liftHeight*0.5 * (pow(t, 4.0) - 1.0);
-    return pos;
-  }
-  else // swing
+  if (abs(phase-pi) < pi/2.0) // swing
   {
     Vector3d nodes[4];
     nodes[0] = -strideVec*0.5;
@@ -20,7 +12,20 @@ Vector3d TripodWalk::LegStepper::getPosition(double liftHeight)
     Vector3d lift(0,0,liftHeight*2.0);
     nodes[1] = nodes[0] + (lift - strideVec)/3.0;
     nodes[2] = nodes[0] + (lift + strideVec)/3.0;
-    return cubicBezier(nodes, (phase - pi/2.0)/pi);
+    Vector3d pos = cubicBezier(nodes, (phase - pi/2.0)/pi);
+    ASSERT(pos.squaredNorm() < 1000.0);
+    return pos;
+  }
+  else // stance
+  {
+    // I use a quartic to let the trajectory decelerate, but much flatter stance height than using a quadratic
+    double t = 2.0*phase/pi;
+    if (t > 1.0)
+      t -= 4.0;
+    Vector3d pos = strideVec * 0.5 * -t;
+    pos[2] = liftHeight*0.5 * (pow(-t, 4.0) - 1.0);
+    ASSERT(pos.squaredNorm() < 1000.0);
+    return pos;
   }
 }
   
@@ -41,19 +46,20 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double bodyClearance,
     double theta = minYawLimits[l] - abs(stanceLegYaws[l]);
     double cotanTheta = tan(0.5*pi - theta);
     double rad = solveQuadratic(sqr(cotanTheta), -2.0*horizontalRange, sqr(horizontalRange));
-    footSpreadDistances[l] = rad * cotanTheta;
+    footSpreadDistances[l] = horizontalRange - rad;
     double footprintDownscale = 0.8; // this is because the step cycle exceeds the ground footprint in order to maintain velocity
     minFootprintRadius = min(minFootprintRadius, rad*footprintDownscale);
     for (int side = 0; side<2; side++)
     {
       localStanceTipPositions[l][side] = model->legs[l][side].rootOffset + footSpreadDistances[l]*Vector3d(cos(stanceLegYaws[l]), sin(stanceLegYaws[l]), -bodyClearance*model->legs[l][side].legLength);
+      localStanceTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
     }
   }
-  stanceRadius = abs(localStanceTipPositions[1][0][1]);
+  stanceRadius = abs(localStanceTipPositions[1][0][0]);
   int i = 0;
-  for (int l = 0; l<3; l++)
+  for (int s = 0; s<2; s++)
   {
-    for (int s = 0; s<2; s++)
+    for (int l = 0; l<3; l++)
     {
       legSteppers[l][s].phaseOffset = pi * double((i++)%2); 
       legSteppers[l][s].phase = 2.0*pi; // this ensures that the feet start stepping naturally (don't pop to up position)
@@ -62,6 +68,8 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double bodyClearance,
   }
   localVelocity = Vector2d(0,0);
   curvature = 0;
+  pose.rotation = Quat(1,0,0,0);
+  pose.position = Vector3d(0, 0, bodyClearance*model->legs[0][0].legLength);
 }
 
 
@@ -69,6 +77,7 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double bodyClearance,
 // bodyOffset is body pose relative to the basic stance pose, note that large offsets may prevent achievable leg positions
 void TripodWalk::update(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset)
 {
+  targets.clear();
   // this block assures the local velocity and curvature values don't change too quickly
   if (newLocalVelocity.norm() > 0.0 && localVelocity.norm()==0.0) // started walking again
   {
@@ -109,9 +118,9 @@ void TripodWalk::update(Vector2d newLocalVelocity, double newCurvature, const Po
     for (int s = 0; s<2; s++)
     {
       LegStepper &legStepper = legSteppers[l][s];
-      Leg &leg = model->legs[s][l];
+      Leg &leg = model->legs[l][s];
       Vector2d toTip = turningPoint + Vector2d(leg.localTipPosition[0], leg.localTipPosition[1]);
-      legStepper.strideVector = angularVelocity * Vector2d(-toTip[1], toTip[0]) / (2.0*stepFrequency);
+      legStepper.strideVector = angularVelocity * Vector2d(toTip[1], -toTip[0]) / (2.0*stepFrequency);
       
       double phase = fmod(walkPhase + legStepper.phaseOffset, 2.0*pi);
       if (legStepper.phase == 2.0*pi && phase >= pi) // if stopped then do nothing until phase gets reset to 0 (new step)
@@ -121,7 +130,10 @@ void TripodWalk::update(Vector2d newLocalVelocity, double newCurvature, const Po
         legStepper.phase = 2.0*pi;
       else
         legStepper.phase = phase; // otherwise follow the step cycle exactly
-      leg.applyLocalIK(localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*leg.legLength));
+      Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*leg.legLength);
+      targets.push_back(pose.transformVector(pos));
+      leg.applyLocalIK(pos);
+      targets.push_back(pose.transformVector(leg.localTipPosition));
     }
   }
   
@@ -131,4 +143,5 @@ void TripodWalk::update(Vector2d newLocalVelocity, double newCurvature, const Po
       for (int side = 0; side<2; side++)
         model->legs[l][side].applyLocalIK(bodyOffset->inverseTransformVector(model->legs[l][side].localTipPosition), false); // false means we don't update local tip position, as it is needed above in step calculations
   }
+  pose.position += Vector3d(localVelocity[0] * timeDelta, localVelocity[1] * timeDelta, 0);
 }

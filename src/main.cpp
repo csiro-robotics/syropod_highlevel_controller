@@ -34,14 +34,13 @@ int main(int argc, char* argv[])
   chrono::milliseconds interval(roundToInt(1000.0*timeDelta)); 
   
   Model hexapod;
-  TripodWalk walker(&hexapod, 0.5, 0.5, 0.5, Vector3d(0,0,0), Vector3d(1.57,1.57,1.57));
+  TripodWalk walker(&hexapod, 0.2, 0.6, 0.2, Vector3d(0,0,0), Vector3d(1.57,1.57,1.57));
   DebugOutput debug;
   for(;;)
   {
     walker.update(Vector2d(0,1), 0);
-    walker.pose.rotation = Quat(1,0,0,0);
-    walker.pose.position = Vector3d(0,0,0);
     debug.drawRobot(walker.pose, hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));
+    debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     this_thread::sleep_for(interval);
     debug.reset();
     if (kbhit())

@@ -18,12 +18,11 @@ struct Leg
   Vector3d kneeOffset;
   Vector3d tipOffset;
   
-//  bool onGround;
   Vector3d localTipPosition; // relative to root
 
   void init(double startYaw, double startLiftAngle, double startKneeAngle);
   // sets angles to reach local position relative to root
-  void applyLocalIK(const Vector3d &tipTarget, bool updateTipPos = true);
+  void applyLocalIK(Vector3d tipTarget, bool updateTipPos = true);
   void applyWorldIK(const Pose &rootPose, const Vector3d &worldTipTarget){ applyLocalIK(rootPose.inverseTransformVector(worldTipTarget)); }
   // works out local tip position from angles
   void applyFK();
@@ -32,7 +31,8 @@ struct Leg
   double femurAngleOffset;
   double tibiaLength;
   double tibiaAngleOffset;
-  double legLength;  
+  double legLength;
+  double mirrorDir;  // 1 or -1 for mirrored
 };
 
 // defines the hexapod model
