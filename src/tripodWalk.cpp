@@ -10,6 +10,7 @@ Vector3d TripodWalk::LegStepper::getPosition(double liftHeight)
     double t = phase*2.0/pi;
     Vector3d pos = strideVec * 0.5 * t;
     pos[2] = liftHeight*0.5 * (pow(t, 4.0) - 1.0);
+    return pos;
   }
   else // swing
   {
@@ -54,7 +55,8 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double bodyClearance,
   {
     for (int s = 0; s<2; s++)
     {
-      legSteppers[l][s].phase = legSteppers[l][s].phaseOffset = pi * double((i++)%2); 
+      legSteppers[l][s].phaseOffset = pi * double((i++)%2); 
+      legSteppers[l][s].phase = 2.0*pi; // this ensures that the feet start stepping naturally (don't pop to up position)
       legSteppers[l][s].strideVector = Vector2d(0,0);
     }
   }
@@ -65,7 +67,7 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double bodyClearance,
 
 // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
 // bodyOffset is body pose relative to the basic stance pose, note that large offsets may prevent achievable leg positions
-void TripodWalk::walk(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset)
+void TripodWalk::update(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset)
 {
   // this block assures the local velocity and curvature values don't change too quickly
   if (newLocalVelocity.norm() > 0.0 && localVelocity.norm()==0.0) // started walking again
@@ -112,13 +114,13 @@ void TripodWalk::walk(Vector2d newLocalVelocity, double newCurvature, const Pose
       legStepper.strideVector = angularVelocity * Vector2d(-toTip[1], toTip[0]) / (2.0*stepFrequency);
       
       double phase = fmod(walkPhase + legStepper.phaseOffset, 2.0*pi);
-      if (phase < legStepper.phase)
+      if (legStepper.phase == 2.0*pi && phase >= pi) // if stopped then do nothing until phase gets reset to 0 (new step)
       {
-        if (speed == 0)
-          legStepper.phase = 2.0*pi;
-        else
-          legStepper.phase = phase;
       }
+      else if (phase < legStepper.phase && speed == 0) // if just stopped, don't continue leg cycle beyond 2pi
+        legStepper.phase = 2.0*pi;
+      else
+        legStepper.phase = phase; // otherwise follow the step cycle exactly
       leg.applyLocalIK(localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*leg.legLength));
     }
   }

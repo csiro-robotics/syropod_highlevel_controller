@@ -4,7 +4,8 @@
 #include <vector>
 using namespace Eigen;
 using namespace std;
-
+#define timeDelta (1.0/50.0)
+#define DEBUGDRAW
 const double pi = M_PI; //< easier to read
 
 // ifdef because assert(x) is nop on NDEBUG defined, not on 'DEBUG not defined'

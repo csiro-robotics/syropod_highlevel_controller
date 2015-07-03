@@ -1,0 +1,132 @@
+#include "../include/simple_hexapod_controller/debugOutput.h"
+#include <visualization_msgs/Marker.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sstream>
+
+static Pose rotate90;
+
+DebugOutput::DebugOutput()
+{
+#if defined(DEBUGDRAW)
+  robotPublisher = n.advertise<visualization_msgs::Marker>("robot", 1);
+  pointsPublisher = n.advertise<visualization_msgs::Marker>("points", 1);
+  reset();
+  rotate90.rotation = Quat(1,0,0,0); // Quat(sqrt(0.5), sqrt(0.5), 0, 0);
+  rotate90.position = Vector3d(0,0,0);
+#endif
+}
+
+void DebugOutput::drawRobot(const Pose &bodyFrame, const Vector3d &extents, const vector<Vector3d> &legPoints, const Vector4d &colour)
+{
+#if defined(DEBUGDRAW)
+  visualization_msgs::Marker lineList;
+  lineList.header.frame_id = "/my_frame";
+  lineList.header.stamp = ros::Time::now();
+  lineList.ns = "trajectory_polyline_" + to_string(robotID);
+  lineList.action = visualization_msgs::Marker::ADD;
+  lineList.pose.orientation.x = 0.0;
+  lineList.pose.orientation.y = 0.0;
+  lineList.pose.orientation.z = 0.0;
+  lineList.pose.orientation.w = 1.0;
+  
+  lineList.id = robotID++;
+  lineList.type = visualization_msgs::Marker::LINE_LIST; 
+  
+  lineList.scale.x = 0.005; // only x component needed
+  lineList.scale.y = 0.005; // only x component needed
+  
+  lineList.color.r = colour[0];
+  lineList.color.g = colour[1];
+  lineList.color.b = colour[2];
+  lineList.color.a = colour[3];
+  
+  vector<Vector3d> rectangle(5);
+  rectangle[0] = bodyFrame * Vector3d(extents[0], extents[1], 0);
+  rectangle[1] = bodyFrame * Vector3d(extents[0], -extents[1], 0);
+  rectangle[2] = bodyFrame * Vector3d(-extents[0], -extents[1], 0);
+  rectangle[3] = bodyFrame * Vector3d(-extents[0], extents[1], 0);
+  rectangle[4] = rectangle[0];
+  Vector3d pos;
+  for (unsigned int i = 0; i<rectangle.size()-1; i++)
+  {
+    geometry_msgs::Point p;
+    pos = rotate90 * rectangle[i];
+    p.x = pos[0];
+    p.y = pos[1];
+    p.z = pos[2];
+    lineList.points.push_back(p);
+
+    pos = rotate90 * rectangle[i+1];
+    p.x = pos[0];
+    p.y = pos[1];
+    p.z = pos[2];
+    lineList.points.push_back(p);
+  }
+  
+  for (unsigned int l = 0; l<legPoints.size()-1; l+=4)
+  {  
+    for (unsigned int i = l; i<l+3; i++)
+    {
+      geometry_msgs::Point p;
+      pos = rotate90 * legPoints[i];
+      p.x = pos[0];
+      p.y = pos[1];
+      p.z = pos[2];
+      lineList.points.push_back(p);
+
+      pos = rotate90 * legPoints[i+1];
+      p.x = pos[0];
+      p.y = pos[1];
+      p.z = pos[2];
+      lineList.points.push_back(p);
+    }
+  }
+  robotPublisher.publish(lineList);
+#endif
+}
+
+void DebugOutput::drawPoints(const vector<Vector3d>& points, const Vector4d &colour)
+{
+#if defined(DEBUGDRAW)
+
+  visualization_msgs::Marker marker;
+
+  marker.header.frame_id = "/my_frame";
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "point_marker";
+  marker.id = 0;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.type = visualization_msgs::Marker::SPHERE_LIST;
+  marker.pose.position.x = 0;
+  marker.pose.position.y = 0;
+  marker.pose.position.z = 0;
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0; 
+  
+  marker.scale.x = 0.1;
+  marker.scale.y = 0.1;
+  marker.scale.z = 0.1;
+  
+  marker.color.r = colour[0];
+  marker.color.g = colour[1];
+  marker.color.b = colour[2];
+  marker.color.a = colour[3];
+  
+  marker.lifetime = ros::Duration();
+  
+  geometry_msgs::Point point;
+  for(unsigned int i = 0; i < points.size(); ++i)
+  {
+    Vector3d pos = rotate90 * points[0];
+    point.x = pos[0];
+    point.y = pos[1];
+    point.z = pos[2];
+    marker.points.push_back(point);
+  }
+
+  pointsPublisher.publish(marker);
+#endif
+}
+

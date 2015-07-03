@@ -61,3 +61,26 @@ Model::Model()
     }
   }
 }
+
+vector<Vector3d> Model::getJointPositions(const Pose &pose)
+{
+  vector<Vector3d> positions;
+  for (int s = 0; s<2; s++)
+  {
+    for (int l = 0; l<3; l++)
+    {
+      Leg &leg = legs[l][s];
+      Pose transform;
+      transform = pose * Pose(leg.rootOffset, Quat(Vector3d(0, 0, leg.yaw)));
+      positions.push_back(transform.position);
+      transform *= Pose(leg.hipOffset, Quat(Vector3d(0, leg.liftAngle, 0)));
+      positions.push_back(transform.position);
+      transform *= Pose(leg.kneeOffset, Quat(Vector3d(0, -leg.kneeAngle, 0)));
+      positions.push_back(transform.position);
+      transform *= Pose(leg.tipOffset, Quat(Vector3d(0, 0, 0)));
+      positions.push_back(transform.position);
+    }
+  }
+  return positions;
+}
+

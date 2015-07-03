@@ -4,7 +4,6 @@
 #include "pose.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <boost/concept_check.hpp>
-#define timeDelta (1.0/50.0)
 
 // hard coded to 3 joints
 struct Leg
@@ -41,4 +40,5 @@ struct Model
 {
   Leg legs[3][2]; // front to back, left to right
   Model();
+  vector<Vector3d> getJointPositions(const Pose &pose);
 };
