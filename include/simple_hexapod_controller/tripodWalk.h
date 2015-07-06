@@ -38,5 +38,5 @@ struct TripodWalk
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
   void update(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset = NULL);
 
-  double getTurningRadius(double curvature){ return (stanceRadius / max(0.0001, curvature)) - stanceRadius; }
+  double getTurningRadius(double curvature){ return (stanceRadius / max(0.0001, abs(curvature))) - stanceRadius; }
 };

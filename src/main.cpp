@@ -33,17 +33,24 @@ int main(int argc, char* argv[])
   ros::init(argc, argv, "Hexapod");
   chrono::milliseconds interval(roundToInt(1000.0*timeDelta)); 
   
+  FILE * input;
   Model hexapod;
-  TripodWalk walker(&hexapod, 0.2, 0.6, 0.2, Vector3d(0,0,0), Vector3d(1.57,1.57,1.57));
+  TripodWalk walker(&hexapod, 0.2, 0.6, 0.2, Vector3d(0.5,0,-0.5), Vector3d(1.57,1.57,1.57));
   DebugOutput debug;
+  double speed = 0.5;
+  double t = 0;
   for(;;)
   {
-    walker.update(Vector2d(0,1), 0);
+    double turn = sin(t*0.2);
+    walker.update(Vector2d(0,speed), turn);
     debug.drawRobot(walker.pose, hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     this_thread::sleep_for(interval);
     debug.reset();
+    t += timeDelta;
     if (kbhit())
+    {
       break;
+    }
   }
 }

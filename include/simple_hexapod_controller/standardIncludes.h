@@ -20,6 +20,9 @@ const double pi = M_PI; //< easier to read
 template<class T>
 T sqr(const T &val){ return val*val; }
 
+template<class T>
+T sign(const T &val){ return val>0 ? 1 : -1; }
+
 inline double solveQuadratic(double a, double b, double c, double *negative = NULL)
 {
   double inside = sqr(b)-4.0*a*c;

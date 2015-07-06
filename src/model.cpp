@@ -33,7 +33,7 @@ void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)
   targetLength = clamped(targetLength, abs(femurLength - tibiaLength) + 1e-4, femurLength + tibiaLength - 1e-4); // reachable range
   double lift = acos((sqr(targetLength)+sqr(femurLength)-sqr(tibiaLength))/(2.0*targetLength*femurLength));
   liftAngle = targetAngleOffset + lift;
-  double kneeBend = acos((sqr(femurLength)+sqr(tibiaLength)-sqr(targetLength))/(2.0*femurLength*tibiaLength));
+  double kneeBend = acos(-(sqr(femurLength)+sqr(tibiaLength)-sqr(targetLength))/(2.0*femurLength*tibiaLength));
   kneeAngle = tibiaAngleOffset + kneeBend;
   ASSERT(abs(yaw) < 7.0);
   ASSERT(abs(liftAngle) < 7.0);
@@ -78,14 +78,14 @@ vector<Vector3d> Model::getJointPositions(const Pose &pose)
     {
       Leg &leg = legs[l][s];
       Pose transform;
-      transform = pose * Pose(leg.rootOffset, Quat(Vector3d(0, 0, leg.yaw)));
-      positions.push_back(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2]));
+      transform = Pose(leg.rootOffset, Quat(Vector3d(0, 0, leg.yaw)));
+      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
       transform *= Pose(leg.hipOffset, Quat(Vector3d(0, -leg.liftAngle, 0)));
-      positions.push_back(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2]));
+      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
       transform *= Pose(leg.kneeOffset, Quat(Vector3d(0, leg.kneeAngle, 0)));
-      positions.push_back(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2]));
+      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
       transform *= Pose(leg.tipOffset, Quat(Vector3d(0, 0, 0)));
-      positions.push_back(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2]));
+      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
       ASSERT(positions.back().squaredNorm() < 1000.0);
     }
   }
