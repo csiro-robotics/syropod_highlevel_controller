@@ -5,52 +5,52 @@
 #include "../include/simple_hexapod_controller/model.h"
 #include "../include/simple_hexapod_controller/tripodWalk.h"
 #include "../include/simple_hexapod_controller/debugOutput.h"
-#include <chrono>
-#include <caca_conio.h>
-#include <thread>
-#include <iostream>
-
+#include "../include/simple_hexapod_controller/motorInterface.h"
+#include <boost/concept_check.hpp>
 #include <iostream>
 #include <sys/select.h>
-
-int kbhit(void)
-{
-  struct timeval tv;
-  fd_set read_fd;
-  tv.tv_sec=0;
-  tv.tv_usec=0;
-  FD_ZERO(&read_fd);
-  FD_SET(0,&read_fd);
-  if(select(1, &read_fd,NULL, /*No writes*/NULL, /*No exceptions*/&tv) == -1)
-    return 0;  /* An error occured */
-  if(FD_ISSET(0,&read_fd))
-    return 1;
-  return 0;
-}
 
 int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "Hexapod");
-  chrono::milliseconds interval(roundToInt(1000.0*timeDelta)); 
+  ros::NodeHandle n;
   
-  FILE * input;
   Model hexapod;
   TripodWalk walker(&hexapod, 0.2, 0.6, 0.2, Vector3d(0.5,0,-0.5), Vector3d(1.57,1.57,1.57));
   DebugOutput debug;
-  double speed = 0.5;
+  double walkSpeed = 0.5;
   double t = 0;
-  for(;;)
+
+  std_msgs::Float64 angle;  
+  dynamixel_controllers::SetSpeed speed;
+
+  MotorInterface interface;  
+  speed.request.speed=0.2;
+  interface.setupSpeed(speed);
+
+  ros::Rate r(30);         //frequency of the loop. 
+
+  while (ros::ok())
   {
     double turn = sin(t*0.2);
-    walker.update(Vector2d(0,speed), turn);
+    walker.update(Vector2d(0, walkSpeed), turn);
     debug.drawRobot(walker.pose, hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
-    this_thread::sleep_for(interval);
+
+    std_msgs::Float64 angle;
+    angle.data = sin(t)*0.5;
+    for (int s = 0; s<2; s++)
+    {
+      for (int l = 0; l<3; l++)
+      {
+        for (int j = 0; j<3; j++)
+          interface.setTargetAngle(l, s, j, angle);
+      }
+    }
+    ros::spinOnce();
+    r.sleep();
+
     debug.reset();
     t += timeDelta;
-    if (kbhit())
-    {
-      break;
-    }
   }
 }

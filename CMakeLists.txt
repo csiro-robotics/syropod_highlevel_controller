@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  dynamixel_controllers
 )
 
 
@@ -107,7 +108,7 @@ include_directories(
 # )
 
 ## Declare a cpp executable
-add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/tripodWalk.cpp src/debugOutput.cpp)#${simple_hexapod_controller_sources})
+add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/tripodWalk.cpp src/debugOutput.cpp src/motorInterface.cpp)#${simple_hexapod_controller_sources})
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
