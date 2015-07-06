@@ -9,6 +9,21 @@
 #include <boost/concept_check.hpp>
 #include <iostream>
 #include <sys/select.h>
+#include "geometry_msgs/Twist.h"
+
+static Vector2d localVelocity(0,0);
+static double turnRate = 0;
+
+// source catkin_ws/devel/setup.bash
+// roslaunch hexapod_teleop hexapod_controllers.launch
+
+void joypadChangeCallback(const geometry_msgs::Twist &twist)
+{
+  const double maxSpeed = 1.0;
+  localVelocity = Vector2d(twist.angular.x, twist.angular.z) * maxSpeed;
+  const double maxTurnRate = 1.0;
+  turnRate = twist.linear.x * maxTurnRate;
+}
 
 int main(int argc, char* argv[])
 {
@@ -16,10 +31,9 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
   
   Model hexapod;
-  TripodWalk walker(&hexapod, 0.2, 0.6, 0.2, Vector3d(0.5,0,-0.5), Vector3d(1.57,1.57,1.57));
+  TripodWalk walker(&hexapod, 0.2, 0.5, 0.2, Vector3d(0.5,0,-0.5), Vector3d(1.57,1.57,1.57));
+//  TripodWalk walker(&hexapod, 0.2, 0.5, 0.2, Vector3d(0.0,0,0), Vector3d(0.4,0.4,0.4));
   DebugOutput debug;
-  double walkSpeed = 0.5;
-  double t = 0;
 
   std_msgs::Float64 angle;  
   dynamixel_controllers::SetSpeed speed;
@@ -28,12 +42,13 @@ int main(int argc, char* argv[])
   speed.request.speed=0.2;
   interface.setupSpeed(speed);
 
-  ros::Rate r(30);         //frequency of the loop. 
-
+  ros::Subscriber subscriber = n.subscribe("desired_body_velocity", 1, joypadChangeCallback);
+  ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
+  double t = 0;
+  
   while (ros::ok())
   {
-    double turn = sin(t*0.2);
-    walker.update(Vector2d(0, walkSpeed), turn);
+    walker.update(localVelocity, turnRate);
     debug.drawRobot(walker.pose, hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 

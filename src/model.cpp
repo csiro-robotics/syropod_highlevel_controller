@@ -11,7 +11,7 @@ void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
   femurAngleOffset = atan2(kneeOffset[2], kneeOffset[0]);
   tibiaLength = tipOffset.norm();
   tibiaAngleOffset = atan2(tipOffset[2], tipOffset[0]);
-  legLength = hipLength+femurLength+tibiaLength;
+  legLength = femurLength+tibiaLength;
   applyFK();
 }
 
@@ -59,10 +59,10 @@ Model::Model()
     for (int side = 0; side<2; side++)
     {
       Leg &leg = legs[l][side];
-      leg.rootOffset = Vector3d(0.5, 0.5*(double)(1-l), 0);
-      leg.hipOffset  = Vector3d(0.05, 0, 0);
-      leg.kneeOffset = Vector3d(0.5, 0, 0);
-      leg.tipOffset  = Vector3d(1.0, 0, 0);
+      leg.rootOffset = Vector3d(l==1 ? 0.11 : 0.07, 0.12*(double)(1-l), 0);
+      leg.hipOffset  = Vector3d(0.066, 0, 0);
+      leg.kneeOffset = Vector3d(0.11, 0, 0);
+      leg.tipOffset  = Vector3d(0.31, 0, 0);
       leg.mirrorDir = side ? 1 : -1;
       leg.init(0,0,0);
     }

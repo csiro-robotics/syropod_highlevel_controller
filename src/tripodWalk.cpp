@@ -45,6 +45,7 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double bodyClearance,
     double horizontalRange = sqrt(sqr(model->legs[l][0].legLength) - sqr(bodyClearance*model->legs[l][0].legLength));
     double theta = minYawLimits[l] - abs(stanceLegYaws[l]);
     double cotanTheta = tan(0.5*pi - theta);
+    
     double rad = solveQuadratic(sqr(cotanTheta), -2.0*horizontalRange, sqr(horizontalRange));
     footSpreadDistances[l] = horizontalRange - rad;
     double footprintDownscale = 0.8; // this is because the step cycle exceeds the ground footprint in order to maintain velocity
@@ -96,6 +97,8 @@ void TripodWalk::update(Vector2d newLocalVelocity, double newCurvature, const Po
   curvature = newCurvature + dif * max(0.0, (abs(dif)-maxCurvatureSpeed*timeDelta)/abs(dif));
   
   double speed = localVelocity.norm();
+  if (speed == 0.0)
+    return;
   
   // max out the walk speed to what is achievable with stepFrequency. Later we could increase step frequency instead
   double stride = speed / (2.0*stepFrequency);
@@ -134,7 +137,7 @@ void TripodWalk::update(Vector2d newLocalVelocity, double newCurvature, const Po
       if (legStepper.phase < pi*0.5 || legStepper.phase > pi*1.5)
         targets.push_back(pose.transformVector(pos));
       leg.applyLocalIK(pos);
-//      targets.push_back(pose.transformVector(leg.localTipPosition));
+      targets.push_back(pose.transformVector(leg.localTipPosition));
     }
   }
   
