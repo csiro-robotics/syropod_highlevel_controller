@@ -20,9 +20,10 @@ static double turnRate = 0;
 void joypadChangeCallback(const geometry_msgs::Twist &twist)
 {
   const double maxSpeed = 1.0;
-  localVelocity = Vector2d(twist.angular.x, twist.angular.z) * maxSpeed;
+  // these are 0 to 5 for some reason, so multiply by 0.2
+  localVelocity = Vector2d(twist.angular.y, twist.angular.z) * 0.2 * maxSpeed;
   const double maxTurnRate = 1.0;
-  turnRate = twist.linear.x * maxTurnRate;
+  turnRate = -twist.linear.y*0.2 * maxTurnRate;
 }
 
 int main(int argc, char* argv[])
@@ -32,17 +33,17 @@ int main(int argc, char* argv[])
   
   Model hexapod;
   TripodWalk walker(&hexapod, 0.2, 0.5, 0.2, Vector3d(0.5,0,-0.5), Vector3d(1.57,1.57,1.57));
-//  TripodWalk walker(&hexapod, 0.2, 0.5, 0.2, Vector3d(0.0,0,0), Vector3d(0.4,0.4,0.4));
+//  TripodWalk walker(&hexapod, 0.2, 0.5, 0.2, Vector3d(0.0,0,0), Vector3d(0.8,0.8,0.8));
   DebugOutput debug;
 
   std_msgs::Float64 angle;  
   dynamixel_controllers::SetSpeed speed;
 
   MotorInterface interface;  
-  speed.request.speed=0.2;
+  speed.request.speed=1.0;
   interface.setupSpeed(speed);
 
-  ros::Subscriber subscriber = n.subscribe("desired_body_velocity", 1, joypadChangeCallback);
+  ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   double t = 0;
   
@@ -58,8 +59,8 @@ int main(int argc, char* argv[])
     {
       for (int l = 0; l<3; l++)
       {
-        for (int j = 0; j<3; j++)
-          interface.setTargetAngle(l, s, j, angle);
+   //     for (int j = 0; j<3; j++)
+  //        interface.setTargetAngle(l, s, j, angle);
       }
     }
     ros::spinOnce();

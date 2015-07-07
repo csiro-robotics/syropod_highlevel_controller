@@ -46,13 +46,13 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double bodyClearance,
     double theta = minYawLimits[l] - abs(stanceLegYaws[l]);
     double cotanTheta = tan(0.5*pi - theta);
     
-    double rad = solveQuadratic(sqr(cotanTheta), -2.0*horizontalRange, sqr(horizontalRange));
+    double rad = solveQuadratic(sqr(cotanTheta), 2.0*horizontalRange, -sqr(horizontalRange));
     footSpreadDistances[l] = horizontalRange - rad;
     double footprintDownscale = 0.8; // this is because the step cycle exceeds the ground footprint in order to maintain velocity
     minFootprintRadius = min(minFootprintRadius, rad*footprintDownscale);
     for (int side = 0; side<2; side++)
     {
-      localStanceTipPositions[l][side] = model->legs[l][side].rootOffset + footSpreadDistances[l]*Vector3d(cos(stanceLegYaws[l]), sin(stanceLegYaws[l]), -bodyClearance*model->legs[l][side].legLength);
+      localStanceTipPositions[l][side] = model->legs[l][side].rootOffset + footSpreadDistances[l]*Vector3d(cos(stanceLegYaws[l]), sin(stanceLegYaws[l]), 0) + Vector3d(0,0,-bodyClearance*model->legs[l][side].legLength);
       localStanceTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
     }
   }
@@ -137,7 +137,7 @@ void TripodWalk::update(Vector2d newLocalVelocity, double newCurvature, const Po
       if (legStepper.phase < pi*0.5 || legStepper.phase > pi*1.5)
         targets.push_back(pose.transformVector(pos));
       leg.applyLocalIK(pos);
-      targets.push_back(pose.transformVector(leg.localTipPosition));
+//      targets.push_back(pose.transformVector(leg.localTipPosition));
     }
   }
   

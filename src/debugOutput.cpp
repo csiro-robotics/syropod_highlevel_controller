@@ -40,29 +40,28 @@ void DebugOutput::drawRobot(const Pose &bodyFrame, const Vector3d &extents, cons
   lineList.color.b = colour[2];
   lineList.color.a = colour[3];
   
-  vector<Vector3d> rectangle(5);
-  rectangle[0] = bodyFrame * Vector3d(extents[0], extents[1], 0);
-  rectangle[1] = bodyFrame * Vector3d(extents[0], -extents[1], 0);
-  rectangle[2] = bodyFrame * Vector3d(-extents[0], -extents[1], 0);
-  rectangle[3] = bodyFrame * Vector3d(-extents[0], extents[1], 0);
-  rectangle[4] = rectangle[0];
   Vector3d pos;
-  for (unsigned int i = 0; i<rectangle.size()-1; i++)
-  {
+  int rootIDs[] = {0,4,8, 20,16,12};
+  int oldID = 12;
+  for (unsigned int l = 0; l<6; l++)
+  {  
+    int root = rootIDs[l];
     geometry_msgs::Point p;
-    pos = rotate90 * rectangle[i];
+    pos = rotate90 * legPoints[oldID];
     p.x = pos[0];
     p.y = pos[1];
     p.z = pos[2];
     lineList.points.push_back(p);
 
-    pos = rotate90 * rectangle[i+1];
+    pos = rotate90 * legPoints[root];
     p.x = pos[0];
     p.y = pos[1];
     p.z = pos[2];
     lineList.points.push_back(p);
+    
+    oldID = root;
   }
-  
+
   for (unsigned int l = 0; l<legPoints.size()-1; l+=4)
   {  
     for (unsigned int i = l; i<l+3; i++)
