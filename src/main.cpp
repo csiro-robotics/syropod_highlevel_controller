@@ -19,11 +19,11 @@ static double turnRate = 0;
 
 void joypadChangeCallback(const geometry_msgs::Twist &twist)
 {
-  const double maxSpeed = 1.0;
+  ASSERT(twist.angular.z < 0.51);
+ // ASSERT(twist.linear.y < 0.51);
   // these are 0 to 5 for some reason, so multiply by 0.2
-  localVelocity = Vector2d(twist.angular.y, twist.angular.z) * 0.2 * maxSpeed;
-  const double maxTurnRate = 1.0;
-  turnRate = -twist.linear.y*0.2 * maxTurnRate;
+  localVelocity = Vector2d(twist.angular.y, twist.angular.z) * 2.0;
+  turnRate = -twist.linear.y*0.2;
 }
 
 int main(int argc, char* argv[])
@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
   
   Model hexapod;
-  TripodWalk walker(&hexapod, 0.2, 0.5, 0.2, Vector3d(0.5,0,-0.5), Vector3d(1.57,1.57,1.57));
+  TripodWalk walker(&hexapod, 0.5, 0.5, 0.2, Vector3d(0.5,0,-0.5), Vector3d(1.57,1.57,1.57));
 //  TripodWalk walker(&hexapod, 0.2, 0.5, 0.2, Vector3d(0.0,0,0), Vector3d(0.8,0.8,0.8));
   DebugOutput debug;
 
