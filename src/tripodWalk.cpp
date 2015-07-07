@@ -42,13 +42,9 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
   minFootprintRadius = 1e10;
   const double stepCurvatureAllowance = 0.7; // dont need full height cylinder (when 1) because the top of the step is rounded
   if (bodyClearance == -1) // if we haven't defined this then lets work out a sort of best value (to maximise circular footprint for given step clearance)
-  {
-    // in this case we assume legs have equal characteristics
-    Leg &leg = model->legs[0][0];
-    double minLegLength = max(0.0, sqrt(sqr(leg.tibiaLength) + sqr(leg.femurLength) - 2*leg.femurLength*leg.tibiaLength*cos(pi-maximumKneeBend)));
-    bodyClearance = minLegLength/leg.legLength + stepCurvatureAllowance*stepClearance;
-  }
+    bodyClearance = model->legs[0][0].getMinLength(maximumKneeBend)/model->legs[0][0].legLength + stepCurvatureAllowance*stepClearance; // in this case we assume legs have equal characteristics
   ASSERT(bodyClearance >= 0 && bodyClearance < 1.0);
+
   for (int l = 0; l<3; l++)
   {
     // find biggest circle footprint inside the pie segment defined by the body clearance and the yaw limits
@@ -59,7 +55,7 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
     double rad = solveQuadratic(sqr(cotanTheta), 2.0*horizontalRange, -sqr(horizontalRange));
     
     // we should also take into account the stepClearance not getting too high for the leg to reach
-    double minLegLength = max(0.0, sqrt(sqr(leg.tibiaLength) + sqr(leg.femurLength) - 2*leg.femurLength*leg.tibiaLength*cos(pi-maximumKneeBend)));
+    double minLegLength = leg.getMinLength(maximumKneeBend);
     double legTipBodyClearance = max(0.0, bodyClearance - stepCurvatureAllowance*stepClearance)*leg.legLength; 
     if (legTipBodyClearance < minLegLength)
     {

@@ -24,6 +24,7 @@ struct Leg
   // sets angles to reach local position relative to root
   void applyLocalIK(Vector3d tipTarget, bool updateTipPos = true);
   void applyWorldIK(const Pose &rootPose, const Vector3d &worldTipTarget){ applyLocalIK(rootPose.inverseTransformVector(worldTipTarget)); }
+  double getMinLength(double maximumKneeBend) const { return max(0.0, sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(pi-maximumKneeBend))); }
   // works out local tip position from angles
   void applyFK();
   double hipLength;
