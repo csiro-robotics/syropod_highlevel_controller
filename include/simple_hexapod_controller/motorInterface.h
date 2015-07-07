@@ -11,7 +11,7 @@ public:
     setupPublishers();		
   }		
 
-  void setTargetAngle(int &legID,int &side,int &jointID, std_msgs::Float64& msg);		
+  void setTargetAngle(int legID, int side, int jointID, std_msgs::Float64& msg);		
   void setupSpeed(dynamixel_controllers::SetSpeed& speed);		
 
 private:

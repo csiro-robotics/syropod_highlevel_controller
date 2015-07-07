@@ -32,8 +32,7 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
   
   Model hexapod;
-  TripodWalk walker(&hexapod, 0.5, 0.5, 0.2, Vector3d(0.5,0,-0.5), Vector3d(1.57,1.57,1.57));
-//  TripodWalk walker(&hexapod, 0.2, 0.5, 0.2, Vector3d(0.0,0,0), Vector3d(0.8,0.8,0.8));
+  TripodWalk walker(&hexapod, 0.5, 0.16, Vector3d(0.5,0,-0.5), Vector3d(1.4,1.4,1.4), 2.2);
   DebugOutput debug;
 
   std_msgs::Float64 angle;  
@@ -49,20 +48,24 @@ int main(int argc, char* argv[])
   
   while (ros::ok())
   {
+    localVelocity[1] = 1;
     walker.update(localVelocity, turnRate);
     debug.drawRobot(walker.pose, hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
-    std_msgs::Float64 angle;
-    angle.data = sin(t)*0.5;
+  /*  std_msgs::Float64 angle;
     for (int s = 0; s<2; s++)
     {
       for (int l = 0; l<3; l++)
       {
-   //     for (int j = 0; j<3; j++)
-  //        interface.setTargetAngle(l, s, j, angle);
+        angle.data = walker.model->legs[l][s].yaw;
+        interface.setTargetAngle(l, s, 0, angle);
+        angle.data = walker.model->legs[l][s].liftAngle;
+        interface.setTargetAngle(l, s, 1, angle);
+        angle.data = walker.model->legs[l][s].kneeAngle;
+        interface.setTargetAngle(l, s, 2, angle);
       }
-    }
+    }*/
     ros::spinOnce();
     r.sleep();
 
