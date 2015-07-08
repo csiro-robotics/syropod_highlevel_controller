@@ -32,14 +32,15 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
   
   Model hexapod;
-  TripodWalk walker(&hexapod, 0.5, 0.16, Vector3d(0.5,0,-0.5), Vector3d(1.4,1.4,1.4), 2.2);
+  Vector3d yawOffsets(0.77,0,-0.77);
+  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 2.2);
   DebugOutput debug;
 
   std_msgs::Float64 angle;  
   dynamixel_controllers::SetSpeed speed;
 
   MotorInterface interface;  
-  speed.request.speed=1.0;
+  speed.request.speed=0.5;
   interface.setupSpeed(speed);
 
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
@@ -48,24 +49,24 @@ int main(int argc, char* argv[])
   
   while (ros::ok())
   {
-    localVelocity[1] = 1;
     walker.update(localVelocity, turnRate);
     debug.drawRobot(walker.pose, hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
-  /*  std_msgs::Float64 angle;
+    std_msgs::Float64 angle;
     for (int s = 0; s<2; s++)
     {
+      double dir = s==0 ? -1 : 1;
       for (int l = 0; l<3; l++)
       {
-        angle.data = walker.model->legs[l][s].yaw;
+        angle.data = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
         interface.setTargetAngle(l, s, 0, angle);
-        angle.data = walker.model->legs[l][s].liftAngle;
+        angle.data = -dir*walker.model->legs[l][s].liftAngle;
         interface.setTargetAngle(l, s, 1, angle);
-        angle.data = walker.model->legs[l][s].kneeAngle;
+        angle.data = dir*walker.model->legs[l][s].kneeAngle;
         interface.setTargetAngle(l, s, 2, angle);
       }
-    }*/
+    }
     ros::spinOnce();
     r.sleep();
 

@@ -31,9 +31,11 @@ Vector3d TripodWalk::LegStepper::getPosition(double liftHeight)
   
 // Determines the basic stance pose which the hexapod will try to maintain, by finding the largest footprint radius that each leg can achieve for the specified level of clearance
 // stepFrequency- preferred step cycles per second
-// bodyClearance, stepClearance- 0 to 1, 1 is vertical legs
+// stepClearance- 1 is full leg length, smaller values allow the leg more lateral movement (which is stored as minFootprintRadius)
 // stanceLegYaws- natural yaw pose per leg
 // minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
+// maximumKneeBend- in radians, 0 can't bend knee at all
+// bodyClearance- 0 to 1, 1 is vertical legs. Default calculates best clearance for given leg clearance
 TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance, const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, double maximumKneeBend, double bodyClearance) : 
  model(model), stepFrequency(stepFrequency), bodyClearance(bodyClearance), stepClearance(stepClearance), stanceLegYaws(stanceLegYaws), walkPhase(0)
 {
