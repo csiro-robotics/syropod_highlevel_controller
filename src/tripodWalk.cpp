@@ -9,7 +9,7 @@ Vector3d TripodWalk::LegStepper::getPosition(double liftHeight)
     Vector3d nodes[4];
     nodes[0] = -strideVec*0.5;
     nodes[3] = strideVec*0.5;
-    Vector3d lift(0,0,liftHeight*2.0);
+    Vector3d lift(0,0,liftHeight*4.0);
     nodes[1] = nodes[0] + (lift - strideVec)/3.0;
     nodes[2] = nodes[3] + (lift + strideVec)/3.0;
     Vector3d pos = cubicBezier(nodes, (phase - pi/2.0)/pi);
@@ -23,7 +23,7 @@ Vector3d TripodWalk::LegStepper::getPosition(double liftHeight)
     if (t > 1.0)
       t -= 4.0;
     Vector3d pos = strideVec * 0.5 * -t;
-    pos[2] = liftHeight*0.5 * (pow(-t, 4.0) - 1.0);
+    pos[2] = liftHeight*0.25 * (pow(-t, 16.0) - 1.0);
     ASSERT(pos.squaredNorm() < 1000.0);
     return pos;
   }
