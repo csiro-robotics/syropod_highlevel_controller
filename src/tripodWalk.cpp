@@ -23,7 +23,7 @@ Vector3d TripodWalk::LegStepper::getPosition(double liftHeight)
     if (t > 1.0)
       t -= 4.0;
     Vector3d pos = strideVec * 0.5 * -t;
-    pos[2] = liftHeight*0.25 * (pow(-t, 16.0) - 1.0);
+    pos[2] = liftHeight*0.25 * (pow(-t, 8.0) - 1.0);
     ASSERT(pos.squaredNorm() < 1000.0);
     return pos;
   }
@@ -90,8 +90,6 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
   angularVelocity = 0;
   pose.rotation = Quat(1,0,0,0);
   pose.position = Vector3d(0, 0, bodyClearance*model->legs[0][0].legLength);
-  stopped = true;
-  started = false;
 }
 
 
@@ -108,10 +106,10 @@ void TripodWalk::update(Vector2d localNormalisedVelocity, double newCurvature, c
   if (normalSpeed > 0.0 && !isMoving) // started walking again
   {
     // reset, and we want to pick the walkPhase closest to its current phase or antiphase...
-    if (walkPhase > pi)
-      walkPhase = pi*1.5;
+    if (walkPhase > pi*0.5 && walkPhase < pi*1.5)
+      walkPhase = pi;
     else
-      walkPhase = pi*0.5;
+      walkPhase = 0;
   }
 
   {

@@ -16,8 +16,6 @@ struct TripodWalk
   Vector2d localCentreVelocity;
   double angularVelocity;
   double walkPhase;
-  bool stopped;
-  bool started;
   struct LegStepper
   {
     double phase; // 0 to 2pi
