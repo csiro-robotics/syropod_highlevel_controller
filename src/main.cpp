@@ -49,8 +49,9 @@ int main(int argc, char* argv[])
   
   while (ros::ok())
   {
-    walker.update(localVelocity, turnRate);
-    debug.drawRobot(walker.pose, hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));
+    Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
+    walker.update(localVelocity, turnRate, &adjust);
+    debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
     if (false)

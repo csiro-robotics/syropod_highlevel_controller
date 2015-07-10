@@ -16,7 +16,7 @@ DebugOutput::DebugOutput()
 #endif
 }
 
-void DebugOutput::drawRobot(const Pose &bodyFrame, const Vector3d &extents, const vector<Vector3d> &legPoints, const Vector4d &colour)
+void DebugOutput::drawRobot(const Vector3d &extents, const vector<Vector3d> &legPoints, const Vector4d &colour)
 {
 #if defined(DEBUGDRAW)
   visualization_msgs::Marker lineList;
