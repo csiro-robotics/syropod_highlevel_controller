@@ -86,10 +86,12 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
       legSteppers[l][s].strideVector = Vector2d(0,0);
     }
   }
-  localVelocity = Vector2d(0,0);
-  curvature = 0;
+  localCentreVelocity = Vector2d(0,0);
+  angularVelocity = 0;
   pose.rotation = Quat(1,0,0,0);
   pose.position = Vector3d(0, 0, bodyClearance*model->legs[0][0].legLength);
+  stopped = true;
+  started = false;
 }
 
 
@@ -98,50 +100,54 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
 void TripodWalk::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset)
 {
   targets.clear();
-  double normalSpeed = localNormalisedVelocity.norm();
+  Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*2.0*stepFrequency;
+  double normalSpeed = localVelocity.norm();
   ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
   // this block assures the local velocity and curvature values don't change too quickly
-  if (normalSpeed > 0.0 && localVelocity.norm()==0.0) // started walking again
+  bool isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
+  if (normalSpeed > 0.0 && !isMoving) // started walking again
   {
     // reset, and we want to pick the walkPhase closest to its current phase or antiphase...
-    if (walkPhase > pi*0.5 && walkPhase < pi*1.5)
-      walkPhase = pi;
+    if (walkPhase > pi)
+      walkPhase = pi*1.5;
     else
-      walkPhase = 0;
+      walkPhase = pi*0.5;
   }
-  double maxAcceleration = 0.1;
-  double maxCurvatureSpeed = 0.4;
-  Vector2d diff = localNormalisedVelocity*minFootprintRadius*2.0*stepFrequency - localVelocity;
-  double diffLength = diff.norm();
-  if (diffLength > 0.0)
-    localVelocity += diff * min(1.0, maxAcceleration*timeDelta/diffLength);
-  double speed = localVelocity.norm();
-  double dif = newCurvature - curvature;
-  if (abs(dif)>0.0)
-    curvature += dif * min(1.0, maxCurvatureSpeed*timeDelta/abs(dif));
-  
+
+  {
+    double maxAcceleration = 0.1;
+    double maxCurvatureSpeed = 0.4;
+    double newAngularVelocity = newCurvature * normalSpeed/stanceRadius; // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
+    double dif = newAngularVelocity - angularVelocity;
+    if (abs(dif)>0.0)
+      angularVelocity += dif * min(1.0, maxCurvatureSpeed*timeDelta/abs(dif));
+    Vector2d centralVelocity = localVelocity * (1 - abs(newCurvature));
+    Vector2d diff = centralVelocity - localCentreVelocity;
+    double diffLength = diff.norm();
+    if (diffLength > 0.0)
+      localCentreVelocity += diff * min(1.0, maxAcceleration*timeDelta/diffLength);
+  }
   
   walkPhase += 2.0*pi*stepFrequency*timeDelta;
   if (walkPhase > 2.0*pi)
     walkPhase -= 2.0*pi;
-  
-  double turningRadius = getTurningRadius(curvature);
-  Vector2d localTurningPoint = sign(curvature) * turningRadius * Vector2d(-localVelocity[1], localVelocity[0])/(speed+1e-10); // the point it is turning around
-  double angularVelocity = sign(curvature) * speed/(turningRadius + stanceRadius); // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
-  
+  isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
+
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
-      Vector2d toTip = localTurningPoint + Vector2d(leg.localTipPosition[0], leg.localTipPosition[1]);
-      legStepper.strideVector = angularVelocity * Vector2d(toTip[1], -toTip[0]) / (2.0*stepFrequency);
+      legStepper.strideVector = (localCentreVelocity + angularVelocity * Vector2d(leg.localTipPosition[1], -leg.localTipPosition[0])) / (2.0*stepFrequency);
       
       double phase = fmod(walkPhase + legStepper.phaseOffset, 2.0*pi);
-      if (legStepper.phase == 2.0*pi && phase >= pi && speed>0) // if stopped then do nothing until phase gets reset to 0 (new step)
-        localVelocity = Vector2d(1e-10,1e-10); // don't accelerate until stance leg is ready to go. [The use of 1e-10 to mean 'legs starting but not moving yet' isn't great, better to make hasStarted state]
-      else if (phase < legStepper.phase && speed == 0) // if just stopped, don't continue leg cycle beyond 2pi
+      if (legStepper.phase == 2.0*pi && phase >= pi && normalSpeed>0) // if stopped then do nothing until phase gets reset to 0 (new step)
+      {
+        localCentreVelocity = Vector2d(1e-10, 1e-10);
+        angularVelocity = 1e-10;
+      }
+      else if (phase < legStepper.phase && !isMoving) // if just stopped, don't continue leg cycle beyond 2pi
         legStepper.phase = 2.0*pi;
       else
         legStepper.phase = phase; // otherwise follow the step cycle exactly
@@ -159,9 +165,7 @@ void TripodWalk::update(Vector2d localNormalisedVelocity, double newCurvature, c
       for (int side = 0; side<2; side++)
         model->legs[l][side].applyLocalIK(bodyOffset->inverseTransformVector(model->legs[l][side].localTipPosition), false); // false means we don't update local tip position, as it is needed above in step calculations
   }
-  Vector3d turningPoint = pose.transformVector(Vector3d(-localTurningPoint[0], -localTurningPoint[1], 0));
-//  targets.push_back(turningPoint);
-  pose.position -= turningPoint;
-  pose = Pose(Vector3d(0,0,0), Quat(Vector3d(0.0,0.0,-angularVelocity*timeDelta))) * pose;
-  pose.position += turningPoint;
+  Vector2d push = localCentreVelocity*timeDelta;
+  pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
+  pose.rotation *= Quat(Vector3d(0.0,0.0,-angularVelocity*timeDelta));
 }

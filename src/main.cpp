@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
     debug.drawRobot(walker.pose, hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
-//    if (false)
+    if (false)
     {
       std_msgs::Float64 angle;
       for (int s = 0; s<2; s++)

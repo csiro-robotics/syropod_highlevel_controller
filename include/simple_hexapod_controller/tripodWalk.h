@@ -13,9 +13,11 @@ struct TripodWalk
   double minFootprintRadius;
   double stanceRadius; // affects turning circle
   Vector3d localStanceTipPositions[3][2];
-  Vector2d localVelocity;
-  double curvature;
+  Vector2d localCentreVelocity;
+  double angularVelocity;
   double walkPhase;
+  bool stopped;
+  bool started;
   struct LegStepper
   {
     double phase; // 0 to 2pi
