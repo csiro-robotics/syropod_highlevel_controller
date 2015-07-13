@@ -23,6 +23,7 @@ void joypadChangeCallback(const geometry_msgs::Twist &twist)
  // ASSERT(twist.linear.y < 0.51);
   // these are 0 to 5 for some reason, so multiply by 0.2
   localVelocity = Vector2d(twist.angular.y, twist.angular.z) * 2.0;
+  localVelocity = clamped(localVelocity, 1.0);
   turnRate = -twist.linear.y*0.2;
 }
 
@@ -50,7 +51,7 @@ int main(int argc, char* argv[])
   while (ros::ok())
   {
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
-    walker.update(localVelocity, turnRate, &adjust);
+    walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 

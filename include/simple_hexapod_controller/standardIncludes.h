@@ -68,6 +68,16 @@ T clamped(const T &value, const T &minValue, const T &maxValue)
   ASSERT(minValue <= maxValue);
   return max(minValue, min(value, maxValue));
 }
+// for Vector types
+template <class T>
+T clamped(const T &value, double magnitude)
+{
+  double magSqr = value.squaredNorm();
+  if (magSqr > sqr(magnitude))
+    return value / sqrt(magSqr);
+  return value;
+}
+
 
 inline int roundToInt(double x)
 {
