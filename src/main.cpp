@@ -10,12 +10,30 @@
 #include <iostream>
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
+#include "sensor_msgs/Imu.h"
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
+sensor_msgs::Imu imu;
 
 // source catkin_ws/devel/setup.bash
 // roslaunch hexapod_teleop hexapod_controllers.launch
+
+void imuCallback(const sensor_msgs::Imu & imudata){
+  
+  imu=imudata;
+  
+}
+
+Pose compensation(){
+  Pose adjust;
+  
+
+  adjust.position=Vector3d(imu.linear_acceleration.x/10,0,0); 
+  return adjust;
+  
+}
+
 
 void joypadChangeCallback(const geometry_msgs::Twist &twist)
 {
@@ -45,13 +63,16 @@ int main(int argc, char* argv[])
   interface.setupSpeed(speed);
 
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
+  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
+  
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   double t = 0;
   
   while (ros::ok())
   {
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
-    adjust.rotation=Quat(Vector3d(0,0,0));
+    
+    adjust=compensation();
     
     walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
