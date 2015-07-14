@@ -19,17 +19,16 @@ sensor_msgs::Imu imu;
 // source catkin_ws/devel/setup.bash
 // roslaunch hexapod_teleop hexapod_controllers.launch
 
-void imuCallback(const sensor_msgs::Imu & imudata){
-  
+void imuCallback(const sensor_msgs::Imu & imudata){  
   imu=imudata;
-  
 }
 
 Pose compensation(){
   Pose adjust;
-  
-
-  adjust.position=Vector3d(imu.linear_acceleration.x/10,0,0); 
+  //Pose desired = Pose::identity();
+  //Vector3d angles; 
+  adjust.position=Vector3d(0,0,imu.linear_acceleration.x/20);
+  adjust.rotation=Quat(Vector3d(imu.linear_acceleration.x/20,0,0));
   return adjust;
   
 }
