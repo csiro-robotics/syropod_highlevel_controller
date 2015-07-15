@@ -14,6 +14,10 @@
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
 
+// target rather than measured data
+static Vector3d offsetPos(0,0,0);
+static Vector3d offsetVel(0,0,0);
+
 // source catkin_ws/devel/setup.bash
 // roslaunch hexapod_teleop hexapod_controllers.launch
 
@@ -51,6 +55,17 @@ int main(int argc, char* argv[])
   while (ros::ok())
   {
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
+    
+    Vector3d imuAcceleration(0,0,0); // retrieve from IMU linear acceleration
+    double imuStrength = 1.0; // tweak
+    double stiffness = 6.0; // how strongly/quickly we return to the neutral pose
+    Vector3d offsetAcc = -imuStrength*imuAcceleration - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
+    
+    // double integrate
+    offsetVel += offsetAcc*timeDelta;
+    offsetPos += offsetVel*timeDelta;
+    
+    adjust.position = offsetPos;
     walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
