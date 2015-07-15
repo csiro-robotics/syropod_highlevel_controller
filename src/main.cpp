@@ -10,9 +10,11 @@
 #include <iostream>
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
+#include "sensor_msgs/Imu.h"
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
+sensor_msgs::Imu imu;
 
 // target rather than measured data
 static Vector3d offsetPos(0,0,0);
@@ -20,6 +22,21 @@ static Vector3d offsetVel(0,0,0);
 
 // source catkin_ws/devel/setup.bash
 // roslaunch hexapod_teleop hexapod_controllers.launch
+
+void imuCallback(const sensor_msgs::Imu & imudata){  
+  imu=imudata;
+}
+
+Pose compensation(){
+  Pose adjust;
+  //Pose desired = Pose::identity();
+  //Vector3d angles; 
+  adjust.position=Vector3d(0,0,imu.linear_acceleration.x/20);
+  adjust.rotation=Quat(Vector3d(imu.linear_acceleration.x/20,0,0));
+  return adjust;
+  
+}
+
 
 void joypadChangeCallback(const geometry_msgs::Twist &twist)
 {
@@ -49,13 +66,16 @@ int main(int argc, char* argv[])
   interface.setupSpeed(speed);
 
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
+  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
+  
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   double t = 0;
   
   while (ros::ok())
   {
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
-    
+    adjust=compensation();
+
     Vector3d imuAcceleration(0,0,0); // retrieve from IMU linear acceleration
     double imuStrength = 1.0; // tweak
     double stiffness = 6.0; // how strongly/quickly we return to the neutral pose
