@@ -33,9 +33,19 @@ Pose compensation(){
   Pose adjust;
   Quat orient;            //Orientation from IMU in quat
   Vector3d angles;        //Orientation from IMU in angles
- 
-  Vector3f accel;         //Accelerations with respect to the world
+  Vector3d accel;         //Accelerations with respect to the world
 
+  Vector3d imuAcceleration(0,0,0); // retrieve from IMU linear acceleration
+  double imuStrength = 1.0; // tweak
+  double stiffness = 6.0; // how strongly/quickly we return to the neutral pose
+  Vector3d offsetAcc = -imuStrength*imuAcceleration - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
+    
+  // double integrate
+  offsetVel += offsetAcc*timeDelta;
+  offsetPos += offsetVel*timeDelta;
+    
+  adjust.position = offsetPos;
+  
   orient.w=imu.orientation.w;
   orient.x=imu.orientation.x;
   orient.y=imu.orientation.y;
@@ -44,11 +54,11 @@ Pose compensation(){
   accel(1)=imu.linear_acceleration.y;
   accel(2)=imu.linear_acceleration.z;
   
-
+  
   angles= orient.toRotationVector();
   
   
-  adjust.position=Vector3d(0,0,0);  
+  
   adjust.rotation=Quat(Vector3d(angles(0)/15+imu.linear_acceleration.x/10,-angles(1)/10,0)); //P control for body stabilization
   return adjust;
 }
