@@ -11,7 +11,7 @@
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/Imu.h"
-#include <Eigen/Geometry> 
+ 
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
@@ -34,32 +34,37 @@ Pose compensation(){
   Quat orient;            //Orientation from IMU in quat
   Vector3d angles;        //Orientation from IMU in angles
   Vector3d accel;         //Accelerations with respect to the world
-
-  Vector3d imuAcceleration(0,0,0); // retrieve from IMU linear acceleration
+  Vector3d accelcomp;
+  RowVector3d gravityrot;
+  
+  orient.w=imu.orientation.w;
+  orient.x=imu.orientation.x;
+  orient.y=imu.orientation.y;
+  orient.z=imu.orientation.z;  
+  accel(0)=imu.linear_acceleration.x;
+  accel(1)=imu.linear_acceleration.y;
+  accel(2)=imu.linear_acceleration.z;
+  
+  //Compensation for gravity
+  gravityrot=orient.toRotationMatrix()*Vector3d(0,0,-9.81);
+  accelcomp(0)=accel(0)+gravityrot(1);
+  accelcomp(1)=accel(1)-gravityrot(0);  
+  accelcomp(2)=accel(2)-gravityrot(2);  
+  ROS_ERROR("ACCEL= %f %f %f", accel(0), accel(1),accel(2));
+  ROS_ERROR("GRAVITYROT= %f %f %f", gravityrot(0), gravityrot(1),gravityrot(2)); 
+  ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));  
+  
+  
   double imuStrength = 1.0; // tweak
   double stiffness = 6.0; // how strongly/quickly we return to the neutral pose
-  Vector3d offsetAcc = -imuStrength*imuAcceleration - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
+  Vector3d offsetAcc = -imuStrength*accelcomp - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
     
   // double integrate
   offsetVel += offsetAcc*timeDelta;
   offsetPos += offsetVel*timeDelta;
     
   adjust.position = offsetPos;
-  
-  orient.w=imu.orientation.w;
-  orient.x=imu.orientation.x;
-  orient.y=imu.orientation.y;
-  orient.z=imu.orientation.z;
-  accel(0)=imu.linear_acceleration.x;
-  accel(1)=imu.linear_acceleration.y;
-  accel(2)=imu.linear_acceleration.z;
-  
-  
-  angles= orient.toRotationVector();
-  
-  
-  
-  adjust.rotation=Quat(Vector3d(angles(0)/15+imu.linear_acceleration.x/10,-angles(1)/10,0)); //P control for body stabilization
+  //adjust.rotation=Quat(Vector3d(angles(0)/15+accelcomp(0)/10,-angles(1)/10,0)); //P control for body stabilization
   return adjust;
 }
 
