@@ -80,10 +80,27 @@ int main(int argc, char* argv[])
     double imuStrength = 1.0; // tweak
     double stiffness = 6.0; // how strongly/quickly we return to the neutral pose
     Vector3d offsetAcc = -imuStrength*imuAcceleration - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
-    
     // double integrate
     offsetVel += offsetAcc*timeDelta;
     offsetPos += offsetVel*timeDelta;
+    
+    /* // control towards imu's orientation
+    Quat targetAngle = ~imu.quat;
+    static Vector3d angularVel;
+    Vector3d angleDelta = (~adjust.rotation * targetAngle).toRotationVector();
+    angleDelta[2] = 0;  // this may not be quite right
+    Vector3d angularAcc = sqr(stiffnesss)*angleDelta -2.0*stiffness*angularVel;
+    angularVel += angularAcc*timeDelta;
+    adjust.rotation *= Quat(angularVel*timeDelta);
+    */
+    // use IMU's velocity control
+    /*
+    static Vector3d angularVel(0,0,0);
+    Vector3d angleDelta = adjust.rotation.toRotationVector();
+    Vector3d angularAcc = -sqr(stiffness)*angleDelta + 2.0*stiffness*(-imu.angularVel - angularVel);
+    angularVel += angularAcc*timeDelta;
+    adjust.rotation *= Quat(angularVel*timeDelta);
+    */
     
     adjust.position = offsetPos;
     walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
