@@ -32,7 +32,6 @@ void imuCallback(const sensor_msgs::Imu & imudata){
 Pose compensation(){
   Pose adjust;
   Quat orient;            //Orientation from IMU in quat
-  Vector3d angles;        //Orientation from IMU in angles
   Vector3d accel;         //Accelerations with respect to the world
   Vector3d accelcomp;
   RowVector3d gravityrot;
@@ -41,50 +40,49 @@ Pose compensation(){
   orient.x=imu.orientation.x;
   orient.y=imu.orientation.y;
   orient.z=imu.orientation.z;  
-  accel(0)=imu.linear_acceleration.x;
+  accel(0)=imu.linear_acceleration.x;//This is swaped for hardware purposes
   accel(1)=imu.linear_acceleration.y;
-  accel(2)=imu.linear_acceleration.z;
+  accel(2)=-imu.linear_acceleration.z;
   
-  //Compensation for gravity
+  /*//Compensation for gravity
   gravityrot=orient.toRotationMatrix()*Vector3d(0,0,-9.81);
-  accelcomp(0)=accel(0)+gravityrot(1);
-  accelcomp(1)=accel(1)-gravityrot(0);  
+  accelcomp(0)=accel(0)-gravityrot(0);
+  accelcomp(1)=accel(1)-gravityrot(1);  
   accelcomp(2)=accel(2)-gravityrot(2);  
   ROS_ERROR("ACCEL= %f %f %f", accel(0), accel(1),accel(2));
   ROS_ERROR("GRAVITYROT= %f %f %f", gravityrot(0), gravityrot(1),gravityrot(2)); 
-  ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));  
+  ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
   
-   
-  
-  double imuStrength = 1.0; // tweak
+  double imuStrength = 0.5; // tweak
   double stiffness = 6.0; // how strongly/quickly we return to the neutral pose
-  Vector3d offsetAcc = -imuStrength*accelcomp - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
+  Vector3d offsetAcc = -imuStrength*(accel-Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
   
   // double integrate
   offsetVel += offsetAcc*timeDelta;
   offsetPos += offsetVel*timeDelta;
   
-      /* // control towards imu's orientation
-    Quat targetAngle = ~imu.quat;
-    static Vector3d angularVel;
-    Vector3d angleDelta = (~adjust.rotation * targetAngle).toRotationVector();
-    angleDelta[2] = 0;  // this may not be quite right
-    Vector3d angularAcc = sqr(stiffnesss)*angleDelta -2.0*stiffness*angularVel;
-    angularVel += angularAcc*timeDelta;
-    adjust.rotation *= Quat(angularVel*timeDelta);
-    */
-    // use IMU's velocity control
-    /*
-    static Vector3d angularVel(0,0,0);
-    Vector3d angleDelta = adjust.rotation.toRotationVector();
-    Vector3d angularAcc = -sqr(stiffness)*angleDelta + 2.0*stiffness*(-imu.angularVel - angularVel);
-    angularVel += angularAcc*timeDelta;
-    adjust.rotation *= Quat(angularVel*timeDelta);
-    */  
-
-    
-  adjust.position = offsetPos;
+  /* // control towards imu's orientation
+  Quat targetAngle = ~imu.quat;
+  static Vector3d angularVel;
+  Vector3d angleDelta = (~adjust.rotation * targetAngle).toRotationVector();
+  angleDelta[2] = 0;  // this may not be quite right
+  Vector3d angularAcc = sqr(stiffnesss)*angleDelta -2.0*stiffness*angularVel;
+  angularVel += angularAcc*timeDelta;
+  adjust.rotation *= Quat(angularVel*timeDelta);
+  */
+  // use IMU's velocity control
+  /*
+  static Vector3d angularVel(0,0,0);
+  Vector3d angleDelta = adjust.rotation.toRotationVector();
+  Vector3d angularAcc = -sqr(stiffness)*angleDelta + 2.0*stiffness*(-imu.angularVel - angularVel);
+  angularVel += angularAcc*timeDelta;
+  adjust.rotation *= Quat(angularVel*timeDelta);
+  */  
+  // Use just the angles
   //adjust.rotation=Quat(Vector3d(angles(0)/15+accelcomp(0)/10,-angles(1)/10,0)); //P control for body stabilization
+   
+  adjust.rotation=Quat(Vector3d(0,0,0)); 
+  adjust.position = offsetPos;
   return adjust;
 }
 
@@ -106,7 +104,7 @@ int main(int argc, char* argv[])
   
   Model hexapod;
   Vector3d yawOffsets(0.77,0,-0.77);
-  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 2.2);
+  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 1.9);
   DebugOutput debug;
 
   std_msgs::Float64 angle;  
@@ -130,7 +128,9 @@ int main(int argc, char* argv[])
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
-    if (false)
+      
+    
+    if (true)
     {
       std_msgs::Float64 angle;
       for (int s = 0; s<2; s++)

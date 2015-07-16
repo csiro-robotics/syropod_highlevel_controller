@@ -65,6 +65,7 @@ void MotorInterface::setupPublishers(void)
 
 void MotorInterface::setTargetAngle(int legID, int side, int jointID, std_msgs::Float64& msg)
 {
+  
   publishers[legID][side][jointID].publish(msg);
 }
 
