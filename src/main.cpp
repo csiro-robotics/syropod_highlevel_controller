@@ -54,14 +54,34 @@ Pose compensation(){
   ROS_ERROR("GRAVITYROT= %f %f %f", gravityrot(0), gravityrot(1),gravityrot(2)); 
   ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));  
   
+   
   
   double imuStrength = 1.0; // tweak
   double stiffness = 6.0; // how strongly/quickly we return to the neutral pose
   Vector3d offsetAcc = -imuStrength*accelcomp - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
-    
+  
   // double integrate
   offsetVel += offsetAcc*timeDelta;
   offsetPos += offsetVel*timeDelta;
+  
+      /* // control towards imu's orientation
+    Quat targetAngle = ~imu.quat;
+    static Vector3d angularVel;
+    Vector3d angleDelta = (~adjust.rotation * targetAngle).toRotationVector();
+    angleDelta[2] = 0;  // this may not be quite right
+    Vector3d angularAcc = sqr(stiffnesss)*angleDelta -2.0*stiffness*angularVel;
+    angularVel += angularAcc*timeDelta;
+    adjust.rotation *= Quat(angularVel*timeDelta);
+    */
+    // use IMU's velocity control
+    /*
+    static Vector3d angularVel(0,0,0);
+    Vector3d angleDelta = adjust.rotation.toRotationVector();
+    Vector3d angularAcc = -sqr(stiffness)*angleDelta + 2.0*stiffness*(-imu.angularVel - angularVel);
+    angularVel += angularAcc*timeDelta;
+    adjust.rotation *= Quat(angularVel*timeDelta);
+    */  
+
     
   adjust.position = offsetPos;
   //adjust.rotation=Quat(Vector3d(angles(0)/15+accelcomp(0)/10,-angles(1)/10,0)); //P control for body stabilization
@@ -106,34 +126,6 @@ int main(int argc, char* argv[])
   {
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
     adjust=compensation();
-
-    Vector3d imuAcceleration(0,0,0); // retrieve from IMU linear acceleration
-    double imuStrength = 1.0; // tweak
-    double stiffness = 6.0; // how strongly/quickly we return to the neutral pose
-    Vector3d offsetAcc = -imuStrength*imuAcceleration - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
-    // double integrate
-    offsetVel += offsetAcc*timeDelta;
-    offsetPos += offsetVel*timeDelta;
-    
-    /* // control towards imu's orientation
-    Quat targetAngle = ~imu.quat;
-    static Vector3d angularVel;
-    Vector3d angleDelta = (~adjust.rotation * targetAngle).toRotationVector();
-    angleDelta[2] = 0;  // this may not be quite right
-    Vector3d angularAcc = sqr(stiffnesss)*angleDelta -2.0*stiffness*angularVel;
-    angularVel += angularAcc*timeDelta;
-    adjust.rotation *= Quat(angularVel*timeDelta);
-    */
-    // use IMU's velocity control
-    /*
-    static Vector3d angularVel(0,0,0);
-    Vector3d angleDelta = adjust.rotation.toRotationVector();
-    Vector3d angularAcc = -sqr(stiffness)*angleDelta + 2.0*stiffness*(-imu.angularVel - angularVel);
-    angularVel += angularAcc*timeDelta;
-    adjust.rotation *= Quat(angularVel*timeDelta);
-    */
-    
-    adjust.position = offsetPos;
     walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
