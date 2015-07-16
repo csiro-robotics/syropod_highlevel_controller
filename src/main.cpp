@@ -11,6 +11,7 @@
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/Imu.h"
+#include <Eigen/Geometry> 
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
@@ -27,14 +28,29 @@ void imuCallback(const sensor_msgs::Imu & imudata){
   imu=imudata;
 }
 
+
 Pose compensation(){
   Pose adjust;
-  //Pose desired = Pose::identity();
-  //Vector3d angles; 
-  adjust.position=Vector3d(0,0,imu.linear_acceleration.x/20);
-  adjust.rotation=Quat(Vector3d(imu.linear_acceleration.x/20,0,0));
-  return adjust;
+  Quat orient;            //Orientation from IMU in quat
+  Vector3d angles;        //Orientation from IMU in angles
+ 
+  Vector3f accel;         //Accelerations with respect to the world
+
+  orient.w=imu.orientation.w;
+  orient.x=imu.orientation.x;
+  orient.y=imu.orientation.y;
+  orient.z=imu.orientation.z;
+  accel(0)=imu.linear_acceleration.x;
+  accel(1)=imu.linear_acceleration.y;
+  accel(2)=imu.linear_acceleration.z;
   
+
+  angles= orient.toRotationVector();
+  
+  
+  adjust.position=Vector3d(0,0,0);  
+  adjust.rotation=Quat(Vector3d(angles(0)/15+imu.linear_acceleration.x/10,-angles(1)/10,0)); //P control for body stabilization
+  return adjust;
 }
 
 
