@@ -40,8 +40,8 @@ Pose compensation(){
   orient.x=imu.orientation.x;
   orient.y=imu.orientation.y;
   orient.z=imu.orientation.z;  
-  accel(0)=imu.linear_acceleration.x;//This is swaped for hardware purposes
-  accel(1)=imu.linear_acceleration.y;
+  accel(1)=imu.linear_acceleration.x;//This is swaped for hardware purposes
+  accel(0)=imu.linear_acceleration.y;
   accel(2)=-imu.linear_acceleration.z;
   
   /*//Compensation for gravity
@@ -61,6 +61,8 @@ Pose compensation(){
   offsetVel += offsetAcc*timeDelta;
   offsetPos += offsetVel*timeDelta;
   
+  // Use just the angles
+  //adjust.rotation=Quat(Vector3d(angles(0)/15+accelcomp(0)/10,-angles(1)/10,0)); //P control for body stabilization
   /* // control towards imu's orientation
   Quat targetAngle = ~imu.quat;
   static Vector3d angularVel;
@@ -71,17 +73,23 @@ Pose compensation(){
   adjust.rotation *= Quat(angularVel*timeDelta);
   */
   // use IMU's velocity control
-  /*
+  
   static Vector3d angularVel(0,0,0);
   Vector3d angleDelta = adjust.rotation.toRotationVector();
-  Vector3d angularAcc = -sqr(stiffness)*angleDelta + 2.0*stiffness*(-imu.angularVel - angularVel);
+  Vector3d angularAcc;
+  double stiffnessangular=1;
+  
+  angularAcc(0)=-sqr(stiffnessangular)*angleDelta(0) + 2.0*stiffnessangular*(imu.angular_velocity.y - angularVel(0));
+  angularAcc(1)=-sqr(stiffnessangular)*angleDelta(1) + 2.0*stiffnessangular*(imu.angular_velocity.x - angularVel(1));
+ 
   angularVel += angularAcc*timeDelta;
-  adjust.rotation *= Quat(angularVel*timeDelta);
-  */  
-  // Use just the angles
-  //adjust.rotation=Quat(Vector3d(angles(0)/15+accelcomp(0)/10,-angles(1)/10,0)); //P control for body stabilization
-   
-  adjust.rotation=Quat(Vector3d(0,0,0)); 
+
+ Vector3d rotation;
+ rotation(0)=angularVel(0)*timeDelta;
+ rotation(1)=angularVel(1)*timeDelta;
+ rotation(2)=0;
+ 
+  adjust.rotation *= Quat(rotation);
   adjust.position = offsetPos;
   return adjust;
 }
