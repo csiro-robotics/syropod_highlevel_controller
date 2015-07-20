@@ -6,6 +6,8 @@
 #include "../include/simple_hexapod_controller/tripodWalk.h"
 #include "../include/simple_hexapod_controller/debugOutput.h"
 #include "../include/simple_hexapod_controller/motorInterface.h"
+#include "../include/simple_hexapod_controller/dynamixelMotorInterface.h"
+#include "../include/simple_hexapod_controller/dynamixelProMotorInterface.h"
 #include <boost/concept_check.hpp>
 #include <iostream>
 #include <sys/select.h>
@@ -101,18 +103,25 @@ int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "Hexapod");
   ros::NodeHandle n;
-  
+  ros::NodeHandle n_priv("~");
+  bool dynamixel_interface = true;
+
+  n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
+
   Model hexapod;
   Vector3d yawOffsets(0.77,0,-0.77);
   TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 1.9);
   DebugOutput debug;
 
-  std_msgs::Float64 angle;  
-  dynamixel_controllers::SetSpeed speed;
+  double angle;  
+  MotorInterface *interface;
 
-  MotorInterface interface;  
-  speed.request.speed=0.5;
-  interface.setupSpeed(speed);
+  if (dynamixel_interface)
+    interface = new DynamixelMotorInterface();
+  else
+    interface = new DynamixelProMotorInterface();
+
+  interface->setupSpeed(0.5);
 
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
@@ -132,20 +141,20 @@ int main(int argc, char* argv[])
     
     if (true)
     {
-      std_msgs::Float64 angle;
       for (int s = 0; s<2; s++)
       {
         double dir = s==0 ? -1 : 1;
         for (int l = 0; l<3; l++)
         {
-          angle.data = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
-          interface.setTargetAngle(l, s, 0, angle);
-          angle.data = -dir*walker.model->legs[l][s].liftAngle;
-          interface.setTargetAngle(l, s, 1, angle);
-          angle.data = dir*walker.model->legs[l][s].kneeAngle;
-          interface.setTargetAngle(l, s, 2, angle);
+          angle = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
+          interface->setTargetAngle(l, s, 0, angle);
+          angle = -dir*walker.model->legs[l][s].liftAngle;
+          interface->setTargetAngle(l, s, 1, angle);
+          angle = dir*walker.model->legs[l][s].kneeAngle;
+          interface->setTargetAngle(l, s, 2, angle);
         }
       }
+      interface->publish();
     }
     ros::spinOnce();
     r.sleep();
