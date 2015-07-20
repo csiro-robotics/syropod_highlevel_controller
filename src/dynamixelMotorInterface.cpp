@@ -1,7 +1,10 @@
-#include "../include/simple_hexapod_controller/motorInterface.h"
+#include "../include/simple_hexapod_controller/dynamixelMotorInterface.h"
 
-void MotorInterface::setupSpeed(dynamixel_controllers::SetSpeed &speed)
+void DynamixelMotorInterface::setupSpeed(double my_speed)
 {
+  dynamixel_controllers::SetSpeed speed;
+  speed.request.speed=my_speed;
+
   setspeed1=nodehandler.serviceClient<dynamixel_controllers::SetSpeed>("/hexapod/front_left_body_coxa/set_speed");
   setspeed1.call(speed);
   setspeed1=nodehandler.serviceClient<dynamixel_controllers::SetSpeed>("/hexapod/front_left_coxa_femour/set_speed");
@@ -40,7 +43,7 @@ void MotorInterface::setupSpeed(dynamixel_controllers::SetSpeed &speed)
   setspeed1.call(speed);
 }
 
-void MotorInterface::setupPublishers(void)
+void DynamixelMotorInterface::setupPublishers(void)
 {
   publishers[0][0][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_left_body_coxa/command", 1);
   publishers[0][0][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_left_coxa_femour/command", 1);
@@ -63,10 +66,22 @@ void MotorInterface::setupPublishers(void)
 }
 
 
-void MotorInterface::setTargetAngle(int legID, int side, int jointID, std_msgs::Float64& msg)
+void DynamixelMotorInterface::setTargetAngle(int legID, int side, int jointID, double speed)
 {
-  
-  publishers[legID][side][jointID].publish(msg);
+  angles[legID][side][jointID] = speed;
+}
+
+void DynamixelMotorInterface::publish(void)
+{
+  std_msgs::Float64 msg;
+  int i, j, k;
+
+  for (i=0; i<3; i++)
+    for (j=0; j<2; j++)
+      for (k=0; k<3; k++) {
+        msg.data = angles[i][j][k];
+        publishers[i][j][k].publish(msg);
+      }
 }
 
 
