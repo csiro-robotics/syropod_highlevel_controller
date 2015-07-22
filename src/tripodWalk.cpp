@@ -28,7 +28,7 @@ Vector3d TripodWalk::LegStepper::getPosition(double liftHeight)
     return pos;
   }
 }
-  
+
 // Determines the basic stance pose which the hexapod will try to maintain, by finding the largest footprint radius that each leg can achieve for the specified level of clearance
 // stepFrequency- preferred step cycles per second
 // stepClearance- 1 is full leg length, smaller values allow the leg more lateral movement (which is stored as minFootprintRadius)
@@ -87,6 +87,7 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
     }
   }
   localCentreVelocity = Vector2d(0,0);
+  localCentreAcceleration = Vector2d(0,0);
   angularVelocity = 0;
   pose.rotation = Quat(1,0,0,0);
   pose.position = Vector3d(0, 0, bodyClearance*model->legs[0][0].legLength);
@@ -101,6 +102,7 @@ void TripodWalk::update(Vector2d localNormalisedVelocity, double newCurvature, c
   Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*2.0*stepFrequency;
   double normalSpeed = localVelocity.norm();
   ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
+  Vector2d oldLocalCentreVelocity = localCentreVelocity;
   // this block assures the local velocity and curvature values don't change too quickly
   bool isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
   if (normalSpeed > 0.0 && !isMoving) // started walking again
@@ -163,6 +165,7 @@ void TripodWalk::update(Vector2d localNormalisedVelocity, double newCurvature, c
       for (int side = 0; side<2; side++)
         model->legs[l][side].applyLocalIK(bodyOffset->inverseTransformVector(model->legs[l][side].localTipPosition), false); // false means we don't update local tip position, as it is needed above in step calculations
   }
+  localCentreAcceleration = (localCentreVelocity - oldLocalCentreVelocity) / timeDelta;
   Vector2d push = localCentreVelocity*timeDelta;
   pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
   pose.rotation *= Quat(Vector3d(0.0,0.0,-angularVelocity*timeDelta));

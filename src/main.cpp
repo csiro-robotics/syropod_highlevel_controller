@@ -26,12 +26,14 @@ static Vector3d offsetVel(0,0,0);
 // source catkin_ws/devel/setup.bash
 // roslaunch hexapod_teleop hexapod_controllers.launch
 
-void imuCallback(const sensor_msgs::Imu & imudata){  
+void imuCallback(const sensor_msgs::Imu & imudata)
+{  
   imu=imudata;
 }
 
 
-Pose compensation(){
+Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
+{
   Pose adjust;
   Quat orient;            //Orientation from IMU in quat
   Vector3d accel;         //Accelerations with respect to the IMU
@@ -43,7 +45,7 @@ Pose compensation(){
   orient.w=imu.orientation.w;
   orient.x=imu.orientation.x;
   orient.y=imu.orientation.y;
-  orient.z=imu.orientation.z;  
+  orient.z=imu.orientation.z;
   accel(1)=-imu.linear_acceleration.x;
   accel(0)=-imu.linear_acceleration.y;
   accel(2)=-imu.linear_acceleration.z;
@@ -60,25 +62,26 @@ Pose compensation(){
   ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
   
   //Postion compensation
-  double imuStrength = 0.9;
-  double stiffness = 11; // how strongly/quickly we return to the neutral pose
-  Vector3d offsetAcc = -imuStrength*(accel-Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
+  double imuStrength = 1
+  double stiffness = 10; // how strongly/quickly we return to the neutral pose
+  Vector3d offsetAcc = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
   offsetVel += offsetAcc*timeDelta;
   offsetPos += offsetVel*timeDelta;
   
-  //Angular body velocity compensation. 
+  //Angular body velocity compensation.
   double stiffnessangular=5;
   Vector3d angleDelta = adjust.rotation.toRotationVector();  
-  angularAcc(0)=-sqr(stiffnessangular)*angleDelta(0) + 2.0*stiffnessangular*(-imu.angular_velocity.y - angularVel(0));
-  angularAcc(1)=-sqr(stiffnessangular)*angleDelta(1) + 2.0*stiffnessangular*(-imu.angular_velocity.x - angularVel(1));
+  //angularAcc(0)=-sqr(stiffnessangular)*angleDelta(0) + 2.0*stiffnessangular*(imu.angular_velocity.y - angularVel(0));
+  //angularAcc(1)=-sqr(stiffnessangular)*angleDelta(1) + 2.0*stiffnessangular*(imu.angular_velocity.x - angularVel(1));
+  angularAcc= -sqr(stiffnessangular)*angleDelta + 2.0*stiffnessangular*(Vector3d(0,0,targetAngularVel) - Vector3d(-imu.angular_velocity.y, -imu.angular_velocity.x, -imu.angular_velocity.z) - angularVel);
   angularVel += angularAcc*timeDelta;
   rotation(0)=angularVel(0)*timeDelta;
   rotation(1)=angularVel(1)*timeDelta;
-  rotation(2)=0;
+  rotation(2)=angularVel(2)*timeDelta;
   
   /*// control towards imu's orientation
   double stiffnessangular=15;
-  Quat targetAngle = ~orient;   
+  Quat targetAngle = ~orient;
   Vector3d angleDelta = (targetAngle*(~adjust.rotation)).toRotationVector(); // diff=target*current^-1
   angleDelta[2] = 0;  // this may not be quite right  
   angularAcc = sqr(stiffnessangular)*angleDelta -2.0*stiffnessangular*angularVel;
@@ -137,7 +140,8 @@ int main(int argc, char* argv[])
   {
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
     
-    adjust=compensation();
+    Vector2d acc = walker.localCentreAcceleration;
+    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
     walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));

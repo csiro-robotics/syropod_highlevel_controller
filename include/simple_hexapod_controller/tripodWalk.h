@@ -14,8 +14,10 @@ struct TripodWalk
   double stanceRadius; // affects turning circle
   Vector3d localStanceTipPositions[3][2];
   Vector2d localCentreVelocity;
+  Vector2d localCentreAcceleration;
   double angularVelocity;
   double walkPhase;
+  
   struct LegStepper
   {
     double phase; // 0 to 2pi
@@ -24,6 +26,7 @@ struct TripodWalk
     
     Vector3d getPosition(double liftHeight);
   } legSteppers[3][2];
+  
   vector<Vector3d> targets;
   
   // Determines the basic stance pose which the hexapod will try to maintain, by finding the largest footprint radius that each leg can achieve for the specified level of clearance
