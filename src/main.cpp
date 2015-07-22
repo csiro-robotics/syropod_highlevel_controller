@@ -35,50 +35,59 @@ Pose compensation(){
   Pose adjust;
   Quat orient;            //Orientation from IMU in quat
   Vector3d accel;         //Accelerations with respect to the IMU
-  Vector3d accelcomp;
-  RowVector3d gravityrot; 
   Vector3d rotation;
   Vector3d angularAcc;
   static Vector3d angularVel(0,0,0);
-  Vector3d angleDelta = adjust.rotation.toRotationVector();
-  
+  adjust.rotation=Quat(Vector3d(0,0,0));
+    
   orient.w=imu.orientation.w;
   orient.x=imu.orientation.x;
   orient.y=imu.orientation.y;
   orient.z=imu.orientation.z;  
-  accel(1)=imu.linear_acceleration.x;//This is swaped for hardware purposes
-  accel(0)=imu.linear_acceleration.y;
+  accel(1)=-imu.linear_acceleration.x;
+  accel(0)=-imu.linear_acceleration.y;
   accel(2)=-imu.linear_acceleration.z;
   
   /*//Compensation for gravity
+  Vector3d accelcomp;
+  RowVector3d gravityrot; 
   gravityrot=orient.toRotationMatrix()*Vector3d(0,0,-9.81);
   accelcomp(0)=accel(0)-gravityrot(0);
   accelcomp(1)=accel(1)-gravityrot(1);  
   accelcomp(2)=accel(2)-gravityrot(2);  
-  ROS_ERROR("ACCEL= %f %f %f", accel(0), accel(1),accel(2));
+  ROS_ERROR("ACCEL= %f %f %f", accel(0), accel(1),accel(2));0
   ROS_ERROR("GRAVITYROT= %f %f %f", gravityrot(0), gravityrot(1),gravityrot(2)); 
   ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
   
-  double imuStrength = 0.5; // tweak
-  double stiffness = 6.0; // how strongly/quickly we return to the neutral pose
+  //Postion compensation
+  double imuStrength = 0.9;
+  double stiffness = 11; // how strongly/quickly we return to the neutral pose
   Vector3d offsetAcc = -imuStrength*(accel-Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
-  
-  // double integrate
   offsetVel += offsetAcc*timeDelta;
   offsetPos += offsetVel*timeDelta;
   
-  double stiffnessangular=1;
-  
-  angularAcc(0)=-sqr(stiffnessangular)*angleDelta(0) + 2.0*stiffnessangular*(imu.angular_velocity.y - angularVel(0));
-  angularAcc(1)=-sqr(stiffnessangular)*angleDelta(1) + 2.0*stiffnessangular*(imu.angular_velocity.x - angularVel(1));
- 
+  //Angular body velocity compensation. 
+  double stiffnessangular=5;
+  Vector3d angleDelta = adjust.rotation.toRotationVector();  
+  angularAcc(0)=-sqr(stiffnessangular)*angleDelta(0) + 2.0*stiffnessangular*(-imu.angular_velocity.y - angularVel(0));
+  angularAcc(1)=-sqr(stiffnessangular)*angleDelta(1) + 2.0*stiffnessangular*(-imu.angular_velocity.x - angularVel(1));
   angularVel += angularAcc*timeDelta;
-
- rotation(0)=angularVel(0)*timeDelta;
- rotation(1)=angularVel(1)*timeDelta;
- rotation(2)=0;
- 
-  adjust.rotation *= Quat(rotation);
+  rotation(0)=angularVel(0)*timeDelta;
+  rotation(1)=angularVel(1)*timeDelta;
+  rotation(2)=0;
+  
+  /*// control towards imu's orientation
+  double stiffnessangular=15;
+  Quat targetAngle = ~orient;   
+  Vector3d angleDelta = (targetAngle*(~adjust.rotation)).toRotationVector(); // diff=target*current^-1
+  angleDelta[2] = 0;  // this may not be quite right  
+  angularAcc = sqr(stiffnessangular)*angleDelta -2.0*stiffnessangular*angularVel;
+  angularVel += angularAcc*timeDelta;  
+  rotation(0)=angularVel(0)*timeDelta;
+  rotation(1)=angularVel(1)*timeDelta;
+  rotation(2)=angularVel(2)*timeDelta;*/
+  
+  adjust.rotation*= Quat(rotation);  
   adjust.position = offsetPos;
   return adjust;
 }
@@ -127,6 +136,7 @@ int main(int argc, char* argv[])
   while (ros::ok())
   {
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
+    
     adjust=compensation();
     walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
