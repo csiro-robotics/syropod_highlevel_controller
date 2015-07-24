@@ -117,7 +117,11 @@ int main(int argc, char* argv[])
 
   Model hexapod;
   Vector3d yawOffsets(0.77,0,-0.77);
-  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 1.9, Vector2d(-0.5, 0.5), 0.999);
+#if defined(FLEXIPOD)
+  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 1.9);
+#elif defined(LARGE_HEXAPOD)
+  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 1.9);
+#endif
   DebugOutput debug;
 
   double angle;  
