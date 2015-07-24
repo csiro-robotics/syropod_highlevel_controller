@@ -151,7 +151,7 @@ int main(int argc, char* argv[])
     
     Vector2d acc = walker.localCentreAcceleration;
   //  adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
- //   localVelocity[1] = 1.0;
+    localVelocity[1] = 1.0;
     walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
@@ -165,12 +165,21 @@ int main(int argc, char* argv[])
         double dir = s==0 ? -1 : 1;
         for (int l = 0; l<3; l++)
         {
+#if defined(FLEXIPOD)
           angle = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
           interface->setTargetAngle(l, s, 0, angle);
           angle = -dir*walker.model->legs[l][s].liftAngle;
           interface->setTargetAngle(l, s, 1, angle);
           angle = dir*walker.model->legs[l][s].kneeAngle;
           interface->setTargetAngle(l, s, 2, angle);
+#elif defined(LARGE_HEXAPOD) // currently the same as flexipod above
+          angle = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
+          interface->setTargetAngle(l, s, 0, angle);
+          angle = -dir*walker.model->legs[l][s].liftAngle;
+          interface->setTargetAngle(l, s, 1, angle);
+          angle = dir*walker.model->legs[l][s].kneeAngle;
+          interface->setTargetAngle(l, s, 2, angle);
+#endif
         }
       }
       interface->publish();
