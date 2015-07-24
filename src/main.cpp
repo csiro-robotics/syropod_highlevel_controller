@@ -62,7 +62,7 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
   
   //Postion compensation
-  double imuStrength = 1
+  double imuStrength = 1;
   double stiffness = 10; // how strongly/quickly we return to the neutral pose
   Vector3d offsetAcc = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
   offsetVel += offsetAcc*timeDelta;
