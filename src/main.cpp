@@ -62,7 +62,7 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
   
   //Postion compensation
-  double imuStrength = 1
+  double imuStrength = 1;
   double stiffness = 10; // how strongly/quickly we return to the neutral pose
   Vector3d offsetAcc = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
   offsetVel += offsetAcc*timeDelta;
@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
 
   Model hexapod;
   Vector3d yawOffsets(0.77,0,-0.77);
-  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 1.9, Vector2d(-0.5, 0.5), 0.8);
+  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 1.9, Vector2d(-0.5, 0.5), 0.999);
   DebugOutput debug;
 
   double angle;  
@@ -141,7 +141,7 @@ int main(int argc, char* argv[])
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
     
     Vector2d acc = walker.localCentreAcceleration;
-    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+  //  adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
     walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));

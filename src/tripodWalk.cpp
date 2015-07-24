@@ -58,10 +58,10 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
     double rad = 1e10;
     if (legDrop > -minMaxHipLift[0]) // leg can't be straight and touching the ground at bodyClearance
     {
-      double extraHeight = bodyClearance*maximumBodyHeight - leg.femurLength * sin(legDrop);
+      double extraHeight = bodyClearance*maximumBodyHeight - leg.femurLength * sin(-minMaxHipLift[0]);
       ASSERT(extraHeight <= leg.tibiaLength); // this shouldn't be possible with bodyClearance < 1
       rad = sqrt(sqr(leg.tibiaLength) - sqr(extraHeight));
-      horizontalRange = leg.femurLength * cos(legDrop) + rad;
+      horizontalRange = leg.femurLength * cos(-minMaxHipLift[0]) + rad;
     }
     else
       horizontalRange = sqrt(sqr(leg.legLength) - sqr(bodyClearance*maximumBodyHeight));
@@ -76,7 +76,7 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
     if (legTipBodyClearance < minLegLength)
       rad = min(rad, (horizontalRange - sqrt(sqr(minLegLength) - sqr(legTipBodyClearance))) / 2.0); // if footprint radius due to lift is smaller due to yaw limits, reduce this minimum radius
     
-    footSpreadDistances[l] = horizontalRange - rad;
+    footSpreadDistances[l] = leg.hipLength + horizontalRange - rad;
     double footprintDownscale = 0.8; // this is because the step cycle exceeds the ground footprint in order to maintain velocity
     minFootprintRadius = min(minFootprintRadius, rad*footprintDownscale);
     for (int side = 0; side<2; side++)
