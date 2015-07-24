@@ -13,6 +13,7 @@ void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
   tibiaAngleOffset = atan2(tipOffset[2], tipOffset[0]);
   legLength = femurLength+tibiaLength;
   applyFK();
+  
 }
 
 void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)

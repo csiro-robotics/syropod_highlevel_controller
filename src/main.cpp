@@ -125,7 +125,7 @@ int main(int argc, char* argv[])
   Vector3d yawLimits(yawLimit, yawLimit, yawLimit);
   Vector2d kneeLimit(50, 160);
   Vector2d hipLimit(-25, 80);
-  TripodWalk walker(&hexapod, 0.25, 0.12, yawOffsets*pi/180.0, yawLimits*pi/180.0, kneeLimit*pi/180.0, hipLimit*pi/180.0);
+  TripodWalk walker(&hexapod, 0.13, 0.12, yawOffsets*pi/180.0, yawLimits*pi/180.0, kneeLimit*pi/180.0, hipLimit*pi/180.0);
 #endif
   DebugOutput debug;
 
@@ -145,6 +145,8 @@ int main(int argc, char* argv[])
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   double t = 0;
   
+  double maxVel[3] = {0,0,0};
+  bool firstFrame = true;
   while (ros::ok())
   {
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
@@ -157,7 +159,6 @@ int main(int argc, char* argv[])
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
       
-    
     if (true)
     {
       for (int s = 0; s<2; s++)
@@ -180,10 +181,22 @@ int main(int argc, char* argv[])
           angle = dir*walker.model->legs[l][s].kneeAngle;
           interface->setTargetAngle(l, s, 2, angle);
 #endif
+          if (!firstFrame)
+          {
+            maxVel[0] = max(maxVel[0], abs(walker.model->legs[l][s].yaw - walker.model->legs[l][s].debugOldYaw)/timeDelta);
+            maxVel[1] = max(maxVel[1], abs(walker.model->legs[l][s].liftAngle - walker.model->legs[l][s].debugOldLiftAngle)/timeDelta);
+            maxVel[2] = max(maxVel[2], abs(walker.model->legs[l][s].kneeAngle - walker.model->legs[l][s].debugOldKneeAngle)/timeDelta);
+          }
+          
+          walker.model->legs[l][s].debugOldYaw = walker.model->legs[l][s].yaw;
+          walker.model->legs[l][s].debugOldLiftAngle = walker.model->legs[l][s].liftAngle;
+          walker.model->legs[l][s].debugOldKneeAngle = walker.model->legs[l][s].kneeAngle;
         }
       }
       interface->publish();
     }
+    firstFrame = false;
+    cout << "max yaw vel: " << maxVel[0] << ", hip vel: " << maxVel[1] << ", knee vel: " << maxVel[2] << endl;
     ros::spinOnce();
     r.sleep();
 

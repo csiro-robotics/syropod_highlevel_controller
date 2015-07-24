@@ -34,6 +34,10 @@ struct Leg
   double tibiaAngleOffset;
   double legLength;
   double mirrorDir;  // 1 or -1 for mirrored
+
+  double debugOldYaw;
+  double debugOldLiftAngle;
+  double debugOldKneeAngle;
 };
 
 // defines the hexapod model
