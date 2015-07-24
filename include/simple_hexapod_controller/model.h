@@ -44,6 +44,10 @@ struct Leg
 struct Model
 {
   Leg legs[3][2]; // front to back, left to right
-  Model();
+  Vector3d stanceLegYaws;
+  Vector3d yawLimitAroundStance;
+  Vector2d minMaxKneeBend;
+  Vector2d minMaxHipLift;
+  Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend = Vector2d(0,3), const Vector2d &minMaxHipLift = Vector2d(-3,3));
   vector<Vector3d> getJointPositions(const Pose &pose);
 };

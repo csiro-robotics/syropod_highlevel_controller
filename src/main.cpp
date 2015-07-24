@@ -115,17 +115,18 @@ int main(int argc, char* argv[])
 
   n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
 
-  Model hexapod;
 #if defined(FLEXIPOD)
   Vector3d yawOffsets(0.77,0,-0.77);
-  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
+  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
+  TripodWalk walker(&hexapod, 0.5, 0.12);
 #elif defined(LARGE_HEXAPOD)
   Vector3d yawOffsets(45,0,-45);
   double yawLimit = 30;
   Vector3d yawLimits(yawLimit, yawLimit, yawLimit);
   Vector2d kneeLimit(50, 160);
   Vector2d hipLimit(-25, 80);
-  TripodWalk walker(&hexapod, 0.13, 0.12, yawOffsets*pi/180.0, yawLimits*pi/180.0, kneeLimit*pi/180.0, hipLimit*pi/180.0);
+  Model hexapod(yawOffsets*pi/180.0, yawLimits*pi/180.0, kneeLimit*pi/180.0, hipLimit*pi/180.0);
+  TripodWalk walker(&hexapod, 0.13, 0.12);
 #endif
   DebugOutput debug;
 
@@ -145,7 +146,7 @@ int main(int argc, char* argv[])
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   double t = 0;
   
-  double maxVel[3] = {0,0,0};
+  Vector3d maxVel(0,0,0);
   bool firstFrame = true;
   while (ros::ok())
   {
@@ -158,7 +159,8 @@ int main(int argc, char* argv[])
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
-      
+
+    Vector3d oldMaxVel = maxVel;
     if (true)
     {
       for (int s = 0; s<2; s++)
@@ -196,7 +198,8 @@ int main(int argc, char* argv[])
       interface->publish();
     }
     firstFrame = false;
-    cout << "max yaw vel: " << maxVel[0] << ", hip vel: " << maxVel[1] << ", knee vel: " << maxVel[2] << endl;
+    if (maxVel != oldMaxVel)
+      cout << "max yaw vel: " << maxVel[0] << ", hip vel: " << maxVel[1] << ", knee vel: " << maxVel[2] << endl;
     ros::spinOnce();
     r.sleep();
 

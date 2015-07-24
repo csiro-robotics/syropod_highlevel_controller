@@ -53,7 +53,7 @@ void Leg::applyFK()
 }
 
 // defines the hexapod model
-Model::Model()
+Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend, const Vector2d &minMaxHipLift) : stanceLegYaws(stanceLegYaws), yawLimitAroundStance(yawLimitAroundStance), minMaxKneeBend(minMaxKneeBend), minMaxHipLift(minMaxHipLift)
 {
   for (int l = 0; l<3; l++)
   {
