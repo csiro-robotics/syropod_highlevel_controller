@@ -36,16 +36,21 @@ Vector3d TripodWalk::LegStepper::getPosition(double liftHeight)
 // minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
 // maximumKneeBend- in radians, 0 can't bend knee at all
 // bodyClearance- 0 to 1, 1 is vertical legs. Default calculates best clearance for given leg clearance
-TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance, const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, double maximumKneeBend, const Vector2d &minMaxHipLift, double bodyClearance) : 
+TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance, const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend, const Vector2d &minMaxHipLift, double bodyClearance) : 
  model(model), stepFrequency(stepFrequency), bodyClearance(bodyClearance), stepClearance(stepClearance), stanceLegYaws(stanceLegYaws), walkPhase(0)
 {
   ASSERT(stepClearance >= 0 && stepClearance < 1.0);
   minFootprintRadius = 1e10;
-  double maximumBodyHeight = model->legs[0][0].femurLength * sin(min(-minMaxHipLift[0], pi/2.0)) + model->legs[0][0].tibiaLength;
+  double minKnee = max(0.0, minMaxKneeBend[0]);
+  double legX = model->legs[0][0].tibiaLength*sin(minKnee);
+  double legZ = model->legs[0][0].femurLength + model->legs[0][0].tibiaLength*cos(minKnee);
+  double maxHipDrop = min(-minMaxHipLift[0], pi/2.0 - atan2(legX, legZ));
+  double legLength = sqrt(sqr(legX) + sqr(legZ));
+  double maximumBodyHeight = model->legs[0][0].femurLength * sin(maxHipDrop) + model->legs[0][0].tibiaLength * sin(maxHipDrop + clamped(pi/2.0 - maxHipDrop, minKnee, minMaxKneeBend[1]));
   ASSERT(stepClearance*maximumBodyHeight <= 2.0*model->legs[0][0].femurLength); // impossible to lift this high
   const double stepCurvatureAllowance = 0.7; // dont need full height cylinder (when 1) because the top of the step is rounded
   if (bodyClearance == -1) // if we haven't defined this then lets work out a sort of best value (to maximise circular footprint for given step clearance)
-    bodyClearance = model->legs[0][0].getMinLength(maximumKneeBend)/maximumBodyHeight + stepCurvatureAllowance*stepClearance; // in this case we assume legs have equal characteristics
+    bodyClearance = model->legs[0][0].getMinLength(minMaxKneeBend[1])/maximumBodyHeight + stepCurvatureAllowance*stepClearance; // in this case we assume legs have equal characteristics
   ASSERT(bodyClearance >= 0 && bodyClearance < 1.0);
 
   for (int l = 0; l<3; l++)
@@ -53,7 +58,7 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
     // find biggest circle footprint inside the pie segment defined by the body clearance and the yaw limits
     Leg &leg = model->legs[l][0];
     // downward angle of leg
-    double legDrop = atan2(bodyClearance*maximumBodyHeight, leg.legLength);
+    double legDrop = atan2(bodyClearance*maximumBodyHeight, legLength);
     double horizontalRange = 0;
     double rad = 1e10;
     if (legDrop > -minMaxHipLift[0]) // leg can't be straight and touching the ground at bodyClearance
@@ -64,14 +69,14 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
       horizontalRange = leg.femurLength * cos(-minMaxHipLift[0]) + rad;
     }
     else
-      horizontalRange = sqrt(sqr(leg.legLength) - sqr(bodyClearance*maximumBodyHeight));
+      horizontalRange = sqrt(sqr(legLength) - sqr(bodyClearance*maximumBodyHeight));
     
     double theta = yawLimitAroundStance[l];
     double cotanTheta = tan(0.5*pi - theta);
     rad = min(rad, solveQuadratic(sqr(cotanTheta), 2.0*horizontalRange, -sqr(horizontalRange)));
     
     // we should also take into account the stepClearance not getting too high for the leg to reach
-    double minLegLength = leg.getMinLength(maximumKneeBend);
+    double minLegLength = leg.getMinLength(minMaxKneeBend[1]);
     double legTipBodyClearance = max(0.0, bodyClearance - stepCurvatureAllowance*stepClearance)*maximumBodyHeight; 
     if (legTipBodyClearance < minLegLength)
       rad = min(rad, (horizontalRange - sqrt(sqr(minLegLength) - sqr(legTipBodyClearance))) / 2.0); // if footprint radius due to lift is smaller due to yaw limits, reduce this minimum radius

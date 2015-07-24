@@ -34,7 +34,7 @@ struct TripodWalk
   // bodyClearance, stepClearance- 0 to 1, 1 is vertical legs
   // stanceLegYaws- natural yaw pose per leg
   // minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
-  TripodWalk(Model *model, double stepFrequency, double stepClearance, const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, double maximumKneeBend = 3, const Vector2d &minMaxHipLift = Vector2d(-3,3), double bodyClearance = -1);
+  TripodWalk(Model *model, double stepFrequency, double stepClearance, const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend = Vector2d(0,3), const Vector2d &minMaxHipLift = Vector2d(-3,3), double bodyClearance = -1);
   
   // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
   // bodyOffset is body pose relative to the basic stance pose, note that large offsets may prevent achievable leg positions

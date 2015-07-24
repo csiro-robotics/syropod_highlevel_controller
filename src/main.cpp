@@ -116,11 +116,16 @@ int main(int argc, char* argv[])
   n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
 
   Model hexapod;
-  Vector3d yawOffsets(0.77,0,-0.77);
 #if defined(FLEXIPOD)
-  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 1.9);
+  Vector3d yawOffsets(0.77,0,-0.77);
+  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
 #elif defined(LARGE_HEXAPOD)
-  TripodWalk walker(&hexapod, 0.5, 0.12, yawOffsets, Vector3d(1.4,1.4,1.4), 1.9);
+  Vector3d yawOffsets(45,0,-45);
+  double yawLimit = 30;
+  Vector3d yawLimits(yawLimit, yawLimit, yawLimit);
+  Vector2d kneeLimit(50, 160);
+  Vector2d hipLimit(-25, 80);
+  TripodWalk walker(&hexapod, 0.25, 0.12, yawOffsets*pi/180.0, yawLimits*pi/180.0, kneeLimit*pi/180.0, hipLimit*pi/180.0);
 #endif
   DebugOutput debug;
 
@@ -146,6 +151,7 @@ int main(int argc, char* argv[])
     
     Vector2d acc = walker.localCentreAcceleration;
   //  adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+ //   localVelocity[1] = 1.0;
     walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));

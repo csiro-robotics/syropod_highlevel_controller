@@ -65,10 +65,10 @@ Model::Model()
       leg.kneeOffset = Vector3d(0.11, 0, 0);
       leg.tipOffset  = Vector3d(0.31, 0, 0);
 #elif defined(LARGE_HEXAPOD)
-      leg.rootOffset = Vector3d(l==1 ? 0.11 : 0.07, 0.12*(double)(1-l), 0);
-      leg.hipOffset  = Vector3d(0.066, 0, 0);
-      leg.kneeOffset = Vector3d(0.11, 0, 0);
-      leg.tipOffset  = Vector3d(0.31, 0, 0);
+      leg.rootOffset = Vector3d(0.315/2.0, 0.5675*(double)(1-l), 0);
+      leg.hipOffset  = Vector3d(0.07985, 0, 0);
+      leg.kneeOffset = Vector3d(0.8, 0, 0);
+      leg.tipOffset  = Vector3d(1.5, 0, 0);
 #endif
       leg.mirrorDir = side ? 1 : -1;
       leg.init(0,0,0);
