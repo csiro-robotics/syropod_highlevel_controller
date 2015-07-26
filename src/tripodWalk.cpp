@@ -46,7 +46,7 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
   double legZ = model->legs[0][0].femurLength + model->legs[0][0].tibiaLength*cos(minKnee);
   double maxHipDrop = min(-model->minMaxHipLift[0], pi/2.0 - atan2(legX, legZ));
   double legLength = sqrt(sqr(legX) + sqr(legZ));
-  double maximumBodyHeight = model->legs[0][0].femurLength * sin(maxHipDrop) + model->legs[0][0].tibiaLength * sin(maxHipDrop + clamped(pi/2.0 - maxHipDrop, minKnee, model->minMaxKneeBend[1]));
+  maximumBodyHeight = model->legs[0][0].femurLength * sin(maxHipDrop) + model->legs[0][0].tibiaLength * sin(maxHipDrop + clamped(pi/2.0 - maxHipDrop, minKnee, model->minMaxKneeBend[1]));
   ASSERT(stepClearance*maximumBodyHeight <= 2.0*model->legs[0][0].femurLength); // impossible to lift this high
   const double stepCurvatureAllowance = 0.7; // dont need full height cylinder (when 1) because the top of the step is rounded
   if (bodyClearance == -1) // if we haven't defined this then lets work out a sort of best value (to maximise circular footprint for given step clearance)
@@ -166,7 +166,7 @@ void TripodWalk::update(Vector2d localNormalisedVelocity, double newCurvature, c
         legStepper.phase = 2.0*pi;
       else
         legStepper.phase = phase; // otherwise follow the step cycle exactly
-      Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*leg.legLength);
+      Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*maximumBodyHeight);
       if (legStepper.phase < pi*0.5 || legStepper.phase > pi*1.5)
         targets.push_back(pose.transformVector(pos));
       leg.applyLocalIK(pos);
@@ -180,44 +180,7 @@ void TripodWalk::update(Vector2d localNormalisedVelocity, double newCurvature, c
       for (int side = 0; side<2; side++)
         model->legs[l][side].applyLocalIK(bodyOffset->inverseTransformVector(model->legs[l][side].localTipPosition), false); // false means we don't update local tip position, as it is needed above in step calculations
   }
-  // clamp angles and alert if a limit has been hit
-  for (int l = 0; l<3; l++)
-  {
-    for (int side = 0; side<2; side++)
-    {
-      Leg &leg = model->legs[l][side];
-      if (leg.yaw - model->stanceLegYaws[l] < -model->yawLimitAroundStance[l])
-      {
-        leg.yaw = -model->yawLimitAroundStance[l] + model->stanceLegYaws[l];
-        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << -model->yawLimitAroundStance[l] + model->stanceLegYaws[l] << endl;
-      }
-      else if (leg.yaw - model->stanceLegYaws[l] > model->yawLimitAroundStance[l])
-      {
-        leg.yaw = model->yawLimitAroundStance[l] + model->stanceLegYaws[l];
-        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << model->yawLimitAroundStance[l] + model->stanceLegYaws[l] << endl;
-      }
-      if (leg.liftAngle < model->minMaxHipLift[0])
-      {
-        leg.liftAngle = model->minMaxHipLift[0];
-        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << model->minMaxHipLift[0] << endl;
-      }
-      else if (leg.liftAngle > model->minMaxHipLift[1])
-      {
-        leg.liftAngle = model->minMaxHipLift[1];
-        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << model->minMaxHipLift[1] << endl;
-      }
-      if (leg.kneeAngle < model->minMaxKneeBend[0])
-      {
-        leg.kneeAngle = model->minMaxKneeBend[0];
-        cout << "leg " << l << " side " << side << " exceeded knee limit: " << model->minMaxKneeBend[0] << endl;
-      }
-      else if (leg.kneeAngle > model->minMaxKneeBend[1])
-      {
-        leg.kneeAngle = model->minMaxKneeBend[1];
-        cout << "leg " << l << " side " << side << " exceeded knee limit: " << model->minMaxKneeBend[1] << endl;
-      }
-    }
-  }
+  model->clampToLimits();
   localCentreAcceleration = (localCentreVelocity - oldLocalCentreVelocity) / timeDelta;
   Vector2d push = localCentreVelocity*timeDelta;
   pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));

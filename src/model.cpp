@@ -100,3 +100,44 @@ vector<Vector3d> Model::getJointPositions(const Pose &pose)
   return positions;
 }
 
+void Model::clampToLimits()
+{
+  // clamp angles and alert if a limit has been hit
+  for (int l = 0; l<3; l++)
+  {
+    for (int side = 0; side<2; side++)
+    {
+      Leg &leg = legs[l][side];
+      if (leg.yaw - stanceLegYaws[l] < -yawLimitAroundStance[l])
+      {
+        leg.yaw = -yawLimitAroundStance[l] + stanceLegYaws[l];
+        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << -yawLimitAroundStance[l] + stanceLegYaws[l] << endl;
+      }
+      else if (leg.yaw - stanceLegYaws[l] > yawLimitAroundStance[l])
+      {
+        leg.yaw = yawLimitAroundStance[l] + stanceLegYaws[l];
+        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << yawLimitAroundStance[l] + stanceLegYaws[l] << endl;
+      }
+      if (leg.liftAngle < minMaxHipLift[0])
+      {
+        leg.liftAngle = minMaxHipLift[0];
+        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[0] << endl;
+      }
+      else if (leg.liftAngle > minMaxHipLift[1])
+      {
+        leg.liftAngle = minMaxHipLift[1];
+        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[1] << endl;
+      }
+      if (leg.kneeAngle < minMaxKneeBend[0])
+      {
+        leg.kneeAngle = minMaxKneeBend[0];
+        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[0] << endl;
+      }
+      else if (leg.kneeAngle > minMaxKneeBend[1])
+      {
+        leg.kneeAngle = minMaxKneeBend[1];
+        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[1] << endl;
+      }
+    }
+  }
+}
