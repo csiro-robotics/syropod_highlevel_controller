@@ -24,7 +24,6 @@ struct Leg
   // sets angles to reach local position relative to root
   void applyLocalIK(Vector3d tipTarget, bool updateTipPos = true);
   void applyWorldIK(const Pose &rootPose, const Vector3d &worldTipTarget){ applyLocalIK(rootPose.inverseTransformVector(worldTipTarget)); }
-  double getMinLength(double maximumKneeBend) const { return max(0.0, sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(pi-maximumKneeBend))); }
   // works out local tip position from angles
   void applyFK();
   double hipLength;
@@ -32,12 +31,15 @@ struct Leg
   double femurAngleOffset;
   double tibiaLength;
   double tibiaAngleOffset;
-  double legLength;
+  double minLegLength;
+  double maxLegLength;
   double mirrorDir;  // 1 or -1 for mirrored
 
   double debugOldYaw;
   double debugOldLiftAngle;
   double debugOldKneeAngle;
+  
+  struct Model *model; // so it can refer to model's joint limits
 };
 
 // defines the hexapod model
@@ -48,6 +50,7 @@ struct Model
   Vector3d yawLimitAroundStance;
   Vector2d minMaxKneeBend;
   Vector2d minMaxHipLift;
-  Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend = Vector2d(0,3), const Vector2d &minMaxHipLift = Vector2d(-3,3));
+  Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend = Vector2d(0,3), const Vector2d &minMaxHipLift = Vector2d(-3,3), Vector3d *startAngles = NULL);
   vector<Vector3d> getJointPositions(const Pose &pose);
+  void clampToLimits();
 };

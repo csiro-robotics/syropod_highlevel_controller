@@ -16,6 +16,7 @@ struct TripodWalk
   Vector2d localCentreAcceleration;
   double angularVelocity;
   double walkPhase;
+  double maximumBodyHeight;
   
   struct LegStepper
   {
@@ -39,4 +40,5 @@ struct TripodWalk
   // bodyOffset is body pose relative to the basic stance pose, note that large offsets may prevent achievable leg positions
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
   void update(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset = NULL);
+  bool moveToStart();
 };

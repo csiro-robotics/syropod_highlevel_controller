@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
   Vector2d kneeLimit(50, 160);
   Vector2d hipLimit(-25, 80);
   Model hexapod(yawOffsets*pi/180.0, yawLimits*pi/180.0, kneeLimit*pi/180.0, hipLimit*pi/180.0);
-  TripodWalk walker(&hexapod, 0.13, 0.12);
+  TripodWalk walker(&hexapod, 0.18, 0.08);
 #endif
   DebugOutput debug;
 
@@ -148,14 +148,21 @@ int main(int argc, char* argv[])
   
   Vector3d maxVel(0,0,0);
   bool firstFrame = true;
+  bool started = false;
   while (ros::ok())
   {
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
     
     Vector2d acc = walker.localCentreAcceleration;
   //  adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
-    localVelocity[1] = 1.0;
-    walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
+//    localVelocity[1] = 1.0;
+//#define MOVE_TO_START    
+#if defined(MOVE_TO_START)
+    if (!started)
+      started = walker.moveToStart();
+    else
+#endif
+      walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 

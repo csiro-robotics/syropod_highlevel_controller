@@ -11,9 +11,9 @@ void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
   femurAngleOffset = atan2(kneeOffset[2], kneeOffset[0]);
   tibiaLength = tipOffset.norm();
   tibiaAngleOffset = atan2(tipOffset[2], tipOffset[0]);
-  legLength = femurLength+tibiaLength;
+  minLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(max(0.0, pi-model->minMaxKneeBend[1]))); 
+  maxLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(pi-max(0.0, model->minMaxKneeBend[0]))); 
   applyFK();
-  
 }
 
 void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)
@@ -31,7 +31,7 @@ void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)
   double targetLength = target.norm();
   double targetAngleOffset = atan2(target[2], target[0]);
   
-  targetLength = clamped(targetLength, abs(femurLength - tibiaLength) + 1e-4, femurLength + tibiaLength - 1e-4); // reachable range
+  targetLength = clamped(targetLength, minLegLength + 1e-4, maxLegLength - 1e-4); // reachable range
   double lift = acos((sqr(targetLength)+sqr(femurLength)-sqr(tibiaLength))/(2.0*targetLength*femurLength));
   liftAngle = targetAngleOffset + lift;
   double kneeBend = acos(-(sqr(femurLength)+sqr(tibiaLength)-sqr(targetLength))/(2.0*femurLength*tibiaLength));
@@ -52,14 +52,17 @@ void Leg::applyFK()
   localTipPosition[0] *= mirrorDir;
 }
 
+
 // defines the hexapod model
-Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend, const Vector2d &minMaxHipLift) : stanceLegYaws(stanceLegYaws), yawLimitAroundStance(yawLimitAroundStance), minMaxKneeBend(minMaxKneeBend), minMaxHipLift(minMaxHipLift)
+Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend, const Vector2d &minMaxHipLift, Vector3d *startAngles) : stanceLegYaws(stanceLegYaws), yawLimitAroundStance(yawLimitAroundStance), minMaxKneeBend(minMaxKneeBend), minMaxHipLift(minMaxHipLift)
 {
+  int i = 0;
   for (int l = 0; l<3; l++)
   {
     for (int side = 0; side<2; side++)
     {
       Leg &leg = legs[l][side];
+      leg.model = this;
 #if defined(FLEXIPOD)
       leg.rootOffset = Vector3d(l==1 ? 0.11 : 0.07, 0.12*(double)(1-l), 0);
       leg.hipOffset  = Vector3d(0.066, 0, 0);
@@ -72,7 +75,8 @@ Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance
       leg.tipOffset  = Vector3d(1.5, 0, 0);
 #endif
       leg.mirrorDir = side ? 1 : -1;
-      leg.init(0,0,0);
+      Vector3d angles = startAngles ? startAngles[i++] : Vector3d(0,0,0);
+      leg.init(angles[0], angles[1], angles[2]);
     }
   }
 }
