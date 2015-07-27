@@ -13,14 +13,14 @@
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/Imu.h"
- 
+#include <boost/circular_buffer.hpp> 
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
 sensor_msgs::Imu imu;
 
 // target rather than measured data
-static Vector3d offsetPos(0,0,0);
+static Vector3d offsetPos(0.0,0.0,0.0);
 static Vector3d offsetVel(0,0,0);
 
 // source catkin_ws/devel/setup.bash
@@ -41,7 +41,10 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   Vector3d angularAcc;
   static Vector3d angularVel(0,0,0);
   adjust.rotation=Quat(Vector3d(0,0,0));
-    
+  static boost::circular_buffer<float> cbx(4,0);
+  static boost::circular_buffer<float> cby(4,1);
+  static boost::circular_buffer<float> cbz(4,2);
+ 
   orient.w=imu.orientation.w;
   orient.x=imu.orientation.x;
   orient.y=imu.orientation.y;
@@ -61,12 +64,40 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   ROS_ERROR("GRAVITYROT= %f %f %f", gravityrot(0), gravityrot(1),gravityrot(2)); 
   ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
   
-  //Postion compensation
+//Postion compensation
+
+#define ZERO_ORDER_FEEDBACK
+//define FIRST_ORDER_FEEDBACK
+//#define SECOND_ORDER_FEEDBACK
+
+#if defined(SECOND_ORDER_FEEDBACK)
   double imuStrength = 1;
   double stiffness = 10; // how strongly/quickly we return to the neutral pose
   Vector3d offsetAcc = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
   offsetVel += offsetAcc*timeDelta;
   offsetPos += offsetVel*timeDelta;
+  
+#elif defined(FIRST_ORDER_FEEDBACK)
+  double imuStrength = 1;
+  double stiffness = 10; // how strongly/quickly we return to the neutral pose
+  offsetVel = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos;
+  offsetPos += offsetVel*timeDelta;
+  
+#elif defined(ZERO_ORDER_FEEDBACK)
+  double imuStrength = 0.01;
+  cbx.push_back(-imu.linear_acceleration.y); 
+  cby.push_back(-imu.linear_acceleration.x); 
+  cbz.push_back(-imu.linear_acceleration.z);
+  offsetPos(0) = imuStrength * (targetAccel(0)-(cbx[0]+cbx[1]+cbx[2]+cbx[3]+cbx[3])/4);
+  offsetPos(1) = imuStrength * (targetAccel(1)-(cby[0]+cby[1]+cby[2]+cby[3]+cbx[3])/4);
+  offsetPos(2) = imuStrength * (targetAccel(2)-(cbz[0]+cbz[1]+cbz[2]+cbz[3]+cbx[3])/4 + 9.8);
+  
+  /*(0) = imuStrength * (targetAccel(0)-accel(0));
+  offsetPos(1) = imuStrength * (targetAccel(1)-accel(1));
+  offsetPos(2) = imuStrength * (targetAccel(2)-accel(2)+9.8);*/
+  
+  cout << offsetPos(2)<< endl;
+#endif
   
   //Angular body velocity compensation.
   double stiffnessangular=5;
@@ -90,7 +121,7 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   rotation(1)=angularVel(1)*timeDelta;
   rotation(2)=angularVel(2)*timeDelta;*/
   
-  adjust.rotation*= Quat(rotation);  
+  //adjust.rotation*= Quat(rotation);  
   adjust.position = offsetPos;
   return adjust;
 }
@@ -154,7 +185,7 @@ int main(int argc, char* argv[])
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
     
     Vector2d acc = walker.localCentreAcceleration;
-  //  adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 //    localVelocity[1] = 1.0;
 //#define MOVE_TO_START    
 #if defined(MOVE_TO_START)
@@ -214,3 +245,4 @@ int main(int argc, char* argv[])
     t += timeDelta;
   }
 }
+
