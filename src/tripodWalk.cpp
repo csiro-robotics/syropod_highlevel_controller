@@ -86,6 +86,23 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
       localStanceTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
     }
   }
+  // check for overlapping radii
+  double minGap = 1e10;
+  for (int side = 0; side<2; side++)
+  {
+    Vector3d posDif = localStanceTipPositions[1][side] - localStanceTipPositions[0][side];
+    posDif[2] = 0.0;
+    minGap = min(minGap, posDif.norm() - 2.0*minFootprintRadius);
+    posDif = localStanceTipPositions[1][side] - localStanceTipPositions[2][side];
+    posDif[2] = 0.0;
+    minGap = min(minGap, posDif.norm() - 2.0*minFootprintRadius);
+  }
+  cout << "Gap between footprint cylinders: " << minGap << "m" << endl;
+  if (minGap < 0.0)
+  {
+    cout << "Footprint cylinders overlap, reducing footprint radius" << endl;
+    minFootprintRadius += minGap*0.5;
+  }
   stanceRadius = abs(localStanceTipPositions[1][0][0]);
   int i = 0;
   for (int s = 0; s<2; s++)
