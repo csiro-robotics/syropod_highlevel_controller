@@ -25,6 +25,7 @@ sensor_msgs::JointState jointStates;
 static Vector3d offsetPos(0.0,0.0,0.0);
 static Vector3d offsetVel(0,0,0);
 
+
 // source catkin_ws/devel/setup.bash
 // roslaunch hexapod_teleop hexapod_controllers.launch
 
@@ -36,7 +37,7 @@ void imuCallback(const sensor_msgs::Imu & imudata)
 
 void jointStatesCallback(const sensor_msgs::JointState & joint_States)
 {  
-  jointStates=joint_States; 
+  jointStates=joint_States;
 }
 
 Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
@@ -150,6 +151,9 @@ int main(int argc, char* argv[])
   ros::Subscriber jointStatesSubscriber=n.subscribe("/joint_states", 1, jointStatesCallback);
   int i;
   
+  while(jointStates.position.size()==0)
+   ros::spinOnce();
+   
   bool dynamixel_interface = true;
   n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
 
@@ -159,8 +163,12 @@ int main(int argc, char* argv[])
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
   for (int leg = 0; leg<3; leg++)
     for (int side = 0; side<2; side++)
-      hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[0], jointStates.position[1], jointStates.position[2]));
-    
+      if (side==0)
+	hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[leg*6+1], jointStates.position[leg*6+2], jointStates.position[leg*6+3]));
+      else
+	hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[leg*6+3], jointStates.position[leg*6+4], jointStates.position[leg*6+5]));
+
+	
   TripodWalk walker(&hexapod, 0.5, 0.12);
 #elif defined(LARGE_HEXAPOD)
   Vector3d yawOffsets = Vector3d(45,0,-45)*pi/180.0;
