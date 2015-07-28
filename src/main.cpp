@@ -13,11 +13,13 @@
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/Imu.h"
+#include "sensor_msgs/JointState.h"
 #include <boost/circular_buffer.hpp> 
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
 sensor_msgs::Imu imu;
+sensor_msgs::JointState jointStates;
 
 // target rather than measured data
 static Vector3d offsetPos(0.0,0.0,0.0);
@@ -31,6 +33,11 @@ void imuCallback(const sensor_msgs::Imu & imudata)
   imu=imudata;
 }
 
+
+void jointStatesCallback(const sensor_msgs::JointState & joint_States)
+{  
+  jointStates=joint_States; 
+}
 
 Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 {
@@ -92,11 +99,8 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   offsetPos(1) = imuStrength * (targetAccel(1)-(cby[0]+cby[1]+cby[2]+cby[3]+cbx[3])/4);
   offsetPos(2) = imuStrength * (targetAccel(2)-(cbz[0]+cbz[1]+cbz[2]+cbz[3]+cbx[3])/4 + 9.8);
   
-  /*(0) = imuStrength * (targetAccel(0)-accel(0));
-  offsetPos(1) = imuStrength * (targetAccel(1)-accel(1));
-  offsetPos(2) = imuStrength * (targetAccel(2)-accel(2)+9.8);*/
-  
-  cout << offsetPos(2)<< endl;
+  //offsetPos = imuStrength * (targetAccel-accel+Vector3d(0,0,9.8));
+ 
 #endif
   
   //Angular body velocity compensation.
@@ -126,7 +130,6 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   return adjust;
 }
 
-
 void joypadChangeCallback(const geometry_msgs::Twist &twist)
 {
   ASSERT(twist.angular.z < 0.51);
@@ -142,12 +145,19 @@ int main(int argc, char* argv[])
   ros::init(argc, argv, "Hexapod");
   ros::NodeHandle n;
   ros::NodeHandle n_priv("~");
+  ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
+  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
+  ros::Subscriber jointStatesSubscriber=n.subscribe("/joint_states", 1, jointStatesCallback);
+  int i;
+  
   bool dynamixel_interface = true;
-
   n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
 
 #if defined(FLEXIPOD)
   Vector3d yawOffsets(0.77,0,-0.77);
+  
+  std::vector <double>startAngles=jointStates.position;  
+ 
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
   TripodWalk walker(&hexapod, 0.5, 0.12);
 #elif defined(LARGE_HEXAPOD)
@@ -170,10 +180,7 @@ int main(int argc, char* argv[])
     interface = new DynamixelProMotorInterface();
 
   interface->setupSpeed(0.5);
-
-  ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
-  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
-  
+   
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   double t = 0;
   
@@ -185,7 +192,7 @@ int main(int argc, char* argv[])
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
     
     Vector2d acc = walker.localCentreAcceleration;
-    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 //    localVelocity[1] = 1.0;
 //#define MOVE_TO_START    
 #if defined(MOVE_TO_START)

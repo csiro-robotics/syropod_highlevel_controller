@@ -9,16 +9,15 @@ class DynamixelMotorInterface : public MotorInterface
 public:
   DynamixelMotorInterface() : publishers(3, vector<vector<ros::Publisher> >(2,vector<ros::Publisher>(3))), angles(3, vector<vector<double > >(2, vector<double >(3)))
   {
-    setupPublishers();		
-  }		
-
+    setupPublishers();
+  }
+  
   void setTargetAngle(int legID, int side, int jointID, double angle);		
-  void setupSpeed(double speed);		
+  void setupSpeed(double speed);
   void publish(void);
-
+ 
 private:
   ros::ServiceClient setspeed1;
-
   ros::NodeHandle nodehandler;
   void setupPublishers(void);
   ros::Publisher publicador;
