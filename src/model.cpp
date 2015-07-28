@@ -54,7 +54,7 @@ void Leg::applyFK()
 
 
 // defines the hexapod model
-Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend, const Vector2d &minMaxHipLift, Vector3d *startAngles) : stanceLegYaws(stanceLegYaws), yawLimitAroundStance(yawLimitAroundStance), minMaxKneeBend(minMaxKneeBend), minMaxHipLift(minMaxHipLift)
+Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend, const Vector2d &minMaxHipLift) : stanceLegYaws(stanceLegYaws), yawLimitAroundStance(yawLimitAroundStance), minMaxKneeBend(minMaxKneeBend), minMaxHipLift(minMaxHipLift)
 {
   int i = 0;
   for (int l = 0; l<3; l++)
@@ -75,10 +75,14 @@ Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance
       leg.tipOffset  = Vector3d(1.5, 0, 0);
 #endif
       leg.mirrorDir = side ? 1 : -1;
-      Vector3d angles = startAngles ? startAngles[i++] : Vector3d(0,0,0);
-      leg.init(angles[0], angles[1], angles[2]);
+      leg.init(0,0,0);
     }
   }
+}
+
+void Model::setLegStartAngles(int side, int leg, const Vector3d &startAngles)
+{
+  legs[leg][side].init(startAngles[0], startAngles[1], startAngles[2]);
 }
 
 vector<Vector3d> Model::getJointPositions(const Pose &pose)

@@ -156,9 +156,11 @@ int main(int argc, char* argv[])
 #if defined(FLEXIPOD)
   Vector3d yawOffsets(0.77,0,-0.77);
   
-  std::vector <double>startAngles=jointStates.position;  
- 
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
+  for (int leg = 0; leg<3; leg++)
+    for (int side = 0; side<2; side++)
+      hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[0], jointStates.position[1], jointStates.position[2]));
+    
   TripodWalk walker(&hexapod, 0.5, 0.12);
 #elif defined(LARGE_HEXAPOD)
   Vector3d yawOffsets(45,0,-45);
