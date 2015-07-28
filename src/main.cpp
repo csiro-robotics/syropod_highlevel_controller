@@ -163,12 +163,12 @@ int main(int argc, char* argv[])
     
   TripodWalk walker(&hexapod, 0.5, 0.12);
 #elif defined(LARGE_HEXAPOD)
-  Vector3d yawOffsets(45,0,-45);
+  Vector3d yawOffsets = Vector3d(45,0,-45)*pi/180.0;
   double yawLimit = 30;
-  Vector3d yawLimits(yawLimit, yawLimit, yawLimit);
-  Vector2d kneeLimit(50, 160);
-  Vector2d hipLimit(-25, 80);
-  Model hexapod(yawOffsets*pi/180.0, yawLimits*pi/180.0, kneeLimit*pi/180.0, hipLimit*pi/180.0);
+  Vector3d yawLimits = Vector3d(yawLimit, yawLimit, yawLimit)*pi/180.0;
+  Vector2d kneeLimit = Vector2d(50, 160)*pi/180.0;
+  Vector2d hipLimit = Vector2d(-25, 80)*pi/180.0;
+  Model hexapod(yawOffsets, yawLimits, kneeLimit, hipLimit);
   TripodWalk walker(&hexapod, 0.18, 0.08);
 #endif
   DebugOutput debug;
@@ -223,7 +223,7 @@ int main(int argc, char* argv[])
           angle = dir*walker.model->legs[l][s].kneeAngle;
           interface->setTargetAngle(l, s, 2, angle);
 #elif defined(LARGE_HEXAPOD) // currently the same as flexipod above
-          angle = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
+          angle = dir*(walker.model->legs[l][s].yaw);
           interface->setTargetAngle(l, s, 0, angle);
           angle = -dir*walker.model->legs[l][s].liftAngle;
           interface->setTargetAngle(l, s, 1, angle);
