@@ -148,27 +148,32 @@ int main(int argc, char* argv[])
   ros::NodeHandle n_priv("~");
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
-  ros::Subscriber jointStatesSubscriber=n.subscribe("/joint_states", 1, jointStatesCallback);
-  int i;
   
-  while(jointStates.position.size()==0)
-   ros::spinOnce();
+#if defined(FLEXIPOD)
+  ros::Subscriber jointStatesSubscriber=n.subscribe("/joint_states", 1, jointStatesCallback);
+#elif defined(LARGE_HEXAPOD)
+  //Check if the order is the same in the large hexapod!!(front left, front right, middle left, middle right...)
+  //ros::Subscriber jointStatesSubscriber=n.subscribe("/hexapod_joint_states", 1, jointStatesCallback);
+#endif  
+  
+  //while(jointStates.position.size()==0)//Comment this two lines if working with Rviz. (Not with an actual robot or gazebo)
+   //ros::spinOnce();
    
   bool dynamixel_interface = true;
   n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
 
 #if defined(FLEXIPOD)
-  Vector3d yawOffsets(0.77,0,-0.77);
-  
+  Vector3d yawOffsets(0.77,0,-0.77);  
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
+  /*
   for (int leg = 0; leg<3; leg++)
     for (int side = 0; side<2; side++)
       if (side==0)
-	hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[leg*6+1], jointStates.position[leg*6+2], jointStates.position[leg*6+3]));
+         hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[leg*6+1], jointStates.position[leg*6+2], jointStates.position[leg*6+3]));
       else
-	hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[leg*6+3], jointStates.position[leg*6+4], jointStates.position[leg*6+5]));
-
-	
+          hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[leg*6+3], jointStates.position[leg*6+4], jointStates.position[leg*6+5]));
+   */
+  
   TripodWalk walker(&hexapod, 0.5, 0.12);
 #elif defined(LARGE_HEXAPOD)
   Vector3d yawOffsets = Vector3d(45,0,-45)*pi/180.0;
