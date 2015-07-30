@@ -53,13 +53,13 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   static boost::circular_buffer<float> cby(4,1);
   static boost::circular_buffer<float> cbz(4,2);
  
-  orient.w=imu.orientation.w;
-  orient.x=imu.orientation.x;
-  orient.y=imu.orientation.y;
-  orient.z=imu.orientation.z;
-  accel(1)=-imu.linear_acceleration.x;
-  accel(0)=-imu.linear_acceleration.y;
-  accel(2)=-imu.linear_acceleration.z;
+  orient.w = imu.orientation.w;
+  orient.x = imu.orientation.x;
+  orient.y = imu.orientation.y;
+  orient.z = imu.orientation.z;
+  accel(1) = -imu.linear_acceleration.x;
+  accel(0) = -imu.linear_acceleration.y;
+  accel(2) = -imu.linear_acceleration.z;
   
   /*//Compensation for gravity
   Vector3d accelcomp;
@@ -74,25 +74,25 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   
 //Postion compensation
 
-#define ZERO_ORDER_FEEDBACK
-//define FIRST_ORDER_FEEDBACK
-//#define SECOND_ORDER_FEEDBACK
+//#define ZERO_ORDER_FEEDBACK
+//#define FIRST_ORDER_FEEDBACK
+#define SECOND_ORDER_FEEDBACK
 
 #if defined(SECOND_ORDER_FEEDBACK)
   double imuStrength = 1;
-  double stiffness = 10; // how strongly/quickly we return to the neutral pose
+  double stiffness = 13; // how strongly/quickly we return to the neutral pose
   Vector3d offsetAcc = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
   offsetVel += offsetAcc*timeDelta;
   offsetPos += offsetVel*timeDelta;
   
 #elif defined(FIRST_ORDER_FEEDBACK)
-  double imuStrength = 1;
+  double imuStrength = 0.5;
   double stiffness = 10; // how strongly/quickly we return to the neutral pose
   offsetVel = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos;
   offsetPos += offsetVel*timeDelta;
   
 #elif defined(ZERO_ORDER_FEEDBACK)
-  double imuStrength = 0.01;
+  double imuStrength = 0.001;
   cbx.push_back(-imu.linear_acceleration.y); 
   cby.push_back(-imu.linear_acceleration.x); 
   cbz.push_back(-imu.linear_acceleration.z);
@@ -156,8 +156,8 @@ int main(int argc, char* argv[])
   //ros::Subscriber jointStatesSubscriber=n.subscribe("/hexapod_joint_states", 1, jointStatesCallback);
 #endif  
   
-  //while(jointStates.position.size()==0)//Comment this two lines if working with Rviz. (Not with an actual robot or gazebo)
-   //ros::spinOnce();
+   while(jointStates.position.size()==0)//If working with Rviz, (Not with an actual robot or gazebo), comment this two lines and the for loops
+    ros::spinOnce();                      
    
   bool dynamixel_interface = true;
   n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
@@ -165,14 +165,19 @@ int main(int argc, char* argv[])
 #if defined(FLEXIPOD)
   Vector3d yawOffsets(0.77,0,-0.77);  
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
-  /*
+  
   for (int leg = 0; leg<3; leg++)
     for (int side = 0; side<2; side++)
+    {
+      double dir = side==0 ? -1 : 1;
       if (side==0)
-         hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[leg*6+1], jointStates.position[leg*6+2], jointStates.position[leg*6+3]));
+         hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointStates.position[leg*6+0]+dir*yawOffsets[leg], -jointStates.position[leg*6+1], jointStates.position[leg*6+2]));
       else
-          hexapod.setLegStartAngles(side, leg, Vector3d(jointStates.position[leg*6+3], jointStates.position[leg*6+4], jointStates.position[leg*6+5]));
-   */
+         hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointStates.position[leg*6+3]+dir*yawOffsets[leg], -jointStates.position[leg*6+4], jointStates.position[leg*6+5]));
+      int l = leg;
+      int s = side;
+      cout << "leg << " << leg << ", side: " << side << " values: " << hexapod.legs[l][s].yaw << ", " << hexapod.legs[l][s].liftAngle << ", " << hexapod.legs[l][s].kneeAngle << endl;
+    }
   
   TripodWalk walker(&hexapod, 0.5, 0.12);
 #elif defined(LARGE_HEXAPOD)
@@ -204,12 +209,12 @@ int main(int argc, char* argv[])
   bool started = false;
   while (ros::ok())
   {
-    Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU
     
+    Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
-    //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 //    localVelocity[1] = 1.0;
-//#define MOVE_TO_START    
+#define MOVE_TO_START    
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();

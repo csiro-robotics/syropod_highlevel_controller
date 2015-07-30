@@ -67,6 +67,7 @@ TripodWalk::TripodWalk(Model *model, double stepFrequency, double stepClearance,
     }
     else
       horizontalRange = sqrt(sqr(leg.maxLegLength) - sqr(bodyClearance*maximumBodyHeight));
+    //horizontalRange*=0.6;
     
     double theta = model->yawLimitAroundStance[l];
     double cotanTheta = tan(0.5*pi - theta);
