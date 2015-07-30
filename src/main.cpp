@@ -29,15 +29,15 @@ static Vector3d offsetVel(0,0,0);
 // source catkin_ws/devel/setup.bash
 // roslaunch hexapod_teleop hexapod_controllers.launch
 
-void imuCallback(const sensor_msgs::Imu & imudata)
+void imuCallback(const sensor_msgs::Imu &imudata)
 {  
-  imu=imudata;
+  imu = imudata;
 }
 
 
-void jointStatesCallback(const sensor_msgs::JointState & joint_States)
+void jointStatesCallback(const sensor_msgs::JointState &joint_States)
 {  
-  jointStates=joint_States;
+  jointStates = joint_States;
 }
 
 Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
@@ -149,45 +149,47 @@ int main(int argc, char* argv[])
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
   
+#define MOVE_TO_START    
+#if defined(MOVE_TO_START)
 #if defined(FLEXIPOD)
-  ros::Subscriber jointStatesSubscriber=n.subscribe("/joint_states", 1, jointStatesCallback);
+  ros::Subscriber jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
 #elif defined(LARGE_HEXAPOD)
   //Check if the order is the same in the large hexapod!!(front left, front right, middle left, middle right...)
-  //ros::Subscriber jointStatesSubscriber=n.subscribe("/hexapod_joint_states", 1, jointStatesCallback);
+  ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod_joint_states", 1, jointStatesCallback);
 #endif  
   
-   while(jointStates.position.size()==0)//If working with Rviz, (Not with an actual robot or gazebo), comment this two lines and the for loops
+  while(jointStates.position.size()==0)//If working with Rviz, (Not with an actual robot or gazebo), comment this two lines and the for loops
     ros::spinOnce();                      
-   
+#endif
+  
   bool dynamixel_interface = true;
   n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
+  Vector3d yawOffsets(0,0,0);  
 
 #if defined(FLEXIPOD)
-  Vector3d yawOffsets(0.77,0,-0.77);  
+  yawOffsets = Vector3d(0.77,0,-0.77);  
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
-  
-  for (int leg = 0; leg<3; leg++)
-    for (int side = 0; side<2; side++)
-    {
-      double dir = side==0 ? -1 : 1;
-      if (side==0)
-         hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointStates.position[leg*6+0]+dir*yawOffsets[leg], -jointStates.position[leg*6+1], jointStates.position[leg*6+2]));
-      else
-         hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointStates.position[leg*6+3]+dir*yawOffsets[leg], -jointStates.position[leg*6+4], jointStates.position[leg*6+5]));
-      int l = leg;
-      int s = side;
-      cout << "leg << " << leg << ", side: " << side << " values: " << hexapod.legs[l][s].yaw << ", " << hexapod.legs[l][s].liftAngle << ", " << hexapod.legs[l][s].kneeAngle << endl;
-    }
-  
   TripodWalk walker(&hexapod, 0.5, 0.12);
 #elif defined(LARGE_HEXAPOD)
-  Vector3d yawOffsets = Vector3d(45,0,-45)*pi/180.0;
   double yawLimit = 30;
   Vector3d yawLimits = Vector3d(yawLimit, yawLimit, yawLimit)*pi/180.0;
   Vector2d kneeLimit = Vector2d(50, 160)*pi/180.0;
   Vector2d hipLimit = Vector2d(-25, 80)*pi/180.0;
-  Model hexapod(yawOffsets, yawLimits, kneeLimit, hipLimit);
+  Model hexapod(Vector3d(45,0,-45)*pi/180.0, yawLimits, kneeLimit, hipLimit);
   TripodWalk walker(&hexapod, 0.18, 0.08);
+#endif
+#if defined(MOVE_TO_START)
+  // set initial leg angles
+  for (int leg = 0; leg<3; leg++)
+  {
+    for (int side = 0; side<2; side++)
+    {
+      double dir = side==0 ? -1 : 1;
+      int index = leg*6+(side == 0 ? 0 : 3);
+      hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointStates.position[index+0]+dir*yawOffsets[leg], -jointStates.position[index+1], jointStates.position[index+2]));
+      cout << "leg << " << leg << ", side: " << side << " values: " << hexapod.legs[leg][side].yaw << ", " << hexapod.legs[leg][side].liftAngle << ", " << hexapod.legs[leg][side].kneeAngle << endl;
+    }
+  }
 #endif
   DebugOutput debug;
 
@@ -213,8 +215,7 @@ int main(int argc, char* argv[])
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
     adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
-//    localVelocity[1] = 1.0;
-#define MOVE_TO_START    
+    localVelocity[1] = 1.0;
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();
