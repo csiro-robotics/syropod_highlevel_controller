@@ -8,7 +8,7 @@ using namespace std;
 //#define FLEXIPOD
 
 
-#define timeDelta (1.0/60.0)
+#define timeDelta (1.0/100.0)
 #define DEBUGDRAW
 const double pi = M_PI; //< easier to read
 

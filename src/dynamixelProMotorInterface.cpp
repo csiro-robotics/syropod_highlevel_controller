@@ -1,18 +1,20 @@
 #include "../include/simple_hexapod_controller/dynamixelProMotorInterface.h"
 #include <sensor_msgs/JointState.h>
 
-DynamixelProMotorInterface::DynamixelProMotorInterface()
+DynamixelProMotorInterface::DynamixelProMotorInterface(): 
+  MotorInterface(),
+  angles(3, vector<vector<double > >(2, vector<double >(3)))
 {
-  motor_pub = nodehandler.advertise<sensor_msgs::JointState>("desired_motor_state", 1);
+  motor_pub = nodehandler.advertise<sensor_msgs::JointState>("desired_hexapod_joint_state", 1);
 }		
 
 void DynamixelProMotorInterface::setupSpeed(double my_speed)
 {
 }
 
-void DynamixelProMotorInterface::setTargetAngle(int legID, int side, int jointID, double speed)
+void DynamixelProMotorInterface::setTargetAngle(int legID, int side, int jointID, double angle)
 {
-  angles[legID][side][jointID] = speed;
+  angles[legID][side][jointID] = angle;
 }
 
 void DynamixelProMotorInterface::publish(void)

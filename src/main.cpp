@@ -25,7 +25,6 @@ sensor_msgs::JointState jointStates;
 static Vector3d offsetPos(0.0,0.0,0.0);
 static Vector3d offsetVel(0,0,0);
 
-
 // source catkin_ws/devel/setup.bash
 // roslaunch hexapod_teleop hexapod_controllers.launch
 
@@ -149,7 +148,7 @@ int main(int argc, char* argv[])
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
   
-#define MOVE_TO_START    
+//#define MOVE_TO_START    
 #if defined(MOVE_TO_START)
 #if defined(FLEXIPOD)
   ros::Subscriber jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
@@ -209,19 +208,20 @@ int main(int argc, char* argv[])
   Vector3d maxVel(0,0,0);
   bool firstFrame = true;
   bool started = false;
+  double time = 0;
   while (ros::ok())
   {
-    
+    time += timeDelta;
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
-    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
-    localVelocity[1] = 1.0;
+  //  adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    localVelocity[1] = time < 10.0 ? 0.01 : 0.0;
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();
     else
 #endif
-      walker.update(localVelocity*localVelocity.squaredNorm(), turnRate, &adjust); // the * squaredNorm just lets the thumbstick give small turns easier
+      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust); // the cube just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
