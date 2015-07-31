@@ -73,9 +73,9 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   
 //Postion compensation
 
-//#define ZERO_ORDER_FEEDBACK
+#define ZERO_ORDER_FEEDBACK
 //#define FIRST_ORDER_FEEDBACK
-#define SECOND_ORDER_FEEDBACK
+//#define SECOND_ORDER_FEEDBACK
 
 #if defined(SECOND_ORDER_FEEDBACK)
   double imuStrength = 1;
@@ -168,14 +168,14 @@ int main(int argc, char* argv[])
 #if defined(FLEXIPOD)
   yawOffsets = Vector3d(0.77,0,-0.77);  
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
-  TripodWalk walker(&hexapod, 0.5, 0.12);
+  GaitController walker(&hexapod, 1, 0.5, 0.12);
 #elif defined(LARGE_HEXAPOD)
   double yawLimit = 30;
   Vector3d yawLimits = Vector3d(yawLimit, yawLimit, yawLimit)*pi/180.0;
   Vector2d kneeLimit = Vector2d(50, 160)*pi/180.0;
   Vector2d hipLimit = Vector2d(-25, 80)*pi/180.0;
   Model hexapod(Vector3d(45,0,-45)*pi/180.0, yawLimits, kneeLimit, hipLimit);
-  TripodWalk walker(&hexapod, 0.18, 0.08);
+  GaitController walker(&hexapod, 1, 0.18, 0.08);
 #endif
 #if defined(MOVE_TO_START)
   // set initial leg angles
