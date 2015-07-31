@@ -4,7 +4,11 @@
 #include <vector>
 using namespace Eigen;
 using namespace std;
-#define timeDelta (1.0/30.0)
+#define LARGE_HEXAPOD
+//#define FLEXIPOD
+
+
+#define timeDelta (1.0/60.0)
 #define DEBUGDRAW
 const double pi = M_PI; //< easier to read
 
@@ -68,6 +72,16 @@ T clamped(const T &value, const T &minValue, const T &maxValue)
   ASSERT(minValue <= maxValue);
   return max(minValue, min(value, maxValue));
 }
+// for Vector types
+template <class T>
+T clamped(const T &value, double magnitude)
+{
+  double magSqr = value.squaredNorm();
+  if (magSqr > sqr(magnitude))
+    return value / sqrt(magSqr);
+  return value;
+}
+
 
 inline int roundToInt(double x)
 {

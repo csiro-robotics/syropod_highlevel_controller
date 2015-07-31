@@ -8,7 +8,7 @@ class DebugOutput
 public:
   DebugOutput();
   void drawPoints(const vector<Vector3d>& surveyPoints, const Vector4d &colour);
-  void drawRobot(const Pose &bodyFrame, const Vector3d &extents, const vector<Vector3d> &legPoints, const Vector4d &colour);
+  void drawRobot(const Vector3d &extents, const vector<Vector3d> &legPoints, const Vector4d &colour);
   void reset(){ robotID = 0; }
   
 private:

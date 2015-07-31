@@ -11,7 +11,8 @@ void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
   femurAngleOffset = atan2(kneeOffset[2], kneeOffset[0]);
   tibiaLength = tipOffset.norm();
   tibiaAngleOffset = atan2(tipOffset[2], tipOffset[0]);
-  legLength = femurLength+tibiaLength;
+  minLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(max(0.0, pi-model->minMaxKneeBend[1]))); 
+  maxLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(pi-max(0.0, model->minMaxKneeBend[0]))); 
   applyFK();
 }
 
@@ -30,7 +31,7 @@ void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)
   double targetLength = target.norm();
   double targetAngleOffset = atan2(target[2], target[0]);
   
-  targetLength = clamped(targetLength, abs(femurLength - tibiaLength) + 1e-4, femurLength + tibiaLength - 1e-4); // reachable range
+  targetLength = clamped(targetLength, minLegLength + 1e-4, maxLegLength - 1e-4); // reachable range
   double lift = acos((sqr(targetLength)+sqr(femurLength)-sqr(tibiaLength))/(2.0*targetLength*femurLength));
   liftAngle = targetAngleOffset + lift;
   double kneeBend = acos(-(sqr(femurLength)+sqr(tibiaLength)-sqr(targetLength))/(2.0*femurLength*tibiaLength));
@@ -51,22 +52,37 @@ void Leg::applyFK()
   localTipPosition[0] *= mirrorDir;
 }
 
+
 // defines the hexapod model
-Model::Model()
+Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend, const Vector2d &minMaxHipLift) : stanceLegYaws(stanceLegYaws), yawLimitAroundStance(yawLimitAroundStance), minMaxKneeBend(minMaxKneeBend), minMaxHipLift(minMaxHipLift)
 {
+  int i = 0;
   for (int l = 0; l<3; l++)
   {
     for (int side = 0; side<2; side++)
     {
       Leg &leg = legs[l][side];
+      leg.model = this;
+#if defined(FLEXIPOD)
       leg.rootOffset = Vector3d(l==1 ? 0.11 : 0.07, 0.12*(double)(1-l), 0);
       leg.hipOffset  = Vector3d(0.066, 0, 0);
       leg.kneeOffset = Vector3d(0.11, 0, 0);
       leg.tipOffset  = Vector3d(0.31, 0, 0);
+#elif defined(LARGE_HEXAPOD)
+      leg.rootOffset = Vector3d(0.315/2.0, 0.5675*(double)(1-l), 0);
+      leg.hipOffset  = Vector3d(0.07985, 0, 0);
+      leg.kneeOffset = Vector3d(0.8, 0, 0);
+      leg.tipOffset  = Vector3d(1.5, 0, 0);
+#endif
       leg.mirrorDir = side ? 1 : -1;
       leg.init(0,0,0);
     }
   }
+}
+
+void Model::setLegStartAngles(int side, int leg, const Vector3d &startAngles)
+{
+  legs[leg][side].init(startAngles[0], startAngles[1], startAngles[2]);
 }
 
 vector<Vector3d> Model::getJointPositions(const Pose &pose)
@@ -92,3 +108,44 @@ vector<Vector3d> Model::getJointPositions(const Pose &pose)
   return positions;
 }
 
+void Model::clampToLimits()
+{
+  // clamp angles and alert if a limit has been hit
+  for (int l = 0; l<3; l++)
+  {
+    for (int side = 0; side<2; side++)
+    {
+      Leg &leg = legs[l][side];
+      if (leg.yaw - stanceLegYaws[l] < -yawLimitAroundStance[l])
+      {
+        leg.yaw = -yawLimitAroundStance[l] + stanceLegYaws[l];
+        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << -yawLimitAroundStance[l] + stanceLegYaws[l] << endl;
+      }
+      else if (leg.yaw - stanceLegYaws[l] > yawLimitAroundStance[l])
+      {
+        leg.yaw = yawLimitAroundStance[l] + stanceLegYaws[l];
+        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << yawLimitAroundStance[l] + stanceLegYaws[l] << endl;
+      }
+      if (leg.liftAngle < minMaxHipLift[0])
+      {
+        leg.liftAngle = minMaxHipLift[0];
+        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[0] << endl;
+      }
+      else if (leg.liftAngle > minMaxHipLift[1])
+      {
+        leg.liftAngle = minMaxHipLift[1];
+        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[1] << endl;
+      }
+      if (leg.kneeAngle < minMaxKneeBend[0])
+      {
+        leg.kneeAngle = minMaxKneeBend[0];
+        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[0] << endl;
+      }
+      else if (leg.kneeAngle > minMaxKneeBend[1])
+      {
+        leg.kneeAngle = minMaxKneeBend[1];
+        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[1] << endl;
+      }
+    }
+  }
+}

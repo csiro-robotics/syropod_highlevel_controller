@@ -9,14 +9,15 @@ struct GaitController
   double stepFrequency;
   double bodyClearance;
   double stepClearance;
-  Vector3d stanceLegYaws;
   Vector3d footSpreadDistances;
   double minFootprintRadius;
   double stanceRadius; // affects turning circle
   Vector3d localStanceTipPositions[3][2];
   Vector2d localCentreVelocity;
+  Vector2d localCentreAcceleration;
   double angularVelocity;
   double walkPhase;
+  double maximumBodyHeight;
   
   struct LegStepper
   {
@@ -26,6 +27,7 @@ struct GaitController
     
     Vector3d getPosition(double liftHeight);
   } legSteppers[3][2];
+  
   vector<Vector3d> targets;
   
   // Determines the basic stance pose which the hexapod will try to maintain, by finding the largest footprint radius that each leg can achieve for the specified level of clearance
@@ -33,17 +35,16 @@ struct GaitController
   // bodyClearance, stepClearance- 0 to 1, 1 is vertical legs
   // stanceLegYaws- natural yaw pose per leg
   // minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
+
   GaitController(Model *model, 
 		 int gaitType,
 		 double stepFrequency,
 		 double stepClearance,
-		 const Vector3d &stanceLegYaws,
-		 const Vector3d &yawLimitAroundStance,
-		 double maximumKneeBend = 3,
 		 double bodyClearance = -1);
   
   // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
   // bodyOffset is body pose relative to the basic stance pose, note that large offsets may prevent achievable leg positions
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
   void update(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset = NULL);
+  bool moveToStart();
 };

@@ -8,7 +8,9 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  sensor_msgs
   dynamixel_controllers
+  dynamixel_msgs
 )
 
 
@@ -85,7 +87,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES simple_hexapod_controller
-  CATKIN_DEPENDS roscpp rospy std_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs dynamixel_msgs dynamixel_controllers
 #  DEPENDS system_lib
 )
 add_definitions(-DEIGEN2_SUPPORT -DDEBUG -std=c++11 -Wall -g -ggdb -O0 -fopenmp -fPIC)
@@ -98,6 +100,7 @@ add_definitions(-DEIGEN2_SUPPORT -DDEBUG -std=c++11 -Wall -g -ggdb -O0 -fopenmp 
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
+  include
   ${catkin_INCLUDE_DIRS} 
   /usr/include/eigen3
 )
@@ -108,7 +111,7 @@ include_directories(
 # )
 
 ## Declare a cpp executable
-add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/tripodWalk.cpp src/debugOutput.cpp src/motorInterface.cpp)#${simple_hexapod_controller_sources})
+add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/tripodWalk.cpp src/debugOutput.cpp src/dynamixelMotorInterface.cpp src/dynamixelProMotorInterface.cpp)#${simple_hexapod_controller_sources})
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
