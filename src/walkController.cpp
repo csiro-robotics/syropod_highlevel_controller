@@ -1,5 +1,5 @@
 #pragma once
-#include "../include/simple_hexapod_controller/tripodWalk.h"
+#include "../include/simple_hexapod_controller/walkController.h"
 
 #define STANCE_PHASE (pi) //WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
 #define SWING_PHASE (pi)    //WAVE: pi	TRIPOD: pi	RIPPLE: pi

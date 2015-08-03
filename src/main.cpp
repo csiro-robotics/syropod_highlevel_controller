@@ -3,7 +3,7 @@
 */
 #include "../include/simple_hexapod_controller/standardIncludes.h"
 #include "../include/simple_hexapod_controller/model.h"
-#include "../include/simple_hexapod_controller/tripodWalk.h"
+#include "../include/simple_hexapod_controller/walkController.h"
 #include "../include/simple_hexapod_controller/debugOutput.h"
 #include "../include/simple_hexapod_controller/motorInterface.h"
 #include "../include/simple_hexapod_controller/dynamixelMotorInterface.h"
