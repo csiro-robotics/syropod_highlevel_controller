@@ -4,8 +4,9 @@
 #include <vector>
 using namespace Eigen;
 using namespace std;
-#define LARGE_HEXAPOD
-//#define FLEXIPOD
+//#define LARGE_HEXAPOD
+#define FLEXIPOD
+//#define LOBSANG
 
 
 #define timeDelta (1.0/100.0)
