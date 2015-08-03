@@ -320,6 +320,7 @@ bool GaitController::moveToStart()
       leg.applyLocalIK(pos);
     }
   }
+  
   model->clampToLimits();
   if (walkPhase == pi)
   {

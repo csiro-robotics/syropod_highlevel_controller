@@ -20,6 +20,8 @@ static Vector2d localVelocity(0,0);
 static double turnRate = 0;
 sensor_msgs::Imu imu;
 sensor_msgs::JointState jointStates;
+double jointPositions [18];
+bool jointPosFlag = false;
 
 // target rather than measured data
 static Vector3d offsetPos(0.0,0.0,0.0);
@@ -36,7 +38,95 @@ void imuCallback(const sensor_msgs::Imu &imudata)
 
 void jointStatesCallback(const sensor_msgs::JointState &joint_States)
 {  
-  jointStates = joint_States;
+    if (!jointPosFlag)
+    {
+        for (int i=0; i<joint_States.name.size(); i++)
+        {
+            if (!strcmp(joint_States.name[i].c_str(), "AL_coxa_joint"))
+            {
+                jointPositions[0] = joint_States.position[i];
+            }        
+            else if (!strcmp(joint_States.name[i].c_str(), "AL_femur_joint"))
+            {
+                jointPositions[1] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "AL_tibia_joint"))
+            {
+                jointPositions[2] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "AR_coxa_joint"))
+            {
+                jointPositions[3] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "AR_femur_joint"))
+            {
+                jointPositions[4] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "AR_tibia_joint"))
+            {
+                jointPositions[5] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "BL_coxa_joint"))
+            {
+                jointPositions[6] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "BL_femur_joint"))
+            {
+                jointPositions[7] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "BL_tibia_joint"))
+            {
+                jointPositions[8] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "BR_coxa_joint"))
+            {
+                jointPositions[9] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "BR_femur_joint"))
+            {
+                jointPositions[10] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "BR_tibia_joint"))
+            {
+                jointPositions[11] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "CL_coxa_joint"))
+            {
+                jointPositions[12] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "CL_femur_joint"))
+            {
+                jointPositions[13] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "CL_tibia_joint"))
+            {
+                jointPositions[14] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "CR_coxa_joint"))
+            {
+                jointPositions[15] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "CR_femur_joint"))
+            {
+                jointPositions[16] = joint_States.position[i];
+            }
+            else if (!strcmp(joint_States.name[i].c_str(), "CR_tibia_joint"))
+            {
+                jointPositions[17] = joint_States.position[i];
+            }
+            cout << "Joint: " << joint_States.name[i].c_str() << " set as: " << joint_States.position[i] << endl;
+        }
+        
+        //Check if all joint positions have been received from topic
+        jointPosFlag = true;
+        for (int i=0; i<18; i++)
+        {        
+            if (jointPositions[i] > 1e9)
+            {
+                jointPosFlag = false;
+            }
+        }
+    }
 }
 
 Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
@@ -154,14 +244,21 @@ int main(int argc, char* argv[])
   ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
 #elif defined(LOBSANG)
   ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
+
 #elif defined(LARGE_HEXAPOD)
   //Check if the order is the same in the large hexapod!!(front left, front right, middle left, middle right...)
   ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod_joint_states", 1, jointStatesCallback);
 #endif  
+
+  for (int i=0; i<18; i++)
+  {
+      jointPositions[i] = 1e10;
+  }
   
-  //while(jointStates.position.size()==0)//If working with Rviz, (Not with an actual robot or gazebo), comment this two lines and the for loops
-    //ros::spinOnce();                      
-#endif
+  while(!jointPosFlag)//If working with Rviz, (Not with an actual robot or gazebo), comment this two lines and the for loops
+    ros::spinOnce();                      
+
+  #endif
   
   bool dynamixel_interface = true;
   n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
@@ -170,20 +267,19 @@ int main(int argc, char* argv[])
 #if defined(FLEXIPOD)
   yawOffsets = Vector3d(0.77,0,-0.77);  
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
-  GaitController walker(&hexapod, 1, 0.5, 0.12);
 #elif defined(LOBSANG)  
-  yawOffsets = Vector3d(0.77,0,-0.77);  
-  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
-  GaitController walker(&hexapod, 1, 0.5, 0.12);
+  yawOffsets = Vector3d(0.77,0,-0.77);   
+  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));  
 #elif defined(LARGE_HEXAPOD)
   double yawLimit = 30;
   Vector3d yawLimits = Vector3d(yawLimit, yawLimit, yawLimit)*pi/180.0;
   Vector2d kneeLimit = Vector2d(50, 160)*pi/180.0;
   Vector2d hipLimit = Vector2d(-25, 80)*pi/180.0;
   Model hexapod(Vector3d(45,0,-45)*pi/180.0, yawLimits, kneeLimit, hipLimit);
-  GaitController walker(&hexapod, 1, 0.18, 0.08);
 #endif
-#if defined(MOVE_TO_START)
+
+  
+#if defined(MOVE_TO_START)     
   // set initial leg angles
   for (int leg = 0; leg<3; leg++)
   {
@@ -191,11 +287,22 @@ int main(int argc, char* argv[])
     {
       double dir = side==0 ? -1 : 1;
       int index = leg*6+(side == 0 ? 0 : 3);
-      hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointStates.position[index+0]+dir*yawOffsets[leg], -jointStates.position[index+1], jointStates.position[index+2]));
-      cout << "leg << " << leg << ", side: " << side << " values: " << hexapod.legs[leg][side].yaw << ", " << hexapod.legs[leg][side].liftAngle << ", " << hexapod.legs[leg][side].kneeAngle << endl;
+      hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*yawOffsets[leg], -jointPositions[index+1], jointPositions[index+2]));
+      cout << "leg << " << leg << ", side: " << side << 
+      " values: " << hexapod.legs[leg][side].yaw << ", " << hexapod.legs[leg][side].liftAngle << ", " << hexapod.legs[leg][side].kneeAngle << endl;
     }
   }
 #endif
+
+#if defined(FLEXIPOD)
+  GaitController walker(&hexapod, 1, 0.5, 0.12);
+#elif defined(LOBSANG)
+  GaitController walker(&hexapod, 1, 0.5, 0.1;  
+
+#elif defined(LARGE_HEXAPOD)
+  GaitController walker(&hexapod, 1, 0.18, 0.08);
+#endif
+    
   DebugOutput debug;
 
   double angle;  
@@ -221,11 +328,9 @@ int main(int argc, char* argv[])
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
   //  adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
-    //localVelocity[1] = time < 10.0 ? 0.50 : 0.0;
-    //localVelocity[1] = 0.10;
-    
-    
-    #if defined(MOVE_TO_START)
+
+    localVelocity[1] = time < 20.0 ? 0.18 : 0.0;
+#if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();
     else
@@ -257,7 +362,7 @@ int main(int argc, char* argv[])
           interface->setTargetAngle(l, s, 1, angle);
           angle = dir*walker.model->legs[l][s].kneeAngle;
           interface->setTargetAngle(l, s, 2, angle);
-#elif defined(LARGE_HEXAPOD) // currently the same as flexipod above
+#elif defined(LARGE_HEXAPOD) // currently the same as flexipod above - yaw offsets?
           angle = dir*(walker.model->legs[l][s].yaw);
           interface->setTargetAngle(l, s, 0, angle);
           angle = -dir*walker.model->legs[l][s].liftAngle;
