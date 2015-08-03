@@ -87,46 +87,46 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
 
   for (int l = 0; l<3; l++)
   {
-      // find biggest circle footprint inside the pie segment defined by the body clearance and the yaw limits
-      Leg &leg = model->legs[l][0];
-      // downward angle of leg
-      double legDrop = atan2(bodyClearance*maximumBodyHeight, leg.maxLegLength);
-      double horizontalRange = 0;
-      double rad = 1e10;
+    // find biggest circle footprint inside the pie segment defined by the body clearance and the yaw limits
+    Leg &leg = model->legs[l][0];
+    // downward angle of leg
+    double legDrop = atan2(bodyClearance*maximumBodyHeight, leg.maxLegLength);
+    double horizontalRange = 0;
+    double rad = 1e10;
 
-      if (legDrop > -model->minMaxHipLift[0]) // leg can't be straight and touching the ground at bodyClearance
-      {
-          double extraHeight = bodyClearance*maximumBodyHeight - leg.femurLength * sin(-model->minMaxHipLift[0]);
-          ASSERT(extraHeight <= leg.tibiaLength); // this shouldn't be possible with bodyClearance < 1
-          rad = sqrt(sqr(leg.tibiaLength) - sqr(extraHeight));
-          horizontalRange = leg.femurLength * cos(-model->minMaxHipLift[0]) + rad;
-      }
-      else
-      {	
-          horizontalRange = sqrt(sqr(leg.maxLegLength) - sqr(bodyClearance*maximumBodyHeight));
-          //horizontalRange*=0.6;
-      }
+    if (legDrop > -model->minMaxHipLift[0]) // leg can't be straight and touching the ground at bodyClearance
+    {
+      double extraHeight = bodyClearance*maximumBodyHeight - leg.femurLength * sin(-model->minMaxHipLift[0]);
+      ASSERT(extraHeight <= leg.tibiaLength); // this shouldn't be possible with bodyClearance < 1
+      rad = sqrt(sqr(leg.tibiaLength) - sqr(extraHeight));
+      horizontalRange = leg.femurLength * cos(-model->minMaxHipLift[0]) + rad;
+    }
+    else
+    {	
+      horizontalRange = sqrt(sqr(leg.maxLegLength) - sqr(bodyClearance*maximumBodyHeight));
+      //horizontalRange*=0.6;
+    }
 
-      double theta = model->yawLimitAroundStance[l];
-      double cotanTheta = tan(0.5*pi - theta);
-      rad = min(rad, solveQuadratic(sqr(cotanTheta), 2.0*horizontalRange, -sqr(horizontalRange)));
+    double theta = model->yawLimitAroundStance[l];
+    double cotanTheta = tan(0.5*pi - theta);
+    rad = min(rad, solveQuadratic(sqr(cotanTheta), 2.0*horizontalRange, -sqr(horizontalRange)));
 
-      // we should also take into account the stepClearance not getting too high for the leg to reach
-      double legTipBodyClearance = max(0.0, bodyClearance - stepCurvatureAllowance*stepClearance)*maximumBodyHeight; 
-      if (legTipBodyClearance < leg.minLegLength)
-      {
-          rad = min(rad, (horizontalRange - sqrt(sqr(leg.minLegLength) - sqr(legTipBodyClearance))) / 2.0); // if footprint radius due to lift is smaller due to yaw limits, reduce this minimum radius
-      }
+    // we should also take into account the stepClearance not getting too high for the leg to reach
+    double legTipBodyClearance = max(0.0, bodyClearance - stepCurvatureAllowance*stepClearance)*maximumBodyHeight; 
+    if (legTipBodyClearance < leg.minLegLength)
+    {
+      rad = min(rad, (horizontalRange - sqrt(sqr(leg.minLegLength) - sqr(legTipBodyClearance))) / 2.0); // if footprint radius due to lift is smaller due to yaw limits, reduce this minimum radius
+    }
 
-      footSpreadDistances[l] = leg.hipLength + horizontalRange - rad;
-      double footprintDownscale = 0.8; // this is because the step cycle exceeds the ground footprint in order to maintain velocity
-      minFootprintRadius = min(minFootprintRadius, rad*footprintDownscale);
-      
-      for (int side = 0; side<2; side++)
-      {
-          localStanceTipPositions[l][side] = model->legs[l][side].rootOffset + footSpreadDistances[l]*Vector3d(cos(model->stanceLegYaws[l]), sin(model->stanceLegYaws[l]), 0) + Vector3d(0,0,-bodyClearance*maximumBodyHeight);
-          localStanceTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
-      }
+    footSpreadDistances[l] = leg.hipLength + horizontalRange - rad;
+    double footprintDownscale = 0.8; // this is because the step cycle exceeds the ground footprint in order to maintain velocity
+    minFootprintRadius = min(minFootprintRadius, rad*footprintDownscale);
+    
+    for (int side = 0; side<2; side++)
+    {
+      localStanceTipPositions[l][side] = model->legs[l][side].rootOffset + footSpreadDistances[l]*Vector3d(cos(model->stanceLegYaws[l]), sin(model->stanceLegYaws[l]), 0) + Vector3d(0,0,-bodyClearance*maximumBodyHeight);
+      localStanceTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
+    }
   }
   // check for overlapping radii
   double minGap = 1e10;
@@ -143,19 +143,19 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
   cout << "Gap between footprint cylinders: " << minGap << "m" << endl;
   if (minGap < 0.0)
   {
-      cout << "Footprint cylinders overlap, reducing footprint radius" << endl;
-      minFootprintRadius += minGap*0.5;
+    cout << "Footprint cylinders overlap, reducing footprint radius" << endl;
+    minFootprintRadius += minGap*0.5;
   }
 
   stanceRadius = abs(localStanceTipPositions[1][0][0]);
 
   for (int i = 0; i<6; i++)
   {	  
-      int l[6] = LEG_SELECTION_PATTERN;
-      int s[6] = SIDE_SELECTION_PATTERN;
-      legSteppers[l[i]][s[i]].phaseOffset = PHASE_OFFSET*double(i);
-      legSteppers[l[i]][s[i]].phase = 0; // Ensures that feet start stepping naturally and don't pop to up position
-      legSteppers[l[i]][s[i]].strideVector = Vector2d(0,0);
+    int l[6] = LEG_SELECTION_PATTERN;
+    int s[6] = SIDE_SELECTION_PATTERN;
+    legSteppers[l[i]][s[i]].phaseOffset = PHASE_OFFSET*double(i);
+    legSteppers[l[i]][s[i]].phase = 0; // Ensures that feet start stepping naturally and don't pop to up position
+    legSteppers[l[i]][s[i]].strideVector = Vector2d(0,0);
   }
 
   localCentreVelocity = Vector2d(0,0);
@@ -203,26 +203,20 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   double dif = newAngularVelocity - angularVelocity;
 
   if (abs(dif)>0.0)
-  {
-      angularVelocity += dif * min(1.0, MAX_CURVATURE_SPEED*timeDelta/abs(dif));
-  }
+    angularVelocity += dif * min(1.0, MAX_CURVATURE_SPEED*timeDelta/abs(dif));
 
   Vector2d centralVelocity = localVelocity * (1 - abs(newCurvature));
   Vector2d diff = centralVelocity - localCentreVelocity;
   double diffLength = diff.norm();
 
   if (diffLength > 0.0)
-  {
-      localCentreVelocity += diff * min(1.0, MAX_ACCELERATION*timeDelta/diffLength);
-  }
+    localCentreVelocity += diff * min(1.0, MAX_ACCELERATION*timeDelta/diffLength);
 
   //Iterate master walk phase
   double phaseLength = STANCE_PHASE + SWING_PHASE;
   walkPhase += phaseLength*stepFrequency*timeDelta;
   if (walkPhase > phaseLength)
-  {
-      walkPhase -= phaseLength;
-  }
+    walkPhase -= phaseLength;
 
   isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
 
@@ -247,20 +241,14 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       }
       // if just stopped, don't continue leg cycle beyond 2pi
       else if (phase < legStepper.phase && !isMoving) 
-      {
         legStepper.phase = STANCE_PHASE+SWING_PHASE;
-      }
       else
-      {
         legStepper.phase = phase; // otherwise follow the step cycle exactly
-      }
       
       Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*maximumBodyHeight);
       
       if ((legStepper.phase < SWING_START) || (legStepper.phase > SWING_END))
-      {
         targets.push_back(pose.transformVector(pos));
-      }
       
       leg.applyLocalIK(pos);
     }
