@@ -1,7 +1,7 @@
 #pragma once
 #include "model.h"
 
-struct GaitController
+struct WalkController
 {
   Model *model;
   Pose pose;
@@ -36,7 +36,7 @@ struct GaitController
   // stanceLegYaws- natural yaw pose per leg
   // minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
 
-  GaitController(Model *model, 
+  WalkController(Model *model, 
 		 int gaitType,
 		 double stepFrequency,
 		 double stepClearance,

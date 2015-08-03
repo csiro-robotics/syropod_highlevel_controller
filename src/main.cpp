@@ -295,12 +295,12 @@ int main(int argc, char* argv[])
 #endif
 
 #if defined(FLEXIPOD)
-  GaitController walker(&hexapod, 1, 0.5, 0.12);
+  WalkController walker(&hexapod, 1, 0.5, 0.12);
 #elif defined(LOBSANG)
-  GaitController walker(&hexapod, 1, 0.5, 0.1;  
+  WalkController walker(&hexapod, 1, 0.5, 0.1;  
 
 #elif defined(LARGE_HEXAPOD)
-  GaitController walker(&hexapod, 1, 0.18, 0.08);
+  WalkController walker(&hexapod, 1, 0.18, 0.08);
 #endif
     
   DebugOutput debug;
