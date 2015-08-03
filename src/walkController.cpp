@@ -1,33 +1,26 @@
 #pragma once
 #include "../include/simple_hexapod_controller/walkController.h"
 
-#define STANCE_PHASE (pi) //WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
-#define SWING_PHASE (pi)    //WAVE: pi	TRIPOD: pi	RIPPLE: pi
-#define PHASE_OFFSET (pi)
-#define STANCE_FUNC_ORDER (8*STANCE_PHASE)/SWING_PHASE
-#define HEIGHT_RATIO 0.25 //The ratio between the positive and negative lift heights (stance/swing)
+static double stancePhase = pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
+static double swingPhase = pi;   // WAVE: pi	TRIPOD: pi	RIPPLE: pi
+static double phaseOffset = pi;
+static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
+static double heightRatio = 0.25; // The ratio between the positive and negative lift heights (stance/swing)
 
-#define SWING_START (STANCE_PHASE/2)
-#define SWING_END ((STANCE_PHASE/2)+SWING_PHASE)
+static double swingStart = stancePhase / 2.0;
+static double swingEnd = stancePhase / 2.0 + swingPhase;
 
-#define LEG_SELECTION_PATTERN {0,1,2,0,1,2}		//WAVE: {0,1,2,0,1,2}	TRIPOD: {0,1,2,0,1,2}	RIPPLE: {2,1,0,2,1,0}
-#define SIDE_SELECTION_PATTERN {0,0,0,1,1,1}	//WAVE: {0,0,0,1,1,1}	TRIPOD: {0,0,0,1,1,1}	RIPPLE: {1,0,1,0,1,0}
+static int legSelectionPattern[]  = {0,1,2,0,1,2};  //WAVE: {0,1,2,0,1,2}	TRIPOD: {0,1,2,0,1,2}	RIPPLE: {2,1,0,2,1,0}
+static int sideSelectionPattern[] = {0,0,0,1,1,1};	//WAVE: {0,0,0,1,1,1}	TRIPOD: {0,0,0,1,1,1}	RIPPLE: {1,0,1,0,1,0}
 
-#define MAX_POS 1000.0
+static double maxAcceleration = 0.1;
+static double maxCurvatureSpeed = 0.4;
 
-#define MAX_ACCELERATION 0.1
-#define MAX_CURVATURE_SPEED 0.4
-
-#define FOOTPRINT_DOWNSCALE 0.8			// this is because the step cycle exceeds the ground footprint in order to maintain velocity
-#define STEP_CURVATURE_ALLOWANCE 0.7 	// dont need full height cylinder (when 1) because the top of the step is rounded
-
-/***********************************************************************************************************************
-***********************************************************************************************************************/
 
 Vector3d WalkController::LegStepper::getPosition(double liftHeight)
 {
   Vector3d strideVec(strideVector[0], strideVector[1], 0);
-  if (phase > SWING_START && phase < SWING_END)
+  if (phase > swingStart && phase < swingEnd)
   {
     Vector3d nodes[4];
     nodes[0] = -strideVec*0.5;
@@ -35,22 +28,23 @@ Vector3d WalkController::LegStepper::getPosition(double liftHeight)
     Vector3d lift(0,0,liftHeight*4.0);
     nodes[1] = nodes[0] + (lift - strideVec)/3.0;
     nodes[2] = nodes[3] + (lift + strideVec)/3.0;
-    Vector3d pos = cubicBezier(nodes, (phase-STANCE_PHASE/2)/SWING_PHASE);
-    ASSERT(pos.squaredNorm() < MAX_POS);
+    Vector3d pos = cubicBezier(nodes, (phase-stancePhase / 2.0) / swingPhase);
+    ASSERT(pos.squaredNorm() < 1000.0);
     return pos;
   }
   else // stance
   {
-    double t = 2*phase/STANCE_PHASE;
+    double t = 2*phase/stancePhase;
     if (t > 1.0)
-      t -= 2*(STANCE_PHASE+SWING_PHASE)/STANCE_PHASE;
+      t -= 2*(stancePhase + swingPhase) / stancePhase;
     Vector3d pos = strideVec * 0.5 * -t;
 
-    pos[2] = liftHeight*HEIGHT_RATIO* (pow(t, STANCE_FUNC_ORDER) - 1.0);
-    ASSERT(pos.squaredNorm() < MAX_POS);
+    pos[2] = liftHeight*heightRatio* (pow(t, stanceFuncOrder) - 1.0);
+    ASSERT(pos.squaredNorm() < 1000.0);
     return pos;
   }
 }
+
 /***********************************************************************************************************************
  * Determines the basic stance pose which the hexapod will try to maintain, by 
  * finding the largest footprint radius that each leg can achieve for the 
@@ -62,9 +56,8 @@ Vector3d WalkController::LegStepper::getPosition(double liftHeight)
  * bodyClearance:	0 to 1, 1 is vertical legs. Default calculates best clearance for given leg clearance
  * 
 ***********************************************************************************************************************/
-
 WalkController::WalkController(Model *model, int gaitType, double stepFrequency, double stepClearance, double bodyClearance): 
-    model(model), gaitType(gaitType), stepFrequency(stepFrequency), bodyClearance(bodyClearance), walkPhase(0)
+    model(model), gaitType(gaitType), stepFrequency(stepFrequency), bodyClearance(bodyClearance), walkPhase(0), stepClearance(stepClearance)
 {
   ASSERT(stepClearance >= 0 && stepClearance < 1.0);
 
@@ -151,11 +144,11 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
 
   for (int i = 0; i<6; i++)
   {	  
-    int l[6] = LEG_SELECTION_PATTERN;
-    int s[6] = SIDE_SELECTION_PATTERN;
-    legSteppers[l[i]][s[i]].phaseOffset = PHASE_OFFSET*double(i);
-    legSteppers[l[i]][s[i]].phase = 0; // Ensures that feet start stepping naturally and don't pop to up position
-    legSteppers[l[i]][s[i]].strideVector = Vector2d(0,0);
+    int l = legSelectionPattern[i];
+    int s = sideSelectionPattern[i];
+    legSteppers[l][s].phaseOffset = phaseOffset*double(i);
+    legSteppers[l][s].phase = 0; // Ensures that feet start stepping naturally and don't pop to up position
+    legSteppers[l][s].strideVector = Vector2d(0,0);
   }
 
   localCentreVelocity = Vector2d(0,0);
@@ -188,13 +181,13 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   if (normalSpeed > 0.0 && !isMoving) // started walking again
   {
     // reset, and we want to pick the walkPhase closest to its current phase or antiphase...
-    if (walkPhase > STANCE_PHASE + SWING_PHASE/2)
+    if (walkPhase > stancePhase + swingPhase/2.0)
     {
-      walkPhase = STANCE_PHASE+SWING_PHASE;
+      walkPhase = stancePhase + swingPhase;
     }
     else
     {
-      walkPhase = STANCE_PHASE/2;
+      walkPhase = stancePhase / 2.0;
     }
   }
 
@@ -203,17 +196,17 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   double dif = newAngularVelocity - angularVelocity;
 
   if (abs(dif)>0.0)
-    angularVelocity += dif * min(1.0, MAX_CURVATURE_SPEED*timeDelta/abs(dif));
+    angularVelocity += dif * min(1.0, maxCurvatureSpeed*timeDelta/abs(dif));
 
   Vector2d centralVelocity = localVelocity * (1 - abs(newCurvature));
   Vector2d diff = centralVelocity - localCentreVelocity;
   double diffLength = diff.norm();
 
   if (diffLength > 0.0)
-    localCentreVelocity += diff * min(1.0, MAX_ACCELERATION*timeDelta/diffLength);
+    localCentreVelocity += diff * min(1.0, maxAcceleration*timeDelta/diffLength);
 
   //Iterate master walk phase
-  double phaseLength = STANCE_PHASE + SWING_PHASE;
+  double phaseLength = stancePhase + swingPhase;
   walkPhase += phaseLength*stepFrequency*timeDelta;
   if (walkPhase > phaseLength)
     walkPhase -= phaseLength;
@@ -227,27 +220,27 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
       
-      legStepper.strideVector = (STANCE_PHASE/(STANCE_PHASE+SWING_PHASE))*
+      legStepper.strideVector = (stancePhase/(stancePhase + swingPhase))*
           (localCentreVelocity + angularVelocity*Vector2d(leg.localTipPosition[1], -leg.localTipPosition[0]))/
           stepFrequency;
       
       double phase = fmod(walkPhase + legStepper.phaseOffset, phaseLength);
       
       // if stopped then do nothing until phase gets reset to 0 (new step)
-      if (legStepper.phase == STANCE_PHASE+SWING_PHASE && phase >= (STANCE_PHASE+SWING_PHASE)/2 && normalSpeed>0) 
+      if (legStepper.phase == stancePhase + swingPhase && phase >= (stancePhase + swingPhase)/2.0 && normalSpeed>0) 
       {
         localCentreVelocity = Vector2d(1e-10, 1e-10);
         angularVelocity = 1e-10;
       }
       // if just stopped, don't continue leg cycle beyond 2pi
       else if (phase < legStepper.phase && !isMoving) 
-        legStepper.phase = STANCE_PHASE+SWING_PHASE;
+        legStepper.phase = stancePhase + swingPhase;
       else
         legStepper.phase = phase; // otherwise follow the step cycle exactly
       
       Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*maximumBodyHeight);
       
-      if ((legStepper.phase < SWING_START) || (legStepper.phase > SWING_END))
+      if ((legStepper.phase < swingStart) || (legStepper.phase > swingEnd))
         targets.push_back(pose.transformVector(pos));
       
       leg.applyLocalIK(pos);
