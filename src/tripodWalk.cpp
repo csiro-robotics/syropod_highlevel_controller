@@ -1,7 +1,7 @@
 #pragma once
 #include "../include/simple_hexapod_controller/tripodWalk.h"
 
-#define STANCE_PHASE (2*pi) //WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
+#define STANCE_PHASE (pi) //WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
 #define SWING_PHASE (pi)    //WAVE: pi	TRIPOD: pi	RIPPLE: pi
 #define PHASE_OFFSET (pi)
 #define STANCE_FUNC_ORDER (8*STANCE_PHASE)/SWING_PHASE
@@ -191,7 +191,7 @@ GaitController::GaitController( Model *model,
 
 void GaitController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset)
 {
-    //targets.clear();
+    targets.clear();
 
     Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*2.0*stepFrequency;
     double normalSpeed = localVelocity.norm();

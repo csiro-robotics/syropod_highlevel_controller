@@ -23,43 +23,6 @@ sensor_msgs::JointState jointStates;
 double jointPositions [18];
 bool jointPosFlag = false;
 
-struct jointStateStruct
-{
-    
-  double yaw;
-  double liftAngle;
-  double kneeAngle;
-  
-  // these are all local to parent
-  Vector3d rootOffset;
-  Vector3d hipOffset;
-  Vector3d kneeOffset;
-  Vector3d tipOffset;
-  
-  Vector3d localTipPosition; // relative to root
-
-  void init(double startYaw, double startLiftAngle, double startKneeAngle);
-  // sets angles to reach local position relative to root
-  void applyLocalIK(Vector3d tipTarget, bool updateTipPos = true);
-  void applyWorldIK(const Pose &rootPose, const Vector3d &worldTipTarget){ applyLocalIK(rootPose.inverseTransformVector(worldTipTarget)); }
-  // works out local tip position from angles
-  void applyFK();
-  double hipLength;
-  double femurLength;
-  double femurAngleOffset;
-  double tibiaLength;
-  double tibiaAngleOffset;
-  double minLegLength;
-  double maxLegLength;
-  double mirrorDir;  // 1 or -1 for mirrored
-
-  double debugOldYaw;
-  double debugOldLiftAngle;
-  double debugOldKneeAngle;
-  
-  struct Model *model; // so it can refer to model's joint limits
-};
-
 // target rather than measured data
 static Vector3d offsetPos(0.0,0.0,0.0);
 static Vector3d offsetVel(0,0,0);
@@ -276,7 +239,7 @@ int main(int argc, char* argv[])
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
   
 #define MOVE_TO_START 
-#define FLEXIPOD
+//#define FLEXIPOD
 #if defined(MOVE_TO_START)
 #if defined(FLEXIPOD)
   ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
