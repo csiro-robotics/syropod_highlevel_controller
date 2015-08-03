@@ -38,95 +38,57 @@ void imuCallback(const sensor_msgs::Imu &imudata)
 
 void jointStatesCallback(const sensor_msgs::JointState &joint_States)
 {  
-    if (!jointPosFlag)
+  if (!jointPosFlag)
+  {
+    for (int i=0; i<joint_States.name.size(); i++)
     {
-        for (int i=0; i<joint_States.name.size(); i++)
-        {
-            if (!strcmp(joint_States.name[i].c_str(), "AL_coxa_joint"))
-            {
-                jointPositions[0] = joint_States.position[i];
-            }        
-            else if (!strcmp(joint_States.name[i].c_str(), "AL_femur_joint"))
-            {
-                jointPositions[1] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "AL_tibia_joint"))
-            {
-                jointPositions[2] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "AR_coxa_joint"))
-            {
-                jointPositions[3] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "AR_femur_joint"))
-            {
-                jointPositions[4] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "AR_tibia_joint"))
-            {
-                jointPositions[5] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "BL_coxa_joint"))
-            {
-                jointPositions[6] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "BL_femur_joint"))
-            {
-                jointPositions[7] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "BL_tibia_joint"))
-            {
-                jointPositions[8] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "BR_coxa_joint"))
-            {
-                jointPositions[9] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "BR_femur_joint"))
-            {
-                jointPositions[10] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "BR_tibia_joint"))
-            {
-                jointPositions[11] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "CL_coxa_joint"))
-            {
-                jointPositions[12] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "CL_femur_joint"))
-            {
-                jointPositions[13] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "CL_tibia_joint"))
-            {
-                jointPositions[14] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "CR_coxa_joint"))
-            {
-                jointPositions[15] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "CR_femur_joint"))
-            {
-                jointPositions[16] = joint_States.position[i];
-            }
-            else if (!strcmp(joint_States.name[i].c_str(), "CR_tibia_joint"))
-            {
-                jointPositions[17] = joint_States.position[i];
-            }
-            cout << "Joint: " << joint_States.name[i].c_str() << " set as: " << joint_States.position[i] << endl;
-        }
-        
-        //Check if all joint positions have been received from topic
-        jointPosFlag = true;
-        for (int i=0; i<18; i++)
-        {        
-            if (jointPositions[i] > 1e9)
-            {
-                jointPosFlag = false;
-            }
-        }
+      if (!strcmp(joint_States.name[i].c_str(), "AL_coxa_joint"))
+        jointPositions[0] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "AL_femur_joint"))
+        jointPositions[1] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "AL_tibia_joint"))
+        jointPositions[2] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "AR_coxa_joint"))
+        jointPositions[3] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "AR_femur_joint"))
+        jointPositions[4] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "AR_tibia_joint"))
+        jointPositions[5] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "BL_coxa_joint"))
+        jointPositions[6] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "BL_femur_joint"))
+        jointPositions[7] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "BL_tibia_joint"))
+        jointPositions[8] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "BR_coxa_joint"))
+        jointPositions[9] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "BR_femur_joint"))
+        jointPositions[10] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "BR_tibia_joint"))
+        jointPositions[11] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "CL_coxa_joint"))
+        jointPositions[12] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "CL_femur_joint"))
+        jointPositions[13] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "CL_tibia_joint"))
+        jointPositions[14] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "CR_coxa_joint"))
+        jointPositions[15] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "CR_femur_joint"))
+        jointPositions[16] = joint_States.position[i];
+      else if (!strcmp(joint_States.name[i].c_str(), "CR_tibia_joint"))
+        jointPositions[17] = joint_States.position[i];
+      cout << "Joint: " << joint_States.name[i].c_str() << " set as: " << joint_States.position[i] << endl;
     }
+    
+    //Check if all joint positions have been received from topic
+    jointPosFlag = true;
+    for (int i=0; i<18; i++)
+    {        
+      if (jointPositions[i] > 1e9)
+        jointPosFlag = false;
+    }
+  }
 }
 
 Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
@@ -251,9 +213,7 @@ int main(int argc, char* argv[])
 #endif  
 
   for (int i=0; i<18; i++)
-  {
-      jointPositions[i] = 1e10;
-  }
+    jointPositions[i] = 1e10;
   
   while(!jointPosFlag)//If working with Rviz, (Not with an actual robot or gazebo), comment this two lines and the for loops
     ros::spinOnce();                      
