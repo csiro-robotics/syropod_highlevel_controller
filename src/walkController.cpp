@@ -1,7 +1,7 @@
 #pragma once
 #include "../include/simple_hexapod_controller/walkController.h"
 
-static double stancePhase = pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
+static double stancePhase = 5*pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
 static double swingPhase = pi;   // WAVE: pi	TRIPOD: pi	RIPPLE: pi
 static double phaseOffset = pi;
 static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
@@ -178,18 +178,10 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   Vector2d oldLocalCentreVelocity = localCentreVelocity;
   // this block assures the local velocity and curvature values don't change too quickly
   bool isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
+  
+  // reset, and we want to pick the walkPhase closest to its current phase or antiphase...
   if (normalSpeed > 0.0 && !isMoving) // started walking again
-  {
-    // reset, and we want to pick the walkPhase closest to its current phase or antiphase...
-    if (walkPhase > stancePhase + swingPhase/2.0)
-    {
-      walkPhase = stancePhase + swingPhase;
-    }
-    else
-    {
-      walkPhase = stancePhase / 2.0;
-    }
-  }
+    walkPhase = 0;
 
   // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
   double newAngularVelocity = newCurvature * normalSpeed/stanceRadius;
@@ -227,7 +219,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       double phase = fmod(walkPhase + legStepper.phaseOffset, phaseLength);
       
       // if stopped then do nothing until phase gets reset to 0 (new step)
-      if (legStepper.phase == stancePhase + swingPhase && phase >= (stancePhase + swingPhase)/2.0 && normalSpeed>0) 
+      if (legStepper.phase == 0.0 && phase >= (stancePhase + swingPhase)/2.0 && normalSpeed>0) 
       {
         localCentreVelocity = Vector2d(1e-10, 1e-10);
         angularVelocity = 1e-10;
