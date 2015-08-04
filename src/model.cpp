@@ -83,6 +83,7 @@ Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance
       leg.init(0,0,0);
     }
   }
+  jointMaxAngularSpeeds = Vector3d(1e10,1e10,1e10);
 }
 
 void Model::setLegStartAngles(int side, int leg, const Vector3d &startAngles)

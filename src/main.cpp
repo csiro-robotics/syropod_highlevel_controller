@@ -200,7 +200,7 @@ int main(int argc, char* argv[])
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
 
-#define MOVE_TO_START    
+//#define MOVE_TO_START    
 #if defined(MOVE_TO_START)
 #if defined(FLEXIPOD)
   ros::Subscriber jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
@@ -234,6 +234,7 @@ int main(int argc, char* argv[])
   Vector2d kneeLimit = Vector2d(50, 160)*pi/180.0;
   Vector2d hipLimit = Vector2d(-25, 80)*pi/180.0;
   Model hexapod(Vector3d(45,0,-45)*pi/180.0, yawLimits, kneeLimit, hipLimit);
+  hexapod.jointMaxAngularSpeeds = Vector3d(1.0, 0.4, 0.4);
 #endif
 
   
@@ -262,7 +263,6 @@ int main(int argc, char* argv[])
     
   DebugOutput debug;
 
-  double angle;  
   MotorInterface *interface;
 
   if (dynamixel_interface)
@@ -297,7 +297,6 @@ int main(int argc, char* argv[])
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
 
-    Vector3d oldMaxVel = maxVel;
     if (true)
     {
       for (int s = 0; s<2; s++)
@@ -305,29 +304,39 @@ int main(int argc, char* argv[])
         double dir = s==0 ? -1 : 1;
         for (int l = 0; l<3; l++)
         {
-          angle = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
-          interface->setTargetAngle(l, s, 0, angle);
-          angle = -dir*walker.model->legs[l][s].liftAngle;
-          interface->setTargetAngle(l, s, 1, angle);
-          angle = dir*walker.model->legs[l][s].kneeAngle;
-          interface->setTargetAngle(l, s, 2, angle);
+          double angle;  
+          double yaw = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
+          double lift = -dir*walker.model->legs[l][s].liftAngle;
+          double knee = dir*walker.model->legs[l][s].kneeAngle;
           if (!firstFrame)
           {
-            maxVel[0] = max(maxVel[0], abs(walker.model->legs[l][s].yaw - walker.model->legs[l][s].debugOldYaw)/timeDelta);
-            maxVel[1] = max(maxVel[1], abs(walker.model->legs[l][s].liftAngle - walker.model->legs[l][s].debugOldLiftAngle)/timeDelta);
-            maxVel[2] = max(maxVel[2], abs(walker.model->legs[l][s].kneeAngle - walker.model->legs[l][s].debugOldKneeAngle)/timeDelta);
+            double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/timeDelta;
+            double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/timeDelta;
+            double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/timeDelta;
+            if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
+              yaw = walker.model->legs[l][s].debugOldYaw + sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*timeDelta;
+            if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
+              lift = walker.model->legs[l][s].debugOldLiftAngle + sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*timeDelta;
+            if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[2])
+              knee = walker.model->legs[l][s].debugOldKneeAngle + sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*timeDelta;
+            if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || abs(liftVel) > hexapod.jointMaxAngularSpeeds[1] || abs(yawVel) > hexapod.jointMaxAngularSpeeds[2])
+              cout << "WARNING: MAXIMUM SPEED EXCEEDED! Clamping to maximum angular speed for leg " << l << " side " << s << endl;
+            maxVel[0] = max(maxVel[0], abs(yawVel));
+            maxVel[1] = max(maxVel[1], abs(liftVel));
+            maxVel[2] = max(maxVel[2], abs(kneeVel));
           }
+          interface->setTargetAngle(l, s, 0, yaw);
+          interface->setTargetAngle(l, s, 1, lift);
+          interface->setTargetAngle(l, s, 2, knee);
           
-          walker.model->legs[l][s].debugOldYaw = walker.model->legs[l][s].yaw;
-          walker.model->legs[l][s].debugOldLiftAngle = walker.model->legs[l][s].liftAngle;
-          walker.model->legs[l][s].debugOldKneeAngle = walker.model->legs[l][s].kneeAngle;
+          walker.model->legs[l][s].debugOldYaw = yaw;
+          walker.model->legs[l][s].debugOldLiftAngle = lift;
+          walker.model->legs[l][s].debugOldKneeAngle = knee;
         }
       }
       interface->publish();
     }
     firstFrame = false;
-    if (maxVel != oldMaxVel)
-      cout << "max yaw vel: " << maxVel[0] << ", hip vel: " << maxVel[1] << ", knee vel: " << maxVel[2] << endl;
     ros::spinOnce();
     r.sleep();
 
