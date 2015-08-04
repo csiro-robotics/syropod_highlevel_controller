@@ -170,7 +170,7 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
 ***********************************************************************************************************************/
 void WalkController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset)
 {
-  targets.clear();
+  //targets.clear();
 
   Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*2.0*stepFrequency;
   double normalSpeed = localVelocity.norm();
@@ -221,8 +221,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       // if stopped then do nothing until phase gets reset to 0 (new step)
       if (legStepper.phase == 0.0 && phase >= (stancePhase + swingPhase)/2.0 && normalSpeed>0) 
       {
-        localCentreVelocity = Vector2d(1e-10, 1e-10);
-        angularVelocity = 1e-10;
+        legStepper.strideVector = Vector2d(1e-10, 1e-10);
       }
       // if just stopped, don't continue leg cycle beyond 2pi
       else if (phase < legStepper.phase && !isMoving) 
@@ -232,7 +231,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       
       Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*maximumBodyHeight);
       
-      if ((legStepper.phase < swingStart) || (legStepper.phase > swingEnd))
+      //if ((legStepper.phase < swingStart) || (legStepper.phase > swingEnd))
         targets.push_back(pose.transformVector(pos));
       
       leg.applyLocalIK(pos);
