@@ -127,7 +127,7 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 
 //#define ZERO_ORDER_FEEDBACK
 //#define FIRST_ORDER_FEEDBACK
-//#define SECOND_ORDER_FEEDBACK
+#define SECOND_ORDER_FEEDBACK
 
 #if defined(SECOND_ORDER_FEEDBACK)
   double imuStrength = 1;
@@ -203,10 +203,9 @@ int main(int argc, char* argv[])
 //#define MOVE_TO_START    
 #if defined(MOVE_TO_START)
 #if defined(FLEXIPOD)
-  ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
+  ros::Subscriber jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
 #elif defined(LOBSANG)
-  ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
-
+  ros::Subscriber jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
 #elif defined(LARGE_HEXAPOD)
   //Check if the order is the same in the large hexapod!!(front left, front right, middle left, middle right...)
   ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod_joint_states", 1, jointStatesCallback);
@@ -257,8 +256,7 @@ int main(int argc, char* argv[])
 #if defined(FLEXIPOD)
   WalkController walker(&hexapod, 1, 0.5, 0.12);
 #elif defined(LOBSANG)
-  WalkController walker(&hexapod, 1, 0.5, 0.1;  
-
+  WalkController walker(&hexapod, 1, 0.5, 0.1; 
 #elif defined(LARGE_HEXAPOD)
   WalkController walker(&hexapod, 1, 0.18, 0.08);
 #endif
@@ -287,7 +285,7 @@ int main(int argc, char* argv[])
     time += timeDelta;
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
-  //  adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 
     localVelocity[1] = time < 20.0 ? 0.18 : 0.0;
 #if defined(MOVE_TO_START)
