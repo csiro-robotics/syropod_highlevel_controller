@@ -286,7 +286,7 @@ int main(int argc, char* argv[])
     Vector2d acc = walker.localCentreAcceleration;
     //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 
-    localVelocity[1] = time < 20.0 ? 0.01 : 0.0;
+    localVelocity[1] = 0.5;//time < 20.0 ? 0.01 : 0.0;
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();

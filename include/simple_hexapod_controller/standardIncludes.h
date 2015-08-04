@@ -8,7 +8,6 @@ using namespace std;
 //#define FLEXIPOD
 //#define LOBSANG
 
-
 #define timeDelta (1.0/100.0)
 #define DEBUGDRAW
 const double pi = M_PI; //< easier to read
