@@ -272,7 +272,7 @@ bool WalkController::moveToStart()
   if (targets.size() == 0)
     return true;
   int i = 0;
-  walkPhase = min(walkPhase + stepFrequency*timeDelta, pi);
+  walkPhase = min(walkPhase + stepFrequency*timeDelta/1.0, pi);
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -280,9 +280,9 @@ bool WalkController::moveToStart()
       Leg &leg = model->legs[l][s];
       Vector3d nodes[4];
       nodes[0] = targets[i++];
-      nodes[1] = nodes[0] + 4.0*Vector3d(0,0,stepClearance*maximumBodyHeight)/3.0;
+      nodes[1] = nodes[0];// + 4.0*Vector3d(0,0,stepClearance*maximumBodyHeight)/3.0;
       nodes[3] = localStanceTipPositions[l][s] + legSteppers[l][s].getPosition(stepClearance*maximumBodyHeight);;
-      nodes[2] = nodes[3] + Vector3d(0,0,stepClearance*maximumBodyHeight)/3.0; // ends at one quarter the speed, so it doesn't slam into the ground
+      nodes[2] = nodes[3];// + Vector3d(0,0,stepClearance*maximumBodyHeight)/3.0; // ends at one quarter the speed, so it doesn't slam into the ground
       Vector3d pos = cubicBezier(nodes, walkPhase / pi);
       leg.applyLocalIK(pos);
     }

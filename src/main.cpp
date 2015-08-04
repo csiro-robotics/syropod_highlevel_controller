@@ -42,41 +42,41 @@ void jointStatesCallback(const sensor_msgs::JointState &joint_States)
   {
     for (int i=0; i<joint_States.name.size(); i++)
     {
-      if (!strcmp(joint_States.name[i].c_str(), "AL_coxa_joint"))
+      if (!strcmp(joint_States.name[i].c_str(), "front_left_body_coxa"))
         jointPositions[0] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "AL_femur_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "front_left_coxa_femour"))
         jointPositions[1] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "AL_tibia_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "front_left_femour_tibia"))
         jointPositions[2] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "AR_coxa_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "front_right_body_coxa"))
         jointPositions[3] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "AR_femur_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "front_right_coxa_femour"))
         jointPositions[4] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "AR_tibia_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "front_right_femour_tibia"))
         jointPositions[5] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "BL_coxa_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "middle_left_body_coxa"))
         jointPositions[6] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "BL_femur_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "middle_left_coxa_femour"))
         jointPositions[7] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "BL_tibia_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "middle_left_femour_tibia"))
         jointPositions[8] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "BR_coxa_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "middle_right_body_coxa"))
         jointPositions[9] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "BR_femur_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "middle_right_coxa_femour"))
         jointPositions[10] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "BR_tibia_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "middle_right_femour_tibia"))
         jointPositions[11] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "CL_coxa_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "rear_left_body_coxa"))
         jointPositions[12] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "CL_femur_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "rear_left_coxa_femour"))
         jointPositions[13] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "CL_tibia_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "rear_left_femour_tibia"))
         jointPositions[14] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "CR_coxa_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "rear_right_body_coxa"))
         jointPositions[15] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "CR_femur_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "rear_right_coxa_femour"))
         jointPositions[16] = joint_States.position[i];
-      else if (!strcmp(joint_States.name[i].c_str(), "CR_tibia_joint"))
+      else if (!strcmp(joint_States.name[i].c_str(), "rear_right_femour_tibia"))
         jointPositions[17] = joint_States.position[i];
       cout << "Joint: " << joint_States.name[i].c_str() << " set as: " << joint_States.position[i] << endl;
     }
@@ -200,7 +200,7 @@ int main(int argc, char* argv[])
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
 
-//#define MOVE_TO_START    
+#define MOVE_TO_START    
 #if defined(MOVE_TO_START)
 #if defined(FLEXIPOD)
   ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
 
 #elif defined(LARGE_HEXAPOD)
   //Check if the order is the same in the large hexapod!!(front left, front right, middle left, middle right...)
-  ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod_joint_states", 1, jointStatesCallback);
+  ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback);
 #endif  
 
   for (int i=0; i<18; i++)
@@ -217,11 +217,10 @@ int main(int argc, char* argv[])
   
   while(!jointPosFlag)//If working with Rviz, (Not with an actual robot or gazebo), comment this two lines and the for loops
     ros::spinOnce();                      
-
-  #endif
+#endif
   
   bool dynamixel_interface = true;
-  n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
+  n_priv.param<bool>("dynamixel_interface", dynamixel_interface, false);
   Vector3d yawOffsets(0,0,0);  
 
 #if defined(FLEXIPOD)
@@ -289,7 +288,7 @@ int main(int argc, char* argv[])
     Vector2d acc = walker.localCentreAcceleration;
   //  adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 
-    localVelocity[1] = time < 20.0 ? 0.18 : 0.0;
+    localVelocity[1] = time < 20.0 ? 0.01 : 0.0;
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();
@@ -308,28 +307,12 @@ int main(int argc, char* argv[])
         double dir = s==0 ? -1 : 1;
         for (int l = 0; l<3; l++)
         {
-#if defined(FLEXIPOD)
           angle = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
           interface->setTargetAngle(l, s, 0, angle);
           angle = -dir*walker.model->legs[l][s].liftAngle;
           interface->setTargetAngle(l, s, 1, angle);
           angle = dir*walker.model->legs[l][s].kneeAngle;
           interface->setTargetAngle(l, s, 2, angle);
-#elif defined(LOBSANG) // currently the same as flexipod above
-          angle = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
-          interface->setTargetAngle(l, s, 0, angle);
-          angle = -dir*walker.model->legs[l][s].liftAngle;
-          interface->setTargetAngle(l, s, 1, angle);
-          angle = dir*walker.model->legs[l][s].kneeAngle;
-          interface->setTargetAngle(l, s, 2, angle);
-#elif defined(LARGE_HEXAPOD) // currently the same as flexipod above - yaw offsets?
-          angle = dir*(walker.model->legs[l][s].yaw);
-          interface->setTargetAngle(l, s, 0, angle);
-          angle = -dir*walker.model->legs[l][s].liftAngle;
-          interface->setTargetAngle(l, s, 1, angle);
-          angle = dir*walker.model->legs[l][s].kneeAngle;
-          interface->setTargetAngle(l, s, 2, angle);
-#endif
           if (!firstFrame)
           {
             maxVel[0] = max(maxVel[0], abs(walker.model->legs[l][s].yaw - walker.model->legs[l][s].debugOldYaw)/timeDelta);
