@@ -1,7 +1,7 @@
 #pragma once
 #include "../include/simple_hexapod_controller/walkController.h"
 
-static double stancePhase = 5*pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
+static double stancePhase = pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
 static double swingPhase = pi;   // WAVE: pi	TRIPOD: pi	RIPPLE: pi
 static double phaseOffset = pi;
 static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
@@ -228,11 +228,8 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
 {
   targets.clear();
   double onGroundRatio = (stancePhase+transitionPeriod)/(stancePhase + swingPhase);
-#if defined(ADVANCED_STEP_CURVE)
   Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*stepFrequency/onGroundRatio;
-#else
-  Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*2.0*stepFrequency;
-#endif
+
   double normalSpeed = localVelocity.norm();
   ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
   Vector2d oldLocalCentreVelocity = localCentreVelocity;
