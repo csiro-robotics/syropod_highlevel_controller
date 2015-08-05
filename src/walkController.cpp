@@ -1,7 +1,7 @@
 #pragma once
 #include "../include/simple_hexapod_controller/walkController.h"
 
-static double stancePhase = pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
+static double stancePhase = 5*pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
 static double swingPhase = pi;   // WAVE: pi	TRIPOD: pi	RIPPLE: pi
 static double phaseOffset = pi;
 static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
@@ -15,6 +15,10 @@ static int sideSelectionPattern[] = {0,0,0,1,1,1};	//WAVE: {0,0,0,1,1,1}	TRIPOD:
 
 static double maxAcceleration = 0.1;
 static double maxCurvatureSpeed = 0.4;
+
+static bool isStarting = false;
+static bool isMoving = false;
+static bool isStopping = false;
 
 //#define ADVANCED_STEP_CURVE
 #if defined (ADVANCED_STEP_CURVE)
@@ -202,14 +206,13 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
   {	  
     int l = legSelectionPattern[i];
     int s = sideSelectionPattern[i];
-    legSteppers[l][s].phaseOffset = phaseOffset*double(i);
+    legSteppers[l][s].phaseOffset = fmod(phaseOffset*double(i), stancePhase + swingPhase);
     legSteppers[l][s].phase = 0; // Ensures that feet start stepping naturally and don't pop to up position
     legSteppers[l][s].strideVector = Vector2d(0,0);
   }
 
   localCentreVelocity = Vector2d(0,0);
   angularVelocity = 0;
-  localCentreVelocity = Vector2d(0,0);
 
   pose.rotation = Quat(1,0,0,0);
   pose.position = Vector3d(0, 0, bodyClearance*maximumBodyHeight);
@@ -233,13 +236,9 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   double normalSpeed = localVelocity.norm();
   ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
   Vector2d oldLocalCentreVelocity = localCentreVelocity;
-  // this block assures the local velocity and curvature values don't change too quickly
+  
   bool isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
   
-  // reset, and we want to pick the walkPhase closest to its current phase or antiphase...
-  if (normalSpeed > 0.0 && !isMoving) // started walking again
-    walkPhase = 0;
-
   // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
   double newAngularVelocity = newCurvature * normalSpeed/stanceRadius;
   double dif = newAngularVelocity - angularVelocity;
@@ -256,17 +255,29 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
 
   //Iterate master walk phase
   double phaseLength = stancePhase + swingPhase;
-  walkPhase += phaseLength*stepFrequency*timeDelta;
-  if (walkPhase > phaseLength)
-    walkPhase -= phaseLength;
-
-  isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
-
-
+  if (isMoving || isStopping)
+  {
+    walkPhase += phaseLength*stepFrequency*timeDelta;
+    if (walkPhase > phaseLength)
+      walkPhase = 0; 
+  }
+   
+  if (!isMoving && normalSpeed)
+    isStarting = true;
+  if (isMoving && !normalSpeed)
+    isStopping = true;
+  
+  //transition from isStarting to isMoving
+  if (isStarting && walkPhase > phaseLength/2)
+  {
+      isStarting = false;  
+      walkPhase = 0; //Reset walkphase to so legs start from desired phase positions
+  }
+  
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
-    {
+    {      
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
       
@@ -276,19 +287,34 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       
       double phase = fmod(walkPhase + legStepper.phaseOffset, phaseLength);
       
-      // if stopped then do nothing until phase gets reset to 0 (new step)
-      if (legStepper.phase == 0.0 && phase >= (stancePhase + swingPhase)/2.0 && normalSpeed>0) 
+      if (isStarting)
       {
+        localCentreVelocity = Vector2d(1e-10, 1e-10);
+        angularVelocity = 0.0;
         legStepper.strideVector = Vector2d(1e-10, 1e-10);
+        
+        if (legStepper.phaseOffset < phaseLength/2)
+        {
+          if (legStepper.phase < legStepper.phaseOffset)
+            legStepper.phase = walkPhase;
+        }
+        else //Offset to after started stepping so moved to 
+        {
+          if (legStepper.phase < phaseLength - legStepper.phaseOffset)
+            legStepper.phase = walkPhase;
+        }
       }
-      // if just stopped, don't continue leg cycle beyond 2pi
-      else if (phase < legStepper.phase && !isMoving) 
-        legStepper.phase = stancePhase + swingPhase;
-      else
+      else if (isStopping)
+      {     
+        //CAUSES EXTRA STEPS IN WAVE GAIT - TO BE FIXED
+        if (phase > legStepper.phase)
+          legStepper.phase = phase;
+      }
+      else if (isMoving)
       {
-        if (normalSpeed > 0)
           legStepper.phase = phase; // otherwise follow the step cycle exactly
       }
+      //else is stopped
       
       Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*maximumBodyHeight);
       
