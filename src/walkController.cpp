@@ -226,16 +226,11 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
 ***********************************************************************************************************************/
 void WalkController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset)
 {
-<<<<<<< HEAD
-  //targets.clear();
-
-=======
   targets.clear();
   double onGroundRatio = (stancePhase+transitionPeriod)/(stancePhase + swingPhase);
 #if defined(ADVANCED_STEP_CURVE)
   Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*stepFrequency/onGroundRatio;
 #else
->>>>>>> d90220d6597eb38b0bc20b44d593aff0b075d2ca
   Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*2.0*stepFrequency;
 #endif
   double normalSpeed = localVelocity.norm();
@@ -270,6 +265,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
 
   isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
 
+
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -292,15 +288,14 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       else if (phase < legStepper.phase && !isMoving) 
         legStepper.phase = stancePhase + swingPhase;
       else
-        legStepper.phase = phase; // otherwise follow the step cycle exactly
+      {
+        if (normalSpeed > 0)
+          legStepper.phase = phase; // otherwise follow the step cycle exactly
+      }
       
       Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*maximumBodyHeight);
       
-<<<<<<< HEAD
-      //if ((legStepper.phase < swingStart) || (legStepper.phase > swingEnd))
-=======
       if ((legStepper.phase < swingStart+transitionPeriod*0.5) || (legStepper.phase > swingEnd-transitionPeriod*0.5))
->>>>>>> d90220d6597eb38b0bc20b44d593aff0b075d2ca
         targets.push_back(pose.transformVector(pos));
       
       leg.applyLocalIK(pos);
