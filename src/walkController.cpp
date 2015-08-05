@@ -29,7 +29,7 @@ static double transitionPeriod = pi*0.2;
 // the stance phase is linear with a shorter cubic acceleration prior to lifting off the ground
 Vector3d WalkController::LegStepper::getPosition(double liftHeight)
 {
-  double landSpeed = 0.2; // 1 is linear land speed
+  double landSpeed = 0.5*liftHeight; // 1 is linear land speed
   Vector3d strideVec(strideVector[0], strideVector[1], 0);
   double swing0 = swingStart+transitionPeriod*0.5;
   double swing1 = swingEnd  -transitionPeriod*0.5;
@@ -59,13 +59,15 @@ Vector3d WalkController::LegStepper::getPosition(double liftHeight)
       t -= stancePhase + swingPhase;
     double liftOffSpeed = landSpeed * transitionPeriod / (swing1-swing0);
     Vector3d pos = strideVec * 0.5 * -t/swing0;
-    pos[2] -= liftOffSpeed/3.0;
+    pos[2] -= liftOffSpeed * 2.0/3.0; // cubic that ends with 0 acceleration gives twice the depth
+    // pos[2] -= liftOffSpeed/3.0; // pure cubic
     
     if (abs(t) > swingStart - transitionPeriod*0.5) // transition / launch phase
     {
       t = (abs(t) - (swingStart - transitionPeriod*0.5))/transitionPeriod; // now t is 0-1 range
       // height is a bit different here, we use a linear section then a cubic section to lift off
-      pos[2] += liftOffSpeed * t*t*t / 3.0;
+      pos[2] += liftOffSpeed*t*t - liftOffSpeed*t*t*t/3.0;
+//      pos[2] += liftOffSpeed * t*t*t / 3.0; // pure cubic, give smaller depth push
     }
     ASSERT(pos.squaredNorm() < 1000.0);
     return pos;
