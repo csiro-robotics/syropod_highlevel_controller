@@ -9,6 +9,7 @@ struct WalkController
   double stepFrequency;
   double bodyClearance;
   double stepClearance;
+  double phaseLength;
   Vector3d footSpreadDistances;
   double minFootprintRadius;
   double stanceRadius; // affects turning circle
@@ -18,6 +19,7 @@ struct WalkController
   double angularVelocity;
   double walkPhase;
   double maximumBodyHeight;
+  int targetsNotMet = 6;
   
   struct LegStepper
   {
@@ -43,4 +45,6 @@ struct WalkController
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
   void update(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset = NULL);
   bool moveToStart();
+  double iteratePhase(double phase);
+  bool targetReached(double phase, double targetPhase);
 };

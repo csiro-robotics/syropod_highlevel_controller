@@ -20,6 +20,8 @@ static bool isStarting = false;
 static bool isMoving = false;
 static bool isStopping = false;
 
+static int numLegs = 6;
+
 //#define ADVANCED_STEP_CURVE
 #if defined (ADVANCED_STEP_CURVE)
 static double transitionPeriod = pi*0.2;
@@ -122,6 +124,8 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
     model(model), gaitType(gaitType), stepFrequency(stepFrequency), bodyClearance(bodyClearance), walkPhase(0), stepClearance(stepClearance)
 {
   ASSERT(stepClearance >= 0 && stepClearance < 1.0);
+  
+  phaseLength = swingPhase + stancePhase;
 
   double minKnee = max(0.0, model->minMaxKneeBend[0]);
   double maxHipDrop = min(-model->minMaxHipLift[0], pi/2.0 - atan2(model->legs[0][0].tibiaLength*sin(minKnee), model->legs[0][0].femurLength + model->legs[0][0].tibiaLength*cos(minKnee)));
@@ -208,7 +212,7 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
   {	  
     int l = legSelectionPattern[i];
     int s = sideSelectionPattern[i];
-    legSteppers[l][s].phaseOffset = fmod(phaseOffset*double(i), stancePhase + swingPhase);
+    legSteppers[l][s].phaseOffset = fmod(phaseOffset*double(i), phaseLength);
     legSteppers[l][s].phase = 0; // Ensures that feet start stepping naturally and don't pop to up position
     legSteppers[l][s].strideVector = Vector2d(0,0);
   }
@@ -239,7 +243,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
   Vector2d oldLocalCentreVelocity = localCentreVelocity;
   
-  bool isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
+  isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
   
   // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
   double newAngularVelocity = newCurvature * normalSpeed/stanceRadius;
@@ -254,32 +258,46 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
 
   if (diffLength > 0.0)
     localCentreVelocity += diff * min(1.0, maxAcceleration*timeDelta/diffLength);
-
+  
   //Iterate master walk phase
-  double phaseLength = stancePhase + swingPhase;
-  if (isMoving || isStopping)
+  if (isMoving)
   {
-    walkPhase += phaseLength*stepFrequency*timeDelta;
+    walkPhase = iteratePhase(walkPhase);
     if (walkPhase > phaseLength)
       walkPhase = 0; 
   }
-   
-  if (!isMoving && normalSpeed)
-    isStarting = true;
-  if (isMoving && !normalSpeed)
-    isStopping = true;
   
-  //transition from isStarting to isMoving
-  if (isStarting && walkPhase > phaseLength/2)
+  //Engage States
+  if (!isMoving && normalSpeed && !isStarting)
   {
-      isStarting = false;  
-      walkPhase = 0; //Reset walkphase to so legs start from desired phase positions
+    isStarting = true;
+    isStopping = false;
+  }
+  if (isMoving && !normalSpeed && !isStopping)
+  {
+    isStopping = true;
+    isStopping = false;
+  }
+  
+  //Disengage States
+  if (isStarting && targetsNotMet == 0)
+  {
+    isStarting = false;
+    isMoving = true;
+    targetsNotMet = numLegs;   
+    walkPhase = 0;
+  }
+  if (isStopping && targetsNotMet == 0)
+  {
+    isStopping = false;
+    isMoving = false;
+    targetsNotMet = numLegs;
   }
   
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
-    {      
+    { 
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
       
@@ -288,6 +306,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
           stepFrequency;
       
       double phase = fmod(walkPhase + legStepper.phaseOffset, phaseLength);
+      double targetPhase = 0.0;
       
       if (isStarting)
       {
@@ -295,28 +314,36 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
         angularVelocity = 0.0;
         legStepper.strideVector = Vector2d(1e-10, 1e-10);
         
+        
         if (legStepper.phaseOffset < phaseLength/2)
+          targetPhase = legStepper.phaseOffset;
+        else
+          targetPhase = phaseLength - legStepper.phaseOffset;
+        
+        if (targetReached(legStepper.phase, targetPhase))
         {
-          if (legStepper.phase < legStepper.phaseOffset)
-            legStepper.phase = walkPhase;
+          if ((2*l+s) == targetsNotMet-1)
+            targetsNotMet--;
         }
-        else //Offset to after started stepping so moved to 
-        {
-          if (legStepper.phase < phaseLength - legStepper.phaseOffset)
-            legStepper.phase = walkPhase;
-        }
+        else
+          legStepper.phase = iteratePhase(legStepper.phase);
       }
       else if (isStopping)
-      {     
-        //CAUSES EXTRA STEPS IN WAVE GAIT - TO BE FIXED
-        if (phase > legStepper.phase)
-          legStepper.phase = phase;
+      {   
+        if (targetReached(legStepper.phase, targetPhase))
+        {
+          if ((2*l+s) == targetsNotMet-1)
+            targetsNotMet--;          
+        }
+        else
+          legStepper.phase = iteratePhase(legStepper.phase);  
       }
       else if (isMoving)
       {
-          legStepper.phase = phase; // otherwise follow the step cycle exactly
+        legStepper.phase = phase; // otherwise follow the step cycle exactly
       }
-      //else is stopped
+      else //else stopped
+        legStepper.phase = 0;
       
       Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*maximumBodyHeight);
       
@@ -345,6 +372,23 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
   pose.rotation *= Quat(Vector3d(0.0,0.0,-angularVelocity*timeDelta));
 }
+
+double WalkController::iteratePhase(double phase)
+{
+  return fmod(phase+phaseLength*stepFrequency*timeDelta, phaseLength); 
+}
+
+bool WalkController::targetReached(double phase, double targetPhase)
+{
+  if (phase <= targetPhase &&
+      iteratePhase(phase) > targetPhase)
+    return true;
+  else if (targetPhase == 0 && phase > iteratePhase(phase))
+    return true;
+  else
+    return false;
+}
+    
 
 // goes from target positions to localStanceTipPositions
 bool WalkController::moveToStart()

@@ -143,7 +143,7 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   
 //Postion compensation
 
-#define ZERO_ORDER_FEEDBACK
+//#define ZERO_ORDER_FEEDBACK
 //#define FIRST_ORDER_FEEDBACK
 //#define SECOND_ORDER_FEEDBACK
 
@@ -221,7 +221,7 @@ int main(int argc, char* argv[])
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   double t = 0;
 
-#define MOVE_TO_START    
+//#define MOVE_TO_START    
 #if defined(MOVE_TO_START)
 #if defined(FLEXIPOD)
   ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
@@ -315,7 +315,9 @@ int main(int argc, char* argv[])
     Vector2d acc = walker.localCentreAcceleration;
     //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 
-    localVelocity[1] = time < 6*pi ? 0.2 : 0.0;
+    localVelocity[1] = time < 3*pi ? 0.2 : 0.0;
+    if (time > 3*pi+0.5)
+      localVelocity[1] = 0.2;
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();
