@@ -276,7 +276,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   if (isMoving && !normalSpeed && !isStopping)
   {
     isStopping = true;
-    isStopping = false;
+    isStarting = false;
   }
   
   //Disengage States
