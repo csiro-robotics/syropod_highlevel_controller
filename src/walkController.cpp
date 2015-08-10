@@ -120,7 +120,7 @@ Vector3d WalkController::LegStepper::getPosition(double liftHeight)
  * bodyClearance:	0 to 1, 1 is vertical legs. Default calculates best clearance for given leg clearance
  * 
 ***********************************************************************************************************************/
-WalkController::WalkController(Model *model, int gaitType, double stepFrequency, double stepClearance, double bodyClearance): 
+WalkController::WalkController(Model *model, int gaitType, double stepFrequency, double stepClearance, double bodyClearance, double legSpanScale): 
     model(model), gaitType(gaitType), stepFrequency(stepFrequency), bodyClearance(bodyClearance), walkPhase(0), stepClearance(stepClearance)
 {
   ASSERT(stepClearance >= 0 && stepClearance < 1.0);
@@ -139,6 +139,7 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
   {
     // in this case we assume legs have equal characteristics
     bodyClearance = model->legs[0][0].minLegLength/maximumBodyHeight + stepCurvatureAllowance*stepClearance;
+    cout << "auto calculating best body clearance: " << bodyClearance << endl; 
   }
   ASSERT(bodyClearance >= 0 && bodyClearance < 1.0);
 
@@ -165,6 +166,7 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
       horizontalRange = sqrt(sqr(leg.maxLegLength) - sqr(bodyClearance*maximumBodyHeight));
       //horizontalRange*=0.6;
     }
+    horizontalRange *= legSpanScale;
 
     double theta = model->yawLimitAroundStance[l];
     double cotanTheta = tan(0.5*pi - theta);
