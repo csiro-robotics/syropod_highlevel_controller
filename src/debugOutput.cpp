@@ -149,9 +149,9 @@ void DebugOutput::plot(const vector<Vector2d> &points)
   marker.pose.orientation.z = 0.0;
   marker.pose.orientation.w = 1.0; 
   
-  marker.scale.x = 0.01;
-  marker.scale.y = 0.01;
-  marker.scale.z = 0.01;
+  marker.scale.x = 0.02;
+  marker.scale.y = 0.02;
+  marker.scale.z = 0.02;
   
   Vector4d colour(1,0.5*(double)(plotID%3),1,1);
   marker.color.r = colour[0];
@@ -164,9 +164,9 @@ void DebugOutput::plot(const vector<Vector2d> &points)
   geometry_msgs::Point point;
   for(unsigned int i = 0; i < points.size(); ++i)
   {
-    point.x = points[i][0] + 2.0*(double)plotID;
+    point.x = points[i][0] + 1.0*(double)plotID;
     point.y = points[i][1];
-    point.z = 0.5*(double)plotID;
+    point.z = 0;
     marker.points.push_back(point);
   }
   plotPublisher.publish(marker);
