@@ -8,17 +8,16 @@
 #include "../include/simple_hexapod_controller/motorInterface.h"
 #include "../include/simple_hexapod_controller/dynamixelMotorInterface.h"
 #include "../include/simple_hexapod_controller/dynamixelProMotorInterface.h"
+#include "../include/simple_hexapod_controller/imuCompensation.h"
 #include <boost/concept_check.hpp>
 #include <iostream>
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
-#include "sensor_msgs/Imu.h"
 #include "sensor_msgs/JointState.h"
 #include <boost/circular_buffer.hpp> 
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
-sensor_msgs::Imu imu;
 sensor_msgs::JointState jointStates;
 double jointPositions [18];
 bool jointPosFlag = false;
@@ -27,178 +26,7 @@ bool jointPosFlag = false;
 static Vector3d offsetPos(0.0,0.0,0.0);
 static Vector3d offsetVel(0,0,0);
 
-// source catkin_ws/devel/setup.bash
-// roslaunch hexapod_teleop hexapod_controllers.launch
-
-void imuCallback(const sensor_msgs::Imu &imudata)
-{  
-  imu = imudata;
-}
-
-
-void jointStatesCallback(const sensor_msgs::JointState &joint_States)
-{  
-  if (!jointPosFlag)
-  {
-    for (int i=0; i<joint_States.name.size(); i++)
-    {
-      const char* jointName = joint_States.name[i].c_str();
-      if (!strcmp(jointName, "front_left_body_coxa") ||
-          !strcmp(jointName, "AL_coxa_joint"))
-        jointPositions[0] = joint_States.position[i];
-      else if (!strcmp(jointName, "front_left_coxa_femour") ||
-                !strcmp(jointName, "AL_femur_joint"))
-        jointPositions[1] = joint_States.position[i];
-      else if (!strcmp(jointName, "front_left_femour_tibia") ||
-                !strcmp(jointName, "AL_tibia_joint"))
-        jointPositions[2] = joint_States.position[i];
-      else if (!strcmp(jointName, "front_right_body_coxa") ||
-                !strcmp(jointName, "AR_coxa_joint"))
-        jointPositions[3] = joint_States.position[i];
-      else if (!strcmp(jointName, "front_right_coxa_femour") ||
-                !strcmp(jointName, "AR_femur_joint"))
-        jointPositions[4] = joint_States.position[i];
-      else if (!strcmp(jointName, "front_right_femour_tibia") ||
-                !strcmp(jointName, "AR_tibia_joint"))
-        jointPositions[5] = joint_States.position[i];
-      else if (!strcmp(jointName, "middle_left_body_coxa") ||
-                !strcmp(jointName, "BL_coxa_joint"))
-        jointPositions[6] = joint_States.position[i];
-      else if (!strcmp(jointName, "middle_left_coxa_femour") ||
-                !strcmp(jointName, "BL_femur_joint"))
-        jointPositions[7] = joint_States.position[i];
-      else if (!strcmp(jointName, "middle_left_femour_tibia") ||
-                !strcmp(jointName, "BL_tibia_joint"))
-        jointPositions[8] = joint_States.position[i];
-      else if (!strcmp(jointName, "middle_right_body_coxa") ||
-                !strcmp(jointName, "BR_coxa_joint"))
-        jointPositions[9] = joint_States.position[i];
-      else if (!strcmp(jointName, "middle_right_coxa_femour") ||
-                !strcmp(jointName, "BR_femur_joint"))
-        jointPositions[10] = joint_States.position[i];
-      else if (!strcmp(jointName, "middle_right_femour_tibia") ||
-                !strcmp(jointName, "BR_tibia_joint"))
-        jointPositions[11] = joint_States.position[i];
-      else if (!strcmp(jointName, "rear_left_body_coxa") ||
-                !strcmp(jointName, "CL_coxa_joint"))
-        jointPositions[12] = joint_States.position[i];
-      else if (!strcmp(jointName, "rear_left_coxa_femour") ||
-                !strcmp(jointName, "CL_femur_joint"))
-        jointPositions[13] = joint_States.position[i];
-      else if (!strcmp(jointName, "rear_left_femour_tibia") ||
-                !strcmp(jointName, "CL_tibia_joint"))
-        jointPositions[14] = joint_States.position[i];
-      else if (!strcmp(jointName, "rear_right_body_coxa") ||
-                !strcmp(jointName, "CR_coxa_joint"))
-        jointPositions[15] = joint_States.position[i];
-      else if (!strcmp(jointName, "rear_right_coxa_femour") ||
-                !strcmp(jointName, "CR_femur_joint"))
-        jointPositions[16] = joint_States.position[i];
-      else if (!strcmp(jointName, "rear_right_femour_tibia") ||
-                !strcmp(jointName, "CR_tibia_joint"))
-        jointPositions[17] = joint_States.position[i];
-    }
-    
-    //Check if all joint positions have been received from topic
-    jointPosFlag = true;
-    for (int i=0; i<18; i++)
-    {  
-      if (jointPositions[i] > 1e9)
-        jointPosFlag = false;
-    }
-  }
-}
-
-Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
-{
-  Pose adjust;
-  Quat orient;            //Orientation from IMU in quat
-  Vector3d accel;         //Accelerations with respect to the IMU
-  Vector3d rotation;
-  Vector3d angularAcc;
-  static Vector3d angularVel(0,0,0);
-  adjust.rotation=Quat(Vector3d(0,0,0));
-  static boost::circular_buffer<float> cbx(4,0);
-  static boost::circular_buffer<float> cby(4,1);
-  static boost::circular_buffer<float> cbz(4,2);
- 
-  orient.w = imu.orientation.w;
-  orient.x = imu.orientation.x;
-  orient.y = imu.orientation.y;
-  orient.z = imu.orientation.z;
-  accel(1) = -imu.linear_acceleration.x;
-  accel(0) = -imu.linear_acceleration.y;
-  accel(2) = -imu.linear_acceleration.z;
-  
-  /*//Compensation for gravity
-  Vector3d accelcomp;
-  RowVector3d gravityrot; 
-  gravityrot=orient.toRotationMatrix()*Vector3d(0,0,-9.81);
-  accelcomp(0)=accel(0)-gravityrot(0);
-  accelcomp(1)=accel(1)-gravityrot(1);  
-  accelcomp(2)=accel(2)-gravityrot(2);  
-  ROS_ERROR("ACCEL= %f %f %f", accel(0), accel(1),accel(2));0
-  ROS_ERROR("GRAVITYROT= %f %f %f", gravityrot(0), gravityrot(1),gravityrot(2)); 
-  ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
-  
-//Postion compensation
-
-//#define ZERO_ORDER_FEEDBACK
-//#define FIRST_ORDER_FEEDBACK
-//#define SECOND_ORDER_FEEDBACK
-
-#if defined(SECOND_ORDER_FEEDBACK)
-  double imuStrength = 1;
-  double stiffness = 13; // how strongly/quickly we return to the neutral pose
-  Vector3d offsetAcc = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
-  offsetVel += offsetAcc*timeDelta;
-  offsetPos += offsetVel*timeDelta;
-  
-#elif defined(FIRST_ORDER_FEEDBACK)
-  double imuStrength = 0.5;
-  double stiffness = 10; // how strongly/quickly we return to the neutral pose
-  offsetVel = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos;
-  offsetPos += offsetVel*timeDelta;
-  
-#elif defined(ZERO_ORDER_FEEDBACK)
-  double imuStrength = 0.001;
-  cbx.push_back(-imu.linear_acceleration.y); 
-  cby.push_back(-imu.linear_acceleration.x); 
-  cbz.push_back(-imu.linear_acceleration.z);
-  offsetPos(0) = imuStrength * (targetAccel(0)-(cbx[0]+cbx[1]+cbx[2]+cbx[3]+cbx[3])/4);
-  offsetPos(1) = imuStrength * (targetAccel(1)-(cby[0]+cby[1]+cby[2]+cby[3]+cbx[3])/4);
-  offsetPos(2) = imuStrength * (targetAccel(2)-(cbz[0]+cbz[1]+cbz[2]+cbz[3]+cbx[3])/4 + 9.8);
-  
-  //offsetPos = imuStrength * (targetAccel-accel+Vector3d(0,0,9.8));
- 
-#endif
-  
-  //Angular body velocity compensation.
-  double stiffnessangular=5;
-  Vector3d angleDelta = adjust.rotation.toRotationVector();  
-  //angularAcc(0)=-sqr(stiffnessangular)*angleDelta(0) + 2.0*stiffnessangular*(imu.angular_velocity.y - angularVel(0));
-  //angularAcc(1)=-sqr(stiffnessangular)*angleDelta(1) + 2.0*stiffnessangular*(imu.angular_velocity.x - angularVel(1));
-  angularAcc= -sqr(stiffnessangular)*angleDelta + 2.0*stiffnessangular*(Vector3d(0,0,targetAngularVel) - Vector3d(-imu.angular_velocity.y, -imu.angular_velocity.x, -imu.angular_velocity.z) - angularVel);
-  angularVel += angularAcc*timeDelta;
-  rotation(0)=angularVel(0)*timeDelta;
-  rotation(1)=angularVel(1)*timeDelta;
-  rotation(2)=angularVel(2)*timeDelta;
-  
-  /*// control towards imu's orientation
-  double stiffnessangular=15;
-  Quat targetAngle = ~orient;
-  Vector3d angleDelta = (targetAngle*(~adjust.rotation)).toRotationVector(); // diff=target*current^-1
-  angleDelta[2] = 0;  // this may not be quite right  
-  angularAcc = sqr(stiffnessangular)*angleDelta -2.0*stiffnessangular*angularVel;
-  angularVel += angularAcc*timeDelta;  
-  rotation(0)=angularVel(0)*timeDelta;
-  rotation(1)=angularVel(1)*timeDelta;
-  rotation(2)=angularVel(2)*timeDelta;*/
-  
-  //adjust.rotation*= Quat(rotation);  
-  adjust.position = offsetPos;
-  return adjust;
-}
+void jointStatesCallback(const sensor_msgs::JointState &joint_States);
 
 void joypadChangeCallback(const geometry_msgs::Twist &twist)
 {
@@ -288,7 +116,7 @@ int main(int argc, char* argv[])
 #elif defined(LOBSANG)
   WalkController walker(&hexapod, 1, 0.5, 0.1; 
 #elif defined(LARGE_HEXAPOD)
-  WalkController walker(&hexapod, 1, 0.18, 0.08);
+  WalkController walker(&hexapod, 1, 0.18, 0.06, 0.4, 0.6);
 #endif
     
   DebugOutput debug;
@@ -376,3 +204,75 @@ int main(int argc, char* argv[])
   }
 }
 
+void jointStatesCallback(const sensor_msgs::JointState &joint_States)
+{  
+  if (!jointPosFlag)
+  {
+    for (int i=0; i<joint_States.name.size(); i++)
+    {
+      const char* jointName = joint_States.name[i].c_str();
+      if (!strcmp(jointName, "front_left_body_coxa") ||
+          !strcmp(jointName, "AL_coxa_joint"))
+        jointPositions[0] = joint_States.position[i];
+      else if (!strcmp(jointName, "front_left_coxa_femour") ||
+                !strcmp(jointName, "AL_femur_joint"))
+        jointPositions[1] = joint_States.position[i];
+      else if (!strcmp(jointName, "front_left_femour_tibia") ||
+                !strcmp(jointName, "AL_tibia_joint"))
+        jointPositions[2] = joint_States.position[i];
+      else if (!strcmp(jointName, "front_right_body_coxa") ||
+                !strcmp(jointName, "AR_coxa_joint"))
+        jointPositions[3] = joint_States.position[i];
+      else if (!strcmp(jointName, "front_right_coxa_femour") ||
+                !strcmp(jointName, "AR_femur_joint"))
+        jointPositions[4] = joint_States.position[i];
+      else if (!strcmp(jointName, "front_right_femour_tibia") ||
+                !strcmp(jointName, "AR_tibia_joint"))
+        jointPositions[5] = joint_States.position[i];
+      else if (!strcmp(jointName, "middle_left_body_coxa") ||
+                !strcmp(jointName, "BL_coxa_joint"))
+        jointPositions[6] = joint_States.position[i];
+      else if (!strcmp(jointName, "middle_left_coxa_femour") ||
+                !strcmp(jointName, "BL_femur_joint"))
+        jointPositions[7] = joint_States.position[i];
+      else if (!strcmp(jointName, "middle_left_femour_tibia") ||
+                !strcmp(jointName, "BL_tibia_joint"))
+        jointPositions[8] = joint_States.position[i];
+      else if (!strcmp(jointName, "middle_right_body_coxa") ||
+                !strcmp(jointName, "BR_coxa_joint"))
+        jointPositions[9] = joint_States.position[i];
+      else if (!strcmp(jointName, "middle_right_coxa_femour") ||
+                !strcmp(jointName, "BR_femur_joint"))
+        jointPositions[10] = joint_States.position[i];
+      else if (!strcmp(jointName, "middle_right_femour_tibia") ||
+                !strcmp(jointName, "BR_tibia_joint"))
+        jointPositions[11] = joint_States.position[i];
+      else if (!strcmp(jointName, "rear_left_body_coxa") ||
+                !strcmp(jointName, "CL_coxa_joint"))
+        jointPositions[12] = joint_States.position[i];
+      else if (!strcmp(jointName, "rear_left_coxa_femour") ||
+                !strcmp(jointName, "CL_femur_joint"))
+        jointPositions[13] = joint_States.position[i];
+      else if (!strcmp(jointName, "rear_left_femour_tibia") ||
+                !strcmp(jointName, "CL_tibia_joint"))
+        jointPositions[14] = joint_States.position[i];
+      else if (!strcmp(jointName, "rear_right_body_coxa") ||
+                !strcmp(jointName, "CR_coxa_joint"))
+        jointPositions[15] = joint_States.position[i];
+      else if (!strcmp(jointName, "rear_right_coxa_femour") ||
+                !strcmp(jointName, "CR_femur_joint"))
+        jointPositions[16] = joint_States.position[i];
+      else if (!strcmp(jointName, "rear_right_femour_tibia") ||
+                !strcmp(jointName, "CR_tibia_joint"))
+        jointPositions[17] = joint_States.position[i];
+    }
+    
+    //Check if all joint positions have been received from topic
+    jointPosFlag = true;
+    for (int i=0; i<18; i++)
+    {  
+      if (jointPositions[i] > 1e9)
+        jointPosFlag = false;
+    }
+  }
+}
