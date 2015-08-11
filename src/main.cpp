@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
 #endif
  
   bool dynamixel_interface = true;
-  n_priv.param<bool>("dynamixel_interface", dynamixel_interface, false);
+  n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
   Vector3d yawOffsets(0,0,0);  
 
 #if defined(FLEXIPOD)
@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
 #endif
 
 #if defined(FLEXIPOD)
-  WalkController walker(&hexapod, 1, 0.5, 0.12);
+  WalkController walker(&hexapod, 1, 0.5, 0.12, 0.8,0.4);
 #elif defined(LOBSANG)
   WalkController walker(&hexapod, 1, 0.5, 0.1; 
 #elif defined(LARGE_HEXAPOD)
