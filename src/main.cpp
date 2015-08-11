@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
     time += timeDelta;
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
-    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
     //localVelocity[1] = time < 3*pi ? 0.2 : 0.0;
     //if (time > 3*pi+0.5)
     //localVelocity[1] = 0.2;
