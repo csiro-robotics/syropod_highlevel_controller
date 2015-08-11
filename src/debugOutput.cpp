@@ -164,9 +164,9 @@ void DebugOutput::plot(const vector<Vector2d> &points)
   geometry_msgs::Point point;
   for(unsigned int i = 0; i < points.size(); ++i)
   {
-    point.x = points[i][0] + 2.0*(double)plotID;
+    point.x = points[i][0];// + 2.0*(double)plotID;
     point.y = points[i][1];
-    point.z = 0.5*(double)plotID;
+    point.z = 0;
     marker.points.push_back(point);
   }
   plotPublisher.publish(marker);
