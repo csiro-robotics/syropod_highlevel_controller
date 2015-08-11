@@ -10,6 +10,7 @@ DebugOutput::DebugOutput()
 #if defined(DEBUGDRAW)
   robotPublisher = n.advertise<visualization_msgs::Marker>("robot", 1);
   pointsPublisher = n.advertise<visualization_msgs::Marker>("points", 1);
+  plotPublisher = n.advertise<visualization_msgs::Marker>("plot", 1);
   reset();
   rotate90.rotation = Quat(1,0,0,0); // Quat(sqrt(0.5), sqrt(0.5), 0, 0);
   rotate90.position = Vector3d(0,0,0);
@@ -128,4 +129,48 @@ void DebugOutput::drawPoints(const vector<Vector3d>& points, const Vector4d &col
   pointsPublisher.publish(marker);
 #endif
 }
+
+void DebugOutput::plot(const vector<Vector2d> &points)
+{
+#if defined(DEBUGDRAW)
+  visualization_msgs::Marker marker;
+
+  marker.header.frame_id = "/my_frame";
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "point_marker";
+  marker.id = plotID++;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.type = visualization_msgs::Marker::CUBE_LIST;
+  marker.pose.position.x = 0;
+  marker.pose.position.y = 0;
+  marker.pose.position.z = 0;
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0; 
+  
+  marker.scale.x = 0.01;
+  marker.scale.y = 0.01;
+  marker.scale.z = 0.01;
+  
+  Vector4d colour(1,0.5*(double)(plotID%3),1,1);
+  marker.color.r = colour[0];
+  marker.color.g = colour[1];
+  marker.color.b = colour[2];
+  marker.color.a = colour[3];
+  
+  marker.lifetime = ros::Duration();
+  
+  geometry_msgs::Point point;
+  for(unsigned int i = 0; i < points.size(); ++i)
+  {
+    point.x = points[i][0] + 2.0*(double)plotID;
+    point.y = points[i][1];
+    point.z = 0.5*(double)plotID;
+    marker.points.push_back(point);
+  }
+  plotPublisher.publish(marker);
+#endif
+}
+
 

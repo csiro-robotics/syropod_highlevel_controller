@@ -9,13 +9,16 @@ public:
   DebugOutput();
   void drawPoints(const vector<Vector3d>& surveyPoints, const Vector4d &colour);
   void drawRobot(const Vector3d &extents, const vector<Vector3d> &legPoints, const Vector4d &colour);
-  void reset(){ robotID = 0; }
+  void plot(const vector<Vector2d> &points); // quick alternative to 2D plotting library
+  void reset(){ robotID = 0; plotID = 0; }
   
 private:
   int robotID;
+  int plotID;
 #if defined(DEBUGDRAW)
   ros::NodeHandle n;
   ros::Publisher robotPublisher;
   ros::Publisher pointsPublisher;
+  ros::Publisher plotPublisher;
 #endif
 };
