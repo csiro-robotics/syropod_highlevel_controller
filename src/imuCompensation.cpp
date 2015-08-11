@@ -4,14 +4,19 @@
 #include "../include/simple_hexapod_controller/standardIncludes.h"
 #include "../include/simple_hexapod_controller/imuCompensation.h"
 #include <boost/circular_buffer.hpp> 
+#include "../include/simple_hexapod_controller/debugOutput.h"
 
 sensor_msgs::Imu imu;
 // target rather than measured data
 static Vector3d offsetPos(0.0,0.0,0.0);
 static Vector3d offsetVel(0,0,0);
+static DebugOutput *debugDraw = NULL;
 
-// source catkin_ws/devel/setup.bash
-// roslaunch hexapod_teleop hexapod_controllers.launch
+void calculatePassiveAngularFrequency();
+void setCompensationDebug(DebugOutput &debug)
+{
+  debugDraw = &debug;
+}
 
 void imuCallback(const sensor_msgs::Imu &imudata)
 {  
@@ -20,6 +25,10 @@ void imuCallback(const sensor_msgs::Imu &imudata)
 
 Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 {
+#if defined(PHASE_ANALYSIS)
+  calculatePassiveAngularFrequency();
+  return Pose::identity();
+#endif
   Pose adjust;
   Quat orient;            //Orientation from IMU in quat
   Vector3d accel;         //Accelerations with respect to the IMU
@@ -109,3 +118,51 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   return adjust;
 }
 
+static double vel = 0.0;
+static const int numStates = 200;
+vector<Vector2d> states(numStates);
+static int stateIndex = 0; 
+static double timex = 0.0;
+
+void calculatePassiveAngularFrequency()
+{
+  // just 1 dimension for now
+  double acc = imu.linear_acceleration.y;
+  double decayRate = 0.25;
+  // lossy integrator
+  vel = (vel + acc*timeDelta) / (1.0 + decayRate*timeDelta);
+  states[stateIndex] = Vector2d(vel, acc);
+  stateIndex = (stateIndex + 1) % numStates; // poor man's circular queue!
+  debugDraw->plot(states); // should look noisy and elliptical
+
+  Vector2d sumSquare(0,0);
+  for (int i = 0; i<numStates; i++)
+    sumSquare += Vector2d(sqr(states[i][0]), sqr(states[i][1]));
+  double omega = sqrt(sumSquare[1]) / (sqrt(sumSquare[0]) + 1e-10);
+  cout << "rolling omega estimate: " << omega << endl;
+  
+  vector<Vector2d> normalisedStates(numStates);
+  for (int i = 0; i<numStates; i++)
+  {
+    normalisedStates[i] = states[i];
+    normalisedStates[i][0] *= omega;
+  }
+  debugDraw->plot(normalisedStates); // this should look noisy but circularish
+  
+  // next, based on omega, lets plot the points 'unrotated' by the angular rate, to get a phase offset
+  vector<Vector2d> unrotatedStates(numStates);
+  Vector2d sumUnrotated(0,0);
+  for (int i = 0; i<numStates; i++)
+  {
+    double theta = -omega * timex * (double)(-numStates + (i+numStates-stateIndex)%numStates)*timeDelta;
+    double x = normalisedStates[i][0] * sin(theta) + normalisedStates[i][1] * cos(theta);
+    double y = normalisedStates[i][0] * cos(theta) + normalisedStates[i][1] * -sin(theta);
+    unrotatedStates[i] = Vector2d(x,y);
+    sumUnrotated += unrotatedStates[i];
+  }
+  double phaseOffset = atan2(sumUnrotated[0], sumUnrotated[1]);
+  cout << "rolling phase offset estimate: " << phaseOffset << endl;
+  debugDraw->plot(unrotatedStates); // this should cluster around a particular phase
+  
+  timex += timeDelta;
+}

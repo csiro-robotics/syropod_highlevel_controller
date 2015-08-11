@@ -19,7 +19,7 @@
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
 sensor_msgs::JointState jointStates;
-double jointPositions [18];
+double jointPositions[18];
 bool jointPosFlag = false;
 
 // target rather than measured data
@@ -120,6 +120,7 @@ int main(int argc, char* argv[])
 #endif
     
   DebugOutput debug;
+  setCompensationDebug(debug);
 
   MotorInterface *interface;
 
