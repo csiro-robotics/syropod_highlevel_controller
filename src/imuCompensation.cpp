@@ -36,10 +36,14 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   Vector3d angularAcc;
   static Vector3d angularVel(0,0,0);
   adjust.rotation=Quat(Vector3d(0,0,0));
-  static boost::circular_buffer<float> cbx(4,0);
-  static boost::circular_buffer<float> cby(4,1);
-  static boost::circular_buffer<float> cbz(4,2);
- 
+  //static boost::circular_buffer<float> cbx(4,0);
+  //static boost::circular_buffer<float> cby(4,1);
+  //static boost::circular_buffer<float> cbz(4,2);
+  static Vector3d IMUPos(0,0,0);
+  static Vector3d IMUVel(0,0,0);
+  
+  
+  
   orient.w = imu.orientation.w;
   orient.x = imu.orientation.x;
   orient.y = imu.orientation.y;
@@ -64,6 +68,8 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 //#define ZERO_ORDER_FEEDBACK
 //#define FIRST_ORDER_FEEDBACK
 //#define SECOND_ORDER_FEEDBACK
+#define IMUINTEGRATION_FIRST_ORDER
+//define IMUINTEGRATION_SECOND_ORDER
 
 #if defined(SECOND_ORDER_FEEDBACK)
   double imuStrength = 1;
@@ -86,9 +92,21 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   offsetPos(0) = imuStrength * (targetAccel(0)-(cbx[0]+cbx[1]+cbx[2]+cbx[3]+cbx[3])/4);
   offsetPos(1) = imuStrength * (targetAccel(1)-(cby[0]+cby[1]+cby[2]+cby[3]+cbx[3])/4);
   offsetPos(2) = imuStrength * (targetAccel(2)-(cbz[0]+cbz[1]+cbz[2]+cbz[3]+cbx[3])/4 + 9.8);
-  
   //offsetPos = imuStrength * (targetAccel-accel+Vector3d(0,0,9.8));
- 
+  
+ #elif defined(IMUINTEGRATION_SECOND_ORDER)
+  double imuStrength = 2;
+  double decayRate = 10;
+  IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
+  IMUVel += (targetAccel-accel+Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel;  
+  Vector3d offsetAcc = -imuStrength*IMUPos;
+  
+#elif defined(IMUINTEGRATION_FIRST_ORDER)
+  double imuStrength = 0.02;
+  double decayRate = 1;
+ // IMUVel += (targetAccel-accel+Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel; 
+  IMUVel = (IMUVel + (targetAccel-accel+Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
+  Vector3d offsetAcc = -imuStrength*IMUVel;
 #endif
   
   //Angular body velocity compensation.
@@ -114,7 +132,7 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   rotation(2)=angularVel(2)*timeDelta;*/
   
   //adjust.rotation*= Quat(rotation);  
-  adjust.position = offsetPos;
+  adjust.position = offsetAcc;
   return adjust;
 }
 

@@ -129,8 +129,8 @@ int main(int argc, char* argv[])
   else
     interface = new DynamixelProMotorInterface();
 
-  interface->setupSpeed(0.5);
-   
+  interface->setupSpeed(0.5);   
+
 
   
   Vector3d maxVel(0,0,0);
@@ -143,10 +143,9 @@ int main(int argc, char* argv[])
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
     //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
-
-    localVelocity[1] = time < 3*pi ? 0.2 : 0.0;
-    if (time > 3*pi+0.5)
-      localVelocity[1] = 0.2;
+    //localVelocity[1] = time < 3*pi ? 0.2 : 0.0;
+    //if (time > 3*pi+0.5)
+    //localVelocity[1] = 0.2;
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();
