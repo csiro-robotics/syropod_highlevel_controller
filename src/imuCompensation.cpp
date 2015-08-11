@@ -147,25 +147,38 @@ static int frame = 0;
 
 void calculatePassiveAngularFrequency()
 {
+  Vector2d mean(0,0);
+  for (int i = 0; i<numStates; i++)
+    mean += states[i];
+  mean /= (double)numStates;
+
   // just 1 dimension for now
   double acc = 2.0*sin(3.0*timex); // imu.linear_acceleration.y;
   double inputAngle = 3.0*timex;
   double decayRate = 0.25;
   // lossy integrator
+<<<<<<< HEAD
   vel = (vel + acc*timeDelta) / (1.0 + decayRate*timeDelta);
   states[stateIndex] = Vector2d(vel, acc);
+=======
+
+  vel = (vel + (acc - mean[1])*timeDelta) / (1.0 + decayRate*timeDelta);
+  states[stateIndex] = Vector2d(vel - mean[0], acc - mean[1]);
+  stateIndex = (stateIndex + 1) % numStates; // poor man's circular queue!
+>>>>>>> 8c0335b549ec1bc1b0e20d1861eff7bd178bcdf3
   debugDraw->plot(states); // should look noisy and elliptical
 
+  
   Vector2d sumSquare(0,0);
   for (int i = 0; i<numStates; i++)
-    sumSquare += Vector2d(sqr(states[i][0]), sqr(states[i][1]));
+    sumSquare += Vector2d(sqr(states[i][0] - mean[0]), sqr(states[i][1] - mean[1]));
   double omega = sqrt(sumSquare[1]) / (sqrt(sumSquare[0]) + 1e-10);
   cout << "rolling omega estimate: " << omega << endl;
   
   vector<Vector2d> normalisedStates(numStates);
   for (int i = 0; i<numStates; i++)
   {
-    normalisedStates[i] = states[i];
+    normalisedStates[i] = states[i] - mean;
     normalisedStates[i][0] *= omega;
   }
   debugDraw->plot(normalisedStates); // this should look noisy but circularish
@@ -178,7 +191,18 @@ void calculatePassiveAngularFrequency()
   double x = normalisedStates[stateIndex][0] * -sin(theta) + normalisedStates[stateIndex][1] * cos(theta);
   relativeStates[stateIndex] = Vector2d(x,y);
   for (int i = 0; i<numStates; i++)
+<<<<<<< HEAD
     sumUnrotated += relativeStates[i];
+=======
+  {
+    double theta = omega * (timex + (double)(-numStates + (i+numStates-stateIndex)%numStates)*timeDelta);
+    double x = normalisedStates[i][0] * sin(theta) + normalisedStates[i][1] * cos(theta);
+    double y = normalisedStates[i][0] * cos(theta) + normalisedStates[i][1] * -sin(theta);
+    unrotatedStates[i] = Vector2d(x,y);
+    sumUnrotated += unrotatedStates[i];
+  }
+  unrotatedStates.push_back(Vector2d(0,0));
+>>>>>>> 8c0335b549ec1bc1b0e20d1861eff7bd178bcdf3
   double phaseOffset = atan2(sumUnrotated[0], sumUnrotated[1]);
   cout << "rolling phase offset estimate: " << phaseOffset << endl;
   debugDraw->plot(relativeStates); // this should cluster around a particular phase
