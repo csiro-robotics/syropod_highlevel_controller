@@ -142,7 +142,6 @@ static const int maxStates = 10000;
 //static const int numStates = 200;
 vector<Vector2d> states(maxStates);
 vector<Vector2d> relativeStates(maxStates);
-vector<double> phases(maxStates); // used to know where to cut the tail as it goes around the circle
 // poor man's dynamic size circular queue. Just keep a head and tail index
 static int queueHead = 0; 
 static int queueTail = 0; 
@@ -174,7 +173,7 @@ void calculatePassiveAngularFrequency()
     mean /= (double)numStates;
 
   // just 1 dimension for now
-  double acc = 2.0*sin(3.0*timex) + random(-0.1, 0.1); // imu.linear_acceleration.y;
+  double acc = 2.0*sin(3.0*timex) + 0.5*sin(9.3*timex) + random(-0.1, 0.1); // imu.linear_acceleration.y;
   double inputAngle = 3.0*timex;
   double decayRate = 0.1;
   // lossy integrator
@@ -183,35 +182,42 @@ void calculatePassiveAngularFrequency()
 
   // increment 
   timex += timeDelta;
-  double phase = atan2(states[queueHead][0], states[queueHead][1]);
-  if (numStates > 1)
+  const int noiseRobustnessCount = 20;
+  if (numStates > noiseRobustnessCount)
   {
-    double phaseDiff = phase - phases[lastHead];
-    while (phaseDiff > pi)
-      phaseDiff -= 2.0*pi;
-    while (phaseDiff < -pi)
-      phaseDiff += 2.0*pi;
-    phases[queueHead] = phases[lastHead] + phaseDiff;
-  }
-  else
-    phases[queueHead] = phase;
-  // now increment the tail
-  // we want a robust way to find when we've completed the loop...
-  while (phases[queueTail] < phases[queueHead] - 2.0*pi && queueTail != queueHead)
-    queueTail = (queueTail + 1) % maxStates;
-  // attempt at robustness, also work backwards, then crop based on average of both 
-  {
-    int tempHead = queueHead;
-    while (phases[tempHead] > phases[queueHead] - 2.0*pi && tempHead != queueTail)
-      tempHead = (tempHead + maxStates-1) % maxStates;
-    tempHead = (tempHead + 1) % maxStates;
-    int tempTail = queueTail;
-    while (tempTail != tempHead && (tempTail+1)%maxStates != tempHead)
+    int tail = queueHead;
+    Vector2d rollingSum(0,0);
+    double count = 0;
+    bool returnedToPositiveDot = false;
+    while (tail != queueTail)
     {
-      tempTail = (tempTail + 2) % maxStates;
-      queueTail = (queueTail + 1) % maxStates;
+      rollingSum += states[tail];
+      count++;
+      
+      if (count > noiseRobustnessCount)
+      {
+        Vector2d headState = states[queueHead] - (rollingSum / count);
+        Vector2d tailState = states[tail] - (rollingSum / count);
+        double dot = headState.dot(tailState);
+        double cross = headState.dot(Vector2d(tailState[1], -tailState[0]));
+        if (!returnedToPositiveDot)
+        {
+          if (dot > 0.0)
+            returnedToPositiveDot = true;
+        }
+        else
+        {
+          if (dot > 0.0 && cross > 0.0)
+          {
+            queueTail = tail;
+            break;
+          }
+        }
+      }
+      tail = (tail + maxStates-1) % maxStates;
     }
   }
+
   
   lastHead = queueHead;
   queueHead = (queueHead + 1) % maxStates; // poor man's circular queue!
