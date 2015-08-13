@@ -22,13 +22,19 @@ void imuCallback(const sensor_msgs::Imu &imudata)
 {  
   imu = imudata;
 }
-
+static double t = 0;
+static double inputPhase = 0;
 Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 {
 #define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
+  Pose pose = Pose::identity();
+  double driveFrequency = 10.5;  // angular frequency
+  inputPhase = t * driveFrequency;
+  pose.position[1] = 0.01*sin(inputPhase);
+  t += timeDelta;
   calculatePassiveAngularFrequency();
-  return Pose::identity();
+  return pose;
 #endif
   Pose adjust;
   Quat orient;            //Orientation from IMU in quat
@@ -160,6 +166,7 @@ vector<Vector2d> queueToVector(const vector<Vector2d> &queue, int head, int tail
   return result;
 }
 
+
 void calculatePassiveAngularFrequency()
 {
   Vector2d mean(0,0);
@@ -171,18 +178,21 @@ void calculatePassiveAngularFrequency()
   }
   if (numStates > 0)
     mean /= (double)numStates;
+  vector<Vector3d> ps(1);
+  ps[0] = Vector3d(mean[0], mean[1], 0);
+  debugDraw->drawPoints(ps, Vector4d(1,1,1,1));
 
   // just 1 dimension for now
-  double acc = 2.0*sin(3.0*timex) + 0.5*sin(9.3*timex) + random(-0.1, 0.1); // imu.linear_acceleration.y;
-  double inputAngle = 3.0*timex;
+  double acc =  imu.linear_acceleration.x;
+  double inputAngle = inputPhase;
   double decayRate = 0.1;
   // lossy integrator
   vel = (vel + (acc - mean[1])*timeDelta) / (1.0 + decayRate*timeDelta);
-  states[queueHead] = Vector2d(vel - mean[0], acc - mean[1]);
+  states[queueHead] = Vector2d(vel, acc);
 
   // increment 
   timex += timeDelta;
-  const int noiseRobustnessCount = 20;
+  const int noiseRobustnessCount = 30;
   if (numStates > noiseRobustnessCount)
   {
     int tail = queueHead;
@@ -227,7 +237,7 @@ void calculatePassiveAngularFrequency()
   
   Vector2d sumSquare(0,0);
   for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
-    sumSquare += Vector2d(sqr(states[i][0]), sqr(states[i][1]));
+    sumSquare += Vector2d(sqr(states[i][0] - mean[0]), sqr(states[i][1] - mean[1]));
   totalNumerator += sumSquare[1];
   totalDenominator += sumSquare[0];
   double omega = sqrt(sumSquare[1]) / (sqrt(sumSquare[0]) + 1e-10);
@@ -236,7 +246,7 @@ void calculatePassiveAngularFrequency()
   vector<Vector2d> normalisedStates(maxStates);
   for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
   {
-    normalisedStates[i] = states[i];
+    normalisedStates[i] = states[i] - mean;
     normalisedStates[i][0] *= omega;
   }
   debugDraw->plot(queueToVector(normalisedStates, queueHead, queueTail)); // this should look noisy but circularish

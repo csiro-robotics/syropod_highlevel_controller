@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
     time += timeDelta;
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
-    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
     //localVelocity[1] = time < 3*pi ? 0.2 : 0.0;
     //if (time > 3*pi+0.5)
     //localVelocity[1] = 0.2;
@@ -153,7 +153,7 @@ int main(int argc, char* argv[])
 #endif
       walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust); // the cube just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
-    debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
+  //  debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
 
 
     if (true)
