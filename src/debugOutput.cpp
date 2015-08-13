@@ -153,7 +153,7 @@ void DebugOutput::plot(const vector<Vector2d> &points)
   marker.scale.y = 0.02;
   marker.scale.z = 0.02;
   
-  Vector4d colour(1,0.5*(double)(plotID%3),1,1);
+  Vector4d colour(1,0.5*(double)((plotID-1)%3),(double)(plotID%2),1);
   marker.color.r = colour[0];
   marker.color.g = colour[1];
   marker.color.b = colour[2];
