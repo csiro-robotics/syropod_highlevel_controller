@@ -245,14 +245,18 @@ void calculatePassiveAngularFrequency()
   
   Vector2d sumUnrotated(0,0);
   double theta = -inputAngle;
-  double y = normalisedStates[lastHead][0] * cos(theta) + normalisedStates[lastHead][1] * sin(theta);
-  double x = normalisedStates[lastHead][0] * -sin(theta) + normalisedStates[lastHead][1] * cos(theta);
+//  double y = normalisedStates[lastHead][0] * cos(theta) + normalisedStates[lastHead][1] * sin(theta);
+//  double x = normalisedStates[lastHead][0] * -sin(theta) + normalisedStates[lastHead][1] * cos(theta);
+  // i.e. y = acc = sin(theta)  <-- if offset = sin(theta) then you'd expect the drive force to be also proportional to sin(theta)
+  // i.e. x = vel = -cos(theta)
+  double x = normalisedStates[lastHead][0] * cos(theta) + normalisedStates[lastHead][1] * sin(theta);
+  double y = normalisedStates[lastHead][0] * -sin(theta) + normalisedStates[lastHead][1] * cos(theta);
   relativeStates[lastHead] = Vector2d(x,y);
   for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
     sumUnrotated += relativeStates[i];
   totalPhase += sumUnrotated;
-  double phaseOffset = atan2(sumUnrotated[0], sumUnrotated[1]);
-  double runningPhaseOffset = atan2(totalPhase[0], totalPhase[1]);
+  double phaseOffset = atan2(sumUnrotated[1], -sumUnrotated[0]);
+  double runningPhaseOffset = atan2(totalPhase[1], -totalPhase[0]);
   cout << "rolling phase offset estimate: " << phaseOffset << ", running phase offset estimate: " << runningPhaseOffset << endl;
   debugDraw->plot(queueToVector(relativeStates, queueHead, queueTail)); // this should cluster around a particular phase
 }
