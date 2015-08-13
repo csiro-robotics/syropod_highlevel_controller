@@ -138,64 +138,115 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 }
 
 static double vel = 0.0;
-static const int numStates = 200;
-vector<Vector2d> states(numStates);
-vector<Vector2d> relativeStates(numStates);
-static int stateIndex = 0; 
+static const int maxStates = 10000;
+//static const int numStates = 200;
+vector<Vector2d> states(maxStates);
+vector<Vector2d> relativeStates(maxStates);
+vector<double> phases(maxStates); // used to know where to cut the tail as it goes around the circle
+// poor man's dynamic size circular queue. Just keep a head and tail index
+static int queueHead = 0; 
+static int queueTail = 0; 
 static double timex = 0.0;
+static int lastHead = 0;
 
 static Vector2d totalPhase(0,0);
 static double totalNumerator = 0;
 static double totalDenominator = 0;
 
+vector<Vector2d> queueToVector(const vector<Vector2d> &queue, int head, int tail)
+{
+  vector<Vector2d> result;
+  for (int j = tail, i=j; i!=head; j++, i=(j%queue.size()))
+    result.push_back(queue[i]);
+  return result;
+}
+
 void calculatePassiveAngularFrequency()
 {
   Vector2d mean(0,0);
-  for (int i = 0; i<numStates; i++)
+  int numStates = 0;
+  for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
+  {
     mean += states[i];
-  mean /= (double)numStates;
+    numStates++;
+  }
+  if (numStates > 0)
+    mean /= (double)numStates;
 
   // just 1 dimension for now
-  double acc = 2.0*sin(3.0*timex); // imu.linear_acceleration.y;
+  double acc = 2.0*sin(3.0*timex) + random(-0.1, 0.1); // imu.linear_acceleration.y;
   double inputAngle = 3.0*timex;
   double decayRate = 0.1;
   // lossy integrator
   vel = (vel + (acc - mean[1])*timeDelta) / (1.0 + decayRate*timeDelta);
-  states[stateIndex] = Vector2d(vel - mean[0], acc - mean[1]);
-  debugDraw->plot(states); // should look noisy and elliptical
+  states[queueHead] = Vector2d(vel - mean[0], acc - mean[1]);
+
+  // increment 
+  timex += timeDelta;
+  double phase = atan2(states[queueHead][0], states[queueHead][1]);
+  if (numStates > 1)
+  {
+    double phaseDiff = phase - phases[lastHead];
+    while (phaseDiff > pi)
+      phaseDiff -= 2.0*pi;
+    while (phaseDiff < -pi)
+      phaseDiff += 2.0*pi;
+    phases[queueHead] = phases[lastHead] + phaseDiff;
+  }
+  else
+    phases[queueHead] = phase;
+  // now increment the tail
+  // we want a robust way to find when we've completed the loop...
+  while (phases[queueTail] < phases[queueHead] - 2.0*pi && queueTail != queueHead)
+    queueTail = (queueTail + 1) % maxStates;
+  // attempt at robustness, also work backwards, then crop based on average of both 
+  {
+    int tempHead = queueHead;
+    while (phases[tempHead] > phases[queueHead] - 2.0*pi && tempHead != queueTail)
+      tempHead = (tempHead + maxStates-1) % maxStates;
+    tempHead = (tempHead + 1) % maxStates;
+    int tempTail = queueTail;
+    while (tempTail != tempHead && (tempTail+1)%maxStates != tempHead)
+    {
+      tempTail = (tempTail + 2) % maxStates;
+      queueTail = (queueTail + 1) % maxStates;
+    }
+  }
+  
+  lastHead = queueHead;
+  queueHead = (queueHead + 1) % maxStates; // poor man's circular queue!
+    
+  debugDraw->plot(queueToVector(states, queueHead, queueTail)); // should look noisy and elliptical
 
   
   Vector2d sumSquare(0,0);
-  for (int i = 0; i<numStates; i++)
+  for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
     sumSquare += Vector2d(sqr(states[i][0]), sqr(states[i][1]));
   totalNumerator += sumSquare[1];
   totalDenominator += sumSquare[0];
   double omega = sqrt(sumSquare[1]) / (sqrt(sumSquare[0]) + 1e-10);
   cout << "rolling omega estimate: " << omega << ", running omega estimate: " << sqrt(totalNumerator) / (sqrt(totalDenominator)+1e-10) << endl;
   
-  vector<Vector2d> normalisedStates(numStates);
-  for (int i = 0; i<numStates; i++)
+  vector<Vector2d> normalisedStates(maxStates);
+  for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
   {
     normalisedStates[i] = states[i];
     normalisedStates[i][0] *= omega;
   }
-  debugDraw->plot(normalisedStates); // this should look noisy but circularish
+  debugDraw->plot(queueToVector(normalisedStates, queueHead, queueTail)); // this should look noisy but circularish
   
   // next, based on omega, lets plot the points 'unrotated' by the angular rate, to get a phase offset
   
   Vector2d sumUnrotated(0,0);
   double theta = -inputAngle;
-  double y = normalisedStates[stateIndex][0] * cos(theta) + normalisedStates[stateIndex][1] * sin(theta);
-  double x = normalisedStates[stateIndex][0] * -sin(theta) + normalisedStates[stateIndex][1] * cos(theta);
-  relativeStates[stateIndex] = Vector2d(x,y);
-  for (int i = 0; i<numStates; i++)
+  double y = normalisedStates[lastHead][0] * cos(theta) + normalisedStates[lastHead][1] * sin(theta);
+  double x = normalisedStates[lastHead][0] * -sin(theta) + normalisedStates[lastHead][1] * cos(theta);
+  relativeStates[lastHead] = Vector2d(x,y);
+  for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
     sumUnrotated += relativeStates[i];
   totalPhase += sumUnrotated;
   double phaseOffset = atan2(sumUnrotated[0], sumUnrotated[1]);
   double runningPhaseOffset = atan2(totalPhase[0], totalPhase[1]);
   cout << "rolling phase offset estimate: " << phaseOffset << ", running phase offset estimate: " << runningPhaseOffset << endl;
-  debugDraw->plot(relativeStates); // this should cluster around a particular phase
-  
-  stateIndex = (stateIndex + 1) % numStates; // poor man's circular queue!
-  timex += timeDelta;
+  debugDraw->plot(queueToVector(relativeStates, queueHead, queueTail)); // this should cluster around a particular phase
 }
