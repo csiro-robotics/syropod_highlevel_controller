@@ -31,11 +31,11 @@ void jointStatesCallback(const sensor_msgs::JointState &joint_States);
 void joypadChangeCallback(const geometry_msgs::Twist &twist)
 {
   //ASSERT(twist.angular.z < 0.51);
- // ASSERT(twist.linear.y < 0.51);
+  //ASSERT(twist.linear.y < 0.51);
   // these are 0 to 5 for some reason, so multiply by 0.2
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   localVelocity = clamped(localVelocity, 1.0);
-  turnRate = -twist.angular.z;
+  turnRate = twist.angular.z;
 }
 
 int main(int argc, char* argv[])
@@ -145,7 +145,7 @@ int main(int argc, char* argv[])
     adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
     //localVelocity[1] = time < 3*pi ? 0.2 : 0.0;
     //if (time > 3*pi+0.5)
-    //localVelocity[1] = 0.2;
+    //localVelocity[0] = 0.2;
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();

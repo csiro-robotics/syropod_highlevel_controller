@@ -1,7 +1,7 @@
 #pragma once
 #include "../include/simple_hexapod_controller/walkController.h"
 
-static double stancePhase = 5*pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
+static double stancePhase = pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
 static double swingPhase = pi;   // WAVE: pi	TRIPOD: pi	RIPPLE: pi
 static double phaseOffset = pi;
 static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
