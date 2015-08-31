@@ -13,6 +13,7 @@
 #include <iostream>
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
+#include "geometry_msgs/Vector3.h"
 #include "sensor_msgs/JointState.h"
 #include <boost/circular_buffer.hpp> 
 
@@ -45,6 +46,14 @@ int main(int argc, char* argv[])
   ros::NodeHandle n_priv("~");
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
+  
+  ros::Publisher tipPosPub[3][2];
+  tipPosPub[0][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_00", 1);
+  tipPosPub[0][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_01", 1);
+  tipPosPub[1][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_10", 1);
+  tipPosPub[1][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_11", 1);
+  tipPosPub[2][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_20", 1);
+  tipPosPub[2][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_21", 1);
   
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   double t = 0;
@@ -112,11 +121,11 @@ int main(int argc, char* argv[])
 #endif
 
 #if defined(FLEXIPOD)
-  WalkController walker(&hexapod, 1, 0.5, 0.12, 0.8,0.4);
+  WalkController walker(&hexapod, 1, 0.5, 0.12, 0.8, 0.4);
 #elif defined(LOBSANG)
   WalkController walker(&hexapod, 1, 0.5, 0.1; 
 #elif defined(LARGE_HEXAPOD)
-  WalkController walker(&hexapod, 1, 0.18, 0.06, 0.4, 0.6);
+  WalkController walker(&hexapod, 1, 0.2, 0.06, 0.4, 0.6);
 #endif
     
   DebugOutput debug;
@@ -143,9 +152,7 @@ int main(int argc, char* argv[])
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
     adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
-    //localVelocity[1] = time < 3*pi ? 0.2 : 0.0;
-    //if (time > 3*pi+0.5)
-    //localVelocity[1] = 0.2;
+    //localVelocity[1] = 1.0;//time < 30 ? 0.5 : 0.0;
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();
@@ -153,9 +160,20 @@ int main(int argc, char* argv[])
 #endif
       walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust); // the cube just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
-  //  debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
-
-
+    debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
+    
+    geometry_msgs::Vector3 msg;
+    for (int l = 0; l<3; l++)
+    {
+      for (int s = 0; s<2; s++)
+      {
+        msg.x = walker.tipPositions[l][s][0];
+        msg.y = walker.tipPositions[l][s][1];
+        msg.z = walker.tipPositions[l][s][2];
+        tipPosPub[l][s].publish(msg);
+      }
+    }
+    
     if (true)
     {
       for (int s = 0; s<2; s++)

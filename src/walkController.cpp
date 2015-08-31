@@ -1,17 +1,17 @@
 #pragma once
 #include "../include/simple_hexapod_controller/walkController.h"
 
-static double stancePhase = 5*pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
-static double swingPhase = pi;   // WAVE: pi	TRIPOD: pi	RIPPLE: pi
-static double phaseOffset = pi;
+static double stancePhase = 8;          // WAVE: 8	TRIPOD: 1       RIPPLE: 2
+static double swingPhase = 1;           // WAVE: 1	TRIPOD: 1       RIPPLE: 1
+static double phaseOffset = 1.5;        // WAVE: 1.5    TRIPOD: 1       RIPPLE: 1
 static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
 static double heightRatio = 0.25; // The ratio between the positive and negative lift heights (stance/swing)
 
 static double swingStart = stancePhase / 2.0;
 static double swingEnd = stancePhase / 2.0 + swingPhase;
 
-static int legSelectionPattern[]  = {0,1,2,0,1,2};  //WAVE: {0,1,2,0,1,2}	TRIPOD: {0,1,2,0,1,2}	RIPPLE: {2,1,0,2,1,0}
-static int sideSelectionPattern[] = {0,0,0,1,1,1};	//WAVE: {0,0,0,1,1,1}	TRIPOD: {0,0,0,1,1,1}	RIPPLE: {1,0,1,0,1,0}
+static int legSelectionPattern[]  = {0,1,2,0,1,2};  //WAVE: {0,1,2,0,1,2}       TRIPOD: {0,1,2,0,1,2}   RIPPLE: {2,1,0,2,1,0}
+static int sideSelectionPattern[] = {0,0,0,1,1,1};  //WAVE: {0,0,0,1,1,1}       TRIPOD: {0,0,0,1,1,1}   RIPPLE: {1,0,1,0,1,0}
 
 static double maxAcceleration = 0.1;
 static double maxCurvatureSpeed = 0.4;
@@ -22,9 +22,11 @@ static bool isStopping = false;
 
 static int numLegs = 6;
 
-//#define ADVANCED_STEP_CURVE
+#define ADVANCED_STEP_CURVE
 #if defined (ADVANCED_STEP_CURVE)
 static double transitionPeriod = pi*0.2;
+static double swing0 = swingStart+transitionPeriod*0.5;
+static double swing1 = swingEnd  -transitionPeriod*0.5;
 
 // This version deccelerates on approaching the ground during a step, allowing a softer landing.
 // as such, the swing phase is made from two time-symmetrical cubics and
@@ -33,8 +35,6 @@ Vector3d WalkController::LegStepper::getPosition(double liftHeight)
 {
   double landSpeed = 0.5*liftHeight; // 1 is linear land speed
   Vector3d strideVec(strideVector[0], strideVector[1], 0);
-  double swing0 = swingStart+transitionPeriod*0.5;
-  double swing1 = swingEnd  -transitionPeriod*0.5;
   if (phase > swing0 && phase < swing1)
   {
     Vector3d nodes[4];
@@ -263,22 +263,18 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   
   //Iterate master walk phase
   if (isMoving)
-  {
     walkPhase = iteratePhase(walkPhase);
-    if (walkPhase > phaseLength)
-      walkPhase = 0; 
-  }
   
   //Engage States
   if (!isMoving && normalSpeed && !isStarting)
   {
     isStarting = true;
-    isStopping = false;
+    isStopping = false;   
   }
   if (isMoving && !normalSpeed && !isStopping)
   {
     isStopping = true;
-    isStarting = false;
+    isStarting = false;  
   }
   
   //Disengage States
@@ -341,13 +337,13 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
           legStepper.phase = iteratePhase(legStepper.phase);  
       }
       else if (isMoving)
-      {
         legStepper.phase = phase; // otherwise follow the step cycle exactly
-      }
       else //else stopped
         legStepper.phase = 0;
       
+      
       Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*maximumBodyHeight);
+      tipPositions[l][s] = pos;
       
       if ((legStepper.phase < swingStart+transitionPeriod*0.5) || (legStepper.phase > swingEnd-transitionPeriod*0.5))
         targets.push_back(pose.transformVector(pos));

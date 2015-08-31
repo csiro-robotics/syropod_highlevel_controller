@@ -20,11 +20,12 @@ struct WalkController
   double walkPhase;
   double maximumBodyHeight;
   int targetsNotMet = 6;
+  Vector3d tipPositions[3][2];
   
   struct LegStepper
   {
-    double phase; // 0 to 2pi
-    double phaseOffset; // 0 to 2pi
+    double phase;
+    double phaseOffset;
     Vector2d strideVector; // length gives stride length
     
     Vector3d getPosition(double liftHeight);
