@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
 #if defined(FLEXIPOD)
   WalkController walker(&hexapod, 1, 0.5, 0.12, 0.8, 0.4);
 #elif defined(LOBSANG)
-  WalkController walker(&hexapod, 1, 0.5, 0.1; 
+  WalkController walker(&hexapod, 1, 0.5, 0.1); 
 #elif defined(LARGE_HEXAPOD)
   WalkController walker(&hexapod, 1, 0.2, 0.06, 0.4, 0.6);
 #endif

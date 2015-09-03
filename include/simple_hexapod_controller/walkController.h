@@ -27,8 +27,12 @@ struct WalkController
     double phase;
     double phaseOffset;
     Vector2d strideVector; // length gives stride length
+    Vector3d currentTipPosition;
+    Vector3d defaultTipPosition;
     
-    Vector3d getPosition(double liftHeight);
+    Vector3d updatePosition(double liftHeight, 
+                            Vector2d localCentreVelocity, 
+                            double angularVelocity);
   } legSteppers[3][2];
   
   vector<Vector3d> targets;
