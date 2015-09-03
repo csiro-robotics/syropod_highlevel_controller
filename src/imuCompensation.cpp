@@ -29,9 +29,9 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 #define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
   Pose pose = Pose::identity();
-  double driveFrequency = 10.5;  // angular frequency
+  double driveFrequency = 12.4;  // angular frequency
   inputPhase = t * driveFrequency;
-  pose.position[1] = 0.01*sin(inputPhase);
+  pose.position[0] = 0.0025*sin(inputPhase);
   t += timeDelta;
   calculatePassiveAngularFrequency();
   return pose;
@@ -58,6 +58,8 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   accel(1) = -imu.linear_acceleration.x;
   accel(0) = -imu.linear_acceleration.y;
   accel(2) = -imu.linear_acceleration.z;
+  if (accel.squaredNorm()==0)
+    return Pose::identity();
   
   /*//Compensation for gravity
   Vector3d accelcomp;
@@ -76,11 +78,11 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 //#define FIRST_ORDER_FEEDBACK
 //#define SECOND_ORDER_FEEDBACK
 #define IMUINTEGRATION_FIRST_ORDER
-//define IMUINTEGRATION_SECOND_ORDER
+//#define IMUINTEGRATION_SECOND_ORDER
 
 #if defined(SECOND_ORDER_FEEDBACK)
-  double imuStrength = 1;
-  double stiffness = 13; // how strongly/quickly we return to the neutral pose
+  double imuStrength = 0.01;
+  double stiffness = 0.5; // how strongly/quickly we return to the neutral pose
   Vector3d offsetAcc = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
   offsetVel += offsetAcc*timeDelta;
   offsetPos += offsetVel*timeDelta;
@@ -102,18 +104,23 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   //offsetPos = imuStrength * (targetAccel-accel+Vector3d(0,0,9.8));
   
  #elif defined(IMUINTEGRATION_SECOND_ORDER)
-  double imuStrength = 2;
-  double decayRate = 10;
+  double imuStrength = 0.1;
+  double decayRate = 1;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
   IMUVel += (targetAccel-accel+Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel;  
   Vector3d offsetAcc = -imuStrength*IMUPos;
   
 #elif defined(IMUINTEGRATION_FIRST_ORDER)
-  double imuStrength = 0.02;
-  double decayRate = 1;
- // IMUVel += (targetAccel-accel+Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel; 
-  IMUVel = (IMUVel + (targetAccel-accel+Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
-  Vector3d offsetAcc = -imuStrength*IMUVel;
+  double imuStrength = 0.05;
+  double decayRate =1;
+  IMUVel += (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel; 
+  //IMUVel(0) += (targetAccel(0)+accel(0))*timeDelta - decayRate*timeDelta*IMUVel(0);
+  //IMUVel(1) += (targetAccel(1)+accel(1))*timeDelta- decayRate*timeDelta*IMUVel(1);
+  //IMUVel(2) += (targetAccel(2)+accel(2)-9.8)*timeDelta - decayRate*timeDelta*IMUVel(2);
+  //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
+  Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
+  //Vector3d offsetAcc = -imuStrength*IMUVel;
+  
 #endif
   
   //Angular body velocity compensation.
@@ -166,28 +173,39 @@ vector<Vector2d> queueToVector(const vector<Vector2d> &queue, int head, int tail
   return result;
 }
 
-
+static Vector2d mean2(0,0);
+static const int numAccs = 1;
+static vector<Vector3d> accs(numAccs);
+static int accIndex = 0;
 void calculatePassiveAngularFrequency()
 {
-  Vector2d mean(0,0);
+  accs[accIndex] = Vector3d(imu.linear_acceleration.y, imu.linear_acceleration.x, imu.linear_acceleration.z);
+  accIndex = (accIndex + 1)%numAccs;
+  Vector3d averageAcc = mean(accs);
+  
+  Vector2d newMean(0,0);
   int numStates = 0;
   for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
   {
-    mean += states[i];
+    newMean += states[i];
     numStates++;
   }
   if (numStates > 0)
-    mean /= (double)numStates;
+    newMean /= (double)numStates;
+  mean2 += (newMean-mean2)*1.0*timeDelta;
+//  mean2 = newMean;
+  
   vector<Vector3d> ps(1);
-  ps[0] = Vector3d(mean[0], mean[1], 0);
+  ps[0] = Vector3d(mean2[0], mean2[1], 0);
   debugDraw->drawPoints(ps, Vector4d(1,1,1,1));
 
   // just 1 dimension for now
-  double acc =  imu.linear_acceleration.x;
+  
+  double acc = averageAcc[0]; // CHANGE when doign a different axis
   double inputAngle = inputPhase;
   double decayRate = 0.1;
   // lossy integrator
-  vel = (vel + (acc - mean[1])*timeDelta) / (1.0 + decayRate*timeDelta);
+  vel = (vel + (acc - mean2[1])*timeDelta) / (1.0 + decayRate*timeDelta);
   states[queueHead] = Vector2d(vel, acc);
 
   // increment 
@@ -237,7 +255,7 @@ void calculatePassiveAngularFrequency()
   
   Vector2d sumSquare(0,0);
   for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
-    sumSquare += Vector2d(sqr(states[i][0] - mean[0]), sqr(states[i][1] - mean[1]));
+    sumSquare += Vector2d(sqr(states[i][0] - mean2[0]), sqr(states[i][1] - mean2[1]));
   totalNumerator += sumSquare[1];
   totalDenominator += sumSquare[0];
   double omega = sqrt(sumSquare[1]) / (sqrt(sumSquare[0]) + 1e-10);
@@ -246,7 +264,7 @@ void calculatePassiveAngularFrequency()
   vector<Vector2d> normalisedStates(maxStates);
   for (int j = queueTail, i=j; i!=queueHead; j++, i=(j%maxStates))
   {
-    normalisedStates[i] = states[i] - mean;
+    normalisedStates[i] = states[i] - mean2;
     normalisedStates[i][0] *= omega;
   }
   debugDraw->plot(queueToVector(normalisedStates, queueHead, queueTail)); // this should look noisy but circularish

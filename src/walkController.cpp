@@ -1,9 +1,11 @@
 #pragma once
 #include "../include/simple_hexapod_controller/walkController.h"
 
+
 static double stancePhase = 8;          // WAVE: 8	TRIPOD: 1       RIPPLE: 2
 static double swingPhase = 1;           // WAVE: 1	TRIPOD: 1       RIPPLE: 1
 static double phaseOffset = 1.5;        // WAVE: 1.5    TRIPOD: 1       RIPPLE: 1
+
 static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
 static double heightRatio = 0.25; // The ratio between the positive and negative lift heights (stance/swing)
 
