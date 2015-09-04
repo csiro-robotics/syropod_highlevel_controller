@@ -5,7 +5,7 @@
 using namespace Eigen;
 using namespace std;
 //#define LARGE_HEXAPOD
-:#define FLEXIPOD
+#define FLEXIPOD
 //#define LOBSANG
 
 #define timeDelta (1.0/50.0)
