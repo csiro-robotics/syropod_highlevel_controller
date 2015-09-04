@@ -1,17 +1,19 @@
 #pragma once
 #include "../include/simple_hexapod_controller/walkController.h"
 
-static double stancePhase = pi;  // WAVE: 5*pi	TRIPOD: pi	RIPPLE: 2*pi	
-static double swingPhase = pi;   // WAVE: pi	TRIPOD: pi	RIPPLE: pi
-static double phaseOffset = pi;
+
+static double stancePhase = 8;          // WAVE: 8	TRIPOD: 1       RIPPLE: 2
+static double swingPhase = 1;           // WAVE: 1	TRIPOD: 1       RIPPLE: 1
+static double phaseOffset = 1.5;        // WAVE: 1.5    TRIPOD: 1       RIPPLE: 1
+
 static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
 static double heightRatio = 0.25; // The ratio between the positive and negative lift heights (stance/swing)
 
 static double swingStart = stancePhase / 2.0;
 static double swingEnd = stancePhase / 2.0 + swingPhase;
 
-static int legSelectionPattern[]  = {0,1,2,0,1,2};  //WAVE: {0,1,2,0,1,2}	TRIPOD: {0,1,2,0,1,2}	RIPPLE: {2,1,0,2,1,0}
-static int sideSelectionPattern[] = {0,0,0,1,1,1};	//WAVE: {0,0,0,1,1,1}	TRIPOD: {0,0,0,1,1,1}	RIPPLE: {1,0,1,0,1,0}
+static int legSelectionPattern[]  = {0,1,2,0,1,2};  //WAVE: {0,1,2,0,1,2}       TRIPOD: {0,1,2,0,1,2}   RIPPLE: {2,1,0,2,1,0}
+static int sideSelectionPattern[] = {0,0,0,1,1,1};  //WAVE: {0,0,0,1,1,1}       TRIPOD: {0,0,0,1,1,1}   RIPPLE: {1,0,1,0,1,0}
 
 static double maxAcceleration = 0.1;
 static double maxCurvatureSpeed = 0.4;
@@ -22,45 +24,62 @@ static bool isStopping = false;
 
 static int numLegs = 6;
 
-//#define ADVANCED_STEP_CURVE
-#if defined (ADVANCED_STEP_CURVE)
-static double transitionPeriod = pi*0.2;
+static double transitionPeriod = swingPhase*0.2;
+static double swing0 = swingStart+transitionPeriod*0.5;
+static double swing1 = swingEnd  -transitionPeriod*0.5;
 
 // This version deccelerates on approaching the ground during a step, allowing a softer landing.
 // as such, the swing phase is made from two time-symmetrical cubics and
 // the stance phase is linear with a shorter cubic acceleration prior to lifting off the ground
-Vector3d WalkController::LegStepper::getPosition(double liftHeight)
+Vector3d WalkController::LegStepper::updatePosition(double liftHeight, 
+                                                    Vector2d localCentreVelocity, 
+                                                    double angularVelocity)
 {
   double landSpeed = 0.5*liftHeight; // 1 is linear land speed
   Vector3d strideVec(strideVector[0], strideVector[1], 0);
-  double swing0 = swingStart+transitionPeriod*0.5;
-  double swing1 = swingEnd  -transitionPeriod*0.5;
+  Vector3d pos;
+  
+  // Swing Phase
   if (phase > swing0 && phase < swing1)
   {
+    // X and Y components of trajectory
     Vector3d nodes[4];
-    nodes[0] = -strideVec*0.5;
-    nodes[3] = strideVec*0.5;
-    nodes[1] = nodes[0] - strideVec / 3.0;
-    nodes[2] = nodes[3] + strideVec / 3.0;
-    Vector3d pos = cubicBezier(nodes, (phase-swing0) / (swing1 - swing0));
-    // now the height part:
+    nodes[0] = currentTipPosition;
+    nodes[3] = defaultTipPosition+strideVec*0.5;
+    nodes[1] = nodes[0] - strideVec / 3.0; //TO BE FIXED FOR CORRECT CURVE
+    nodes[2] = nodes[3] + strideVec / 3.0; //TO BE FIXED FOR CORRECT CURVE
+    
+    pos = cubicBezier(nodes, (phase-swing0) / (swing1 - swing0));
+    
+    // Z component of trajectory
     double swingMid = (swing0 + swing1)*0.5;
     double t = 1.0 - abs(phase - swingMid)/(swing1-swingMid);
     
     double a = landSpeed - 2.0*liftHeight;
     double b = liftHeight - landSpeed - a;
-    pos[2] = a*t*t*t + b*t*t + landSpeed*t;
+    pos[2] = defaultTipPosition[2] + a*t*t*t + b*t*t + landSpeed*t;
     
     ASSERT(pos.squaredNorm() < 1000.0);
+
     return pos;
   }
-  else // stance or transition
+  // Stance phase
+  else
   {
     double t = phase;
     if (t > (stancePhase + swingPhase)*0.5)
-      t -= stancePhase + swingPhase;
+      t -= stancePhase + swingPhase; 
+    
+    pos = currentTipPosition;
+    pos[2] = defaultTipPosition[2];
+    
+    // X & Y Components of Trajectory
+    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*Vector2d(currentTipPosition[1], -currentTipPosition[0]))*timeDelta;
+    pos[0] += deltaPos[0];
+    pos[1] += deltaPos[1];
+    
+    // Z Component of trajectory         
     double liftOffSpeed = landSpeed * transitionPeriod / (swing1-swing0);
-    Vector3d pos = strideVec * 0.5 * -t/swing0;
     pos[2] -= liftOffSpeed * 2.0/3.0; // cubic that ends with 0 acceleration gives twice the depth
     // pos[2] -= liftOffSpeed/3.0; // pure cubic
     
@@ -69,45 +88,13 @@ Vector3d WalkController::LegStepper::getPosition(double liftHeight)
       t = (abs(t) - (swingStart - transitionPeriod*0.5))/transitionPeriod; // now t is 0-1 range
       // height is a bit different here, we use a linear section then a cubic section to lift off
       pos[2] += liftOffSpeed*t*t - liftOffSpeed*t*t*t/3.0;
-//      pos[2] += liftOffSpeed * t*t*t / 3.0; // pure cubic, give smaller depth push
+      //pos[2] += liftOffSpeed * t*t*t / 3.0; // pure cubic, give smaller depth push
     }
     ASSERT(pos.squaredNorm() < 1000.0);
+
     return pos;
   }
 }
-#else
-static double transitionPeriod = 0.0;
-
-Vector3d WalkController::LegStepper::getPosition(double liftHeight)
-{
-  Vector3d strideVec(strideVector[0], strideVector[1], 0);
-  if (phase > swingStart && phase < swingEnd)
-  {
-    Vector3d nodes[4];
-    nodes[0] = -strideVec*0.5;
-    nodes[3] = strideVec*0.5;
-    Vector3d lift(0,0,liftHeight*4.0);
-    nodes[1] = nodes[0] + (lift - strideVec)/3.0;
-    nodes[2] = nodes[3] + (lift + strideVec)/3.0;
-    Vector3d pos = cubicBezier(nodes, (phase-stancePhase / 2.0) / swingPhase);
-    ASSERT(pos.squaredNorm() < 1000.0);
-    return pos;
-  }
-  else // stance
-  {
-    double t = 2*phase/stancePhase;
-    if (t > 1.0)
-      t -= 2*(stancePhase + swingPhase) / stancePhase;
-    Vector3d pos = strideVec * 0.5 * -t;
-
-    pos[2] = liftHeight*heightRatio* (pow(t, stanceFuncOrder) - 1.0);
-    ASSERT(pos.squaredNorm() < 1000.0);
-    return pos;
-  }
-}
-#endif
-
-
 
 /***********************************************************************************************************************
  * Determines the basic stance pose which the hexapod will try to maintain, by 
@@ -187,6 +174,9 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
     {
       localStanceTipPositions[l][side] = model->legs[l][side].rootOffset + footSpreadDistances[l]*Vector3d(cos(model->stanceLegYaws[l]), sin(model->stanceLegYaws[l]), 0) + Vector3d(0,0,-bodyClearance*maximumBodyHeight);
       localStanceTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
+      
+      legSteppers[l][side].defaultTipPosition = localStanceTipPositions[l][side];
+      legSteppers[l][side].currentTipPosition = legSteppers[l][side].defaultTipPosition;
     }
   }
   // check for overlapping radii
@@ -263,22 +253,18 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   
   //Iterate master walk phase
   if (isMoving)
-  {
     walkPhase = iteratePhase(walkPhase);
-    if (walkPhase > phaseLength)
-      walkPhase = 0; 
-  }
   
   //Engage States
   if (!isMoving && normalSpeed && !isStarting)
   {
     isStarting = true;
-    isStopping = false;
+    isStopping = false;   
   }
   if (isMoving && !normalSpeed && !isStopping)
   {
     isStopping = true;
-    isStarting = false;
+    isStarting = false;  
   }
   
   //Disengage States
@@ -294,7 +280,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
     isStopping = false;
     isMoving = false;
     targetsNotMet = numLegs;
-  }
+  }  
   
   for (int l = 0; l<3; l++)
   {
@@ -306,16 +292,15 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       legStepper.strideVector = onGroundRatio*
           (localCentreVelocity + angularVelocity*Vector2d(leg.localTipPosition[1], -leg.localTipPosition[0]))/
           stepFrequency;
-      
+          
       double phase = fmod(walkPhase + legStepper.phaseOffset, phaseLength);
       double targetPhase = 0.0;
       
       if (isStarting)
-      {
+      {        
         localCentreVelocity = Vector2d(1e-10, 1e-10);
         angularVelocity = 0.0;
         legStepper.strideVector = Vector2d(1e-10, 1e-10);
-        
         
         if (legStepper.phaseOffset < phaseLength/2)
           targetPhase = legStepper.phaseOffset;
@@ -329,6 +314,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
         }
         else
           legStepper.phase = iteratePhase(legStepper.phase);
+        
       }
       else if (isStopping)
       {   
@@ -341,18 +327,18 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
           legStepper.phase = iteratePhase(legStepper.phase);  
       }
       else if (isMoving)
-      {
         legStepper.phase = phase; // otherwise follow the step cycle exactly
-      }
       else //else stopped
         legStepper.phase = 0;
       
-      Vector3d pos = localStanceTipPositions[l][s] + legStepper.getPosition(stepClearance*maximumBodyHeight);
+      double liftHeight = stepClearance*maximumBodyHeight;
+      legStepper.currentTipPosition = legStepper.updatePosition(liftHeight, localCentreVelocity, angularVelocity);        
+      tipPositions[l][s] = legStepper.currentTipPosition;
       
       if ((legStepper.phase < swingStart+transitionPeriod*0.5) || (legStepper.phase > swingEnd-transitionPeriod*0.5))
-        targets.push_back(pose.transformVector(pos));
+        targets.push_back(pose.transformVector(tipPositions[l][s]));
       
-      leg.applyLocalIK(pos);
+      leg.applyLocalIK(tipPositions[l][s]);
     }
   }
 
@@ -366,8 +352,8 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
             // false means we don't update local tip position, as it is needed above in step calculations
       }
     }
-  }
-
+  }  
+  
   model->clampToLimits();
   localCentreAcceleration = (localCentreVelocity - oldLocalCentreVelocity) / timeDelta;
   Vector2d push = localCentreVelocity*timeDelta;
@@ -403,11 +389,11 @@ bool WalkController::moveToStart()
   {
     for (int s = 0; s<2; s++)
     {
-      Leg &leg = model->legs[l][s];
+      Leg &leg = model->legs[l][s];     
       Vector3d nodes[4];
       nodes[0] = targets[i++];
       nodes[1] = nodes[0];// + 4.0*Vector3d(0,0,stepClearance*maximumBodyHeight)/3.0;
-      nodes[3] = localStanceTipPositions[l][s] + legSteppers[l][s].getPosition(stepClearance*maximumBodyHeight);;
+      nodes[3] = legSteppers[l][s].updatePosition(stepClearance*maximumBodyHeight,localCentreVelocity, angularVelocity);;
       nodes[2] = nodes[3];// + Vector3d(0,0,stepClearance*maximumBodyHeight)/3.0; // ends at one quarter the speed, so it doesn't slam into the ground
       Vector3d pos = cubicBezier(nodes, walkPhase / pi);
       leg.applyLocalIK(pos);
