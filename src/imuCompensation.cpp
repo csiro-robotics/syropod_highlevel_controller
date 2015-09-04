@@ -26,7 +26,7 @@ static double t = 0;
 static double inputPhase = 0;
 Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 {
-#define PHASE_ANALYSIS
+//#define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
   Pose pose = Pose::identity();
   double driveFrequency = 12.4;  // angular frequency
@@ -111,15 +111,15 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   Vector3d offsetAcc = -imuStrength*IMUPos;
   
 #elif defined(IMUINTEGRATION_FIRST_ORDER)
-  double imuStrength = 0.05;
+  double imuStrength = 0.03;
   double decayRate =1;
   IMUVel += (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel; 
   //IMUVel(0) += (targetAccel(0)+accel(0))*timeDelta - decayRate*timeDelta*IMUVel(0);
   //IMUVel(1) += (targetAccel(1)+accel(1))*timeDelta- decayRate*timeDelta*IMUVel(1);
   //IMUVel(2) += (targetAccel(2)+accel(2)-9.8)*timeDelta - decayRate*timeDelta*IMUVel(2);
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
-  Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
-  //Vector3d offsetAcc = -imuStrength*IMUVel;
+  //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
+  Vector3d offsetAcc = -imuStrength*IMUVel;
   
 #endif
   

@@ -129,7 +129,7 @@ int main(int argc, char* argv[])
   else
     interface = new DynamixelProMotorInterface();
 
-  interface->setupSpeed(0.5);   
+  interface->setupSpeed(1.5);   
 
 
   
