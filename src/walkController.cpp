@@ -2,9 +2,9 @@
 #include "../include/simple_hexapod_controller/walkController.h"
 
 
-static double stancePhase = 8;          // WAVE: 8	TRIPOD: 1       RIPPLE: 2
-static double swingPhase = 1;           // WAVE: 1	TRIPOD: 1       RIPPLE: 1
-static double phaseOffset = 1.5;        // WAVE: 1.5    TRIPOD: 1       RIPPLE: 1
+static double stancePhase = 16;          // WAVE: 8	TRIPOD: 1       RIPPLE: 2
+static double swingPhase = 2;           // WAVE: 1	TRIPOD: 1       RIPPLE: 1
+static double phaseOffset = 3;        // WAVE: 1.5    TRIPOD: 1       RIPPLE: 1
 
 static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
 static double heightRatio = 0.25; // The ratio between the positive and negative lift heights (stance/swing)
@@ -12,7 +12,7 @@ static double heightRatio = 0.25; // The ratio between the positive and negative
 static double swingStart = stancePhase / 2.0;
 static double swingEnd = stancePhase / 2.0 + swingPhase;
 
-static int legSelectionPattern[]  = {0,1,2,0,1,2};  //WAVE: {0,1,2,0,1,2}       TRIPOD: {0,1,2,0,1,2}   RIPPLE: {2,1,0,2,1,0}
+static int legSelectionPattern[]  = {0,1,2,0,1,2} ;  //WAVE: {0,1,2,0,1,2}       TRIPOD: {0,1,2,0,1,2}   RIPPLE: {2,1,0,2,1,0}
 static int sideSelectionPattern[] = {0,0,0,1,1,1};  //WAVE: {0,0,0,1,1,1}       TRIPOD: {0,0,0,1,1,1}   RIPPLE: {1,0,1,0,1,0}
 
 static double maxAcceleration = 0.1;
@@ -227,7 +227,7 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
 ***********************************************************************************************************************/
 void WalkController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset)
 {
-  targets.clear();
+  //targets.clear();
   double onGroundRatio = (stancePhase+transitionPeriod)/(stancePhase + swingPhase);
   Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*stepFrequency/onGroundRatio;
 
@@ -335,7 +335,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       legStepper.currentTipPosition = legStepper.updatePosition(liftHeight, localCentreVelocity, angularVelocity);        
       tipPositions[l][s] = legStepper.currentTipPosition;
       
-      if ((legStepper.phase < swingStart+transitionPeriod*0.5) || (legStepper.phase > swingEnd-transitionPeriod*0.5))
+      //if ((legStepper.phase < swingStart+transitionPeriod*0.5) || (legStepper.phase > swingEnd-transitionPeriod*0.5))
         targets.push_back(pose.transformVector(tipPositions[l][s]));
       
       leg.applyLocalIK(tipPositions[l][s]);
