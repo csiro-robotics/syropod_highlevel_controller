@@ -17,61 +17,22 @@
 #include "sensor_msgs/JointState.h"
 #include <boost/circular_buffer.hpp> 
 
+//Globals for joypad callback
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
+
+//Globals for joint states callback
 sensor_msgs::JointState jointStates;
 double jointPositions[18];
 bool jointPosFlag = false;
 
-// target rather than measured data
-static Vector3d offsetPos(0.0,0.0,0.0);
-static Vector3d offsetVel(0,0,0);
-
-struct Parameters
-{
-  std::string hexapodType;
-  bool moveToStart;
-
-  //Hexapod Parameters
-  std::vector<double> stanceLegYaws;
-  std::vector<double> yawLimits;
-  std::vector<double> kneeLimits;
-  std::vector<double> hipLimits;
-  std::vector<double> jointMaxAngularSpeed;
-  bool dynamixelInterface;
-
-  //Walk Controller Parameters
-  std::string gaitType;  
-  double stepFrequency;
-  double stepClearance;
-  double bodyClearance;
-  double legSpanScale;  
-  double maxAcceleration;
-  double maxCurvatureSpeed;
-  double stepCurvatureAllowance;
-  double interfaceSetupSpeed;
-  
-  //Gait Parameters
-  double stancePhase;
-  double swingPhase;
-  double phaseOffset;  
-  double stanceFunctionOrder;
-  double heightRatio;  
-  std::vector<int> legSelectionPattern;
-  std::vector<int> sideSelectionPattern;
-  double transitionPeriod;
-};
-
+void joypadChangeCallback(const geometry_msgs::Twist &twist);
 void jointStatesCallback(const sensor_msgs::JointState &joint_States);
-void getParameters(ros::NodeHandle n, Parameters params);
+void getParameters(ros::NodeHandle n, Parameters *params);
 
-void joypadChangeCallback(const geometry_msgs::Twist &twist)
-{
-  localVelocity = Vector2d(-twist.linear.x, twist.linear.y);
-  localVelocity = clamped(localVelocity, 1.0);
-  turnRate = twist.angular.z;
-}
-
+/***********************************************************************************************************************
+ * Main
+***********************************************************************************************************************/
 int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "Hexapod");
@@ -92,124 +53,99 @@ int main(int argc, char* argv[])
   //DEBUGGING
   
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
-  double t = 0;
   
   //Get parameters from rosparam via loaded config file
   Parameters params;
-  getParameters(n, params);
+  getParameters(n, &params);
   
-//#define MOVE_TO_START    
-#if defined(MOVE_TO_START)
-#if defined(FLEXIPOD)
-  ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
-#elif defined(LOBSANG)
-  ros::Subscriber jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
-#elif defined(LARGE_HEXAPOD)
-  //Check if the order is the same in the large hexapod!!(front left, front right, middle left, middle right...)
-  ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback);
-#endif  
-
-  for (int i=0; i<18; i++)
-    jointPositions[i] = 1e10;
-  
-  int spin = 10; //Max ros spin cycles to find joint positions
-  while(spin--)//If working with Rviz, (Not with an actual robot or gazebo), comment this two lines and the for loops
+  //MOVE_TO_START
+  if (params.moveToStart)
   {
-    ros::spinOnce();
-    r.sleep();
-  }
-#endif
- 
-  bool dynamixel_interface = true;
-  n_priv.param<bool>("dynamixel_interface", dynamixel_interface, true);
-  Vector3d yawOffsets(0,0,0);  
+    if (params.hexapodType == "large_hexapod" || params.hexapodType == "flexipod")
+        ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
+    else if (params.hexapodType == "lobsang")
+        ros::Subscriber jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
 
-#if defined(FLEXIPOD)
-  yawOffsets = Vector3d(0.77,0,-0.77);  
-  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
-#elif defined(LOBSANG)  
-  yawOffsets = Vector3d(0.77,0,-0.77);   
-  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));  
-#elif defined(LARGE_HEXAPOD)
-  double yawLimit = 30;
-  Vector3d yawLimits = Vector3d(yawLimit, yawLimit, yawLimit)*pi/180.0;
-  Vector2d kneeLimit = Vector2d(50, 160)*pi/180.0;
-  Vector2d hipLimit = Vector2d(-25, 80)*pi/180.0;
-  Model hexapod(Vector3d(45,0,-45)*pi/180.0, yawLimits, kneeLimit, hipLimit);
-  hexapod.jointMaxAngularSpeeds = Vector3d(1.0, 0.4, 0.4);
-#endif
-
+    for (int i=0; i<18; i++)
+      jointPositions[i] = 1e10;
   
-#if defined(MOVE_TO_START)  
-  if (jointPosFlag)
-  {
-    // set initial leg angles
-    for (int leg = 0; leg<3; leg++)
+    int spin = 10; //Max ros spin cycles to find joint positions
+    while(spin--)
     {
-      for (int side = 0; side<2; side++)
-      {
-        double dir = side==0 ? -1 : 1;
-        int index = leg*6+(side == 0 ? 0 : 3);
-        hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*yawOffsets[leg], -jointPositions[index+1], jointPositions[index+2]));
-        cout << "leg << " << leg << ", side: " << side << 
-        " values: " << hexapod.legs[leg][side].yaw << ", " << hexapod.legs[leg][side].liftAngle << ", " << hexapod.legs[leg][side].kneeAngle << endl;
-      }
+      ros::spinOnce();
+      r.sleep();
     }
   }
-  else
-    cout << "Failed to acquire all joint position values" << endl;
-#endif
+  
+  //Create hexapod model    
+  Model hexapod(params.hexapodType,
+                params.stanceLegYaws, 
+                params.yawLimits, 
+                params.kneeLimits, 
+                params.hipLimits);
+  
+  if (params.hexapodType == "large_hexapod")
+    hexapod.jointMaxAngularSpeeds = params.jointMaxAngularSpeeds;
+  
+  //MOVE_TO_START
+  if (params.moveToStart)
+  {
+    if (jointPosFlag)
+    {
+      // set initial leg angles
+      for (int leg = 0; leg<3; leg++)
+      {
+        for (int side = 0; side<2; side++)
+        {
+          double dir = side==0 ? -1 : 1;
+          int index = leg*6+(side == 0 ? 0 : 3);
+          hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*params.stanceLegYaws[leg],
+                                                            -jointPositions[index+1], jointPositions[index+2]));
+          double yaw = hexapod.legs[leg][side].yaw;
+          double liftAngle = hexapod.legs[leg][side].liftAngle;
+          double kneeAngle = hexapod.legs[leg][side].kneeAngle;
+          cout<<"leg "<<leg<<", side: "<<side<<" values: "<<yaw<<", "<<liftAngle<<", "<<kneeAngle<<endl;
+        }
+      }
+    }
+    else
+      cout << "Failed to acquire all joint position values" << endl;
+  }
 
-#if defined(FLEXIPOD)
-  WalkController walker(&hexapod, 1, 0.5, 0.12, 0.8, 0.4);
-#elif defined(LOBSANG)
-  WalkController walker(&hexapod, 1, 0.5, 0.1); 
-#elif defined(LARGE_HEXAPOD)
-  WalkController walker(&hexapod, 1, 0.2, 0.06, 0.4, 0.6);
-#endif
+  // Create walk controller object
+  WalkController walker(&hexapod, params);
     
   DebugOutput debug;
   setCompensationDebug(debug);
 
+  //Setup motor interaface
   MotorInterface *interface;
-
-  if (dynamixel_interface)
-  {
+  if (params.dynamixelInterface)
     interface = new DynamixelMotorInterface();
-  }
   else
-  {
     interface = new DynamixelProMotorInterface();
-  }
-
-  interface->setupSpeed(0.5);   
-
-
+  interface->setupSpeed(params.interfaceSetupSpeed);   
   
-  Vector3d maxVel(0,0,0);
+  //Position update loop
   bool firstFrame = true;
   bool started = false;
-  double time = 0;
   while (ros::ok())
   {
-    time += timeDelta;
+    //Imu Compensation
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
-    //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
-
-    //localVelocity[1] = 1.0;//time < 30 ? 0.5 : 0.0;
-
-#if defined(MOVE_TO_START)
-    if (!started)
-    {
+    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    
+    //Update walker or move to starting stance
+    if (!started && params.moveToStart)
       started = walker.moveToStart();
-    }
     else
-#endif
       walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust); // the cube just lets the thumbstick give small turns easier
+      
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     
+    //DEBUGGING
     geometry_msgs::Vector3 msg;
     for (int l = 0; l<3; l++)
     {
@@ -221,6 +157,7 @@ int main(int argc, char* argv[])
         tipPosPub[l][s].publish(msg);
       }
     }
+    //DEBUGGING
     
     if (true)
     {
@@ -230,14 +167,16 @@ int main(int argc, char* argv[])
         for (int l = 0; l<3; l++)
         {
           double angle;  
-          double yaw = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
+          double yaw = dir*(walker.model->legs[l][s].yaw - params.stanceLegYaws[l]);
           double lift = -dir*walker.model->legs[l][s].liftAngle;
           double knee = dir*walker.model->legs[l][s].kneeAngle;
+          
           if (!firstFrame)
           {
             double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/timeDelta;
             double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/timeDelta;
             double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/timeDelta;
+            
             if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
               yaw = walker.model->legs[l][s].debugOldYaw + sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*timeDelta;
             if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
@@ -246,10 +185,8 @@ int main(int argc, char* argv[])
               knee = walker.model->legs[l][s].debugOldKneeAngle + sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*timeDelta;
             if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || abs(liftVel) > hexapod.jointMaxAngularSpeeds[1] || abs(yawVel) > hexapod.jointMaxAngularSpeeds[2])
               cout << "WARNING: MAXIMUM SPEED EXCEEDED! Clamping to maximum angular speed for leg " << l << " side " << s << endl;
-            maxVel[0] = max(maxVel[0], abs(yawVel));
-            maxVel[1] = max(maxVel[1], abs(liftVel));
-            maxVel[2] = max(maxVel[2], abs(kneeVel));
           }
+          
           interface->setTargetAngle(l, s, 0, yaw);
           interface->setTargetAngle(l, s, 1, lift);
           interface->setTargetAngle(l, s, 2, knee);
@@ -261,112 +198,208 @@ int main(int argc, char* argv[])
       }
       interface->publish();
     }
+    
     firstFrame = false;
     ros::spinOnce();
     r.sleep();
 
     debug.reset();
-    t += timeDelta;
   }
 }
 
-void getParameters(ros::NodeHandle n, Parameters params)
+/***********************************************************************************************************************
+ * Joypad Callback
+***********************************************************************************************************************/
+  void joypadChangeCallback(const geometry_msgs::Twist &twist)
+  {
+    localVelocity = Vector2d(-twist.linear.x, twist.linear.y);
+    localVelocity = clamped(localVelocity, 1.0);
+    turnRate = twist.angular.z;
+  }
+
+/***********************************************************************************************************************
+ * Gets hexapod parameters from rosparam server
+***********************************************************************************************************************/
+void getParameters(ros::NodeHandle n, Parameters *params)
 {
   std::string paramString;
   
   // Hexapod Parameters
-  if(!n.getParam("hexapod_type", params.hexapodType))
-    cout << "Error reading parameter/s (hexapod_type) from rosparam - check config file is loaded and type is correct" << endl;
+  if(!n.getParam("hexapod_type", params->hexapodType))
+  {
+    cout << "Error reading parameter/s (hexapod_type) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  if(!n.getParam("move_to_start", params.moveToStart))
-    cout << "Error reading parameter/s (move_to_start) from rosparam - check config file is loaded and type is correct" << endl;  
+  if(!n.getParam("move_to_start", params->moveToStart))
+  {
+    cout << "Error reading parameter/s (move_to_start) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
   
-  paramString = params.hexapodType+"_parameters/stance_leg_yaws";
-  if(!n.getParam(paramString, params.stanceLegYaws))
-    cout << "Error reading parameter/s (stance_leg_yaws) from rosparam - check config file is loaded and type is correct" << endl;
+  std::vector<double> stanceLegYaws(3);
+  if(!n.getParam("stance_leg_yaws", stanceLegYaws))
+  {
+    cout << "Error reading parameter/s (stance_leg_yaws) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->stanceLegYaws = Map<Vector3d>(&stanceLegYaws[0], 3);
+  }
   
-  paramString = params.hexapodType+"_parameters/yaw_limits";
-  if(!n.getParam(paramString, params.yawLimits))
-    cout << "Error reading parameter/s (yaw_limits) from rosparam - check config file is loaded and type is correct" << endl;
+  std::vector<double> yawLimits(3);
+  if(!n.getParam("yaw_limits", yawLimits))
+  {
+    cout << "Error reading parameter/s (yaw_limits) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->yawLimits = Map<Vector3d>(&yawLimits[0], 3);
+  }
     
-  paramString = params.hexapodType+"_parameters/knee_limits";
-  if(!n.getParam(paramString, params.kneeLimits))
-    cout << "Error reading parameter/s (knee_limits) from rosparam - check config file is loaded and type is correct" << endl;
+  std::vector<double> kneeLimits(2);
+  if(!n.getParam("knee_limits", kneeLimits))
+  {
+    cout << "Error reading parameter/s (knee_limits) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->kneeLimits = Map<Vector2d>(&kneeLimits[0], 2);
+  }
   
-  paramString = params.hexapodType+"_parameters/hip_limits";
-  if(!n.getParam(paramString, params.hipLimits))
-    cout << "Error reading parameter/s (hip_limits) from rosparam - check config file is loaded and type is correct" << endl;
-
-  paramString = params.hexapodType+"_parameters/joint_max_angular_speed";
-  if(!n.getParam(paramString, params.jointMaxAngularSpeed))
-    cout << "Error reading parameter/s (joint_max_angular_speed) from rosparam - check config file is loaded and type is correct" << endl;
+  std::vector<double> hipLimits(2);    
+  if(!n.getParam("hip_limits", hipLimits))
+  {
+    cout << "Error reading parameter/s (hip_limits) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->hipLimits = Map<Vector2d>(&hipLimits[0], 2);
+  }
   
-  paramString = params.hexapodType+"_parameters/dynamixel_interface";
-  if(!n.getParam(paramString, params.dynamixelInterface))
-    cout << "Error reading parameter/s (dynamixel_interface) from rosparam - check config file is loaded and type is correct" << endl;
+  std::vector<double> jointMaxAngularSpeeds(2); 
+  if(!n.getParam("joint_max_angular_speeds", jointMaxAngularSpeeds))
+  {
+    cout << "Error reading parameter/s (joint_max_angular_speed) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->jointMaxAngularSpeeds = Map<Vector3d>(&jointMaxAngularSpeeds[0], 3);
+  }
+  
+  if(!n.getParam("dynamixel_interface", params->dynamixelInterface))
+  {
+    cout << "Error reading parameter/s (dynamixel_interface) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
   // Walk Controller Parameters
-  if (!n.getParam("walk_controller_parameters/step_frequency", params.stepFrequency))
-    cout << "Error reading parameter/s (step_frequency) from rosparam - check config file is loaded and type is correct" << endl;
+  if (!n.getParam("step_frequency", params->stepFrequency))
+  {
+    cout << "Error reading parameter/s (step_frequency) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  if (!n.getParam("walk_controller_parameters/step_clearance", params.stepClearance))
-    cout << "Error reading parameter/s (step_clearance) from rosparam - check config file is loaded and type is correct" << endl;
+  if (!n.getParam("step_clearance", params->stepClearance))
+  {
+    cout << "Error reading parameter/s (step_clearance) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  if (!n.getParam("walk_controller_parameters/body_clearance", params.bodyClearance))
-    cout << "Error reading parameter/s (body_clearance) from rosparam - check config file is loaded and type is correct" << endl;
+  if (!n.getParam("body_clearance", params->bodyClearance))
+  {
+    cout << "Error reading parameter/s (body_clearance) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  if (!n.getParam("walk_controller_parameters/leg_span_scale", params.legSpanScale))
-    cout << "Error reading parameter/s (leg_span_scale) from rosparam - check config file is loaded and type is correct" << endl;
+  if (!n.getParam("leg_span_scale", params->legSpanScale))
+  {
+    cout << "Error reading parameter/s (leg_span_scale) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  if (!n.getParam("walk_controller_parameters/max_acceleration", params.maxAcceleration))
-    cout << "Error reading parameter/s (max_acceleration) from rosparam - check config file is loaded and type is correct" << endl;
+  if (!n.getParam("max_acceleration", params->maxAcceleration))
+  {
+    cout << "Error reading parameter/s (max_acceleration) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  if (!n.getParam("walk_controller_parameters/max_curvature_speed", params.maxCurvatureSpeed))
-    cout << "Error reading parameter/s (max_curvature_speed) from rosparam - check config file is loaded and type is correct" << endl;
+  if (!n.getParam("max_curvature_speed", params->maxCurvatureSpeed))
+  {
+    cout << "Error reading parameter/s (max_curvature_speed) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  if (!n.getParam("walk_controller_parameters/step_curvature_allowance", params.stepCurvatureAllowance))
-    cout << "Error reading parameter/s (step_curvature_allowance) from rosparam - check config file is loaded and type is correct" << endl;
+  if (!n.getParam("step_curvature_allowance", params->stepCurvatureAllowance))
+  {
+    cout << "Error reading parameter/s (step_curvature_allowance) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  if (!n.getParam("walk_controller_parameters/interface_setup_speed", params.interfaceSetupSpeed))
-    cout << "Error reading parameter/s (interface_setup_speed) from rosparam - check config file is loaded and type is correct" << endl;
-
+  if (!n.getParam("interface_setup_speed", params->interfaceSetupSpeed))
+  {
+    cout << "Error reading parameter/s (interface_setup_speed) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
   // Gait Parameters  
-  if (!n.getParam("gait_type", params.gaitType))
-    cout << "Error reading parameter/s (gaitType) from rosparam - check config file is loaded and type is correct" << endl;
+  if (!n.getParam("gait_type", params->gaitType))
+  {
+    cout << "Error reading parameter/s (gaitType) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  paramString = params.gaitType+"_parameters/stance_phase";
-  if (!n.getParam(paramString, params.stancePhase))
-    cout << "Error reading parameter/s (stance_phase) from rosparam - check config file is loaded and type is correct" << endl;
+  paramString = params->gaitType+"_parameters/stance_phase";
+  if (!n.getParam(paramString, params->stancePhase))
+  {
+    cout << "Error reading parameter/s (stance_phase) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  paramString = params.gaitType+"_parameters/swing_phase";
-  if (!n.getParam(paramString, params.swingPhase))
-    cout << "Error reading parameter/s (swing_phase) from rosparam - check config file is loaded and type is correct" << endl;
+  paramString = params->gaitType+"_parameters/swing_phase";
+  if (!n.getParam(paramString, params->swingPhase))
+  {
+    cout << "Error reading parameter/s (swing_phase) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  paramString = params.gaitType+"_parameters/phase_offset";
-  if (!n.getParam(paramString, params.phaseOffset))
-    cout << "Error reading parameter/s (phase_offset) from rosparam - check config file is loaded and type is correct" << endl;
+  paramString = params->gaitType+"_parameters/phase_offset";
+  if (!n.getParam(paramString, params->phaseOffset))
+  {
+    cout << "Error reading parameter/s (phase_offset) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  paramString = params.gaitType+"_parameters/stance_function_order";
-  if (!n.getParam(paramString, params.stanceFunctionOrder))
-    cout << "Error reading parameter/s (stance_function_order) from rosparam - check config file is loaded and type is correct" << endl;
-
-  paramString = params.gaitType+"_parameters/height_ratio";
-  if (!n.getParam(paramString, params.heightRatio))
-    cout << "Error reading parameter/s (height_ratio) from rosparam - check config file is loaded and type is correct" << endl;
+  paramString = params->gaitType+"_parameters/leg_selection_pattern";
+  if (!n.getParam(paramString, params->legSelectionPattern))
+  {
+    cout << "Error reading parameter/s (leg_selection_pattern) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  paramString = params.gaitType+"_parameters/leg_selection_pattern";
-  if (!n.getParam(paramString, params.legSelectionPattern))
-    cout << "Error reading parameter/s (leg_selection_pattern) from rosparam - check config file is loaded and type is correct" << endl;
-
-  paramString = params.gaitType+"_parameters/side_selection_pattern";
-  if (!n.getParam(paramString, params.sideSelectionPattern))
-    cout << "Error reading parameter/s (side_selection_pattern) from rosparam - check config file is loaded and type is correct" << endl;
+  paramString = params->gaitType+"_parameters/side_selection_pattern";
+  if (!n.getParam(paramString, params->sideSelectionPattern))
+  {
+    cout << "Error reading parameter/s (side_selection_pattern) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
   
-  paramString = params.gaitType+"_parameters/transition_period";
-  if (!n.getParam(paramString, params.transitionPeriod))
-    cout << "Error reading parameter/s (transition_period) from rosparam - check config file is loaded and type is correct" << endl;
+  paramString = params->gaitType+"_parameters/transition_period";
+  if (!n.getParam(paramString, params->transitionPeriod))
+  {
+    cout << "Error reading parameter/s (transition_period) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
 }
 
+/***********************************************************************************************************************
+ * Gets ALL joint positions from joint state messages
+***********************************************************************************************************************/
 void jointStatesCallback(const sensor_msgs::JointState &joint_States)
 {  
   if (!jointPosFlag)

@@ -50,7 +50,7 @@ struct Model
   Vector3d yawLimitAroundStance;
   Vector2d minMaxKneeBend;
   Vector2d minMaxHipLift;
-  Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend = Vector2d(0,3), const Vector2d &minMaxHipLift = Vector2d(-3,3));
+  Model(std::string hexapodType, const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend = Vector2d(0,3), const Vector2d &minMaxHipLift = Vector2d(-3,3));
   Vector3d jointMaxAngularSpeeds;
   void setLegStartAngles(int side, int leg, const Vector3d &startAngles);
   vector<Vector3d> getJointPositions(const Pose &pose);
