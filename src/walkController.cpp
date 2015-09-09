@@ -25,7 +25,7 @@ Vector3d WalkController::LegStepper::updatePosition(double liftHeight,
   // Swing Phase
   if (phase > swing0 && phase < swing1)
   {
-    // X and Y components of trajectory
+    // X and Y components of trajectory   
     Vector3d nodes[4];
     nodes[0] = currentTipPosition;
     nodes[3] = defaultTipPosition+strideVec*0.5;
@@ -216,7 +216,7 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
 ***********************************************************************************************************************/
 void WalkController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset)
 {
-  //targets.clear();
+  targets.clear();
   
   double onGroundRatio = (params.stancePhase+params.transitionPeriod)/(params.stancePhase + params.swingPhase);
   
@@ -324,10 +324,10 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
         legStepper.phase = 0;
       
       double liftHeight = stepClearance*maximumBodyHeight;
-      legStepper.currentTipPosition = legStepper.updatePosition(liftHeight, localCentreVelocity, angularVelocity);        
+      legStepper.currentTipPosition = legStepper.updatePosition(liftHeight, localCentreVelocity, angularVelocity);         
       tipPositions[l][s] = legStepper.currentTipPosition;
-      
-      //if ((legStepper.phase < swingStart+transitionPeriod*0.5) || (legStepper.phase > swingEnd-transitionPeriod*0.5))
+        
+      if ((legStepper.phase < swingStart+transitionPeriod*0.5) || (legStepper.phase > swingEnd-transitionPeriod*0.5))
         targets.push_back(pose.transformVector(tipPositions[l][s]));
       
       leg.applyLocalIK(tipPositions[l][s]);
