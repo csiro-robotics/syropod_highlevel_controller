@@ -1,0 +1,7 @@
+<launch>
+	<rosparam file="$(find simple_hexapod_controller)/launch/lobsang.yaml" command="load"/>
+	<rosparam file="$(find simple_hexapod_controller)/launch/gait.yaml" command="load"/>
+	<include file="$(find hexapod_teleop)/launch/hexapod_controller.launch" />
+	<node name="Hexapod" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node"/>
+	<node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find simple_hexapod_controller)/rviz_cfg/hexapod.rviz"/>
+</launch>

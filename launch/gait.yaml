@@ -1,0 +1,43 @@
+######################################################################
+# Gait Parameters
+######################################################################
+
+wave_gait_parameters:
+
+ stance_phase: 16
+ swing_phase: 2
+ phase_offset: 3
+
+ leg_selection_pattern: [0,1,2,0,1,2]
+ side_selection_pattern: [0,0,0,1,1,1]
+
+ transition_period: 0.4 #swing*0.2
+
+######################################################################
+
+tripod_gait_parameters:
+
+ stance_phase: 1
+ swing_phase: 1
+ phase_offset: 1
+
+ leg_selection_pattern: [0,1,2,0,1,2]
+ side_selection_pattern: [0,0,0,1,1,1]
+
+ transition_period: 0.2 #swing*0.2
+
+######################################################################
+
+ripple_gait_parameters:
+
+ stance_phase: 4
+ swing_phase: 2
+ phase_offset: 1
+
+ leg_selection_pattern: [2,0,1,2,0,1]
+ side_selection_pattern: [1,0,1,0,1,0]
+
+ transition_period: 0.4 #swing*0.2
+
+######################################################################
+######################################################################
