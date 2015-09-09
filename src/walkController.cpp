@@ -326,8 +326,10 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       double liftHeight = stepClearance*maximumBodyHeight;
       legStepper.currentTipPosition = legStepper.updatePosition(liftHeight, localCentreVelocity, angularVelocity);         
       tipPositions[l][s] = legStepper.currentTipPosition;
-        
-      if ((legStepper.phase < swingStart+transitionPeriod*0.5) || (legStepper.phase > swingEnd-transitionPeriod*0.5))
+       
+      double liftOff = (params.stancePhase + params.transitionPeriod)*0.5;
+      double touchDown = (params.stancePhase*0.5 + params.swingPhase) - params.transitionPeriod*0.5;
+      if ((legStepper.phase < liftOff) || (legStepper.phase > touchDown))
         targets.push_back(pose.transformVector(tipPositions[l][s]));
       
       leg.applyLocalIK(tipPositions[l][s]);
