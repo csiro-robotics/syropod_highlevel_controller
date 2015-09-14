@@ -43,6 +43,50 @@ void DynamixelMotorInterface::setupSpeed(double my_speed)
   setspeed1.call(speed);
 }
 
+void DynamixelMotorInterface::setPGain(double pGain)
+{
+  dynamixel_controllers::SetComplianceSlope Pgain;
+  Pgain.request.slope=pGain;
+  
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/front_left_body_coxa/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/front_left_coxa_femour/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/front_left_femour_tibia/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/front_right_body_coxa/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/front_right_coxa_femour/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/front_right_femour_tibia/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/middle_left_body_coxa/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/middle_left_coxa_femour/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/middle_left_femour_tibia/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/middle_right_body_coxa/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/middle_right_coxa_femour/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/middle_right_femour_tibia/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/rear_left_body_coxa/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/rear_left_coxa_femour/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/rear_left_femour_tibia/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/rear_right_body_coxa/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/rear_right_coxa_femour/set_compliance_slope");
+  setGainP.call(Pgain);
+  setGainP=nodehandler.serviceClient<dynamixel_controllers::SetComplianceSlopeRequest>("/hexapod/rear_right_femour_tibia/set_compliance_slope");
+  setGainP.call(Pgain);
+}
+
+
 void DynamixelMotorInterface::setupPublishers(void)
 {
   publishers[0][0][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_left_body_coxa/command", 1);

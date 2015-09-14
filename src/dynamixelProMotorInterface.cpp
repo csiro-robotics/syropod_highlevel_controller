@@ -12,6 +12,10 @@ void DynamixelProMotorInterface::setupSpeed(double my_speed)
 {
 }
 
+void DynamixelProMotorInterface::setPGain(double pGain)
+{
+}
+
 void DynamixelProMotorInterface::setTargetAngle(int legID, int side, int jointID, double angle)
 {
   angles[legID][side][jointID] = angle;

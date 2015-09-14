@@ -24,7 +24,7 @@ void imuCallback(const sensor_msgs::Imu &imudata)
 }
 static double t = 0;
 static double inputPhase = 0;
-Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
+Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel)
 {
 //#define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
@@ -34,7 +34,7 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   pose.position[0] = 0.0025*sin(inputPhase);
   t += timeDelta;
   calculatePassiveAngularFrequency();
-  return pose;
+  return pose.position;
 #endif
   Pose adjust;
   Quat orient;            //Orientation from IMU in quat
@@ -59,7 +59,7 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   accel(0) = -imu.linear_acceleration.y;
   accel(2) = -imu.linear_acceleration.z;
   if (accel.squaredNorm()==0)
-    return Pose::identity();
+    return Vector3d(0,0,0);
   
   /*//Compensation for gravity
   Vector3d accelcomp;
@@ -75,25 +75,11 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
 //Postion compensation
 
 //#define ZERO_ORDER_FEEDBACK
-//#define FIRST_ORDER_FEEDBACK
-//#define SECOND_ORDER_FEEDBACK
 #define IMUINTEGRATION_FIRST_ORDER
 //#define IMUINTEGRATION_SECOND_ORDER
 
-#if defined(SECOND_ORDER_FEEDBACK)
-  double imuStrength = 0.01;
-  double stiffness = 0.5; // how strongly/quickly we return to the neutral pose
-  Vector3d offsetAcc = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos - 2.0*stiffness*offsetVel;
-  offsetVel += offsetAcc*timeDelta;
-  offsetPos += offsetVel*timeDelta;
   
-#elif defined(FIRST_ORDER_FEEDBACK)
-  double imuStrength = 0.5;
-  double stiffness = 10; // how strongly/quickly we return to the neutral pose
-  offsetVel = imuStrength*(targetAccel-accel+Vector3d(0,0,9.8)) - sqr(stiffness)*offsetPos;
-  offsetPos += offsetVel*timeDelta;
-  
-#elif defined(ZERO_ORDER_FEEDBACK)
+#if defined(ZERO_ORDER_FEEDBACK)
   double imuStrength = 0.001;
   cbx.push_back(-imu.linear_acceleration.y); 
   cby.push_back(-imu.linear_acceleration.x); 
@@ -111,17 +97,20 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   Vector3d offsetAcc = -imuStrength*IMUPos;
   
 #elif defined(IMUINTEGRATION_FIRST_ORDER)
-  double imuStrength = 0.03;
-  double decayRate =1;
-  IMUVel += (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel; 
-  //IMUVel(0) += (targetAccel(0)+accel(0))*timeDelta - decayRate*timeDelta*IMUVel(0);
-  //IMUVel(1) += (targetAccel(1)+accel(1))*timeDelta- decayRate*timeDelta*IMUVel(1);
-  //IMUVel(2) += (targetAccel(2)+accel(2)-9.8)*timeDelta - decayRate*timeDelta*IMUVel(2);
+  double imuStrength = 0;
+  double decayRate = 3;  
+  double stiffness = 0.5;
+  double I=0;
+  
+  IMUVel += (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel;
+  IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
   //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
-  Vector3d offsetAcc = -imuStrength*IMUVel;
-  
+  Vector3d offsetAcc = -imuStrength*IMUVel-I*(targetAccel+accel-Vector3d(0, 0, 9.8))-stiffness*IMUPos;
+ // offsetAcc = Vector3d(0.1, 0,0);
+
 #endif
+  
   
   //Angular body velocity compensation.
   double stiffnessangular=5;
@@ -133,7 +122,7 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   rotation(0)=angularVel(0)*timeDelta;
   rotation(1)=angularVel(1)*timeDelta;
   rotation(2)=angularVel(2)*timeDelta;
-  
+   
   /*// control towards imu's orientation
   double stiffnessangular=15;
   Quat targetAngle = ~orient;
@@ -146,8 +135,9 @@ Pose compensation(const Vector3d &targetAccel, double targetAngularVel)
   rotation(2)=angularVel(2)*timeDelta;*/
   
   //adjust.rotation*= Quat(rotation);  
-  adjust.position = offsetAcc;
-  return adjust;
+  // adjust.position = offsetAcc;
+  return offsetAcc;
+  
 }
 
 static double vel = 0.0;

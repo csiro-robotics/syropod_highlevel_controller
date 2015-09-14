@@ -2,9 +2,9 @@
 #include "../include/simple_hexapod_controller/walkController.h"
 
 
-static double stancePhase = 8;          // WAVE: 8	TRIPOD: 1       RIPPLE: 2
+static double stancePhase = 1;          // WAVE: 8	TRIPOD: 1       RIPPLE: 2
 static double swingPhase = 1;           // WAVE: 1	TRIPOD: 1       RIPPLE: 1
-static double phaseOffset = 1.5;        // WAVE: 1.5    TRIPOD: 1       RIPPLE: 1
+static double phaseOffset = 1;        // WAVE: 1.5    TRIPOD: 1       RIPPLE: 1
 
 static double stanceFuncOrder = 8.0 * stancePhase / swingPhase;
 static double heightRatio = 0.25; // The ratio between the positive and negative lift heights (stance/swing)
@@ -225,7 +225,7 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
  * bodyOffset:	Body-pose relative to the basic stance pose - Note: large offsets may prevent achievable leg positions
 
 ***********************************************************************************************************************/
-void WalkController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset)
+void WalkController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset, const Vector3d *deltaPos)
 {
   targets.clear();
   double onGroundRatio = (stancePhase+transitionPeriod)/(stancePhase + swingPhase);
@@ -353,8 +353,24 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       }
     }
   }  
-  
   model->clampToLimits();
+  if (deltaPos != NULL)
+  {
+    for (int l = 0; l<3; l++)
+    {
+      for (int s = 0; s<2; s++)
+      {
+	Leg oldLeg = model->legs[l][s];
+	double linearisationScale = 100.0;
+	model->legs[l][s].applyLocalIK(model->legs[l][s].localTipPosition - *deltaPos/linearisationScale, false);
+	model->legs[l][s].yaw = oldLeg.yaw + (model->legs[l][s].yaw-oldLeg.yaw)*linearisationScale;
+	model->legs[l][s].liftAngle = oldLeg.liftAngle + (model->legs[l][s].liftAngle-oldLeg.liftAngle)*linearisationScale;
+	model->legs[l][s].kneeAngle = oldLeg.kneeAngle + (model->legs[l][s].kneeAngle-oldLeg.kneeAngle)*linearisationScale;
+      }
+    }
+  }  
+  
+  
   localCentreAcceleration = (localCentreVelocity - oldLocalCentreVelocity) / timeDelta;
   Vector2d push = localCentreVelocity*timeDelta;
   pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));

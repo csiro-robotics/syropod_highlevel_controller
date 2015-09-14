@@ -48,7 +48,7 @@ struct WalkController
   // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
   // bodyOffset is body pose relative to the basic stance pose, note that large offsets may prevent achievable leg positions
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
-  void update(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset = NULL);
+  void update(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset = NULL, const Vector3d *deltaPos = NULL);
   bool moveToStart();
   double iteratePhase(double phase);
   bool targetReached(double phase, double targetPhase);

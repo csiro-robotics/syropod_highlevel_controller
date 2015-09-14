@@ -5,5 +5,5 @@
 #include "pose.h"
 
 void imuCallback(const sensor_msgs::Imu &imudata);
-Pose compensation(const Vector3d &targetAccel, double targetAngularVel);
+Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel);
 void setCompensationDebug(DebugOutput &debug);

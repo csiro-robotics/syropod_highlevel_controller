@@ -34,9 +34,9 @@ void joypadChangeCallback(const geometry_msgs::Twist &twist)
   //ASSERT(twist.angular.z < 0.51);
   //ASSERT(twist.linear.y < 0.51);
   // these are 0 to 5 for some reason, so multiply by 0.2
-  localVelocity = Vector2d(twist.linear.x, twist.linear.y);
+  localVelocity = Vector2d(-twist.linear.x, twist.linear.y);
   localVelocity = clamped(localVelocity, 1.0);
-  turnRate = twist.angular.z;
+  turnRate = -twist.angular.z;
 }
 
 int main(int argc, char* argv[])
@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 
 #if defined(FLEXIPOD)
   yawOffsets = Vector3d(0.77,0,-0.77);  
-  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));
+  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.6));
 #elif defined(LOBSANG)  
   yawOffsets = Vector3d(0.77,0,-0.77);   
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));  
@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
 #endif
 
 #if defined(FLEXIPOD)
-  WalkController walker(&hexapod, 1, 0.5, 0.12, 0.8, 0.4);
+  WalkController walker(&hexapod, 1, 0.6, 0.12, 0.8, 0.4);
 #elif defined(LOBSANG)
   WalkController walker(&hexapod, 1, 0.5, 0.1); 
 #elif defined(LARGE_HEXAPOD)
@@ -138,8 +138,8 @@ int main(int argc, char* argv[])
   else
     interface = new DynamixelProMotorInterface();
 
-  interface->setupSpeed(1.5);   
-
+  interface->setupSpeed(1.2  );   
+  //interface->setPGain(35);
 
   
   Vector3d maxVel(0,0,0);
@@ -151,16 +151,18 @@ int main(int argc, char* argv[])
     time += timeDelta;
     Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
     Vector2d acc = walker.localCentreAcceleration;
-    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 
     //localVelocity[1] = 1.0;//time < 30 ? 0.5 : 0.0;
-
+    Vector3d deltaPos = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    
+  
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();
     else
 #endif
-      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust); // the cube just lets the thumbstick give small turns easier
+      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, &deltaPos); // the cube just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     
@@ -187,7 +189,7 @@ int main(int argc, char* argv[])
           double yaw = dir*(walker.model->legs[l][s].yaw - yawOffsets[l]);
           double lift = -dir*walker.model->legs[l][s].liftAngle;
           double knee = dir*walker.model->legs[l][s].kneeAngle;
-          if (!firstFrame)
+          if (false) // !firstFrame)
           {
             double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/timeDelta;
             double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/timeDelta;

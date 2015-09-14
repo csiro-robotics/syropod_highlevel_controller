@@ -3,6 +3,8 @@
 #include "std_msgs/Float64.h"
 #include "standardIncludes.h"
 #include "dynamixel_controllers/SetSpeed.h"
+#include "dynamixel_controllers/SetComplianceSlope.h"
+
 
 class DynamixelMotorInterface : public MotorInterface
 {
@@ -15,9 +17,10 @@ public:
   void setTargetAngle(int legID, int side, int jointID, double angle);		
   void setupSpeed(double speed);
   void publish(void);
- 
+  void setPGain(double pGain);
 private:
   ros::ServiceClient setspeed1;
+  ros::ServiceClient setGainP;  
   ros::NodeHandle nodehandler;
   void setupPublishers(void);
   ros::Publisher publicador;

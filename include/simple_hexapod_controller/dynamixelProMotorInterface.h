@@ -13,6 +13,7 @@ public:
   void setTargetAngle(int legID, int side, int jointID, double speed);		
   void setupSpeed(double speed);		
   virtual void publish(void);
+  void setPGain(double pGain);
 
 private:
 
