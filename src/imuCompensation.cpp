@@ -22,9 +22,34 @@ void imuCallback(const sensor_msgs::Imu &imudata)
 {  
   imu = imudata;
 }
+static const int numAccs = 500;
+static vector<Vector3d> accs(numAccs);
+static vector<double> times(numAccs);
+static int accIndex = 0;
+
+Vector3d gaussianMean(double time, double timeStandardDeviation, double omega)
+{
+  Vector3d meanAcc(0,0,0);
+  double totalWeight = 0.0;
+  double sigma = timeStandardDeviation;
+  double testTime = 0;
+  for (int i = 0; i<numAccs; i++)
+  {
+    double tError = times[i] - time;
+    double weight = cos(tError*omega)*exp(-sqr(tError)/(2.0*sqr(sigma)));
+    meanAcc += accs[i]*weight;
+    testTime += times[i]*weight;
+    totalWeight += weight;
+  }
+  meanAcc /= totalWeight;
+  testTime /= totalWeight;
+//  ASSERT(abs(time - testTime) < 0.1);
+  return meanAcc;
+}
+
 static double t = 0;
 static double inputPhase = 0;
-Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel)
+Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle)
 {
 //#define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
@@ -39,8 +64,11 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel)
   Pose adjust;
   Quat orient;            //Orientation from IMU in quat
   Vector3d accel;         //Accelerations with respect to the IMU
-  Vector3d rotation;
+  Vector3d rotation; 
+  Vector3d angVel;
   Vector3d angularAcc;
+  
+  
   static Vector3d angularVel(0,0,0);
   adjust.rotation=Quat(Vector3d(0,0,0));
   //static boost::circular_buffer<float> cbx(4,0);
@@ -57,7 +85,11 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel)
   orient.z = imu.orientation.z;
   accel(1) = -imu.linear_acceleration.x;
   accel(0) = -imu.linear_acceleration.y;
-  accel(2) = -imu.linear_acceleration.z;
+  accel(2) = -imu.linear_acceleration.z;  
+  angVel(1) = imu.angular_velocity.x;
+  angVel(0) = imu.angular_velocity.y;
+  angVel(2) = imu.angular_velocity.z;
+  
   if (accel.squaredNorm()==0)
     return Vector3d(0,0,0);
   
@@ -75,8 +107,9 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel)
 //Postion compensation
 
 //#define ZERO_ORDER_FEEDBACK
-#define IMUINTEGRATION_FIRST_ORDER
+// #define IMUINTEGRATION_FIRST_ORDER
 //#define IMUINTEGRATION_SECOND_ORDER
+#define FILTERED_DELAY_RESPONSE
 
   
 #if defined(ZERO_ORDER_FEEDBACK)
@@ -97,45 +130,34 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel)
   Vector3d offsetAcc = -imuStrength*IMUPos;
   
 #elif defined(IMUINTEGRATION_FIRST_ORDER)
-  double imuStrength = 0;
-  double decayRate = 3;  
-  double stiffness = 0.5;
-  double I=0;
+  double imuStrength = 0.015;
+  double decayRate = 2.3;
+//  double velDecayRate = 2.3;
+  double stiffness = 0.3;
   
   IMUVel += (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
   //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
-  Vector3d offsetAcc = -imuStrength*IMUVel-I*(targetAccel+accel-Vector3d(0, 0, 9.8))-stiffness*IMUPos;
- // offsetAcc = Vector3d(0.1, 0,0);
-
+  Vector3d offsetAcc = -imuStrength*IMUVel-stiffness*IMUPos;
+ 
+#elif defined(FILTERED_DELAY_RESPONSE)
+  const double omega = 11.0; // natural angular frequency 
+  const double spreadRatio = 0.5; // small is more susceptible to noise
+  const double strength = 0.004;
+  t += timeDelta;
+  accs[accIndex] = /*targetAccel + */ accel - Vector3d(0, 0, 9.8);
+  times[accIndex] = t;
+  accIndex = (accIndex + 1)%numAccs;  
+  const double timeDelay = 0.5 / (omega / (2.0*pi));
+  Vector3d offsetAcc = -strength * gaussianMean(t - timeDelay, spreadRatio*timeDelay, omega);  
 #endif
   
   
-  //Angular body velocity compensation.
-  double stiffnessangular=5;
-  Vector3d angleDelta = adjust.rotation.toRotationVector();  
-  //angularAcc(0)=-sqr(stiffnessangular)*angleDelta(0) + 2.0*stiffnessangular*(imu.angular_velocity.y - angularVel(0));
-  //angularAcc(1)=-sqr(stiffnessangular)*angleDelta(1) + 2.0*stiffnessangular*(imu.angular_velocity.x - angularVel(1));
-  angularAcc= -sqr(stiffnessangular)*angleDelta + 2.0*stiffnessangular*(Vector3d(0,0,targetAngularVel) - Vector3d(-imu.angular_velocity.y, -imu.angular_velocity.x, -imu.angular_velocity.z) - angularVel);
-  angularVel += angularAcc*timeDelta;
-  rotation(0)=angularVel(0)*timeDelta;
-  rotation(1)=angularVel(1)*timeDelta;
-  rotation(2)=angularVel(2)*timeDelta;
-   
-  /*// control towards imu's orientation
-  double stiffnessangular=15;
-  Quat targetAngle = ~orient;
-  Vector3d angleDelta = (targetAngle*(~adjust.rotation)).toRotationVector(); // diff=target*current^-1
-  angleDelta[2] = 0;  // this may not be quite right  
-  angularAcc = sqr(stiffnessangular)*angleDelta -2.0*stiffnessangular*angularVel;
-  angularVel += angularAcc*timeDelta;  
-  rotation(0)=angularVel(0)*timeDelta;
-  rotation(1)=angularVel(1)*timeDelta;
-  rotation(2)=angularVel(2)*timeDelta;*/
-  
   //adjust.rotation*= Quat(rotation);  
-  // adjust.position = offsetAcc;
+  //adjust.position = offsetAcc;
+
+  *deltaAngle=Vector3d(0,0,0);
   return offsetAcc;
   
 }
@@ -163,12 +185,13 @@ vector<Vector2d> queueToVector(const vector<Vector2d> &queue, int head, int tail
   return result;
 }
 
-static Vector2d mean2(0,0);
-static const int numAccs = 1;
-static vector<Vector3d> accs(numAccs);
-static int accIndex = 0;
 void calculatePassiveAngularFrequency()
 {
+  static Vector2d mean2(0,0);
+  static const int numAccs = 1;
+  static vector<Vector3d> accs(numAccs);
+  static int accIndex = 0;
+  
   accs[accIndex] = Vector3d(imu.linear_acceleration.y, imu.linear_acceleration.x, imu.linear_acceleration.z);
   accIndex = (accIndex + 1)%numAccs;
   Vector3d averageAcc = mean(accs);

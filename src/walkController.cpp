@@ -225,7 +225,7 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
  * bodyOffset:	Body-pose relative to the basic stance pose - Note: large offsets may prevent achievable leg positions
 
 ***********************************************************************************************************************/
-void WalkController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset, const Vector3d *deltaPos)
+void WalkController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset, const Vector3d *deltaPos, Vector3d *deltaAngle)
 {
   targets.clear();
   double onGroundRatio = (stancePhase+transitionPeriod)/(stancePhase + swingPhase);
@@ -360,12 +360,22 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
     {
       for (int s = 0; s<2; s++)
       {
-	Leg oldLeg = model->legs[l][s];
-	double linearisationScale = 100.0;
-	model->legs[l][s].applyLocalIK(model->legs[l][s].localTipPosition - *deltaPos/linearisationScale, false);
-	model->legs[l][s].yaw = oldLeg.yaw + (model->legs[l][s].yaw-oldLeg.yaw)*linearisationScale;
-	model->legs[l][s].liftAngle = oldLeg.liftAngle + (model->legs[l][s].liftAngle-oldLeg.liftAngle)*linearisationScale;
-	model->legs[l][s].kneeAngle = oldLeg.kneeAngle + (model->legs[l][s].kneeAngle-oldLeg.kneeAngle)*linearisationScale;
+        Leg oldLeg = model->legs[l][s];
+        double linearisationScale = 100.0;
+
+        Pose offsetPose;
+        offsetPose.position = *deltaPos/linearisationScale;
+        
+        if (deltaAngle != NULL)
+          offsetPose.rotation = Quat(*deltaAngle);    
+        else
+          offsetPose.rotation = Quat(1,0,0,0);
+        
+        model->legs[l][s].applyLocalIK(offsetPose.inverseTransformVector(model->legs[l][s].localTipPosition), false);
+
+        model->legs[l][s].yaw = oldLeg.yaw + (model->legs[l][s].yaw-oldLeg.yaw)*linearisationScale;
+        model->legs[l][s].liftAngle = oldLeg.liftAngle + (model->legs[l][s].liftAngle-oldLeg.liftAngle)*linearisationScale;
+        model->legs[l][s].kneeAngle = oldLeg.kneeAngle + (model->legs[l][s].kneeAngle-oldLeg.kneeAngle)*linearisationScale;
       }
     }
   }  
