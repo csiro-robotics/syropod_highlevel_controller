@@ -240,11 +240,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   double diffLength = diff.norm();
 
   if (diffLength > 0.0)
-    localCentreVelocity += diff * min(1.0, params.maxAcceleration*timeDelta/diffLength);
-  
-  //Iterate master walk phase
-  if (isMoving)
-    walkPhase = iteratePhase(walkPhase);
+    localCentreVelocity += diff * min(1.0, params.maxAcceleration*timeDelta/diffLength); 
   
   //Engage States
   if (!isMoving && normalSpeed && !isStarting)
@@ -263,8 +259,11 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   {
     isStarting = false;
     isMoving = true;
-    targetsNotMet = NUM_LEGS;   
-    walkPhase = 0;
+    targetsNotMet = NUM_LEGS;
+    
+    for (int l = 0; l<3; l++)
+      for (int s = 0; s<2; s++)
+        legSteppers[l][s].phase = legSteppers[l][s].phaseOffset;
   }
   if (isStopping && targetsNotMet == 0)
   {
@@ -272,7 +271,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
     isMoving = false;
     targetsNotMet = NUM_LEGS;
   }  
-  
+   
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -285,7 +284,6 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
           stepFrequency;
        
       double phaseLength = params.stancePhase + params.swingPhase;
-      double phase = fmod(walkPhase + legStepper.phaseOffset, phaseLength); //IS THIS NEEDED?
       double targetPhase = 0.0;
       
       if (isStarting)
@@ -319,7 +317,9 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
           legStepper.phase = iteratePhase(legStepper.phase);  
       }
       else if (isMoving)
-        legStepper.phase = phase; // otherwise follow the step cycle exactly
+      {
+          legStepper.phase = iteratePhase(legStepper.phase);
+      }
       else //else stopped
         legStepper.phase = 0;
       

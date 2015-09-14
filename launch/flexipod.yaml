@@ -3,7 +3,14 @@
 ######################################################################
 
 hexapod_type: flexipod
-move_to_start: true
+move_to_start: false
+
+imu_compensation: false
+auto_compensation: false
+pitch_amplitude: 0.025
+tilt_amplitude: 0.025
+manual_compensation: false
+
 gait_type: tripod_gait
 
 ######################################################################

@@ -1,7 +1,20 @@
 <launch>
+
+	<node pkg="simple_hexapod_controller" type="hexapod_controller.py" name="hexapod_controller" output="screen">
+    		<param name="axis_deadman" value="6"/>
+    		<param name="axis_linear_x" value="0"/>
+    		<param name="axis_linear_y" value="1"/>
+    		<param name="axis_linear_z" value="2"/>
+    		<param name="axis_angular_x" value="3"/>
+    		<param name="axis_angular_y" value="4"/>
+    		<param name="axis_angular_z" value="5"/>
+    		<param name="velocity_pub_rate" value="30"/>
+	</node>
+
+	<node pkg="joy" type="joy_node" name="joystick"/>
+
 	<rosparam file="$(find simple_hexapod_controller)/launch/large_hexapod.yaml" command="load"/>
 	<rosparam file="$(find simple_hexapod_controller)/launch/gait.yaml" command="load"/>
-	<include file="$(find hexapod_teleop)/launch/hexapod_controller.launch" />
 	<node name="Hexapod" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node"/>
 	<node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find simple_hexapod_controller)/rviz_cfg/hexapod.rviz"/>
 </launch>

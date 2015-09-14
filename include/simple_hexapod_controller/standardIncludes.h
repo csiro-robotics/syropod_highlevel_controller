@@ -2,6 +2,7 @@
 
 #include <Eigen/Dense>
 #include <vector>
+#include <boost/iterator/iterator_concepts.hpp>
 using namespace Eigen;
 using namespace std;
 
@@ -23,6 +24,11 @@ struct Parameters
 {
   std::string hexapodType;
   bool moveToStart;
+  bool imuCompensation;
+  bool autoCompensation;
+  double pitchAmplitude;
+  double tiltAmplitude;
+  bool manualCompensation;
 
   //Hexapod Parameters
   Vector3d stanceLegYaws;

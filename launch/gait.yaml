@@ -8,7 +8,7 @@ wave_gait_parameters:
  swing_phase: 2
  phase_offset: 3
 
- leg_selection_pattern: [0,1,2,0,1,2]
+ leg_selection_pattern: [0,1,2,2,1,0]
  side_selection_pattern: [0,0,0,1,1,1]
 
  transition_period: 0.4 #swing*0.2

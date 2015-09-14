@@ -4,6 +4,13 @@
 
 hexapod_type: lobsang
 move_to_start: false
+
+imu_compensation: false
+auto_compensation: false
+pitch_amplitude: 0.025
+tilt_amplitude: 0.025
+manual_compensation: false
+
 gait_type: wave_gait
 
 ######################################################################

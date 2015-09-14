@@ -20,6 +20,9 @@
 //Globals for joypad callback
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
+static double pitchJoy = 0;
+static double tiltJoy = 0;
+static double zJoy = 0;
 
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
@@ -27,6 +30,10 @@ double jointPositions[18];
 bool jointPosFlag = false;
 
 void joypadChangeCallback(const geometry_msgs::Twist &twist);
+
+double getTiltCompensation(WalkController walker);
+double getPitchCompensation(WalkController walker);
+
 void jointStatesCallback(const sensor_msgs::JointState &joint_States);
 void getParameters(ros::NodeHandle n, Parameters *params);
 
@@ -131,10 +138,31 @@ int main(int argc, char* argv[])
   bool started = false;
   while (ros::ok())
   {
-    //Imu Compensation
-    Pose adjust = Pose::identity(); // offset pose for body. Use this to close loop with the IMU    
-    Vector2d acc = walker.localCentreAcceleration;
-    adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    Pose adjust = Pose::identity();
+    if (params.imuCompensation)
+    {
+      //Auto Compensation using IMU feedback
+      Vector2d acc = walker.localCentreAcceleration;
+      adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
+    }
+    else if (params.autoCompensation)
+    {
+      //Automatic (non-feedback) compensation
+      double pitch = getPitchCompensation(walker);
+      double tilt = getTiltCompensation(walker);  
+      if (params.gaitType == "wave_gait")
+        adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,tilt,0));
+      else if (params.gaitType == "tripod_gait")
+        ;//adjust = Pose(Vector3d(0,0,0), Quat(1,0,tilt,0)); //NOT WORKING YET FOR TRIPOD
+    }
+    else if (params.manualCompensation)
+    {    
+      //Manual body compensation      
+      adjust = Pose(Vector3d(0,0,0), Quat(1,pitchJoy,tiltJoy,0));
+    }    
+    
+    //Manual velocity control
+    //localVelocity = Vector2d(1e-10, 1e-10);
     
     //Update walker or move to starting stance
     if (!started && params.moveToStart)
@@ -210,12 +238,96 @@ int main(int argc, char* argv[])
 /***********************************************************************************************************************
  * Joypad Callback
 ***********************************************************************************************************************/
-  void joypadChangeCallback(const geometry_msgs::Twist &twist)
+void joypadChangeCallback(const geometry_msgs::Twist &twist)
+{
+  localVelocity = Vector2d(twist.linear.x, twist.linear.y);
+  localVelocity = clamped(localVelocity, 1.0);
+  //turnRate = twist.angular.z;
+  turnRate = twist.angular.z - twist.linear.z;
+  tiltJoy = twist.angular.x*0.05; //ADJUSTED FOR SENSITIVITY OF JOYSTICK
+  pitchJoy = twist.angular.y*0.05; //ADJUSTED FOR SENSITIVITY OF JOYSTICK
+  //zJoy = (twist.angular.z - twist.linear.z)*0.15;
+}
+
+/***********************************************************************************************************************
+ * Calculates pitch for body compensation
+***********************************************************************************************************************/
+double getPitchCompensation(WalkController walker)
+{
+  double pitch;
+  double amplitude = walker.params.pitchAmplitude;
+  double phase = walker.legSteppers[0][0].phase;
+  double phaseLength = walker.params.stancePhase + walker.params.swingPhase;
+  double buffer = walker.params.phaseOffset/2;
+  double p0[2] = {0*phaseLength/6, -amplitude};
+  double p1[2] = {1*phaseLength/6 + buffer, -amplitude};
+  double p2[2] = {2*phaseLength/6 + buffer, amplitude};
+  double p3[2] = {4*phaseLength/6 + buffer, amplitude};
+  double p4[2] = {5*phaseLength/6 + buffer, -amplitude};
+  double p5[2] = {6*phaseLength/6, -amplitude};
+    
+  if (phase >= p0[0] && phase < p1[0])
+    pitch = p0[1];
+  else if (phase >= p1[0] && phase < p2[0])
   {
-    localVelocity = Vector2d(-twist.linear.x, twist.linear.y);
-    localVelocity = clamped(localVelocity, 1.0);
-    turnRate = twist.angular.z;
+    double gradient = (p2[1]-p1[1])/(p2[0]-p1[0]);
+    double offset = ((p2[0]-p1[0])/2 + p1[0]);
+    pitch = gradient*phase - gradient*offset;   //-2*phase/3 + 4;
   }
+  else if (phase >= p2[0] && phase < p3[0])
+    pitch = p2[1];
+  else if (phase >= p3[0] && phase < p4[0])
+  {
+    double gradient = (p4[1]-p3[1])/(p4[0]-p3[0]);
+    double offset = ((p4[0]-p3[0])/2 + p3[0]);
+    pitch = gradient*phase - gradient*offset;   //2*phase/3 - 10;
+  }
+  else if (phase >= p4[0] && phase < p5[0])
+    pitch = p4[1];    
+  
+  return pitch;    
+}
+
+
+/***********************************************************************************************************************
+ * Calculates tilt for body compensation
+***********************************************************************************************************************/
+double getTiltCompensation(WalkController walker)
+{ 
+  double tilt;
+  double amplitude = walker.params.tiltAmplitude;
+  double phase = walker.legSteppers[0][0].phase;
+  double phaseLength = walker.params.stancePhase + walker.params.swingPhase;
+  double buffer = walker.params.swingPhase/2;
+  double p0[2] = {0*phaseLength/6, -amplitude};           
+  double p1[2] = {0*phaseLength/6 + buffer, -amplitude}; 
+  double p2[2] = {1*phaseLength/6 - buffer, amplitude};
+  double p3[2] = {3*phaseLength/6 + buffer, amplitude};
+  double p4[2] = {4*phaseLength/6 - buffer, -amplitude};
+  double p5[2] = {6*phaseLength/6, -amplitude};
+  
+  if (phase >= p0[0] && phase < p1[0])
+    tilt = p0[1];
+  else if (phase >= p1[0] && phase < p2[0])
+  {
+    double gradient = (p2[1]-p1[1])/(p2[0]-p1[0]);
+    double offset = ((p2[0]-p1[0])/2 + p1[0]);
+    tilt = gradient*phase - gradient*offset; //-2*phase + 3;
+  }     
+  else if (phase >= p2[0] && phase < p3[0])
+    tilt = p2[1];
+  else if (phase >= p3[0] && phase < p4[0])
+  {
+    double gradient = (p4[1]-p3[1])/(p4[0]-p3[0]);
+    double offset = ((p4[0]-p3[0])/2 + p3[0]);
+    tilt = gradient*phase - gradient*offset; //2*phase - 21;      
+  }
+  else if (phase >= p4[0] && phase < p5[0])
+    tilt = p4[1];
+  
+  return tilt;  
+}
+
 
 /***********************************************************************************************************************
  * Gets hexapod parameters from rosparam server
@@ -234,6 +346,36 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   if(!n.getParam("move_to_start", params->moveToStart))
   {
     cout << "Error reading parameter/s (move_to_start) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("imu_compensation", params->imuCompensation))
+  {
+    cout << "Error reading parameter/s (imu_compensation) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("auto_compensation", params->autoCompensation))
+  {
+    cout << "Error reading parameter/s (auto_compensation) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("pitch_amplitude", params->pitchAmplitude))
+  {
+    cout << "Error reading parameter/s (pitch_amplitude) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("tilt_amplitude", params->tiltAmplitude))
+  {
+    cout << "Error reading parameter/s (tilt_amplitude) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("manual_compensation", params->manualCompensation))
+  {
+    cout << "Error reading parameter/s (manual_compensation) from rosparam" << endl;
     cout << "Check config file is loaded and type is correct" << endl;  
   }
   
