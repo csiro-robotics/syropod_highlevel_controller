@@ -36,7 +36,8 @@ Vector3d gaussianMean(double time, double timeStandardDeviation, double omega)
   for (int i = 0; i<numAccs; i++)
   {
     double tError = times[i] - time;
-    double weight = cos(tError*omega)*exp(-sqr(tError)/(2.0*sqr(sigma)));
+    //double weight = cos(tError*omega)*exp(-sqr(tError)/(2.0*sqr(sigma)));
+    double weight = exp(-sqr(tError)/(2.0*sqr(sigma)));
     meanAcc += accs[i]*weight;
     testTime += times[i]*weight;
     totalWeight += weight;
@@ -104,25 +105,12 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   ROS_ERROR("GRAVITYROT= %f %f %f", gravityrot(0), gravityrot(1),gravityrot(2)); 
   ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
   
-//Postion compensation
 
-//#define ZERO_ORDER_FEEDBACK
-// #define IMUINTEGRATION_FIRST_ORDER
+#define IMUINTEGRATION_FIRST_ORDER
 //#define IMUINTEGRATION_SECOND_ORDER
-#define FILTERED_DELAY_RESPONSE
+//#define FILTERED_DELAY_RESPONSE
 
-  
-#if defined(ZERO_ORDER_FEEDBACK)
-  double imuStrength = 0.001;
-  cbx.push_back(-imu.linear_acceleration.y); 
-  cby.push_back(-imu.linear_acceleration.x); 
-  cbz.push_back(-imu.linear_acceleration.z);
-  offsetPos(0) = imuStrength * (targetAccel(0)-(cbx[0]+cbx[1]+cbx[2]+cbx[3]+cbx[3])/4);
-  offsetPos(1) = imuStrength * (targetAccel(1)-(cby[0]+cby[1]+cby[2]+cby[3]+cbx[3])/4);
-  offsetPos(2) = imuStrength * (targetAccel(2)-(cbz[0]+cbz[1]+cbz[2]+cbz[3]+cbx[3])/4 + 9.8);
-  //offsetPos = imuStrength * (targetAccel-accel+Vector3d(0,0,9.8));
-  
- #elif defined(IMUINTEGRATION_SECOND_ORDER)
+ #if defined(IMUINTEGRATION_SECOND_ORDER)
   double imuStrength = 0.1;
   double decayRate = 1;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
@@ -130,10 +118,10 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   Vector3d offsetAcc = -imuStrength*IMUPos;
   
 #elif defined(IMUINTEGRATION_FIRST_ORDER)
-  double imuStrength = 0.015;
+  double imuStrength = 0.0;
   double decayRate = 2.3;
 //  double velDecayRate = 2.3;
-  double stiffness = 0.3;
+  double stiffness = 0.5;
   
   IMUVel += (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;

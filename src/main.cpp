@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
     //localVelocity[1] = 1.0;//time < 30 ? 0.5 : 0.0;
     //Vector3d deltaAngle;
     //Vector3d deltaPos = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle);
-    Vector3d deltaPos = Vector3d(0,0,0); 
+    Vector3d deltaPos = Vector3d(0,0,0);
   
 #if defined(MOVE_TO_START)
     if (!started)
