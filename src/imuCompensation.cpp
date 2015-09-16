@@ -11,7 +11,7 @@ sensor_msgs::Imu imu;
 static Vector3d offsetPos(0.0,0.0,0.0);
 static Vector3d offsetVel(0,0,0);
 static DebugOutput *debugDraw = NULL;
-
+  
 void calculatePassiveAngularFrequency();
 void setCompensationDebug(DebugOutput &debug)
 {
@@ -78,18 +78,20 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   static Vector3d IMUPos(0,0,0);
   static Vector3d IMUVel(0,0,0);
   
-  
-  
   orient.w = imu.orientation.w;
-  orient.x = imu.orientation.x;
-  orient.y = imu.orientation.y;
+  orient.y = imu.orientation.x;
+  orient.x = imu.orientation.y;
   orient.z = imu.orientation.z;
   accel(1) = -imu.linear_acceleration.x;
   accel(0) = -imu.linear_acceleration.y;
-  accel(2) = -imu.linear_acceleration.z;  
+  accel(2) = -imu.linear_acceleration.z;
   angVel(1) = imu.angular_velocity.x;
   angVel(0) = imu.angular_velocity.y;
   angVel(2) = imu.angular_velocity.z;
+  
+  std::cout << accel(0) <<  std::endl;
+  std::cout << accel(1) << std::endl;
+  std::cout << accel(2) << "\n" << std::endl;
   
   if (accel.squaredNorm()==0)
     return Vector3d(0,0,0);
@@ -105,48 +107,88 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   ROS_ERROR("GRAVITYROT= %f %f %f", gravityrot(0), gravityrot(1),gravityrot(2)); 
   ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
   
-
 #define IMUINTEGRATION_FIRST_ORDER
 //#define IMUINTEGRATION_SECOND_ORDER
 //#define FILTERED_DELAY_RESPONSE
+//#define BEST_CONTROLLER_ON_EARTH
+#define ANGULAR_COMPENSATION
 
- #if defined(IMUINTEGRATION_SECOND_ORDER)
-  double imuStrength = 0.1;
+#if defined(IMUINTEGRATION_SECOND_ORDER)
+  double imuStrength = 0.03;
   double decayRate = 1;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
   IMUVel += (targetAccel-accel+Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel;  
-  Vector3d offsetAcc = -imuStrength*IMUPos;
+  Vector3d offsetPos = -imuStrength*IMUPos;
+
+#elif defined(BEST_CONTROLLER_ON_EARTH)
+  double kp = 10.0*timeDelta;
+  double kd = -1.0*timeDelta;
+  double ki = 0.0;
+    
+  IMUVel += (accel - Vector3d(0, 0, 9.80665))*timeDelta;
+  IMUPos += timeDelta*IMUVel;
+ // IMUVel += (targetAccel - decayRate*timeDelta*IMUVel;
+ // IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
+  //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
+  //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
+ //Vector3d offsetAcc = -imuStrength*IMUVel-stiffness*IMUPos;
+  Vector3d controlPositionDelta = kp*(desiredPosition - IMUPos) + kd*(desiredVelocity - IMUVel);
+  offsetPos = IMUPos + controlPositionDelta;
   
 #elif defined(IMUINTEGRATION_FIRST_ORDER)
   double imuStrength = 0.0;
   double decayRate = 2.3;
-//  double velDecayRate = 2.3;
-  double stiffness = 0.5;
-  
-  IMUVel += (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta - decayRate*timeDelta*IMUVel;
+  //double velDecayRate = 2.3;
+  //double stiffness = 0.5;  
+  double stiffness = 0.2; 
+  IMUVel += (targetAccel+accel-Vector3d(0, 0, 9.80665))*timeDelta - decayRate*timeDelta*IMUVel;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
   //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
-  Vector3d offsetAcc = -imuStrength*IMUVel-stiffness*IMUPos;
- 
-#elif defined(FILTERED_DELAY_RESPONSE)
-  const double omega = 11.0; // natural angular frequency 
-  const double spreadRatio = 0.5; // small is more susceptible to noise
-  const double strength = 0.004;
-  t += timeDelta;
-  accs[accIndex] = /*targetAccel + */ accel - Vector3d(0, 0, 9.8);
-  times[accIndex] = t;
-  accIndex = (accIndex + 1)%numAccs;  
-  const double timeDelay = 0.5 / (omega / (2.0*pi));
-  Vector3d offsetAcc = -strength * gaussianMean(t - timeDelay, spreadRatio*timeDelay, omega);  
+  Vector3d offsetPos = -imuStrength*IMUVel-stiffness*IMUPos;
+  
+
+#if defined(ANGULAR_COMPENSATION)
+  double angularD = 0.0;
+  double angularP = 0.008;
+  Quat targetOrient(1,0,0,0);
+  // since there are two orientations per quaternion we want the shorter/smaller difference. 
+  // not certain this is needed though
+  {
+  double dot = targetOrient.dot(orient);
+  if (dot < 0.0)
+    targetOrient = -targetOrient;
+  }
+  Quat diff = targetOrient*(~orient);
+  Vector3d diffVec = diff.toRotationVector();
+  diffVec[2] = 0.0;  
+  // angVel[2] = -angVel[2];
+  angVel[2] = 0;
+  Vector3d offsetAng = -angularD*angVel + angularP*diffVec;
 #endif
   
+#elif defined(FILTERED_DELAY_RESPONSE)
+  const double omega = 11; // natural angular frequency 
+  const double spreadRatio = 0.7; // small is more susceptible to noise
+  const double strength = 2;
+  t += timeDelta;
+  accs[accIndex] = /*targetAccel + */ accel - Vector3d(0, 0, 9.80665);
+  times[accIndex] = t;
+  accIndex = (accIndex + 1)%numAccs;
+  const double timeDelay = 0.5 / (omega / (2.0*pi));
+  Vector3d offsetPos = strength * gaussianMean(t - timeDelay, spreadRatio*timeDelay, omega);  
   
+  
+Vector3d desiredVelocity(0.0, 0.0, 0.0);
+Vector3d desiredPosition(0.0, 0.0, 0.0);
+
+#endif  
   //adjust.rotation*= Quat(rotation);  
   //adjust.position = offsetAcc;
-
-  *deltaAngle=Vector3d(0,0,0);
-  return offsetAcc;
+  //*deltaAngle=Vector3d(0,0,0);
+  
+  *deltaAngle = offsetAng;
+  return offsetPos;
   
 }
 

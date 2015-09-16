@@ -16,6 +16,9 @@
 #include "geometry_msgs/Vector3.h"
 #include "sensor_msgs/JointState.h"
 #include <boost/circular_buffer.hpp> 
+#include <dynamic_reconfigure/server.h>
+//#include <simple_hexapod_controller/simpleController.h>
+
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
@@ -46,6 +49,8 @@ int main(int argc, char* argv[])
   ros::NodeHandle n_priv("~");
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
+  ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
+  geometry_msgs::Vector3 controlMeanAcc;
   
   ros::Publisher tipPosPub[3][2];
   tipPosPub[0][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_00", 1);
@@ -121,7 +126,7 @@ int main(int argc, char* argv[])
 #endif
 
 #if defined(FLEXIPOD)
-  WalkController walker(&hexapod, 1, 0.6, 0.12, 0.8, 0.4);
+  WalkController walker(&hexapod, 1, 0.3, 0.19, 0.86, 0.01);
 #elif defined(LOBSANG)
   WalkController walker(&hexapod, 1, 0.5, 0.1); 
 #elif defined(LARGE_HEXAPOD)
@@ -135,10 +140,11 @@ int main(int argc, char* argv[])
 
   if (dynamixel_interface)
     interface = new DynamixelMotorInterface();
+  
   else
     interface = new DynamixelProMotorInterface();
 
-  interface->setupSpeed(1);   
+  interface->setupSpeed(0.7);   
   //interface->setPGain(35);
 
   
@@ -154,16 +160,20 @@ int main(int argc, char* argv[])
     //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 
     //localVelocity[1] = 1.0;//time < 30 ? 0.5 : 0.0;
-    //Vector3d deltaAngle;
-    //Vector3d deltaPos = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle);
-    Vector3d deltaPos = Vector3d(0,0,0);
-  
+    Vector3d deltaAngle;
+    Vector3d deltaPos = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle);
+    //Vector3d deltaPos = Vector3d(0,0,0);
+    controlMeanAcc.x=deltaPos(0);
+    controlMeanAcc.y=deltaPos(1);
+    controlMeanAcc.z=deltaPos(2);
+    controlPub.publish(controlMeanAcc);        
+    
 #if defined(MOVE_TO_START)
     if (!started)
       started = walker.moveToStart();
     else
 #endif
-      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, &deltaPos); // the cube just lets the thumbstick give small turns easier
+      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, &deltaPos, &deltaAngle); // the cube just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     
