@@ -19,7 +19,7 @@ Vector3d WalkController::LegStepper::updatePosition(double liftHeight,
   double swing0 = swingStart + transitionPeriod*0.5;
   double swing1 = swingEnd - transitionPeriod*0.5;
   double swingMid = (swing0 + swing1)*0.5;
-  
+
   double landSpeed = 0.5*liftHeight; // 1 is linear land speed
   
   // Swing Phase
@@ -29,17 +29,18 @@ Vector3d WalkController::LegStepper::updatePosition(double liftHeight,
     Vector3d nodes[4];
     nodes[0] = currentTipPosition;
     nodes[3] = defaultTipPosition+strideVec*0.5;
-    nodes[1] = nodes[0] - strideVec / 3.0; //TO BE FIXED FOR CORRECT CURVE
-    nodes[2] = nodes[3] + strideVec / 3.0; //TO BE FIXED FOR CORRECT CURVE
+    nodes[1] = nodes[0] - strideVec / 6.0;
+    nodes[2] = nodes[3] + strideVec / 3.0;
     
     pos = cubicBezier(nodes, (phase-swing0) / (swing1 - swing0));
     
     // Z component of trajectory    
     double t = 1.0 - abs(phase - swingMid)/(swing1-swingMid);
-    
+
     double a = landSpeed - 2.0*liftHeight;
     double b = liftHeight - landSpeed - a;
-    pos[2] = defaultTipPosition[2] + a*t*t*t + b*t*t + landSpeed*t;
+    double deltaZ = a*t*t*t + b*t*t + landSpeed*t;
+    pos[2] = defaultTipPosition[2] + deltaZ;
     
     ASSERT(pos.squaredNorm() < 1000.0);
 

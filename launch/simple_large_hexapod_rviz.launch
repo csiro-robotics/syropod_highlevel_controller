@@ -1,14 +1,17 @@
 <launch>
 
-	<node pkg="simple_hexapod_controller" type="hexapod_controller.py" name="hexapod_controller" output="screen">
-    		<param name="axis_deadman" value="6"/>
-    		<param name="axis_linear_x" value="0"/>
+	<node name="hexapod_remote" pkg="hexapod_remote" type="hexapod_remote" output="screen">
+		<param name="axis_linear_x" value="0"/>
     		<param name="axis_linear_y" value="1"/>
-    		<param name="axis_linear_z" value="2"/>
-    		<param name="axis_angular_x" value="3"/>
-    		<param name="axis_angular_y" value="4"/>
-    		<param name="axis_angular_z" value="5"/>
-    		<param name="velocity_pub_rate" value="30"/>
+    		<param name="axis_linear_z" value="4"/>
+    		<param name="axis_angular_z" value="3"/>
+
+    		<param name="axis_linear_x_flip" value="false"/>
+    		<param name="axis_linear_y_flip" value="false"/>
+    		<param name="axis_linear_z_flip" value="false"/>
+    		<param name="axis_angular_z_flip" value="false"/>
+
+		<param name="pub_rate" value="100"/>
 	</node>
 
 	<node pkg="joy" type="joy_node" name="joystick"/>

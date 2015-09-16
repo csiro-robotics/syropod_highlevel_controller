@@ -29,7 +29,8 @@ sensor_msgs::JointState jointStates;
 double jointPositions[18];
 bool jointPosFlag = false;
 
-void joypadChangeCallback(const geometry_msgs::Twist &twist);
+void joypadVelocityCallback(const geometry_msgs::Twist &twist);
+void joypadPoseCallback(const geometry_msgs::Twist &twist);
 
 double getTiltCompensation(WalkController walker);
 double getPitchCompensation(WalkController walker);
@@ -46,7 +47,8 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
   ros::NodeHandle n_priv("~");
   
-  ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
+  ros::Subscriber velocitySubscriber = n.subscribe("/desired_velocity", 1, joypadVelocityCallback);
+  ros::Subscriber poseSubscriber = n.subscribe("/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
   
   //DEBUGGING
@@ -151,14 +153,14 @@ int main(int argc, char* argv[])
       double pitch = getPitchCompensation(walker);
       double tilt = getTiltCompensation(walker);  
       if (params.gaitType == "wave_gait")
-        adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,tilt,0));
+        adjust = Pose(Vector3d(0,0,zJoy), Quat(1,pitch,tilt,0));
       else if (params.gaitType == "tripod_gait")
         ;//adjust = Pose(Vector3d(0,0,0), Quat(1,0,tilt,0)); //NOT WORKING YET FOR TRIPOD
-    }
+    }    
     else if (params.manualCompensation)
     {    
       //Manual body compensation      
-      adjust = Pose(Vector3d(0,0,0), Quat(1,pitchJoy,tiltJoy,0));
+      adjust = Pose(Vector3d(0,0,zJoy), Quat(1,pitchJoy,tiltJoy,0));
     }    
     
     //Manual velocity control
@@ -238,15 +240,18 @@ int main(int argc, char* argv[])
 /***********************************************************************************************************************
  * Joypad Callback
 ***********************************************************************************************************************/
-void joypadChangeCallback(const geometry_msgs::Twist &twist)
+void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   localVelocity = clamped(localVelocity, 1.0);
-  //turnRate = twist.angular.z;
-  turnRate = twist.angular.z - twist.linear.z;
-  tiltJoy = twist.angular.x*0.05; //ADJUSTED FOR SENSITIVITY OF JOYSTICK
-  pitchJoy = twist.angular.y*0.05; //ADJUSTED FOR SENSITIVITY OF JOYSTICK
-  //zJoy = (twist.angular.z - twist.linear.z)*0.15;
+  turnRate = twist.angular.z;
+}
+
+void joypadPoseCallback(const geometry_msgs::Twist &twist)
+{
+  tiltJoy = twist.linear.x*0.05; //ADJUSTED FOR SENSITIVITY OF JOYSTICK
+  pitchJoy = twist.linear.y*0.05; //ADJUSTED FOR SENSITIVITY OF JOYSTICK
+  zJoy = twist.linear.z*0.15;
 }
 
 /***********************************************************************************************************************
