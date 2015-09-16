@@ -50,6 +50,7 @@ int main(int argc, char* argv[])
   ros::Subscriber velocitySubscriber = n.subscribe("/desired_velocity", 1, joypadVelocityCallback);
   ros::Subscriber poseSubscriber = n.subscribe("/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
+  ros::Subscriber jointStatesSubscriber;
   
   //DEBUGGING
   ros::Publisher tipPosPub[3][2];
@@ -71,14 +72,19 @@ int main(int argc, char* argv[])
   if (params.moveToStart)
   {
     if (params.hexapodType == "large_hexapod" || params.hexapodType == "flexipod")
-        ros::Subscriber jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
+        jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
     else if (params.hexapodType == "lobsang")
-        ros::Subscriber jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
+        jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
+    
+    if(!jointStatesSubscriber)
+    {
+      cout << "Failed to subscribe to joint_states topic - check to see if topic is being published." << endl;
+    }
 
     for (int i=0; i<18; i++)
       jointPositions[i] = 1e10;
   
-    int spin = 10; //Max ros spin cycles to find joint positions
+    int spin = 20; //Max ros spin cycles to find joint positions
     while(spin--)
     {
       ros::spinOnce();

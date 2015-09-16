@@ -3,7 +3,7 @@
 ######################################################################
 
 hexapod_type: lobsang
-move_to_start: false
+move_to_start: true
 
 imu_compensation: false
 auto_compensation: false
@@ -18,9 +18,9 @@ gait_type: tripod_gait
 stance_leg_yaws: [0.77, 0, -0.77]
 yaw_limits: [1.4, 1.4, 1.4]
 knee_limits: [0, 1.9]
-hip_limits: [-0.436, 1.396] #CHECK THIS VALUE
+hip_limits: [-3.0,3.0] #CHECK THIS VALUE
 
-joint_max_angular_speeds: [1.0,0.4,0.4] #CHECK THIS VALUE
+joint_max_angular_speeds: [10000,10000,10000] #CHECK THIS VALUE
 
 dynamixel_interface: true
 
