@@ -141,6 +141,9 @@ int main(int argc, char* argv[])
     interface = new DynamixelProMotorInterface();
   interface->setupSpeed(params.interfaceSetupSpeed);   
   
+  if (params.moveToStart)
+    cout << "Attempting to move to starting stance . . ." << endl;
+  
   //Position update loop
   bool firstFrame = true;
   bool started = false;
@@ -177,7 +180,7 @@ int main(int argc, char* argv[])
       started = walker.moveToStart();
     else
       walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust); // the cube just lets the thumbstick give small turns easier
-      
+    
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     

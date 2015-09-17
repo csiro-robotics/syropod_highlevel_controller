@@ -1,12 +1,22 @@
 #pragma once
 #include "model.h"
 
+enum State
+{
+  STARTING,
+  STOPPING,
+  MOVING,
+  STOPPED
+};
+
 struct WalkController
 {
   Model *model;
   Pose pose;
   
   Parameters params;
+  
+  State state = STOPPED;
   
   //Walk parameters
   double stepFrequency;  
@@ -28,11 +38,7 @@ struct WalkController
   
   int targetsNotMet = 6;
   Vector3d tipPositions[3][2];
-  
-  bool isStarting = false;
-  bool isMoving = false;
-  bool isStopping = false;
-  
+    
   struct LegStepper
   {
     double phase;

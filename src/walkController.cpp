@@ -227,7 +227,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
   Vector2d oldLocalCentreVelocity = localCentreVelocity;
   
-  isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
+  bool isMoving = localCentreVelocity.squaredNorm() + sqr(angularVelocity) > 0.0;
   
   // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
   double newAngularVelocity = newCurvature * normalSpeed/stanceRadius;
@@ -243,34 +243,42 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
   if (diffLength > 0.0)
     localCentreVelocity += diff * min(1.0, params.maxAcceleration*timeDelta/diffLength); 
   
-  //Engage States
-  if (!isMoving && normalSpeed && !isStarting)
-  {
-    isStarting = true;
-    isStopping = false;   
-  }
-  if (isMoving && !normalSpeed && !isStopping)
-  {
-    isStopping = true;
-    isStarting = false;  
-  }
+  /*
+  //DEBUGGING
+  if (state == STARTING)
+    cout << "STARTING" << endl;
+  else if (state == STOPPED)
+    cout << "STOPPED" << endl;
+  else if (state == MOVING)
+    cout << "MOVING" << endl;
+  else if (state == STOPPING)
+    cout << "STOPPING" << endl;
+  //DEBUGGING
+  */
   
-  //Disengage States
-  if (isStarting && targetsNotMet == 0)
+  // State transition: STOPPED->STARTING
+  if (state == STOPPED && !isMoving && normalSpeed)
+    state = STARTING;
+  
+  // State transition: STARTING->MOVING
+  if (state == STARTING && targetsNotMet == 0)
   {
-    isStarting = false;
-    isMoving = true;
     targetsNotMet = NUM_LEGS;
-    
     for (int l = 0; l<3; l++)
       for (int s = 0; s<2; s++)
         legSteppers[l][s].phase = legSteppers[l][s].phaseOffset;
+    state = MOVING;
   }
-  if (isStopping && targetsNotMet == 0)
+  
+  // State transition: MOVING->STOPPING
+  if (state == MOVING && isMoving && !normalSpeed)
+    state = STOPPING;
+  
+  // State transition: STOPPING->STOPPED
+  if (state == STOPPING && targetsNotMet == 0)
   {
-    isStopping = false;
-    isMoving = false;
     targetsNotMet = NUM_LEGS;
+    state = STOPPED;
   }  
    
   for (int l = 0; l<3; l++)
@@ -287,10 +295,10 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       double phaseLength = params.stancePhase + params.swingPhase;
       double targetPhase = 0.0;
       
-      if (isStarting)
+      if (state == STARTING)
       {        
         localCentreVelocity = Vector2d(1e-10, 1e-10);
-        angularVelocity = 0.0;
+        angularVelocity = 1e-10;
         legStepper.strideVector = Vector2d(1e-10, 1e-10);
         
         if (legStepper.phaseOffset < phaseLength/2)
@@ -307,8 +315,12 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
           legStepper.phase = iteratePhase(legStepper.phase);
         
       }
-      else if (isStopping)
+      else if (state == STOPPING)
       {   
+        localCentreVelocity = Vector2d(1e-10, 1e-10);
+        angularVelocity = 1e-10;
+        legStepper.strideVector = Vector2d(1e-10, 1e-10);
+        
         if (targetReached(legStepper.phase, targetPhase))
         {
           if ((2*l+s) == targetsNotMet-1)
@@ -317,12 +329,18 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
         else
           legStepper.phase = iteratePhase(legStepper.phase);  
       }
-      else if (isMoving)
+      else if (state == MOVING)
       {
           legStepper.phase = iteratePhase(legStepper.phase);
       }
-      else //else stopped
+      else if (state == STOPPED)
+      {
         legStepper.phase = 0;
+        localCentreVelocity = Vector2d(0, 0);
+        angularVelocity = 0.0;
+        
+        legStepper.strideVector = Vector2d(0, 0);
+      }
       
       double liftHeight = stepClearance*maximumBodyHeight;
       legStepper.currentTipPosition = legStepper.updatePosition(liftHeight, localCentreVelocity, angularVelocity);         
@@ -386,7 +404,10 @@ bool WalkController::targetReached(double phase, double targetPhase)
 bool WalkController::moveToStart()
 {
   if (targets.size() == 0)
+  {
+    cout << "Now at starting stance." << endl;
     return true;
+  }
   int i = 0;
   walkPhase = min(walkPhase + stepFrequency*timeDelta/1.0, pi);
   for (int l = 0; l<3; l++)
@@ -410,6 +431,7 @@ bool WalkController::moveToStart()
   {
     walkPhase = 0.0;
     targets.clear();
+    cout << "Now at starting stance." << endl;
     return true;
   }
   return false;
