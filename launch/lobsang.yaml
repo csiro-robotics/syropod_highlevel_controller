@@ -6,12 +6,12 @@ hexapod_type: lobsang
 move_to_start: true
 
 imu_compensation: false
-auto_compensation: true
+auto_compensation: false
 pitch_amplitude: 0.01
 tilt_amplitude: 0.01
 manual_compensation: true
 
-gait_type: tripod_gait
+gait_type: wave_gait
 
 ######################################################################
 
@@ -28,7 +28,7 @@ dynamixel_interface: true
 # Walk Controller Parameters
 ######################################################################
 
-step_frequency: 1.0 #FOR WAVE GAIT MAX 0.25
+step_frequency: 0.25 #FOR WAVE GAIT MAX 0.25
 step_clearance: 0.2
 body_clearance: -1.0
 leg_span_scale: 1.0
@@ -38,7 +38,7 @@ max_curvature_speed: 0.4
 
 step_curvature_allowance: 0.7
 
-interface_setup_speed: 0.5
+interface_setup_speed: 2.5
 
 ######################################################################
 ######################################################################

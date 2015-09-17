@@ -71,24 +71,24 @@ int main(int argc, char* argv[])
   //MOVE_TO_START
   if (params.moveToStart)
   {
-    if (params.hexapodType == "large_hexapod" || params.hexapodType == "flexipod")
-        jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
-    else if (params.hexapodType == "lobsang")
-        jointStatesSubscriber = n.subscribe("/joint_states", 1, jointStatesCallback);
+    jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
     
     if(!jointStatesSubscriber)
     {
       cout << "Failed to subscribe to joint_states topic - check to see if topic is being published." << endl;
+      params.moveToStart = false;
     }
-
-    for (int i=0; i<18; i++)
-      jointPositions[i] = 1e10;
-  
-    int spin = 20; //Max ros spin cycles to find joint positions
-    while(spin--)
+    else
     {
-      ros::spinOnce();
-      r.sleep();
+      for (int i=0; i<18; i++)
+        jointPositions[i] = 1e10;
+    
+      int spin = 20; //Max ros spin cycles to find joint positions
+      while(spin--)
+      {
+        ros::spinOnce();
+        r.sleep();
+      }
     }
   }
   
@@ -124,7 +124,10 @@ int main(int argc, char* argv[])
       }
     }
     else
+    {
       cout << "Failed to acquire all joint position values" << endl;
+      params.moveToStart = false;
+    }
   }
 
   // Create walk controller object
@@ -251,9 +254,9 @@ int main(int argc, char* argv[])
 ***********************************************************************************************************************/
 void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
-  localVelocity = Vector2d(twist.linear.x, twist.linear.y);
+  localVelocity = Vector2d(-twist.linear.x, twist.linear.y);
   localVelocity = clamped(localVelocity, 1.0);
-  turnRate = twist.angular.z;
+  turnRate = -twist.angular.z;
 }
 
 void joypadPoseCallback(const geometry_msgs::Twist &twist)
