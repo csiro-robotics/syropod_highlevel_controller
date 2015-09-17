@@ -62,6 +62,19 @@ void DebugOutput::drawRobot(const Vector3d &extents, const vector<Vector3d> &leg
     
     oldID = root;
   }
+  Vector3d midPos = (legPoints[rootIDs[0]] + legPoints[rootIDs[5]])*0.5;
+  Vector3d dir = (legPoints[rootIDs[0]] - legPoints[rootIDs[2]])*0.1;
+  geometry_msgs::Point p;
+  pos = rotate90 * midPos;
+  p.x = pos[0];
+  p.y = pos[1];
+  p.z = pos[2];
+  lineList.points.push_back(p);
+  pos = rotate90 * (midPos + dir);
+  p.x = pos[0];
+  p.y = pos[1];
+  p.z = pos[2];
+  lineList.points.push_back(p);
 
   for (unsigned int l = 0; l<legPoints.size()-1; l+=4)
   {  

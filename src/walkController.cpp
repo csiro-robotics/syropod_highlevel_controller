@@ -25,7 +25,7 @@ static bool isStopping = false;
 static int numLegs = 6;
 
 static double transitionPeriod = swingPhase*0.2;
-static double swing0 = swingStart+transitionPeriod*0.5;
+static double swing0 = swingStart + transitionPeriod*0.5;
 static double swing1 = swingEnd  -transitionPeriod*0.5;
 
 // This version deccelerates on approaching the ground during a step, allowing a softer landing.

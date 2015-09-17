@@ -82,9 +82,11 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   orient.y = imu.orientation.x;
   orient.x = imu.orientation.y;
   orient.z = imu.orientation.z;
-  accel(1) = -imu.linear_acceleration.x;
-  accel(0) = -imu.linear_acceleration.y;
-  accel(2) = -imu.linear_acceleration.z;
+  
+  accel(0) = imu.linear_acceleration.x;
+  accel(1) = imu.linear_acceleration.y;
+  accel(2) = imu.linear_acceleration.z;
+  
   angVel(1) = imu.angular_velocity.x;
   angVel(0) = imu.angular_velocity.y;
   angVel(2) = imu.angular_velocity.z;
@@ -127,11 +129,11 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
     
   IMUVel += (accel - Vector3d(0, 0, 9.80665))*timeDelta;
   IMUPos += timeDelta*IMUVel;
- // IMUVel += (targetAccel - decayRate*timeDelta*IMUVel;
- // IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
+  //IMUVel += (targetAccel - decayRate*timeDelta*IMUVel;
+  //IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
   //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
- //Vector3d offsetAcc = -imuStrength*IMUVel-stiffness*IMUPos;
+  //Vector3d offsetAcc = -imuStrength*IMUVel-stiffness*IMUPos;
   Vector3d controlPositionDelta = kp*(desiredPosition - IMUPos) + kd*(desiredVelocity - IMUVel);
   offsetPos = IMUPos + controlPositionDelta;
   
@@ -140,17 +142,19 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   double decayRate = 2.3;
   //double velDecayRate = 2.3;
   //double stiffness = 0.5;  
-  double stiffness = 0.2; 
-  IMUVel += (targetAccel+accel-Vector3d(0, 0, 9.80665))*timeDelta - decayRate*timeDelta*IMUVel;
+  double stiffness = 0.3; 
+  IMUVel += (accel - targetAccel - Vector3d(0, 0, 9.76))*timeDelta - decayRate*timeDelta*IMUVel;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
   //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
-  Vector3d offsetPos = -imuStrength*IMUVel-stiffness*IMUPos;
-  
+  Vector3d offsetPos = -imuStrength*IMUVel - stiffness*IMUPos;
+  std::cout << offsetPos(0) <<  std::endl;
+  std::cout << offsetPos(1) << std::endl;
+  std::cout << offsetPos(2) << "\n" << std::endl;
 
 #if defined(ANGULAR_COMPENSATION)
   double angularD = 0.0;
-  double angularP = 0.008;
+  double angularP = 0.0;
   Quat targetOrient(1,0,0,0);
   // since there are two orientations per quaternion we want the shorter/smaller difference. 
   // not certain this is needed though

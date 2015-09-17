@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
   ros::NodeHandle n_priv("~");
   ros::Subscriber subscriber = n.subscribe("/desired_body_velocity", 1, joypadChangeCallback);
-  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
+  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, imuCallback);
   ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
   geometry_msgs::Vector3 controlMeanAcc;
   
@@ -159,7 +159,7 @@ int main(int argc, char* argv[])
     Vector2d acc = walker.localCentreAcceleration;
     //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 
-    //localVelocity[1] = 1.0;//time < 30 ? 0.5 : 0.0;
+    localVelocity[1] = 1.0;
     Vector3d deltaAngle;
     Vector3d deltaPos = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle);
     //Vector3d deltaPos = Vector3d(0,0,0);
@@ -173,7 +173,7 @@ int main(int argc, char* argv[])
       started = walker.moveToStart();
     else
 #endif
-      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, &deltaPos, &deltaAngle); // the cube just lets the thumbstick give small turns easier
+    walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, &deltaPos, &deltaAngle); // the cube just lets the thumbstick give small turns easier
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     
@@ -218,6 +218,7 @@ int main(int argc, char* argv[])
             maxVel[2] = max(maxVel[2], abs(kneeVel));
           }
           interface->setTargetAngle(l, s, 0, yaw);
+
           interface->setTargetAngle(l, s, 1, lift);
           interface->setTargetAngle(l, s, 2, knee);
           
