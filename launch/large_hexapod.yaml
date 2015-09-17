@@ -6,10 +6,10 @@ hexapod_type: large_hexapod
 move_to_start: false
 
 imu_compensation: false
-auto_compensation: true
-pitch_amplitude: 0.025
-tilt_amplitude: 0.025
-manual_compensation: true
+auto_compensation: false
+pitch_amplitude: 0.01
+tilt_amplitude: 0.01
+manual_compensation: false
 
 gait_type: wave_gait
 
