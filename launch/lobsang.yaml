@@ -7,11 +7,11 @@ move_to_start: true
 
 imu_compensation: false
 auto_compensation: false
-pitch_amplitude: 0.01
-tilt_amplitude: 0.01
+pitch_amplitude: 0.025
+roll_amplitude: 0.025
 manual_compensation: true
 
-gait_type: wave_gait
+gait_type: tripod_gait
 
 ######################################################################
 
@@ -28,8 +28,8 @@ dynamixel_interface: true
 # Walk Controller Parameters
 ######################################################################
 
-step_frequency: 0.25 #FOR WAVE GAIT MAX 0.25
-step_clearance: 0.2
+step_frequency: 1.0
+step_clearance: 0.1
 body_clearance: -1.0
 leg_span_scale: 1.0
 

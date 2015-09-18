@@ -27,7 +27,7 @@ struct Parameters
   bool imuCompensation;
   bool autoCompensation;
   double pitchAmplitude;
-  double tiltAmplitude;
+  double rollAmplitude;
   bool manualCompensation;
 
   //Hexapod Parameters

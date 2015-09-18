@@ -11,6 +11,7 @@
 #include "../include/simple_hexapod_controller/imuCompensation.h"
 #include <boost/concept_check.hpp>
 #include <iostream>
+#include "std_msgs/Bool.h"
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/Vector3.h"
@@ -21,16 +22,21 @@
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
 static double pitchJoy = 0;
-static double tiltJoy = 0;
+static double rollJoy = 0;
+static double yawJoy = 0;
+static double xJoy = 0;
+static double yJoy = 0;
 static double zJoy = 0;
 
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
 double jointPositions[18];
 bool jointPosFlag = false;
+bool startFlag = false;
 
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
+void startCallback(const std_msgs::Bool &startBool);
 
 double getTiltCompensation(WalkController walker);
 double getPitchCompensation(WalkController walker);
@@ -50,7 +56,10 @@ int main(int argc, char* argv[])
   ros::Subscriber velocitySubscriber = n.subscribe("/desired_velocity", 1, joypadVelocityCallback);
   ros::Subscriber poseSubscriber = n.subscribe("/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, imuCallback);
+  ros::Subscriber startSubscriber = n.subscribe("/start_state", 1, startCallback);
   ros::Subscriber jointStatesSubscriber;
+  
+
   
   //DEBUGGING
   ros::Publisher tipPosPub[3][2];
@@ -63,6 +72,13 @@ int main(int argc, char* argv[])
   //DEBUGGING
   
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
+  
+  while(!startFlag)
+  {
+    ros::spinOnce();
+    r.sleep();
+  }
+  
   
   //Get parameters from rosparam via loaded config file
   Parameters params;
@@ -163,16 +179,16 @@ int main(int argc, char* argv[])
     {
       //Automatic (non-feedback) compensation
       double pitch = getPitchCompensation(walker);
-      double tilt = getTiltCompensation(walker);  
+      double roll = getTiltCompensation(walker);  
       if (params.gaitType == "wave_gait")
-        adjust = Pose(Vector3d(0,0,zJoy), Quat(1,pitch,tilt,0));
+        adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitch,roll,yawJoy));
       else if (params.gaitType == "tripod_gait")
-        ;//adjust = Pose(Vector3d(0,0,0), Quat(1,0,tilt,0)); //NOT WORKING YET FOR TRIPOD
+        ;//adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0)); //NOT WORKING YET FOR TRIPOD
     }    
     else if (params.manualCompensation)
     {    
-      //Manual body compensation      
-      adjust = Pose(Vector3d(0,0,zJoy), Quat(1,pitchJoy,tiltJoy,0));
+      //Manual body compensation 
+      adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
     }    
     
     //Manual velocity control
@@ -254,17 +270,31 @@ int main(int argc, char* argv[])
 ***********************************************************************************************************************/
 void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
-  localVelocity = Vector2d(-twist.linear.x, twist.linear.y);
+  localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   localVelocity = clamped(localVelocity, 1.0);
-  turnRate = -twist.angular.z;
+  turnRate = (twist.linear.z-twist.angular.z)/2;
 }
 
 void joypadPoseCallback(const geometry_msgs::Twist &twist)
 {
-  tiltJoy = twist.linear.x*0.05; //ADJUSTED FOR SENSITIVITY OF JOYSTICK
-  pitchJoy = twist.linear.y*0.05; //ADJUSTED FOR SENSITIVITY OF JOYSTICK
-  zJoy = twist.linear.z*0.15;
+   //ADJUSTED FOR SENSITIVITY OF JOYSTICK
+  rollJoy = twist.angular.x*0.075;
+  pitchJoy = twist.angular.y*-0.075;
+  yawJoy = twist.angular.z*0.2;  
+  xJoy = twist.linear.x*0.05;
+  yJoy = twist.linear.y*0.05; 
+  zJoy = twist.linear.z*0.05; 
 }
+
+void startCallback(const std_msgs::Bool &startBool)
+{
+  if (startBool.data == true)
+    startFlag = true;
+  else
+    startFlag = false;
+}
+
+
 
 /***********************************************************************************************************************
  * Calculates pitch for body compensation
@@ -307,12 +337,12 @@ double getPitchCompensation(WalkController walker)
 
 
 /***********************************************************************************************************************
- * Calculates tilt for body compensation
+ * Calculates roll for body compensation
 ***********************************************************************************************************************/
 double getTiltCompensation(WalkController walker)
 { 
-  double tilt;
-  double amplitude = walker.params.tiltAmplitude;
+  double roll;
+  double amplitude = walker.params.rollAmplitude;
   double phase = walker.legSteppers[0][0].phase;
   double phaseLength = walker.params.stancePhase + walker.params.swingPhase;
   double buffer = walker.params.swingPhase/2;
@@ -324,25 +354,25 @@ double getTiltCompensation(WalkController walker)
   double p5[2] = {6*phaseLength/6, -amplitude};
   
   if (phase >= p0[0] && phase < p1[0])
-    tilt = p0[1];
+    roll = p0[1];
   else if (phase >= p1[0] && phase < p2[0])
   {
     double gradient = (p2[1]-p1[1])/(p2[0]-p1[0]);
     double offset = ((p2[0]-p1[0])/2 + p1[0]);
-    tilt = gradient*phase - gradient*offset; //-2*phase + 3;
+    roll = gradient*phase - gradient*offset; //-2*phase + 3;
   }     
   else if (phase >= p2[0] && phase < p3[0])
-    tilt = p2[1];
+    roll = p2[1];
   else if (phase >= p3[0] && phase < p4[0])
   {
     double gradient = (p4[1]-p3[1])/(p4[0]-p3[0]);
     double offset = ((p4[0]-p3[0])/2 + p3[0]);
-    tilt = gradient*phase - gradient*offset; //2*phase - 21;      
+    roll = gradient*phase - gradient*offset; //2*phase - 21;      
   }
   else if (phase >= p4[0] && phase < p5[0])
-    tilt = p4[1];
+    roll = p4[1];
   
-  return tilt;  
+  return roll;  
 }
 
 
@@ -384,9 +414,9 @@ void getParameters(ros::NodeHandle n, Parameters *params)
     cout << "Check config file is loaded and type is correct" << endl;  
   }
   
-  if(!n.getParam("tilt_amplitude", params->tiltAmplitude))
+  if(!n.getParam("roll_amplitude", params->rollAmplitude))
   {
-    cout << "Error reading parameter/s (tilt_amplitude) from rosparam" << endl;
+    cout << "Error reading parameter/s (roll_amplitude) from rosparam" << endl;
     cout << "Check config file is loaded and type is correct" << endl;  
   }
   
