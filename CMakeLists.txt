@@ -11,11 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   dynamixel_controllers
   dynamixel_msgs
-  dynamic_reconfigure
-)
-generate_dynamic_reconfigure_options(
-  cfg/simpleController.cfg
-)
+ )
+
 
 
 ## System dependencies are found with CMake's conventions
@@ -118,7 +115,6 @@ add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/wal
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-add_dependencies(simple_hexapod_controller_node simple_hexapod_controller_generate_messages_cpp ${PROJECT_NAME}_gencfg)
 
 ## Specify libraries to link a library or executable target against
  target_link_libraries(simple_hexapod_controller_node
