@@ -59,8 +59,6 @@ int main(int argc, char* argv[])
   ros::Subscriber startSubscriber = n.subscribe("/start_state", 1, startCallback);
   ros::Subscriber jointStatesSubscriber;
   
-
-  
   //DEBUGGING
   ros::Publisher tipPosPub[3][2];
   tipPosPub[0][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_00", 1);
@@ -73,6 +71,7 @@ int main(int argc, char* argv[])
   
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   
+  cout << "Press 'Start' to run controller" << endl;
   while(!startFlag)
   {
     ros::spinOnce();
