@@ -158,6 +158,7 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
     double theta = model->yawLimitAroundStance[l];
     double cotanTheta = tan(0.5*pi - theta);
     rad = min(rad, solveQuadratic(sqr(cotanTheta), 2.0*horizontalRange, -sqr(horizontalRange)));
+    ASSERT(rad > 0.0); // cannot have negative radius
 
     // we should also take into account the stepClearance not getting too high for the leg to reach
     double legTipBodyClearance = max(0.0, bodyClearance - stepCurvatureAllowance*stepClearance)*maximumBodyHeight; 
@@ -165,6 +166,7 @@ WalkController::WalkController(Model *model, int gaitType, double stepFrequency,
     {
       rad = min(rad, (horizontalRange - sqrt(sqr(leg.minLegLength) - sqr(legTipBodyClearance))) / 2.0); // if footprint radius due to lift is smaller due to yaw limits, reduce this minimum radius
     }
+    ASSERT(rad > 0.0); // cannot have negative radius, step height is too high to allow any footprint
 
     footSpreadDistances[l] = leg.hipLength + horizontalRange - rad;
     double footprintDownscale = 0.8; // this is because the step cycle exceeds the ground footprint in order to maintain velocity

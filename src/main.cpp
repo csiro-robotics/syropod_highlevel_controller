@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 
 #if defined(FLEXIPOD)
   yawOffsets = Vector3d(0.77,0,-0.77);  
-  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.6));
+  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,2.6));
 #elif defined(LOBSANG)  
   yawOffsets = Vector3d(0.77,0,-0.77);   
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));  
@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
 #endif
 
 #if defined(FLEXIPOD)
-  WalkController walker(&hexapod, 1, 0.3, 0.19, 0.86, 0.01);
+  WalkController walker(&hexapod, 1, 0.3, 0.08, 0.92, 0.5);
 #elif defined(LOBSANG)
   WalkController walker(&hexapod, 1, 0.5, 0.1); 
 #elif defined(LARGE_HEXAPOD)
