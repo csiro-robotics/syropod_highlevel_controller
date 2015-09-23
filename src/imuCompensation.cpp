@@ -72,29 +72,23 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   
   static Vector3d angularVel(0,0,0);
   adjust.rotation=Quat(Vector3d(0,0,0));
-  //static boost::circular_buffer<float> cbx(4,0);
-  //static boost::circular_buffer<float> cby(4,1);
-  //static boost::circular_buffer<float> cbz(4,2);
   static Vector3d IMUPos(0,0,0);
   static Vector3d IMUVel(0,0,0);
   
   orient.w = imu.orientation.w;
-  orient.y = imu.orientation.x;
-  orient.x = imu.orientation.y;
+  orient.x = imu.orientation.x;
+  orient.y = imu.orientation.y;
   orient.z = imu.orientation.z;
   
   accel(0) = imu.linear_acceleration.x;
   accel(1) = imu.linear_acceleration.y;
   accel(2) = imu.linear_acceleration.z;
   
-  angVel(1) = imu.angular_velocity.x;
-  angVel(0) = imu.angular_velocity.y;
+  angVel(0) = imu.angular_velocity.x;
+  angVel(1) = imu.angular_velocity.y;
   angVel(2) = imu.angular_velocity.z;
   
-  std::cout << accel(0) <<  std::endl;
-  std::cout << accel(1) << std::endl;
-  std::cout << accel(2) << "\n" << std::endl;
-  
+
   if (accel.squaredNorm()==0)
     return Vector3d(0,0,0);
   
@@ -104,8 +98,9 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   gravityrot=orient.toRotationMatrix()*Vector3d(0,0,-9.81);
   accelcomp(0)=accel(0)-gravityrot(0);
   accelcomp(1)=accel(1)-gravityrot(1);  
-  accelcomp(2)=accel(2)-gravityrot(2);  
-  ROS_ERROR("ACCEL= %f %f %f", accel(0), accel(1),accel(2));0
+  accelcomp(2)=accel(2)-gravityrot(2); 
+  
+  ROS_ERROR("ACCEL= %f %f %f", accel(0), accel(1),accel(2));
   ROS_ERROR("GRAVITYROT= %f %f %f", gravityrot(0), gravityrot(1),gravityrot(2)); 
   ROS_ERROR("ACCELCOMP= %f %f %f", accelcomp(0), accelcomp(1),accelcomp(2));*/
   
@@ -139,22 +134,19 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   
 #elif defined(IMUINTEGRATION_FIRST_ORDER)
   double imuStrength = 0.0;
-  double decayRate = 2.3;
-  //double velDecayRate = 2.3;
-  //double stiffness = 0.5;  
-  double stiffness = 0.3; 
+  double decayRate = 2.2; 
+  double stiffness = 0.4; 
+  
   IMUVel += (accel - targetAccel - Vector3d(0, 0, 9.76))*timeDelta - decayRate*timeDelta*IMUVel;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
   //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
+  
   Vector3d offsetPos = -imuStrength*IMUVel - stiffness*IMUPos;
-  std::cout << offsetPos(0) <<  std::endl;
-  std::cout << offsetPos(1) << std::endl;
-  std::cout << offsetPos(2) << "\n" << std::endl;
 
 #if defined(ANGULAR_COMPENSATION)
   double angularD = 0.0;
-  double angularP = 0.0;
+  double angularP = 0.008;
   Quat targetOrient(1,0,0,0);
   // since there are two orientations per quaternion we want the shorter/smaller difference. 
   // not certain this is needed though
@@ -163,12 +155,15 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   if (dot < 0.0)
     targetOrient = -targetOrient;
   }
+  
   Quat diff = targetOrient*(~orient);
   Vector3d diffVec = diff.toRotationVector();
-  diffVec[2] = 0.0;  
-  // angVel[2] = -angVel[2];
-  angVel[2] = 0;
-  Vector3d offsetAng = -angularD*angVel + angularP*diffVec;
+    
+  
+  diffVec[2] = 0.0;    
+  angVel[2] = 0.0;  
+  
+  Vector3d offsetAng = angularD*angVel + angularP*diffVec;
 #endif
   
 #elif defined(FILTERED_DELAY_RESPONSE)
@@ -187,12 +182,10 @@ Vector3d desiredVelocity(0.0, 0.0, 0.0);
 Vector3d desiredPosition(0.0, 0.0, 0.0);
 
 #endif  
-  //adjust.rotation*= Quat(rotation);  
-  //adjust.position = offsetAcc;
-  //*deltaAngle=Vector3d(0,0,0);
-  
+  //adjust.rotation*= Quat(rotation);    
   *deltaAngle = offsetAng;
-  return offsetPos;
+  return -offsetPos; //Negative to work
+ 
   
 }
 
