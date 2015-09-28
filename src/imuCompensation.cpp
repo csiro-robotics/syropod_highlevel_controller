@@ -134,9 +134,9 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   
 #elif defined(IMUINTEGRATION_FIRST_ORDER)
   double imuStrength = 0.0;
-  double decayRate = 2.2; 
-  double stiffness = 0.4; 
-  
+  double decayRate = 2.3; 
+  double stiffness = 0.35; 
+  //double stiffness = 0; 
   IMUVel += (accel - targetAccel - Vector3d(0, 0, 9.76))*timeDelta - decayRate*timeDelta*IMUVel;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
@@ -146,7 +146,8 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
 
 #if defined(ANGULAR_COMPENSATION)
   double angularD = 0.0;
-  double angularP = 0.008;
+  double angularP = 0.00;
+
   Quat targetOrient(1,0,0,0);
   // since there are two orientations per quaternion we want the shorter/smaller difference. 
   // not certain this is needed though
@@ -158,7 +159,6 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   
   Quat diff = targetOrient*(~orient);
   Vector3d diffVec = diff.toRotationVector();
-    
   
   diffVec[2] = 0.0;    
   angVel[2] = 0.0;  

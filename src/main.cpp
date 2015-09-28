@@ -15,7 +15,6 @@
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/Vector3.h"
 #include "sensor_msgs/JointState.h"
-#include <boost/circular_buffer.hpp> 
 #include <dynamic_reconfigure/server.h>
 //#include <simple_hexapod_controller/simpleController.h>
 
@@ -91,7 +90,7 @@ int main(int argc, char* argv[])
 
 #if defined(FLEXIPOD)
   yawOffsets = Vector3d(0.77,0,-0.77);  
-  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,2.6));
+  Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,2));
 #elif defined(LOBSANG)  
   yawOffsets = Vector3d(0.77,0,-0.77);   
   Model hexapod(yawOffsets, Vector3d(1.4,1.4,1.4), Vector2d(0,1.9));  
@@ -126,7 +125,7 @@ int main(int argc, char* argv[])
 #endif
 
 #if defined(FLEXIPOD)
-  WalkController walker(&hexapod, 1, 0.3, 0.08, 0.92, 0.5);
+  WalkController walker(&hexapod, 1, 0.2, 0.04, 0.86, 0.8);
 #elif defined(LOBSANG)
   WalkController walker(&hexapod, 1, 0.5, 0.1); 
 #elif defined(LARGE_HEXAPOD)
@@ -144,7 +143,7 @@ int main(int argc, char* argv[])
   else
     interface = new DynamixelProMotorInterface();
 
-  interface->setupSpeed(0.7);   
+  interface->setupSpeed(2);   
   //interface->setPGain(35);
 
   
@@ -159,7 +158,7 @@ int main(int argc, char* argv[])
     Vector2d acc = walker.localCentreAcceleration;
     //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
 
-    localVelocity[1] = 1.0;
+    //localVelocity[1] = 1.0;
     Vector3d deltaAngle;
     Vector3d deltaPos = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle);
     //Vector3d deltaPos = Vector3d(0,0,0);
