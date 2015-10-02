@@ -195,8 +195,6 @@ int main(int argc, char* argv[])
     //Manual velocity control
     //localVelocity = Vector2d(1e-10, 1e-10);
     
-
-    
     //Update walker or move to starting stance
     if (!started && params.moveToStart)
       started = walker.moveToStart();
@@ -275,7 +273,8 @@ void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   localVelocity = clamped(localVelocity, 1.0);
-  turnRate = twist.angular.x; //(twist.linear.z-twist.angular.z)/2;
+  turnRate = twist.angular.x; //RS ROTATION CONTROL SCHEME
+  //turnRate = (twist.linear.z-twist.angular.z)/2; //TRIGGER ROTATION CONTROL SCHEME
 }
 
 void joypadPoseCallback(const geometry_msgs::Twist &twist)
