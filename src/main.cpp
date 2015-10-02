@@ -17,6 +17,8 @@
 #include "geometry_msgs/Vector3.h"
 #include "sensor_msgs/JointState.h"
 #include <boost/circular_buffer.hpp> 
+#include <dynamic_reconfigure/server.h>
+//#include <simple_hexapod_controller/simpleController.h>
 
 //Globals for joypad callback
 static Vector2d localVelocity(0,0);
@@ -193,6 +195,8 @@ int main(int argc, char* argv[])
     //Manual velocity control
     //localVelocity = Vector2d(1e-10, 1e-10);
     
+
+    
     //Update walker or move to starting stance
     if (!started && params.moveToStart)
       started = walker.moveToStart();
@@ -271,7 +275,7 @@ void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   localVelocity = clamped(localVelocity, 1.0);
-  turnRate = (twist.linear.z-twist.angular.z)/2;
+  turnRate = twist.angular.x; //(twist.linear.z-twist.angular.z)/2;
 }
 
 void joypadPoseCallback(const geometry_msgs::Twist &twist)
