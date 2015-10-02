@@ -2,14 +2,13 @@
 
 #include <Eigen/Dense>
 #include <vector>
+#include <boost/iterator/iterator_concepts.hpp>
 using namespace Eigen;
 using namespace std;
-//#define LARGE_HEXAPOD
-#define FLEXIPOD
-//#define LOBSANG
 
 #define timeDelta (1.0/50)
 #define DEBUGDRAW
+#define NUM_LEGS 6
 const double pi = M_PI; //< easier to read
 
 // ifdef because assert(x) is nop on NDEBUG defined, not on 'DEBUG not defined'
@@ -20,6 +19,44 @@ const double pi = M_PI; //< easier to read
  #define ASSERT(x) assert(x)
  #define ATTEMPT(x_, y_) assert(x_ y_)
 #endif
+
+struct Parameters
+{
+  std::string hexapodType;
+  bool moveToStart;
+  bool imuCompensation;
+  bool autoCompensation;
+  double pitchAmplitude;
+  double rollAmplitude;
+  bool manualCompensation;
+
+  //Hexapod Parameters
+  Vector3d stanceLegYaws;
+  Vector3d yawLimits;
+  Vector2d kneeLimits;
+  Vector2d hipLimits;
+  Vector3d jointMaxAngularSpeeds;
+  bool dynamixelInterface;
+
+  //Walk Controller Parameters
+  std::string gaitType;  
+  double stepFrequency;
+  double stepClearance;
+  double bodyClearance;
+  double legSpanScale;  
+  double maxAcceleration;
+  double maxCurvatureSpeed;
+  double stepCurvatureAllowance;
+  double interfaceSetupSpeed;
+  
+  //Gait Parameters
+  double stancePhase;
+  double swingPhase;
+  double phaseOffset;  
+  std::vector<int> legSelectionPattern;
+  std::vector<int> sideSelectionPattern;
+  double transitionPeriod;
+};
 
 template<class T>
 T sqr(const T &val){ return val*val; }

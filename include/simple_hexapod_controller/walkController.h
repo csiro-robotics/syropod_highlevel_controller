@@ -1,15 +1,31 @@
 #pragma once
 #include "model.h"
 
+enum State
+{
+  STARTING,
+  STOPPING,
+  MOVING,
+  STOPPED
+};
+
 struct WalkController
 {
   Model *model;
   Pose pose;
-  int gaitType;
-  double stepFrequency;
-  double bodyClearance;
+  
+  Parameters params;
+  
+  State state = STOPPED;
+  
+  //Walk parameters
+  double stepFrequency;  
   double stepClearance;
-  double phaseLength;
+  double bodyClearance;
+  
+  std::vector<int> legSelectionPattern;
+  std::vector<int> sideSelectionPattern;
+  
   Vector3d footSpreadDistances;
   double minFootprintRadius;
   double stanceRadius; // affects turning circle
@@ -19,13 +35,17 @@ struct WalkController
   double angularVelocity;
   double walkPhase;
   double maximumBodyHeight;
+  
   int targetsNotMet = 6;
   Vector3d tipPositions[3][2];
-  
+    
   struct LegStepper
   {
     double phase;
     double phaseOffset;
+    double stancePhase;
+    double swingPhase;
+    double transitionPeriod;
     Vector2d strideVector; // length gives stride length
     Vector3d currentTipPosition;
     Vector3d defaultTipPosition;
@@ -43,7 +63,7 @@ struct WalkController
   // stanceLegYaws- natural yaw pose per leg
   // minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
 
-  WalkController(Model *model, int gaitType, double stepFrequency, double stepClearance, double bodyClearance = -1, double legSpanScale = 1.0);
+  WalkController(Model *model, Parameters params);
   
   // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
   // bodyOffset is body pose relative to the basic stance pose, note that large offsets may prevent achievable leg positions

@@ -54,7 +54,7 @@ void Leg::applyFK()
 
 
 // defines the hexapod model
-Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend, const Vector2d &minMaxHipLift) : stanceLegYaws(stanceLegYaws), yawLimitAroundStance(yawLimitAroundStance), minMaxKneeBend(minMaxKneeBend), minMaxHipLift(minMaxHipLift)
+Model::Model(std::string hexapodType, const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance, const Vector2d &minMaxKneeBend, const Vector2d &minMaxHipLift) : stanceLegYaws(stanceLegYaws), yawLimitAroundStance(yawLimitAroundStance), minMaxKneeBend(minMaxKneeBend), minMaxHipLift(minMaxHipLift)
 {
   int i = 0;
   for (int l = 0; l<3; l++)
@@ -63,23 +63,27 @@ Model::Model(const Vector3d &stanceLegYaws, const Vector3d &yawLimitAroundStance
     {
       Leg &leg = legs[l][side];
       leg.model = this;
-#if defined(FLEXIPOD)
-      leg.rootOffset = Vector3d(l==1 ? 0.11 : 0.07, 0.12*(double)(1-l), 0);
-      leg.hipOffset  = Vector3d(0.066, 0, 0);
-      leg.kneeOffset = Vector3d(0.11, 0, 0);
-      //leg.tipOffset  = Vector3d(0.31, 0, 0);
-      leg.tipOffset  = Vector3d(1, 0, 0);
-#elif defined(LOBSANG)
-      leg.rootOffset = Vector3d(l==1 ? 0.11 : 0.07, 0.12*(double)(1-l), 0);
-      leg.hipOffset  = Vector3d(0.06, 0, 0);
-      leg.kneeOffset = Vector3d(0.0836, 0, 0);
-      leg.tipOffset  = Vector3d(0.2, 0, 0);      
-#elif defined(LARGE_HEXAPOD)
-      leg.rootOffset = Vector3d(0.315/2.0, 0.5675*(double)(1-l), 0);
-      leg.hipOffset  = Vector3d(0.07985, 0, 0);
-      leg.kneeOffset = Vector3d(0.8, 0, 0);
-      leg.tipOffset  = Vector3d(1.5, 0, 0);
-#endif
+      if (hexapodType == "flexipod")
+      {
+        leg.rootOffset = Vector3d(l==1 ? 0.11 : 0.07, 0.12*(double)(1-l), 0);
+        leg.hipOffset  = Vector3d(0.066, 0, 0);
+        leg.kneeOffset = Vector3d(0.31, 0, 0);
+        leg.tipOffset  = Vector3d(1, 0, 0);
+      }
+      else if (hexapodType == "lobsang")
+      {
+        leg.rootOffset = Vector3d(l==1 ? 0.11 : 0.07, 0.12*(double)(1-l), 0);
+        leg.hipOffset  = Vector3d(0.06, 0, 0);
+        leg.kneeOffset = Vector3d(0.0836, 0, 0);
+        leg.tipOffset  = Vector3d(0.2, 0, 0);   
+      }
+      else if (hexapodType == "large_hexapod")
+      {
+        leg.rootOffset = Vector3d(0.315/2.0, 0.5675*(double)(1-l), 0);
+        leg.hipOffset  = Vector3d(0.07985, 0, 0);
+        leg.kneeOffset = Vector3d(0.8, 0, 0);
+        leg.tipOffset  = Vector3d(1.5, 0, 0);
+      }
       leg.mirrorDir = side ? 1 : -1;
       leg.init(0,0,0);
     }
