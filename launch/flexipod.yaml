@@ -3,13 +3,13 @@
 ######################################################################
 
 hexapod_type: flexipod
-move_to_start: false
+move_to_start: true
 
-imu_compensation: false
+imu_compensation: true
 auto_compensation: false
 pitch_amplitude: 0.025
 roll_amplitude: 0.025
-manual_compensation: true
+manual_compensation: false
 
 gait_type: wave_gait
 

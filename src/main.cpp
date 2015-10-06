@@ -172,17 +172,19 @@ int main(int argc, char* argv[])
   while (ros::ok())
   {
     Pose adjust = Pose::identity();
+    Vector3d *deltaAngle = NULL;
+    Vector3d *deltaPos = NULL;
+    
     if (params.imuCompensation)
     {
       //Auto Compensation using IMU feedback
       Vector2d acc = walker.localCentreAcceleration;
       //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
-	  Vector3d deltaAngle;
-      Vector3d deltaPos = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle);
-      //Vector3d deltaPos = Vector3d(0,0,0);
-      controlMeanAcc.x=deltaPos(0);
-      controlMeanAcc.y=deltaPos(1);
-      controlMeanAcc.z=deltaPos(2);
+      *deltaPos = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, deltaAngle);
+      //deltaPos = Vector3d(0,0,0);
+      controlMeanAcc.x = (*deltaPos)[0];
+      controlMeanAcc.y = (*deltaPos)[1];
+      controlMeanAcc.z = (*deltaPos)[2];
       controlPub.publish(controlMeanAcc); 
     }
     else if (params.autoCompensation)
@@ -200,8 +202,6 @@ int main(int argc, char* argv[])
       //Manual body compensation 
       adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
     }   
-
-	 
     
     //Manual velocity control
     //localVelocity = Vector2d(1e-10, 1e-10);
@@ -210,7 +210,7 @@ int main(int argc, char* argv[])
     if (!started && params.moveToStart)
       started = walker.moveToStart();
     else
-    walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, &deltaPos, &deltaAngle); // the cube just lets the thumbstick give small turns easier
+      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, deltaPos, deltaAngle); // the cube just lets the thumbstick give small turns easier
     
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
