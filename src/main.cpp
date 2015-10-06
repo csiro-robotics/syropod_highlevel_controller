@@ -17,7 +17,6 @@
 #include "geometry_msgs/Vector3.h"
 #include "sensor_msgs/JointState.h"
 #include <dynamic_reconfigure/server.h>
-//#include <simple_hexapod_controller/simpleController.h>
 
 //Globals for joypad callback
 static Vector2d localVelocity(0,0);
@@ -39,7 +38,7 @@ void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
 void startCallback(const std_msgs::Bool &startBool);
 
-double getTiltCompensation(WalkController walker);
+double getRollCompensation(WalkController walker);
 double getPitchCompensation(WalkController walker);
 
 void jointStatesCallback(const sensor_msgs::JointState &joint_States);
@@ -54,13 +53,14 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
   ros::NodeHandle n_priv("~");
   
+  ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
+  
   ros::Subscriber velocitySubscriber = n.subscribe("/desired_velocity", 1, joypadVelocityCallback);
   ros::Subscriber poseSubscriber = n.subscribe("/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, imuCallback);
-  ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
-  geometry_msgs::Vector3 controlMeanAcc;
+  
   ros::Subscriber startSubscriber = n.subscribe("/start_state", 1, startCallback);
-  ros::Subscriber jointStatesSubscriber;
+  ros::Subscriber jointStatesSubscriber;  
   
   //DEBUGGING
   ros::Publisher tipPosPub[3][2];
@@ -74,13 +74,15 @@ int main(int argc, char* argv[])
   
   ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
   
+  //Start User Message
   cout << "Press 'Start' to run controller" << endl;
+  
+  //Loop waiting for start button press
   while(!startFlag)
   {
     ros::spinOnce();
     r.sleep();
-  }
-  
+  }  
   
   //Get parameters from rosparam via loaded config file
   Parameters params;
@@ -156,11 +158,12 @@ int main(int argc, char* argv[])
 
   //Setup motor interaface
   MotorInterface *interface;
-  if (params.dynamixelInterface)
-    interface = new DynamixelMotorInterface();
   
+  if (params.dynamixelInterface)
+    interface = new DynamixelMotorInterface();  
   else
     interface = new DynamixelProMotorInterface();
+  
   interface->setupSpeed(params.interfaceSetupSpeed);   
   
   if (params.moveToStart)
@@ -182,6 +185,7 @@ int main(int argc, char* argv[])
       //adjust = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity);
       *deltaPos = compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, deltaAngle);
       //deltaPos = Vector3d(0,0,0);
+      geometry_msgs::Vector3 controlMeanAcc;
       controlMeanAcc.x = (*deltaPos)[0];
       controlMeanAcc.y = (*deltaPos)[1];
       controlMeanAcc.z = (*deltaPos)[2];
@@ -191,11 +195,11 @@ int main(int argc, char* argv[])
     {
       //Automatic (non-feedback) compensation
       double pitch = getPitchCompensation(walker);
-      double roll = getTiltCompensation(walker);  
+      double roll = getRollCompensation(walker);  
       if (params.gaitType == "wave_gait")
         adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitch,roll,yawJoy));
       else if (params.gaitType == "tripod_gait")
-        ;//adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0)); //NOT WORKING YET FOR TRIPOD
+        adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,0,roll,yawJoy));
     }    
     else if (params.manualCompensation)
     {    
@@ -279,7 +283,7 @@ int main(int argc, char* argv[])
 }
 
 /***********************************************************************************************************************
- * Joypad Callback
+ * Joypad Velocity Topic Callback
 ***********************************************************************************************************************/
 void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
@@ -289,6 +293,9 @@ void joypadVelocityCallback(const geometry_msgs::Twist &twist)
   //turnRate = (twist.linear.z-twist.angular.z)/2; //TRIGGER ROTATION CONTROL SCHEME
 }
 
+/***********************************************************************************************************************
+ * Joypad Pose Topic Callback
+***********************************************************************************************************************/
 void joypadPoseCallback(const geometry_msgs::Twist &twist)
 {
    //ADJUSTED FOR SENSITIVITY OF JOYSTICK
@@ -300,6 +307,9 @@ void joypadPoseCallback(const geometry_msgs::Twist &twist)
   zJoy = twist.linear.z*0.05; 
 }
 
+/***********************************************************************************************************************
+ * Joypad Start State Topic Callback
+***********************************************************************************************************************/
 void startCallback(const std_msgs::Bool &startBool)
 {
   if (startBool.data == true)
@@ -307,8 +317,6 @@ void startCallback(const std_msgs::Bool &startBool)
   else
     startFlag = false;
 }
-
-
 
 /***********************************************************************************************************************
  * Calculates pitch for body compensation
@@ -320,12 +328,13 @@ double getPitchCompensation(WalkController walker)
   double phase = walker.legSteppers[0][0].phase;
   double phaseLength = walker.params.stancePhase + walker.params.swingPhase;
   double buffer = walker.params.phaseOffset/2;
-  double p0[2] = {0*phaseLength/6, -amplitude};
-  double p1[2] = {1*phaseLength/6 + buffer, -amplitude};
-  double p2[2] = {2*phaseLength/6 + buffer, amplitude};
-  double p3[2] = {4*phaseLength/6 + buffer, amplitude};
-  double p4[2] = {5*phaseLength/6 + buffer, -amplitude};
-  double p5[2] = {6*phaseLength/6, -amplitude};
+  double phaseOffset = walker.params.phaseOffset;
+  double p0[2] = {0*phaseOffset, -amplitude};
+  double p1[2] = {1*phaseOffset + buffer, -amplitude};
+  double p2[2] = {2*phaseOffset + buffer, amplitude};
+  double p3[2] = {4*phaseOffset + buffer, amplitude};
+  double p4[2] = {5*phaseOffset + buffer, -amplitude};
+  double p5[2] = {6*phaseOffset, -amplitude};
     
   if (phase >= p0[0] && phase < p1[0])
     pitch = p0[1];
@@ -349,24 +358,45 @@ double getPitchCompensation(WalkController walker)
   return pitch;    
 }
 
-
 /***********************************************************************************************************************
  * Calculates roll for body compensation
 ***********************************************************************************************************************/
-double getTiltCompensation(WalkController walker)
+double getRollCompensation(WalkController walker)
 { 
   double roll;
   double amplitude = walker.params.rollAmplitude;
   double phase = walker.legSteppers[0][0].phase;
   double phaseLength = walker.params.stancePhase + walker.params.swingPhase;
-  double buffer = walker.params.swingPhase/2;
-  double p0[2] = {0*phaseLength/6, -amplitude};           
-  double p1[2] = {0*phaseLength/6 + buffer, -amplitude}; 
-  double p2[2] = {1*phaseLength/6 - buffer, amplitude};
-  double p3[2] = {3*phaseLength/6 + buffer, amplitude};
-  double p4[2] = {4*phaseLength/6 - buffer, -amplitude};
-  double p5[2] = {6*phaseLength/6, -amplitude};
+  double buffer = walker.params.swingPhase/2.25;
+  double phaseOffset = walker.params.phaseOffset;
+  double p0[2] = {0, -amplitude};           
+  double p1[2] = {0, -amplitude}; 
+  double p2[2] = {0, amplitude};
+  double p3[2] = {0, amplitude};
+  double p4[2] = {0, -amplitude};
+  double p5[2] = {0, -amplitude};
   
+  if (walker.params.gaitType == "tripod_gait")
+  {
+    p0[0] = 0*phaseOffset;           
+    p1[0] = 0*phaseOffset + buffer; 
+    p2[0] = 1*phaseOffset - buffer;
+    p3[0] = 1*phaseOffset + buffer;
+    p4[0] = 2*phaseOffset - buffer;
+    p5[0] = 2*phaseOffset;
+  }
+  else if (walker.params.gaitType == "wave_gait")
+  {
+    p0[0] = 0*phaseOffset;           
+    p1[0] = 0*phaseOffset + buffer; 
+    p2[0] = 1*phaseOffset - buffer;
+    p3[0] = 3*phaseOffset + buffer;
+    p4[0] = 4*phaseOffset - buffer;
+    p5[0] = 6*phaseOffset;
+  }
+  else
+    return 0.0;
+    
   if (phase >= p0[0] && phase < p1[0])
     roll = p0[1];
   else if (phase >= p1[0] && phase < p2[0])
@@ -386,9 +416,8 @@ double getTiltCompensation(WalkController walker)
   else if (phase >= p4[0] && phase < p5[0])
     roll = p4[1];
   
-  return roll;  
+  return roll;
 }
-
 
 /***********************************************************************************************************************
  * Gets hexapod parameters from rosparam server

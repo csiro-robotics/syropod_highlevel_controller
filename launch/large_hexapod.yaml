@@ -29,7 +29,7 @@ dynamixel_interface: true
 # Walk Controller Parameters
 ######################################################################
 
-step_frequency: 0.2
+step_frequency: 0.1
 step_clearance: 0.06
 body_clearance: 0.4
 leg_span_scale: 0.6
