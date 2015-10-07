@@ -96,15 +96,15 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   static int accIndex = 0;
   static Vector3d previousAccelerations[numPrevious];
   static double previousTimes[numPrevious];
-  previousAccelerations[accIndex] = accel;
-  previousTimes[accIndex] = accel;
+  previousAccelerations[accIndex] = accel - Vector3d(0, 0, 9.8);
+  previousTimes[accIndex] = time;
   accIndex = (accIndex+1) % numPrevious;
   time += timeDelta;
   
   Vector3d totalAcc(0,0,0);
   for (int i = 0; i<numPrevious; i++)
   {
-    double t = (time - previousTimes[i]) / omega;
+    double t = (time - previousTimes[i]) * omega;
     double scale = t*exp(-0.7*t);
     totalAcc += previousAccelerations[i]*scale;
   }
