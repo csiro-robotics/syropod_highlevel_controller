@@ -88,7 +88,32 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   angVel(1) = imu.angular_velocity.y;
   angVel(2) = imu.angular_velocity.z;
   
-
+// #define GENERIC_FEEDBACK_CONTROL  
+#if defined(GENERIC_FEEDBACK_CONTROL)
+  double omega = 10.0;
+  const int numPrevious = 1000;
+  static double time = 0;
+  static int accIndex = 0;
+  static Vector3d previousAccelerations[numPrevious];
+  static double previousTimes[numPrevious];
+  previousAccelerations[accIndex] = accel;
+  previousTimes[accIndex] = accel;
+  accIndex = (accIndex+1) % numPrevious;
+  time += timeDelta;
+  
+  Vector3d totalAcc(0,0,0);
+  for (int i = 0; i<numPrevious; i++)
+  {
+    double t = (time - previousTimes[i]) / omega;
+    double scale = t*exp(-0.7*t);
+    totalAcc += previousAccelerations[i]*scale;
+  }
+  totalAcc /= (double)numPrevious;
+  const double strength = 0.1;
+  offsetPos = -totalAcc * strength;
+  
+  return offsetPos;
+#endif
   if (accel.squaredNorm()==0)
     return Vector3d(0,0,0);
   
