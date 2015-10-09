@@ -17,6 +17,7 @@
 #include "geometry_msgs/Vector3.h"
 #include "sensor_msgs/JointState.h"
 #include <dynamic_reconfigure/server.h>
+#include "sensor_msgs/Joy.h"
 
 //Globals for joypad callback
 static Vector2d localVelocity(0,0);
@@ -27,6 +28,7 @@ static double yawJoy = 0;
 static double xJoy = 0;
 static double yJoy = 0;
 static double zJoy = 0;
+double pIncrement=0;
 
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
@@ -34,8 +36,11 @@ double jointPositions[18];
 bool jointPosFlag = false;
 bool startFlag = false;
 
+
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
+void imuControllerIncrement(const sensor_msgs::Joy &bButton);
+
 void startCallback(const std_msgs::Bool &startBool);
 
 double getRollCompensation(WalkController walker);
@@ -53,12 +58,14 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
   ros::NodeHandle n_priv("~");
   
+  
   ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
   
   ros::Subscriber velocitySubscriber = n.subscribe("/desired_velocity", 1, joypadVelocityCallback);
   ros::Subscriber poseSubscriber = n.subscribe("/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, imuCallback);
-  
+  ros::Subscriber bButton = n.subscribe("/joy", 1, imuControllerIncrement);
+    
   ros::Subscriber startSubscriber = n.subscribe("/start_state", 1, startCallback);
   ros::Subscriber jointStatesSubscriber;  
   
@@ -169,6 +176,7 @@ int main(int argc, char* argv[])
   if (params.moveToStart)
     cout << "Attempting to move to starting stance . . ." << endl;
   
+    
   //Position update loop
   bool firstFrame = true;
   bool started = false;
@@ -184,7 +192,7 @@ int main(int argc, char* argv[])
       //Auto Compensation using IMU feedback
       Vector2d acc = walker.localCentreAcceleration;
 
-      compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle, &deltaPos);
+      compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle, &deltaPos,pIncrement);
       //geometry_msgs::Vector3 controlMeanAcc;
       //controlMeanAcc.x = (*deltaPos)[0];
       //controlMeanAcc.y = (*deltaPos)[1];
@@ -280,6 +288,22 @@ int main(int argc, char* argv[])
 
     debug.reset();
   }
+}
+
+/***********************************************************************************************************************
+This callback increments the gains in the controller
+***********************************************************************************************************************/
+void imuControllerIncrement(const sensor_msgs::Joy &bButton)
+{
+  
+  int asd;
+  asd=bButton.buttons[1];
+  
+  if(bButton.buttons[1]==1)
+  {
+    pIncrement += 0.1;
+  } 
+    
 }
 
 /***********************************************************************************************************************

@@ -50,7 +50,7 @@ Vector3d gaussianMean(double time, double timeStandardDeviation, double omega)
 
 static double t = 0;
 static double inputPhase = 0;
-Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos)
+Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos, double pIncrement)
 {
 //#define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
@@ -167,7 +167,7 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
   //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
   
-  Vector3d offsetPos = -imuStrength*IMUVel - stiffness*IMUPos;
+  Vector3d offsetPos = -imuStrength*IMUVel - (stiffness + pIncrement)*IMUPos;
 
 #if defined(ANGULAR_COMPENSATION)
   double angularD = 0.0;
