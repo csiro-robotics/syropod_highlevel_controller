@@ -67,7 +67,7 @@ Model::Model(std::string hexapodType, const Vector3d &stanceLegYaws, const Vecto
       {
         leg.rootOffset = Vector3d(l==1 ? 0.11 : 0.07, 0.12*(double)(1-l), 0);
         leg.hipOffset  = Vector3d(0.066, 0, 0);
-        leg.kneeOffset = Vector3d(0.31, 0, 0);
+        leg.kneeOffset = Vector3d(0.11, 0, 0);
         leg.tipOffset  = Vector3d(1, 0, 0);
       }
       else if (hexapodType == "lobsang")

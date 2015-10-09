@@ -50,7 +50,7 @@ Vector3d gaussianMean(double time, double timeStandardDeviation, double omega)
 
 static double t = 0;
 static double inputPhase = 0;
-Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle)
+Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos)
 {
 //#define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
@@ -201,15 +201,14 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   accIndex = (accIndex + 1)%numAccs;
   const double timeDelay = 0.5 / (omega / (2.0*pi));
   Vector3d offsetPos = strength * gaussianMean(t - timeDelay, spreadRatio*timeDelay, omega);  
-  
-  
+    
 Vector3d desiredVelocity(0.0, 0.0, 0.0);
 Vector3d desiredPosition(0.0, 0.0, 0.0);
 
 #endif  
   //adjust.rotation*= Quat(rotation);    
   *deltaAngle = offsetAng;
-  return -offsetPos; //Negative to work
+  *deltaPos = -offsetPos; //Negative to work
  
   
 }
