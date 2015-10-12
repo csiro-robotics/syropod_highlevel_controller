@@ -293,16 +293,19 @@ int main(int argc, char* argv[])
 /***********************************************************************************************************************
 This callback increments the gains in the controller
 ***********************************************************************************************************************/
-void imuControllerIncrement(const sensor_msgs::Joy &bButton)
+void imuControllerIncrement(const sensor_msgs::Joy &gainAdjust)
 {
   
-  int asd;
-  asd=bButton.buttons[1];
+
   
-  if(bButton.buttons[1]==1)
+  if(gainAdjust.axes[7]==1)
   {
     pIncrement += 0.1;
   } 
+  if(gainAdjust.axes[7]==-1)
+  {
+    pIncrement -= 0.1;
+  }
     
 }
 
