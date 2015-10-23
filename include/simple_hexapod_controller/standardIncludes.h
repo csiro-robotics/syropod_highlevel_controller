@@ -24,6 +24,8 @@ struct Parameters
 {
   std::string hexapodType;
   bool moveToStart;
+  bool moveLegsSequentially;
+  double timeToStart;
   bool imuCompensation;
   bool autoCompensation;
   double pitchAmplitude;

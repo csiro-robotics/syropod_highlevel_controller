@@ -33,7 +33,7 @@ struct WalkController
   Vector2d localCentreVelocity;
   Vector2d localCentreAcceleration;
   double angularVelocity;
-  double walkPhase;
+  double moveToStartTime;
   double maximumBodyHeight;
   
   int targetsNotMet = 6;
@@ -69,7 +69,7 @@ struct WalkController
   // bodyOffset is body pose relative to the basic stance pose, note that large offsets may prevent achievable leg positions
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
   void update(Vector2d newLocalVelocity, double newCurvature, const Pose *bodyOffset = NULL, const Vector3d *deltaPos = NULL, Vector3d *deltaAngle = NULL);
-  bool moveToStart();
+  bool moveToStart(bool moveLegsSequentially, double timeToStart);
   double iteratePhase(double phase);
   bool targetReached(double phase, double targetPhase);
 };

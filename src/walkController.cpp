@@ -85,7 +85,7 @@ Vector3d WalkController::LegStepper::updatePosition(double liftHeight,
  * finding the largest footprint radius that each leg can achieve for the 
  * specified level of clearance.
 ***********************************************************************************************************************/
-WalkController::WalkController(Model *model, Parameters p): model(model), params(p), walkPhase(0)
+WalkController::WalkController(Model *model, Parameters p): model(model), params(p)
 { 
   stepFrequency = params.stepFrequency;
   stepClearance = params.stepClearance;
@@ -429,40 +429,62 @@ bool WalkController::targetReached(double phase, double targetPhase)
 /***********************************************************************************************************************
  * Used to move tip positions from target positions to localStanceTipPositions
 ***********************************************************************************************************************/
-bool WalkController::moveToStart()
+bool WalkController::moveToStart(bool moveLegsSequentially, double timeToStart)
 {
   if (targets.size() == 0)
   {
     cout << "Now at starting stance." << endl;
     return true;
   }
-  int i = 0;
-  walkPhase = min(walkPhase + stepFrequency*timeDelta/1.0, pi);
-  for (int l = 0; l<3; l++)
-  {
-    for (int s = 0; s<2; s++)
-    {
-      Leg &leg = model->legs[l][s];     
-      Vector3d nodes[4];
-      nodes[0] = targets[i++];
-      nodes[1] = nodes[0];
-      nodes[3] = legSteppers[l][s].updatePosition(stepClearance*maximumBodyHeight,
-                                                  localCentreVelocity, angularVelocity);;
-      nodes[2] = nodes[3];
-      Vector3d pos = cubicBezier(nodes, walkPhase / pi);
-      leg.applyLocalIK(pos);
-    }
-  }
   
-  model->clampToLimits();
-  if (walkPhase == pi)
+  double timeDivisor = moveLegsSequentially ? timeToStart/6.0:timeToStart; //seconds for a leg to move into position
+  double timeLimit = moveLegsSequentially ? 6.0:1.0;
+  moveToStartTime += stepFrequency*timeDelta/timeDivisor;  
+  
+  if (moveToStartTime >= timeLimit)
   {
-    walkPhase = 0.0;
     targets.clear();
     cout << "Now at starting stance." << endl;
     return true;
   }
-  return false;
+  
+  //Iterate through legs (series or parallel) 
+  if (moveLegsSequentially)
+  {
+    int i = int(moveToStartTime);
+    int l = i/2;
+    int s = i%2;
+    
+    Leg &leg = model->legs[l][s];     
+    Vector3d nodes[4];
+    nodes[0] = targets[i];
+    nodes[1] = nodes[0];
+    nodes[3] = legSteppers[l][s].defaultTipPosition;
+    nodes[2] = nodes[3];
+    Vector3d pos = cubicBezier(nodes, fmod(moveToStartTime, 1.0));
+    leg.applyLocalIK(pos);    
+  }
+  else
+  {
+    int i = 0;
+    
+    for (int l = 0; l<3; l++)
+    {
+      for (int s = 0; s<2; s++)
+      {
+        Leg &leg = model->legs[l][s];     
+        Vector3d nodes[4];
+        nodes[0] = targets[i++];
+        nodes[1] = nodes[0];
+        nodes[3] = legSteppers[l][s].defaultTipPosition;
+        nodes[2] = nodes[3];
+        Vector3d pos = cubicBezier(nodes, fmod(moveToStartTime, 1.0));
+        leg.applyLocalIK(pos);
+      }
+    }
+  }
+  model->clampToLimits(); 
+  return false;    
 }
 
 /***********************************************************************************************************************

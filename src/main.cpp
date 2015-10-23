@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
       params.moveToStart = false;
     }
   }
-
+  
   // Create walk controller object
   WalkController walker(&hexapod, params);
     
@@ -220,7 +220,7 @@ int main(int argc, char* argv[])
     
     //Update walker or move to starting stance
     if (!started && params.moveToStart)
-      started = walker.moveToStart();
+      started = walker.moveToStart(params.moveLegsSequentially, params.timeToStart);
     else
       walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, &deltaPos, &deltaAngle); // the cube just lets the thumbstick give small turns easier
     
@@ -463,6 +463,18 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   if(!n.getParam("move_to_start", params->moveToStart))
   {
     cout << "Error reading parameter/s (move_to_start) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("move_legs_sequentially", params->moveLegsSequentially))
+  {
+    cout << "Error reading parameter/s (move_legs_sequentially) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("time_to_start", params->timeToStart))
+  {
+    cout << "Error reading parameter/s (time_to_start) from rosparam" << endl;
     cout << "Check config file is loaded and type is correct" << endl;  
   }
   

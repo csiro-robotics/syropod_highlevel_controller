@@ -4,6 +4,8 @@
 
 hexapod_type: flexipod
 move_to_start: false
+move_legs_sequentailly: false
+time_to_start: 6.0
 
 imu_compensation: true
 auto_compensation: false

@@ -4,6 +4,8 @@
 
 hexapod_type: large_hexapod
 move_to_start: false
+move_legs_sequentially: true
+time_to_start: 60.0
 
 imu_compensation: false
 auto_compensation: false

@@ -4,6 +4,8 @@
 
 hexapod_type: lobsang
 move_to_start: true
+move_legs_sequentially: false
+time_to_start: 5.0
 
 imu_compensation: false
 auto_compensation: false
