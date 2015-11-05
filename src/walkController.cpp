@@ -6,7 +6,8 @@
  * as such, the swing phase is made from two time-symmetrical cubics and
  * the stance phase is linear with a shorter cubic acceleration prior to lifting off the ground
 ***********************************************************************************************************************/
-Vector3d WalkController::LegStepper::updatePosition(double liftHeight, 
+Vector3d WalkController::LegStepper::updatePosition(Leg leg,
+                                                    double liftHeight, 
                                                     Vector2d localCentreVelocity, 
                                                     double angularVelocity,
                                                     double timeDelta)
@@ -22,6 +23,8 @@ Vector3d WalkController::LegStepper::updatePosition(double liftHeight,
   double swingMid = (swing0 + swing1)*0.5;
 
   double landSpeed = 0.5*liftHeight; // 1 is linear land speed
+  
+  currentTipPosition = leg.localTipPosition;
   
   // Swing Phase
   if (phase > swing0 && phase < swing1)
@@ -60,6 +63,7 @@ Vector3d WalkController::LegStepper::updatePosition(double liftHeight,
     // X & Y Components of Trajectory
     Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
       Vector2d(currentTipPosition[1], -currentTipPosition[0]))*timeDelta;
+      
     pos[0] += deltaPos[0];
     pos[1] += deltaPos[1];
     
@@ -344,33 +348,32 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
         angularVelocity = 0.0;
         
         legStepper.strideVector = Vector2d(0, 0);
-      }
+      } 
+    }
+  } 
+   
+  //Update tip positions and apply inverse kinematics
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {  
+      LegStepper &legStepper = legSteppers[l][s];
+      Leg &leg = model->legs[l][s];
       
       double liftHeight = stepClearance*maximumBodyHeight;
-      legStepper.currentTipPosition = legStepper.updatePosition(liftHeight, localCentreVelocity, angularVelocity, timeDelta);         
-      tipPositions[l][s] = legStepper.currentTipPosition;
-       
+      Vector3d newPos = legStepper.updatePosition(leg, liftHeight, localCentreVelocity, angularVelocity);      
+      
       double liftOff = (params.stancePhase + params.transitionPeriod)*0.5;
       double touchDown = (params.stancePhase*0.5 + params.swingPhase) - params.transitionPeriod*0.5;
       if ((legStepper.phase < liftOff) || (legStepper.phase > touchDown))
-        targets.push_back(pose.transformVector(tipPositions[l][s]));
+        targets.push_back(pose.transformVector(newPos)); 
       
-      leg.applyLocalIK(tipPositions[l][s]);
+      leg.applyLocalIK(newPos);
     }
   }
-
-  if (bodyOffset != NULL)
-  {
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        model->legs[l][s].applyLocalIK(bodyOffset->inverseTransformVector(model->legs[l][s].localTipPosition), false); 
-            // false means we don't update local tip position, as it is needed above in step calculations
-      }
-    }
-  }  
-  model->clampToLimits();
+  model->clampToLimits();  
+  
+  //IMU compensation
   if (deltaPos != NULL)
   {
     for (int l = 0; l<3; l++)

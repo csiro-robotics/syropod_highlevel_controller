@@ -36,10 +36,12 @@ struct WalkController
   Vector2d localCentreAcceleration;
   double angularVelocity;
   double moveToStartTime;
+  double moveToPoseTime = 1.0;
+  Pose targetPose;
   double maximumBodyHeight;
   
   int targetsNotMet = 6;
-  Vector3d tipPositions[3][2];
+  Vector3d tipPositions[3][2]; //DEBUGGING
     
   struct LegStepper
   {
@@ -52,7 +54,8 @@ struct WalkController
     Vector3d currentTipPosition;
     Vector3d defaultTipPosition;
     
-    Vector3d updatePosition(double liftHeight, 
+    Vector3d updatePosition(Leg leg,
+                            double liftHeight, 
                             Vector2d localCentreVelocity, 
                             double angularVelocity,
                             double timeDelta);
@@ -75,4 +78,5 @@ struct WalkController
   bool moveToStart(bool moveLegsSequentially, double timeToStart);
   double iteratePhase(double phase);
   bool targetReached(double phase, double targetPhase);
+  bool updatePose(Pose requestedPose, double posingSpeed);
 };

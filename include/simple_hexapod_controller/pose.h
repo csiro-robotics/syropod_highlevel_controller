@@ -66,6 +66,15 @@ struct Pose
     position /= x;
     rotation /= x;
   }
+  bool operator ==(const Pose &pose)
+  {
+    return ((position == pose.position) && (rotation == pose.rotation));
+  }
+  bool operator !=(const Pose &pose)
+  {
+    return ((position != pose.position) || (rotation != pose.rotation));
+  }
+  
   Pose operator ~() const
   {
     Quat inv = ~rotation;

@@ -19,6 +19,8 @@ struct Leg
   Vector3d tipOffset;
   
   Vector3d localTipPosition; // relative to root
+  Vector3d tipPosition0;
+  Vector3d tipPosition1;
 
   void init(double startYaw, double startLiftAngle, double startKneeAngle);
   // sets angles to reach local position relative to root
@@ -55,4 +57,5 @@ struct Model
   void setLegStartAngles(int side, int leg, const Vector3d &startAngles);
   vector<Vector3d> getJointPositions(const Pose &pose);
   void clampToLimits();
+  Pose localPose;
 };

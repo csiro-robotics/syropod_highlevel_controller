@@ -56,6 +56,8 @@ void Leg::applyFK()
 // defines the hexapod model
 Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitAroundStance(params.yawLimits), minMaxKneeBend(params.kneeLimits), minMaxHipLift(params.hipLimits)
 {
+  localPose = Pose::identity();
+  
   int i = 0;
   for (int l = 0; l<3; l++)
   {
