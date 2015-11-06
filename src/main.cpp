@@ -180,15 +180,15 @@ int main(int argc, char* argv[])
   {
     Pose adjust = Pose::identity();
     
-    Vector3d deltaAngle (0,0,0);
-    Vector3d deltaPos (0,0,0);
+    Vector3d *deltaAngle = NULL;
+    Vector3d *deltaPos = NULL;
     
     if (params.imuCompensation)
     {
       //Auto Compensation using IMU feedback
       Vector2d acc = walker.localCentreAcceleration;
 
-      compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle, &deltaPos,pIncrement);
+      compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, deltaAngle, deltaPos,pIncrement);
       //geometry_msgs::Vector3 controlMeanAcc;
       //controlMeanAcc.x = (*deltaPos)[0];
       //controlMeanAcc.y = (*deltaPos)[1];
@@ -218,7 +218,7 @@ int main(int argc, char* argv[])
     if (!started && params.moveToStart)
       started = walker.moveToStart(params.moveLegsSequentially, params.timeToStart);
     else
-      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, &deltaPos, &deltaAngle); // the cube just lets the thumbstick give small turns easier
+      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, deltaPos, deltaAngle); // the cube just lets the thumbstick give small turns easier
     
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
