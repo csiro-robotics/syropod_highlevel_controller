@@ -437,9 +437,9 @@ bool WalkController::moveToStart(bool moveLegsSequentially, double timeToStart)
     return true;
   }
   
-  double timeDivisor = moveLegsSequentially ? timeToStart/6.0:timeToStart; //seconds for a leg to move into position
   double timeLimit = moveLegsSequentially ? 6.0:1.0;
-  moveToStartTime += stepFrequency*timeDelta/timeDivisor;  
+  double timeDivisor = timeToStart/timeLimit; //seconds for each/all leg/s to move into position
+  moveToStartTime += timeDelta/timeDivisor;  
   
   if (moveToStartTime >= timeLimit)
   {
