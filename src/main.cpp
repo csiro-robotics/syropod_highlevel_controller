@@ -120,11 +120,7 @@ int main(int argc, char* argv[])
   }
   
   //Create hexapod model    
-  Model hexapod(params.hexapodType,
-                params.stanceLegYaws, 
-                params.yawLimits, 
-                params.kneeLimits, 
-                params.hipLimits);
+  Model hexapod(params);
   
   if (params.hexapodType == "large_hexapod")
     hexapod.jointMaxAngularSpeeds = params.jointMaxAngularSpeeds;
@@ -294,10 +290,7 @@ int main(int argc, char* argv[])
 This callback increments the gains in the controller
 ***********************************************************************************************************************/
 void imuControllerIncrement(const sensor_msgs::Joy &gainAdjust)
-{
-  
-
-  
+{  
   if(gainAdjust.axes[7]==1)
   {
     pIncrement += 0.1;
@@ -305,8 +298,7 @@ void imuControllerIncrement(const sensor_msgs::Joy &gainAdjust)
   if(gainAdjust.axes[7]==-1)
   {
     pIncrement -= 0.1;
-  }
-    
+  }    
 }
 
 /***********************************************************************************************************************
@@ -508,6 +500,280 @@ void getParameters(ros::NodeHandle n, Parameters *params)
     cout << "Check config file is loaded and type is correct" << endl;  
   }
   
+  /**********************************************************************************************************************/
+  //Offset Parameters
+  //Root Offset Parameters
+  std::vector<double> rootOffsetAL(3);
+  if(!n.getParam("root_offset_AL", rootOffsetAL))
+  {
+    cout << "Error reading parameter/s (root_offset_AL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->rootOffset[0][0] = Map<Vector3d>(&rootOffsetAL[0], 3);
+  }
+  
+  std::vector<double> rootOffsetAR(3);
+  if(!n.getParam("root_offset_AR", rootOffsetAR))
+  {
+    cout << "Error reading parameter/s (root_offset_AR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->rootOffset[0][1] = Map<Vector3d>(&rootOffsetAR[0], 3);
+  }
+  
+  std::vector<double> rootOffsetBL(3);
+  if(!n.getParam("root_offset_BL", rootOffsetBL))
+  {
+    cout << "Error reading parameter/s (root_offset_BL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->rootOffset[1][0] = Map<Vector3d>(&rootOffsetBL[0], 3);
+  }
+  
+  std::vector<double> rootOffsetBR(3);
+  if(!n.getParam("root_offset_BR", rootOffsetBR))
+  {
+    cout << "Error reading parameter/s (root_offset_BR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->rootOffset[1][1] = Map<Vector3d>(&rootOffsetBR[0], 3);
+  }
+  
+    std::vector<double> rootOffsetCL(3);
+  if(!n.getParam("root_offset_CL", rootOffsetCL))
+  {
+    cout << "Error reading parameter/s (root_offset_CL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->rootOffset[2][0] = Map<Vector3d>(&rootOffsetCL[0], 3);
+  }
+  
+  std::vector<double> rootOffsetCR(3);
+  if(!n.getParam("root_offset_CR", rootOffsetCR))
+  {
+    cout << "Error reading parameter/s (root_offset_CR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->rootOffset[2][1] = Map<Vector3d>(&rootOffsetCR[0], 3);
+  }
+  
+  /**********************************************************************************************************************/
+  //Hip Offset Parameters
+  std::vector<double> hipOffsetAL(3);
+  if(!n.getParam("hip_offset_AL", hipOffsetAL))
+  {
+    cout << "Error reading parameter/s (hip_offset_AL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->hipOffset[0][0] = Map<Vector3d>(&hipOffsetAL[0], 3);
+  }
+  
+  std::vector<double> hipOffsetAR(3);
+  if(!n.getParam("hip_offset_AR", hipOffsetAR))
+  {
+    cout << "Error reading parameter/s (hip_offset_AR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->hipOffset[0][1] = Map<Vector3d>(&hipOffsetAR[0], 3);
+  }
+  
+  std::vector<double> hipOffsetBL(3);
+  if(!n.getParam("hip_offset_BL", hipOffsetBL))
+  {
+    cout << "Error reading parameter/s (hip_offset_BL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->hipOffset[1][0] = Map<Vector3d>(&hipOffsetBL[0], 3);
+  }
+  
+  std::vector<double> hipOffsetBR(3);
+  if(!n.getParam("hip_offset_BR", hipOffsetBR))
+  {
+    cout << "Error reading parameter/s (hip_offset_BR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->hipOffset[1][1] = Map<Vector3d>(&hipOffsetBR[0], 3);
+  }
+  
+    std::vector<double> hipOffsetCL(3);
+  if(!n.getParam("hip_offset_CL", hipOffsetCL))
+  {
+    cout << "Error reading parameter/s (hip_offset_CL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->hipOffset[2][0] = Map<Vector3d>(&hipOffsetCL[0], 3);
+  }
+  
+  std::vector<double> hipOffsetCR(3);
+  if(!n.getParam("hip_offset_CR", hipOffsetCR))
+  {
+    cout << "Error reading parameter/s (hip_offset_CR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->hipOffset[2][1] = Map<Vector3d>(&hipOffsetCR[0], 3);
+  }
+  
+  /**********************************************************************************************************************/
+  //Knee Offset Parameters
+  std::vector<double> kneeOffsetAL(3);
+  if(!n.getParam("knee_offset_AL", kneeOffsetAL))
+  {
+    cout << "Error reading parameter/s (knee_offset_AL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->kneeOffset[0][0] = Map<Vector3d>(&kneeOffsetAL[0], 3);
+  }
+  
+  std::vector<double> kneeOffsetAR(3);
+  if(!n.getParam("knee_offset_AR", kneeOffsetAR))
+  {
+    cout << "Error reading parameter/s (knee_offset_AR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->kneeOffset[0][1] = Map<Vector3d>(&kneeOffsetAR[0], 3);
+  }
+  
+  std::vector<double> kneeOffsetBL(3);
+  if(!n.getParam("knee_offset_BL", kneeOffsetBL))
+  {
+    cout << "Error reading parameter/s (knee_offset_BL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->kneeOffset[1][0] = Map<Vector3d>(&kneeOffsetBL[0], 3);
+  }
+  
+  std::vector<double> kneeOffsetBR(3);
+  if(!n.getParam("knee_offset_BR", kneeOffsetBR))
+  {
+    cout << "Error reading parameter/s (knee_offset_BR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->kneeOffset[1][1] = Map<Vector3d>(&kneeOffsetBR[0], 3);
+  }
+  
+    std::vector<double> kneeOffsetCL(3);
+  if(!n.getParam("knee_offset_CL", kneeOffsetCL))
+  {
+    cout << "Error reading parameter/s (knee_offset_CL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->kneeOffset[2][0] = Map<Vector3d>(&kneeOffsetCL[0], 3);
+  }
+  
+  std::vector<double> kneeOffsetCR(3);
+  if(!n.getParam("knee_offset_CR", kneeOffsetCR))
+  {
+    cout << "Error reading parameter/s (knee_offset_CR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->kneeOffset[2][1] = Map<Vector3d>(&kneeOffsetCR[0], 3);
+  }
+  
+  /**********************************************************************************************************************/
+  //Tip Offset Parameters
+  std::vector<double> tipOffsetAL(3);
+  if(!n.getParam("tip_offset_AL", tipOffsetAL))
+  {
+    cout << "Error reading parameter/s (tip_offset_AL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->tipOffset[0][0] = Map<Vector3d>(&tipOffsetAL[0], 3);
+  }
+  
+  std::vector<double> tipOffsetAR(3);
+  if(!n.getParam("tip_offset_AR", tipOffsetAR))
+  {
+    cout << "Error reading parameter/s (tip_offset_AR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->tipOffset[0][1] = Map<Vector3d>(&tipOffsetAR[0], 3);
+  }
+  
+  std::vector<double> tipOffsetBL(3);
+  if(!n.getParam("tip_offset_BL", tipOffsetBL))
+  {
+    cout << "Error reading parameter/s (tip_offset_BL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->tipOffset[1][0] = Map<Vector3d>(&tipOffsetBL[0], 3);
+  }
+  
+  std::vector<double> tipOffsetBR(3);
+  if(!n.getParam("tip_offset_BR", tipOffsetBR))
+  {
+    cout << "Error reading parameter/s (tip_offset_BR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->tipOffset[1][1] = Map<Vector3d>(&tipOffsetBR[0], 3);
+  }
+  
+    std::vector<double> tipOffsetCL(3);
+  if(!n.getParam("tip_offset_CL", tipOffsetCL))
+  {
+    cout << "Error reading parameter/s (tip_offset_CL) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->tipOffset[2][0] = Map<Vector3d>(&tipOffsetCL[0], 3);
+  }
+  
+  std::vector<double> tipOffsetCR(3);
+  if(!n.getParam("tip_offset_CR", tipOffsetCR))
+  {
+    cout << "Error reading parameter/s (tip_offset_CR) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->tipOffset[2][1] = Map<Vector3d>(&tipOffsetCR[0], 3);
+  }
+  
+  
   std::vector<double> stanceLegYaws(3);
   if(!n.getParam("stance_leg_yaws", stanceLegYaws))
   {
@@ -518,7 +784,8 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   {
     params->stanceLegYaws = Map<Vector3d>(&stanceLegYaws[0], 3);
   }
-  
+  /**********************************************************************************************************************/
+  //Joint Limit Parameters  
   std::vector<double> yawLimits(3);
   if(!n.getParam("yaw_limits", yawLimits))
   {
@@ -569,6 +836,7 @@ void getParameters(ros::NodeHandle n, Parameters *params)
     cout << "Check config file is loaded and type is correct" << endl;
   }
   
+  /**********************************************************************************************************************/
   // Walk Controller Parameters
   if (!n.getParam("step_frequency", params->stepFrequency))
   {
@@ -618,6 +886,7 @@ void getParameters(ros::NodeHandle n, Parameters *params)
     cout << "Check config file is loaded and type is correct" << endl;
   }
   
+  /**********************************************************************************************************************/
   // Gait Parameters  
   if (!n.getParam("gait_type", params->gaitType))
   {
