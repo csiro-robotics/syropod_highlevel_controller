@@ -1,0 +1,74 @@
+######################################################################
+# Hexapod Parameters
+######################################################################
+
+hexapod_type: large_hexapod
+move_to_start: false
+move_legs_sequentially: true
+time_to_start: 60.0
+
+imu_compensation: false
+auto_compensation: false
+pitch_amplitude: 0.01
+roll_amplitude: 0.01
+manual_compensation: false
+
+gait_type: wave_gait
+
+######################################################################
+
+root_offset_AL: [0.1575, 0.5675, 0.0] #Front Left Leg
+root_offset_AR: [0.1575, 0.5675, 0.0] #Front Right Leg
+root_offset_BL: [0.1575, 0.0, 0.0] #Middle Left Leg
+root_offset_BR: [0.1575, 0.0, 0.0] #Middle Right Leg
+root_offset_CL: [0.1575, -0.5675, 0.0] #Back Left Leg
+root_offset_CR: [0.1575, -0.5675, 0.0] #Back Right Leg
+
+hip_offset_AL: [0.07985, 0.0, 0.0] #Front Left Leg
+hip_offset_AR: [0.07985, 0.0, 0.0] #Front Right Leg
+hip_offset_BL: [0.07985, 0.0, 0.0] #Middle Left Leg
+hip_offset_BR: [0.07985, 0.0, 0.0] #Middle Right Leg
+hip_offset_CL: [0.07985, 0.0, 0.0] #Back Left Leg
+hip_offset_CR: [0.07985, 0.0, 0.0] #Back Right Leg
+
+knee_offset_AL: [0.8, 0.0, 0.0] #Front Left Leg
+knee_offset_AR: [0.8, 0.0, 0.0] #Front Right Leg
+knee_offset_BL: [0.8, 0.0, 0.0] #Middle Left Leg
+knee_offset_BR: [0.8, 0.0, 0.0] #Middle Right Leg
+knee_offset_CL: [0.8, 0.0, 0.0] #Back Left Leg
+knee_offset_CR: [0.8, 0.0, 0.0] #Back Right Leg
+
+tip_offset_AL: [1.5, 0.0, 0.0] #Front Left Leg
+tip_offset_AR: [1.5, 0.0, 0.0] #Front Right Leg
+tip_offset_BL: [1.5, 0.0, 0.0] #Middle Left Leg
+tip_offset_BR: [1.5, 0.0, 0.0] #Middle Right Leg
+tip_offset_CL: [1.5, 0.0, 0.0] #Back Left Leg
+tip_offset_CR: [1.5, 0.0, 0.0] #Back Right Leg
+
+stance_leg_yaws: [0.785, 0, -0.785]
+yaw_limits: [0.523, 0.523, 0.523]
+knee_limits: [0.872, 2.791]
+hip_limits: [-0.436, 1.396]
+
+joint_max_angular_speeds: [1.0, 0.4, 0.4]
+
+dynamixel_interface: true
+
+######################################################################
+# Walk Controller Parameters
+######################################################################
+
+step_frequency: 0.1
+step_clearance: 0.06
+body_clearance: 0.4
+leg_span_scale: 0.6
+
+max_acceleration: 0.1
+max_curvature_speed: 0.4
+
+step_curvature_allowance: 0.7
+
+interface_setup_speed: 0.5
+
+######################################################################
+######################################################################

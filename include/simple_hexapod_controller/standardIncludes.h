@@ -33,6 +33,10 @@ struct Parameters
   bool manualCompensation;
 
   //Hexapod Parameters
+  Vector3d rootOffset[3][2];
+  Vector3d hipOffset[3][2];
+  Vector3d kneeOffset[3][2];
+  Vector3d tipOffset[3][2];
   Vector3d stanceLegYaws;
   Vector3d yawLimits;
   Vector2d kneeLimits;
