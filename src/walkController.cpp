@@ -1,5 +1,5 @@
 #pragma once
-#include "../include/simple_hexapod_controller/walkController.h"
+#include "../include/simple_hexapod_controller/controller.h"
 
 /***********************************************************************************************************************
  * Deccelerates on approaching the ground during a step, allowing a softer landing.
@@ -250,19 +250,6 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
 
   if (diffLength > 0.0)
     localCentreVelocity += diff * min(1.0, params.maxAcceleration*timeDelta/diffLength); 
-  
-  /*
-  //DEBUGGING
-  if (state == STARTING)
-    cout << "STARTING" << endl;
-  else if (state == STOPPED)
-    cout << "STOPPED" << endl;
-  else if (state == MOVING)
-    cout << "MOVING" << endl;
-  else if (state == STOPPING)
-    cout << "STOPPING" << endl;
-  //DEBUGGING
-  */
   
   // State transition: STOPPED->STARTING
   if (state == STOPPED && !isMoving && normalSpeed)

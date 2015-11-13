@@ -22,7 +22,7 @@ yaw_limits: [1.4, 1.4, 1.4]
 knee_limits: [0, 2.0]
 hip_limits: [-3.0, 3.0] #CHECK THIS VALUE
 
-joint_max_angular_speeds: [10000,10000,10000] #CHECK THIS VALUE
+joint_max_angular_speeds: [5.0, 5.0, 5.0] #CHECK THIS VALUE
 
 dynamixel_interface: true
 

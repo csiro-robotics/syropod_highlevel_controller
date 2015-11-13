@@ -41,7 +41,6 @@ struct WalkController
   double maximumBodyHeight;
   
   int targetsNotMet = 6;
-  Vector3d tipPositions[3][2]; //DEBUGGING
     
   struct LegStepper
   {
@@ -78,5 +77,5 @@ struct WalkController
   bool moveToStart(bool moveLegsSequentially, double timeToStart);
   double iteratePhase(double phase);
   bool targetReached(double phase, double targetPhase);
-  bool updatePose(Pose requestedPose, double posingSpeed);
+  void updatePose(Pose requestedPose, double posingSpeed);
 };

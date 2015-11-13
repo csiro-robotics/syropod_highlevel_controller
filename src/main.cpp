@@ -3,7 +3,7 @@
 */
 #include "../include/simple_hexapod_controller/standardIncludes.h"
 #include "../include/simple_hexapod_controller/model.h"
-#include "../include/simple_hexapod_controller/walkController.h"
+#include "../include/simple_hexapod_controller/controller.h"
 #include "../include/simple_hexapod_controller/debugOutput.h"
 #include "../include/simple_hexapod_controller/motorInterface.h"
 #include "../include/simple_hexapod_controller/dynamixelMotorInterface.h"
@@ -68,17 +68,7 @@ int main(int argc, char* argv[])
     
   ros::Subscriber startSubscriber = n.subscribe("/start_state", 1, startCallback);
   ros::Subscriber jointStatesSubscriber;  
-  
-  //DEBUGGING
-  ros::Publisher tipPosPub[3][2];
-  tipPosPub[0][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_00", 1);
-  tipPosPub[0][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_01", 1);
-  tipPosPub[1][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_10", 1);
-  tipPosPub[1][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_11", 1);
-  tipPosPub[2][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_20", 1);
-  tipPosPub[2][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_21", 1);
-  //DEBUGGING
-  
+    
   //Get parameters from rosparam via loaded config file
   Parameters params;
   getParameters(n, &params);
@@ -137,11 +127,7 @@ int main(int argc, char* argv[])
           double dir = side==0 ? -1 : 1;
           int index = leg*6+(side == 0 ? 0 : 3);
           hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*params.stanceLegYaws[leg],
-                                                            -jointPositions[index+1], jointPositions[index+2]));
-          double yaw = hexapod.legs[leg][side].yaw;
-          double liftAngle = hexapod.legs[leg][side].liftAngle;
-          double kneeAngle = hexapod.legs[leg][side].kneeAngle;
-          cout<<"leg "<<leg<<", side: "<<side<<" values: "<<yaw<<", "<<liftAngle<<", "<<kneeAngle<<endl;
+                                                            -jointPositions[index+1], jointPositions[index+2]));          
         }
       }
     }
@@ -154,6 +140,7 @@ int main(int argc, char* argv[])
   
   // Create walk controller object
   WalkController walker(&hexapod, params);
+  PoseController poser(&hexapod, params);
     
   DebugOutput debug;
   setCompensationDebug(debug);
@@ -213,28 +200,30 @@ int main(int argc, char* argv[])
     //Manual velocity control
     //localVelocity = Vector2d(1e-10, 1e-10);
     
+    //Starting tip positions and pose for walking
+    Pose startPose = Pose(Vector3d(0,0,0), Quat(1,0,0,0)); 
+    //Pose startPose = Pose::identity();
+    Vector3d startTipPositions[3][2];
+    for (int l = 0; l<3; l++)
+      for (int s = 0; s<2; s++) 
+        startTipPositions[l][s] = walker.legSteppers[l][s].defaultTipPosition;
+        //startTipPositions[l][s] = hexapod.legs[l][s].identityTipPosition;
+    
     //Update walker or move to starting stance
     if (!started && params.moveToStart)
-      started = walker.moveToStart(params.moveLegsSequentially, params.timeToStart);
+      started = poser.moveToPose(startTipPositions, startPose, params.timeToStart, params.moveLegsSequentially);
     else
+    {
       walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, deltaPos, deltaAngle); // the cube just lets the thumbstick give small turns easier
+      Vector3d tipPositions[3][2];
+      for (int l = 0; l<3; l++)
+        for (int s = 0; s<2; s++) 
+          tipPositions[l][s] = hexapod.legs[l][s].localTipPosition;
+      poser.moveToPose(tipPositions, adjust, 5.0);
+    }
     
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
-    
-    //DEBUGGING
-    geometry_msgs::Vector3 msg;
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        msg.x = walker.tipPositions[l][s][0];
-        msg.y = walker.tipPositions[l][s][1];
-        msg.z = walker.tipPositions[l][s][2];
-        tipPosPub[l][s].publish(msg);
-      }
-    }
-    //DEBUGGING
     
     if (true)
     {
@@ -245,9 +234,9 @@ int main(int argc, char* argv[])
         {
           double angle;  
           double yaw = dir*(walker.model->legs[l][s].yaw - params.stanceLegYaws[l]);
-          double lift = -dir*walker.model->legs[l][s].liftAngle;
+          double lift = dir*walker.model->legs[l][s].liftAngle;
           double knee = dir*walker.model->legs[l][s].kneeAngle;
-          
+                   
           if (false) // !firstFrame)
           {
             double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/params.timeDelta;
@@ -258,15 +247,13 @@ int main(int argc, char* argv[])
               yaw = walker.model->legs[l][s].debugOldYaw + sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;
             if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
               lift = walker.model->legs[l][s].debugOldLiftAngle + sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*params.timeDelta;
-            if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[2])
+            if (abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
               knee = walker.model->legs[l][s].debugOldKneeAngle + sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
-            if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || abs(liftVel) > hexapod.jointMaxAngularSpeeds[1] || abs(yawVel) > hexapod.jointMaxAngularSpeeds[2])
               cout << "WARNING: MAXIMUM SPEED EXCEEDED! Clamping to maximum angular speed for leg " << l << " side " << s << endl;
           }
           
           interface->setTargetAngle(l, s, 0, yaw);
-
-          interface->setTargetAngle(l, s, 1, lift);
+          interface->setTargetAngle(l, s, 1, -lift);
           interface->setTargetAngle(l, s, 2, knee);
           
           walker.model->legs[l][s].debugOldYaw = yaw;

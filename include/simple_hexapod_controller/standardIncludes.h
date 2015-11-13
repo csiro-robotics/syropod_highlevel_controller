@@ -99,6 +99,15 @@ inline T cubicBezier(T *points, double t)
          points[3] * (t*t*t);
 }
 
+template <class T>
+inline T cubicBezierDot(T *points, double t)
+{
+  double s = 1.0 - t;
+  return (3*s*s*(points[1]-points[0]) + 
+         6*s*t*(points[2]-points[1]) + 
+         3*t*t*(points[3]-points[2]));                
+}
+
 inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)
 {
   return Vector3d(max(a[0], b[0]), max(a[1], b[1]), max(a[2], b[2]));

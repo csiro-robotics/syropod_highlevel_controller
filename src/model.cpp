@@ -45,11 +45,18 @@ void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)
 
 void Leg::applyFK()
 {
-  localTipPosition = tipOffset;
-  localTipPosition = Quat(Vector3d(0, kneeAngle, 0)).rotateVector(localTipPosition) + kneeOffset;
-  localTipPosition = Quat(Vector3d(0, -liftAngle, 0)).rotateVector(localTipPosition) + hipOffset;
-  localTipPosition = Quat(Vector3d(0, 0, yaw)).rotateVector(localTipPosition) + rootOffset;
-  localTipPosition[0] *= mirrorDir;
+  localTipPosition = calculateFK(yaw, liftAngle, kneeAngle);
+}
+
+Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
+{
+  Vector3d tipPosition;
+  tipPosition = tipOffset;
+  tipPosition = Quat(Vector3d(0, kneeAngle, 0)).rotateVector(tipPosition) + kneeOffset;
+  tipPosition = Quat(Vector3d(0, -liftAngle, 0)).rotateVector(tipPosition) + hipOffset;
+  tipPosition = Quat(Vector3d(0, 0, yaw)).rotateVector(tipPosition) + rootOffset;
+  tipPosition[0] *= mirrorDir;
+  return tipPosition;
 }
 
 
@@ -71,6 +78,9 @@ Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitA
       leg.tipOffset  = params.tipOffset[l][s];
       leg.mirrorDir = s ? 1 : -1;
       leg.init(0,0,0);
+      
+      double dir = side==0 ? -1 : 1;
+      leg.identityTipPosition = leg.calculateFK(params.stanceLegYaws[l],0,0);
     }
   }
   jointMaxAngularSpeeds = Vector3d(1e10,1e10,1e10);
