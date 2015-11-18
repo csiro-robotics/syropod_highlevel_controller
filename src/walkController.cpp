@@ -172,7 +172,7 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
       localStanceTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
       
       legSteppers[l][side].defaultTipPosition = localStanceTipPositions[l][side];
-      legSteppers[l][side].currentTipPosition = legSteppers[l][side].defaultTipPosition;
+      legSteppers[l][side].currentTipPosition = localStanceTipPositions[l][side];
     }
   }
   // check for overlapping radii
@@ -348,14 +348,14 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       Leg &leg = model->legs[l][s];
       
       double liftHeight = stepClearance*maximumBodyHeight;
-      Vector3d newPos = legStepper.updatePosition(leg, liftHeight, localCentreVelocity, angularVelocity);      
+      legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, localCentreVelocity, angularVelocity);      
       
       double liftOff = (params.stancePhase + params.transitionPeriod)*0.5;
       double touchDown = (params.stancePhase*0.5 + params.swingPhase) - params.transitionPeriod*0.5;
       if ((legStepper.phase < liftOff) || (legStepper.phase > touchDown))
-        targets.push_back(pose.transformVector(newPos)); 
+        targets.push_back(pose.transformVector(legStepper.currentTipPosition)); 
       
-      leg.applyLocalIK(newPos);
+      leg.applyLocalIK(legStepper.currentTipPosition, false);
     }
   }
   model->clampToLimits();  

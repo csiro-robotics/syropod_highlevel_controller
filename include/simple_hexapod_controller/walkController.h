@@ -50,7 +50,7 @@ struct WalkController
     double swingPhase;
     double transitionPeriod;
     Vector2d strideVector; // length gives stride length
-    Vector3d currentTipPosition;
+    Vector3d currentTipPosition; //Relative to defaultTipPosition
     Vector3d defaultTipPosition;
     
     Vector3d updatePosition(Leg leg,

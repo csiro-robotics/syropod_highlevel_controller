@@ -155,10 +155,6 @@ int main(int argc, char* argv[])
   
   interface->setupSpeed(params.interfaceSetupSpeed);   
   
-  if (params.moveToStart)
-    cout << "Attempting to move to starting stance . . ." << endl;
-  
-    
   //Position update loop
   bool firstFrame = true;
   bool started = false;
@@ -218,8 +214,8 @@ int main(int argc, char* argv[])
       Vector3d tipPositions[3][2];
       for (int l = 0; l<3; l++)
         for (int s = 0; s<2; s++) 
-          tipPositions[l][s] = hexapod.legs[l][s].localTipPosition;
-      poser.moveToPose(tipPositions, adjust, 5.0);
+          tipPositions[l][s] = walker.legSteppers[l][s].currentTipPosition;
+      poser.moveToPose(tipPositions, adjust, 1.0); //TBD MAKE posing time a param value or dynamic via trigger pull    
     }
     
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
