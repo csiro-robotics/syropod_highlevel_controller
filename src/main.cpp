@@ -79,7 +79,11 @@ int main(int argc, char* argv[])
   tipPosPub[2][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_21", 1);
   //DEBUGGING
   
-  ros::Rate r(roundToInt(1.0/timeDelta));         //frequency of the loop. 
+  //Get parameters from rosparam via loaded config file
+  Parameters params;
+  getParameters(n, &params);
+  
+  ros::Rate r(roundToInt(1.0/params.timeDelta));         //frequency of the loop. 
   
   //Start User Message
   cout << "Press 'Start' to run controller" << endl;
@@ -90,10 +94,6 @@ int main(int argc, char* argv[])
     ros::spinOnce();
     r.sleep();
   }  
-  
-  //Get parameters from rosparam via loaded config file
-  Parameters params;
-  getParameters(n, &params);
   
   //MOVE_TO_START
   if (params.moveToStart)
@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
       for (int i=0; i<18; i++)
         jointPositions[i] = 1e10;
     
-      int spin = 20; //Max ros spin cycles to find joint positions
+      int spin = 1/params.timeDelta; //Max ros spin cycles to find joint positions
       while(spin--)
       {
         ros::spinOnce();
@@ -122,8 +122,7 @@ int main(int argc, char* argv[])
   //Create hexapod model    
   Model hexapod(params);
   
-  if (params.hexapodType == "large_hexapod")
-    hexapod.jointMaxAngularSpeeds = params.jointMaxAngularSpeeds;
+  hexapod.jointMaxAngularSpeeds = params.jointMaxAngularSpeeds;
   
   //MOVE_TO_START
   if (params.moveToStart)
@@ -188,7 +187,7 @@ int main(int argc, char* argv[])
       //Auto Compensation using IMU feedback
       Vector2d acc = walker.localCentreAcceleration;
 
-      compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, deltaAngle, deltaPos,pIncrement);
+      compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, deltaAngle, deltaPos,pIncrement, params.timeDelta);
       //geometry_msgs::Vector3 controlMeanAcc;
       //controlMeanAcc.x = (*deltaPos)[0];
       //controlMeanAcc.y = (*deltaPos)[1];
@@ -251,16 +250,16 @@ int main(int argc, char* argv[])
           
           if (false) // !firstFrame)
           {
-            double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/timeDelta;
-            double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/timeDelta;
-            double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/timeDelta;
+            double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/params.timeDelta;
+            double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/params.timeDelta;
+            double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/params.timeDelta;
             
             if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
-              yaw = walker.model->legs[l][s].debugOldYaw + sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*timeDelta;
+              yaw = walker.model->legs[l][s].debugOldYaw + sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;
             if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
-              lift = walker.model->legs[l][s].debugOldLiftAngle + sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*timeDelta;
+              lift = walker.model->legs[l][s].debugOldLiftAngle + sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*params.timeDelta;
             if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[2])
-              knee = walker.model->legs[l][s].debugOldKneeAngle + sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*timeDelta;
+              knee = walker.model->legs[l][s].debugOldKneeAngle + sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
             if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || abs(liftVel) > hexapod.jointMaxAngularSpeeds[1] || abs(yawVel) > hexapod.jointMaxAngularSpeeds[2])
               cout << "WARNING: MAXIMUM SPEED EXCEEDED! Clamping to maximum angular speed for leg " << l << " side " << s << endl;
           }
@@ -449,6 +448,12 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   if(!n.getParam("hexapod_type", params->hexapodType))
   {
     cout << "Error reading parameter/s (hexapod_type) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  if(!n.getParam("time_delta", params->timeDelta))
+  {
+    cout << "Error reading parameter/s (time_delta) from rosparam" << endl;
     cout << "Check config file is loaded and type is correct" << endl;
   }
   

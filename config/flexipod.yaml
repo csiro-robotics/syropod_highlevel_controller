@@ -3,6 +3,9 @@
 ######################################################################
 
 hexapod_type: flexipod
+
+time_delta: 0.02
+
 move_to_start: false
 move_legs_sequentailly: false
 time_to_start: 6.0

@@ -3,6 +3,9 @@
 ######################################################################
 
 hexapod_type: lobsang
+
+time_delta: 0.02
+
 move_to_start: true
 move_legs_sequentially: false
 time_to_start: 5.0

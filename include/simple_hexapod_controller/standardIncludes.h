@@ -6,7 +6,7 @@
 using namespace Eigen;
 using namespace std;
 
-#define timeDelta (1.0/50)
+//#define timeDelta (1.0/50)
 #define DEBUGDRAW
 #define NUM_LEGS 6
 const double pi = M_PI; //< easier to read
@@ -23,6 +23,7 @@ const double pi = M_PI; //< easier to read
 struct Parameters
 {
   std::string hexapodType;
+  double timeDelta;
   bool moveToStart;
   bool moveLegsSequentially;
   double timeToStart;

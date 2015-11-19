@@ -18,6 +18,8 @@ struct WalkController
   
   State state = STOPPED;
   
+  double timeDelta;
+  
   //Walk parameters
   double stepFrequency;  
   double stepClearance;
@@ -52,7 +54,8 @@ struct WalkController
     
     Vector3d updatePosition(double liftHeight, 
                             Vector2d localCentreVelocity, 
-                            double angularVelocity);
+                            double angularVelocity,
+                            double timeDelta);
   } legSteppers[3][2];
   
   vector<Vector3d> targets;

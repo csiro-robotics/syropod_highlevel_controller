@@ -12,7 +12,7 @@ static Vector3d offsetPos(0.0,0.0,0.0);
 static Vector3d offsetVel(0,0,0);
 static DebugOutput *debugDraw = NULL;
   
-void calculatePassiveAngularFrequency();
+void calculatePassiveAngularFrequency(double timeDelta);
 void setCompensationDebug(DebugOutput &debug)
 {
   debugDraw = &debug;
@@ -50,7 +50,7 @@ Vector3d gaussianMean(double time, double timeStandardDeviation, double omega)
 
 static double t = 0;
 static double inputPhase = 0;
-Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos, double pIncrement)
+Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos, double pIncrement, double timeDelta)
 {
 //#define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
@@ -236,7 +236,7 @@ vector<Vector2d> queueToVector(const vector<Vector2d> &queue, int head, int tail
   return result;
 }
 
-void calculatePassiveAngularFrequency()
+void calculatePassiveAngularFrequency(double timeDelta)
 {
   static Vector2d mean2(0,0);
   static const int numAccs = 1;

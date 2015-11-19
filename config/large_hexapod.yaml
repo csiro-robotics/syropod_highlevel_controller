@@ -3,6 +3,9 @@
 ######################################################################
 
 hexapod_type: large_hexapod
+
+time_delta: 0.02
+
 move_to_start: false
 move_legs_sequentially: true
 time_to_start: 60.0

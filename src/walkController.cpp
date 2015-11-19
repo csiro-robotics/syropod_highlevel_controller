@@ -8,7 +8,8 @@
 ***********************************************************************************************************************/
 Vector3d WalkController::LegStepper::updatePosition(double liftHeight, 
                                                     Vector2d localCentreVelocity, 
-                                                    double angularVelocity)
+                                                    double angularVelocity,
+                                                    double timeDelta)
 {
   
   Vector3d strideVec(strideVector[0], strideVector[1], 0);
@@ -90,6 +91,7 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
   stepFrequency = params.stepFrequency;
   stepClearance = params.stepClearance;
   bodyClearance = params.bodyClearance;
+  timeDelta = params.timeDelta;
   
   ASSERT(stepClearance >= 0 && stepClearance < 1.0);
 
@@ -345,7 +347,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       }
       
       double liftHeight = stepClearance*maximumBodyHeight;
-      legStepper.currentTipPosition = legStepper.updatePosition(liftHeight, localCentreVelocity, angularVelocity);         
+      legStepper.currentTipPosition = legStepper.updatePosition(liftHeight, localCentreVelocity, angularVelocity, timeDelta);         
       tipPositions[l][s] = legStepper.currentTipPosition;
        
       double liftOff = (params.stancePhase + params.transitionPeriod)*0.5;
