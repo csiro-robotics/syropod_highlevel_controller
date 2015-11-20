@@ -347,6 +347,8 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
       
+      legStepper.defaultTipPosition = leg.localTipPosition;
+      
       double liftHeight = stepClearance*maximumBodyHeight;
       legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, localCentreVelocity, angularVelocity);      
       

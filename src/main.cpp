@@ -197,27 +197,39 @@ int main(int argc, char* argv[])
     //localVelocity = Vector2d(1e-10, 1e-10);
     
     //Starting tip positions and pose for walking
-    Pose startPose = Pose(Vector3d(0,0,0), Quat(1,0,0,0)); 
-    //Pose startPose = Pose::identity();
+    Pose startPose = Pose::identity();
     Vector3d startTipPositions[3][2];
     for (int l = 0; l<3; l++)
       for (int s = 0; s<2; s++) 
-        startTipPositions[l][s] = walker.legSteppers[l][s].defaultTipPosition;
-        //startTipPositions[l][s] = hexapod.legs[l][s].identityTipPosition;
+        startTipPositions[l][s] = walker.localStanceTipPositions[l][s];
     
     //Update walker or move to starting stance
     if (!started && params.moveToStart)
+    {
       started = poser.moveToPose(startTipPositions, startPose, params.timeToStart, params.moveLegsSequentially);
+      for (int l = 0; l<3; l++)
+        for (int s = 0; s<2; s++)
+          hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].localTipPosition, false);
+    }    
     else
     {
-      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, deltaPos, deltaAngle); // the cube just lets the thumbstick give small turns easier
       Vector3d tipPositions[3][2];
       for (int l = 0; l<3; l++)
         for (int s = 0; s<2; s++) 
-          tipPositions[l][s] = walker.legSteppers[l][s].currentTipPosition;
+          tipPositions[l][s] = walker.localStanceTipPositions[l][s];
       poser.moveToPose(tipPositions, adjust, 1.0); //TBD MAKE posing time a param value or dynamic via trigger pull    
+      
+      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, deltaPos, deltaAngle); // the cube just lets the thumbstick give small turns easier
+      
+      cout << "DEFAULT: " << walker.legSteppers[0][0].defaultTipPosition[0] << " : " << walker.legSteppers[0][0].defaultTipPosition[1] << " : " << walker.legSteppers[0][0].defaultTipPosition[2] << endl;
+      cout << "CURRENT: " << walker.legSteppers[0][0].currentTipPosition[0] << " : " << walker.legSteppers[0][0].currentTipPosition[1] << " : " << walker.legSteppers[0][0].currentTipPosition[2] << "\n" << endl;;
     }
     
+    for (int l = 0; l<3; l++)
+      for (int s = 0; s<2; s++)
+        //hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].localTipPosition, false);
+        hexapod.legs[l][s].applyLocalIK(walker.legSteppers[l][s].currentTipPosition, false);
+  
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     

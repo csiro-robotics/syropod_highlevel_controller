@@ -63,7 +63,7 @@ Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
 // defines the hexapod model
 Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitAroundStance(params.yawLimits), minMaxKneeBend(params.kneeLimits), minMaxHipLift(params.hipLimits)
 {
-  localPose = Pose::identity();
+  localPose = Pose::zero();
   
   int i = 0;
   for (int l = 0; l<3; l++)
