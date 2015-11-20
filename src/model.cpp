@@ -1,4 +1,4 @@
-#pragma once
+
 #include "../include/simple_hexapod_controller/model.h"
 
 void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
@@ -13,7 +13,7 @@ void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
   tibiaAngleOffset = atan2(tipOffset[2], tipOffset[0]);
   minLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(max(0.0, pi-model->minMaxKneeBend[1]))); 
   maxLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(pi-max(0.0, model->minMaxKneeBend[0]))); 
-  applyFK();
+  applyFK(true);
 }
 
 void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)
@@ -43,9 +43,11 @@ void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)
     applyFK();
 }
 
-void Leg::applyFK()
+void Leg::applyFK(bool updateStance)
 {
   localTipPosition = calculateFK(yaw, liftAngle, kneeAngle);
+  if (updateStance)
+    stanceTipPosition = localTipPosition;
 }
 
 Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
@@ -63,9 +65,6 @@ Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
 // defines the hexapod model
 Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitAroundStance(params.yawLimits), minMaxKneeBend(params.kneeLimits), minMaxHipLift(params.hipLimits)
 {
-  localPose = Pose::zero();
-  
-  int i = 0;
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -78,9 +77,6 @@ Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitA
       leg.tipOffset  = params.tipOffset[l][s];
       leg.mirrorDir = s ? 1 : -1;
       leg.init(0,0,0);
-      
-      double dir = side==0 ? -1 : 1;
-      leg.identityTipPosition = leg.calculateFK(params.stanceLegYaws[l],0,0);
     }
   }
   jointMaxAngularSpeeds = Vector3d(1e10,1e10,1e10);

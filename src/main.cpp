@@ -28,6 +28,7 @@ static double yawJoy = 0;
 static double xJoy = 0;
 static double yJoy = 0;
 static double zJoy = 0;
+static double poseTimeJoy = 0.2;
 double pIncrement=0;
 
 //Globals for joint states callback
@@ -138,7 +139,7 @@ int main(int argc, char* argv[])
     }
   }
   
-  // Create walk controller object
+  // Create walk and pose controller objects
   WalkController walker(&hexapod, params);
   PoseController poser(&hexapod, params);
     
@@ -162,13 +163,14 @@ int main(int argc, char* argv[])
   {
     Pose adjust = Pose::identity();
     
-    Vector3d *deltaAngle = NULL;
-    Vector3d *deltaPos = NULL;
+
     
     if (params.imuCompensation)
     {
       //Auto Compensation using IMU feedback
       Vector2d acc = walker.localCentreAcceleration;
+      Vector3d deltaAngle = Vector3d(0,0,0);
+      Vector3d deltaPos = Vector3d(0,0,0);
 
       compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, deltaAngle, deltaPos,pIncrement, params.timeDelta);
       //geometry_msgs::Vector3 controlMeanAcc;
@@ -196,42 +198,29 @@ int main(int argc, char* argv[])
     //Manual velocity control
     //localVelocity = Vector2d(1e-10, 1e-10);
     
-    //Starting tip positions and pose for walking
     Pose startPose = Pose::identity();
-    Vector3d startTipPositions[3][2];
-    for (int l = 0; l<3; l++)
-      for (int s = 0; s<2; s++) 
-        startTipPositions[l][s] = walker.localStanceTipPositions[l][s];
+    Vector3d startTipPositions[3][2] = walker.identityTipPositions;   
     
-    //Update walker or move to starting stance
+    //Update walk and pose controllers
     if (!started && params.moveToStart)
     {
-      started = poser.moveToPose(startTipPositions, startPose, params.timeToStart, params.moveLegsSequentially);
+      started = poser.updatePose(startTipPositions, startPose, params.timeToStart, params.moveLegsSequentially);
       for (int l = 0; l<3; l++)
         for (int s = 0; s<2; s++)
-          hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].localTipPosition, false);
+          hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].stanceTipPosition);
     }    
     else
-    {
-      Vector3d tipPositions[3][2];
-      for (int l = 0; l<3; l++)
-        for (int s = 0; s<2; s++) 
-          tipPositions[l][s] = walker.localStanceTipPositions[l][s];
-      poser.moveToPose(tipPositions, adjust, 1.0); //TBD MAKE posing time a param value or dynamic via trigger pull    
-      
-      walker.update(localVelocity, turnRate*turnRate*turnRate, &adjust, deltaPos, deltaAngle); // the cube just lets the thumbstick give small turns easier
-      
-      cout << "DEFAULT: " << walker.legSteppers[0][0].defaultTipPosition[0] << " : " << walker.legSteppers[0][0].defaultTipPosition[1] << " : " << walker.legSteppers[0][0].defaultTipPosition[2] << endl;
-      cout << "CURRENT: " << walker.legSteppers[0][0].currentTipPosition[0] << " : " << walker.legSteppers[0][0].currentTipPosition[1] << " : " << walker.legSteppers[0][0].currentTipPosition[2] << "\n" << endl;;
+    {   
+      double poseTime = params.manualCompensation ? poseTimeJoy : 0.0;
+      poser.updatePose(walker.identityTipPositions, adjust, poseTime);
+      turnRate = turnRate*turnRate*turnRate; // the cube just lets the thumbstick give small turns easier
+      walker.updateWalk(localVelocity, turnRate); 
     }
-    
-    for (int l = 0; l<3; l++)
-      for (int s = 0; s<2; s++)
-        //hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].localTipPosition, false);
-        hexapod.legs[l][s].applyLocalIK(walker.legSteppers[l][s].currentTipPosition, false);
   
+    //DEBUGGING
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
+    //DEBUGGING
     
     if (true)
     {
@@ -240,16 +229,15 @@ int main(int argc, char* argv[])
         double dir = s==0 ? -1 : 1;
         for (int l = 0; l<3; l++)
         {
-          double angle;  
           double yaw = dir*(walker.model->legs[l][s].yaw - params.stanceLegYaws[l]);
           double lift = dir*walker.model->legs[l][s].liftAngle;
           double knee = dir*walker.model->legs[l][s].kneeAngle;
                    
           if (false) // !firstFrame)
           {
-            double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/params.timeDelta;
-            double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/params.timeDelta;
-            double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/params.timeDelta;
+            double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/timeDelta;
+            double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/timeDelta;
+            double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/timeDelta;
             
             if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
               yaw = walker.model->legs[l][s].debugOldYaw + sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;
@@ -339,7 +327,6 @@ double getPitchCompensation(WalkController walker)
   double pitch;
   double amplitude = walker.params.pitchAmplitude;
   double phase = walker.legSteppers[0][0].phase;
-  double phaseLength = walker.params.stancePhase + walker.params.swingPhase;
   double buffer = walker.params.phaseOffset/2;
   double phaseOffset = walker.params.phaseOffset;
   double p0[2] = {0*phaseOffset, -amplitude};
@@ -379,7 +366,6 @@ double getRollCompensation(WalkController walker)
   double roll;
   double amplitude = walker.params.rollAmplitude;
   double phase = walker.legSteppers[0][0].phase;
-  double phaseLength = walker.params.stancePhase + walker.params.swingPhase;
   double buffer = walker.params.swingPhase/2.25;
   double phaseOffset = walker.params.phaseOffset;
   double p0[2] = {0, -amplitude};           

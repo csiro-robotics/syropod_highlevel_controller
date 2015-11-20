@@ -24,8 +24,6 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
 
   double landSpeed = 0.5*liftHeight; // 1 is linear land speed
   
-  currentTipPosition = leg.localTipPosition;
-  
   // Swing Phase
   if (phase > swing0 && phase < swing1)
   {
@@ -165,24 +163,24 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
     
     for (int side = 0; side<2; side++)
     {
-      localStanceTipPositions[l][side] = model->legs[l][side].rootOffset + 
+      identityTipPositions[l][side] = model->legs[l][side].rootOffset + 
         footSpreadDistances[l]*Vector3d(cos(model->stanceLegYaws[l]), sin(model->stanceLegYaws[l]), 0) + 
           Vector3d(0,0,-bodyClearance*maximumBodyHeight);
           
-      localStanceTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
+      identityTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
       
-      legSteppers[l][side].defaultTipPosition = localStanceTipPositions[l][side];
-      legSteppers[l][side].currentTipPosition = localStanceTipPositions[l][side];
+      legSteppers[l][side].defaultTipPosition = identityTipPositions[l][side];
+      legSteppers[l][side].currentTipPosition = identityTipPositions[l][side];
     }
   }
   // check for overlapping radii
   double minGap = 1e10;
   for (int side = 0; side<2; side++)
   {
-    Vector3d posDif = localStanceTipPositions[1][side] - localStanceTipPositions[0][side];
+    Vector3d posDif = identityTipPositions[1][side] - identityTipPositions[0][side];
     posDif[2] = 0.0;
     minGap = min(minGap, posDif.norm() - 2.0*minFootprintRadius);
-    posDif = localStanceTipPositions[1][side] - localStanceTipPositions[2][side];
+    posDif = identityTipPositions[1][side] - identityTipPositions[2][side];
     posDif[2] = 0.0;
     minGap = min(minGap, posDif.norm() - 2.0*minFootprintRadius);
   }
@@ -194,7 +192,7 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
     minFootprintRadius += minGap*0.5;
   }
 
-  stanceRadius = abs(localStanceTipPositions[1][0][0]);
+  stanceRadius = abs(identityTipPositions[1][0][0]);
 
   for (int i = 0; i<6; i++)
   {	  
@@ -215,17 +213,22 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
   pose.rotation = Quat(1,0,0,0);
   pose.position = Vector3d(0, 0, bodyClearance*maximumBodyHeight);
 
+  //DEBUGGING
   for (int l = 0; l<3; l++)
     for (int s = 0; s<2; s++)
-      targets.push_back(model->legs[l][s].localTipPosition); // for use in moving to start position
+      targets.push_back(model->legs[l][s].localTipPosition);
+  //DEBUGGING
 }
 
 /***********************************************************************************************************************
- * TBD
+ * Calculates body and stride velocities and uses velocities in body and leg state machines 
+ * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::update(Vector2d localNormalisedVelocity, double newCurvature, const Pose *bodyOffset, const Vector3d *deltaPos, Vector3d *deltaAngle)
+void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature)
 {
+  //DEBUGGING
   targets.clear();
+  //DEBUGGING
   
   double onGroundRatio = (params.stancePhase+params.transitionPeriod)/(params.stancePhase + params.swingPhase);
   
@@ -276,6 +279,7 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
     state = STOPPED;
   }  
    
+  //Phase iteration
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -347,53 +351,33 @@ void WalkController::update(Vector2d localNormalisedVelocity, double newCurvatur
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
       
-      legStepper.defaultTipPosition = leg.localTipPosition;
+      //Revise default and current tip positions from stanceTipPosition due to change in pose
+      Vector3d tipOffset = legStepper.defaultTipPosition - legStepper.currentTipPosition;
+      legStepper.defaultTipPosition = leg.stanceTipPosition;
+      legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
       
       double liftHeight = stepClearance*maximumBodyHeight;
       legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, localCentreVelocity, angularVelocity);      
       
+      leg.applyLocalIK(legStepper.currentTipPosition);
+      
+      //DEBUGGING
       double liftOff = (params.stancePhase + params.transitionPeriod)*0.5;
       double touchDown = (params.stancePhase*0.5 + params.swingPhase) - params.transitionPeriod*0.5;
       if ((legStepper.phase < liftOff) || (legStepper.phase > touchDown))
         targets.push_back(pose.transformVector(legStepper.currentTipPosition)); 
-      
-      leg.applyLocalIK(legStepper.currentTipPosition, false);
-    }
-  }
-  model->clampToLimits();  
-  
-  //IMU compensation
-  if (deltaPos != NULL)
-  {
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        Leg oldLeg = model->legs[l][s];
-        double linearisationScale = 100.0;
-
-        Pose offsetPose;
-        offsetPose.position = *deltaPos/linearisationScale;
-        
-        if (deltaAngle != NULL)
-          offsetPose.rotation = Quat(*deltaAngle);    
-        else
-          offsetPose.rotation = Quat(1,0,0,0);
-        
-        model->legs[l][s].applyLocalIK(offsetPose.inverseTransformVector(model->legs[l][s].localTipPosition), false);
-
-        model->legs[l][s].yaw = oldLeg.yaw + (model->legs[l][s].yaw-oldLeg.yaw)*linearisationScale;
-        model->legs[l][s].liftAngle = oldLeg.liftAngle + (model->legs[l][s].liftAngle-oldLeg.liftAngle)*linearisationScale;
-        model->legs[l][s].kneeAngle = oldLeg.kneeAngle + (model->legs[l][s].kneeAngle-oldLeg.kneeAngle)*linearisationScale;
-      }
+      //DEBUGGING      
     }
   }  
   
-  
+  model->clampToLimits();  
   localCentreAcceleration = (localCentreVelocity - oldLocalCentreVelocity) / timeDelta;
+  
+  //DEBUGGING
   Vector2d push = localCentreVelocity*timeDelta;
   pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
   pose.rotation *= Quat(Vector3d(0.0,0.0,-angularVelocity*timeDelta));
+  //DEBUGGING
 }
 
 /***********************************************************************************************************************
@@ -418,67 +402,6 @@ bool WalkController::targetReached(double phase, double targetPhase)
     return true;
   else
     return false;
-}
-    
-/***********************************************************************************************************************
- * Used to move tip positions from target positions to localStanceTipPositions
-***********************************************************************************************************************/
-bool WalkController::moveToStart(bool moveLegsSequentially, double timeToStart)
-{
-  if (targets.size() == 0)
-  {
-    cout << "Now at starting stance." << endl;
-    return true;
-  }
-  
-  double timeLimit = moveLegsSequentially ? 6.0:1.0;
-  double timeDivisor = timeToStart/timeLimit; //seconds for each/all leg/s to move into position
-  moveToStartTime += timeDelta/timeDivisor;  
-  
-  if (moveToStartTime >= timeLimit)
-  {
-    targets.clear();
-    cout << "Now at starting stance." << endl;
-    return true;
-  }
-  
-  //Iterate through legs (series or parallel) 
-  if (moveLegsSequentially)
-  {
-    int i = int(moveToStartTime);
-    int l = i/2;
-    int s = i%2;
-    
-    Leg &leg = model->legs[l][s];     
-    Vector3d nodes[4];
-    nodes[0] = targets[i];
-    nodes[1] = nodes[0];
-    nodes[3] = legSteppers[l][s].defaultTipPosition;
-    nodes[2] = nodes[3];
-    Vector3d pos = cubicBezier(nodes, fmod(moveToStartTime, 1.0));
-    leg.applyLocalIK(pos);    
-  }
-  else
-  {
-    int i = 0;
-    
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        Leg &leg = model->legs[l][s];     
-        Vector3d nodes[4];
-        nodes[0] = targets[i++];
-        nodes[1] = nodes[0];
-        nodes[3] = legSteppers[l][s].defaultTipPosition;
-        nodes[2] = nodes[3];
-        Vector3d pos = cubicBezier(nodes, fmod(moveToStartTime, 1.0));
-        leg.applyLocalIK(pos);
-      }
-    }
-  }
-  model->clampToLimits(); 
-  return false;    
 }
 
 /***********************************************************************************************************************
