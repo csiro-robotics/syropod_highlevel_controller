@@ -127,8 +127,9 @@ int main(int argc, char* argv[])
         {
           double dir = side==0 ? -1 : 1;
           int index = leg*6+(side == 0 ? 0 : 3);
-          hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*params.stanceLegYaws[leg],
-                                                            -jointPositions[index+1], jointPositions[index+2]));          
+          hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0],
+                                                            -jointPositions[index+1], 
+                                                            jointPositions[index+2]));          
         }
       }
     }
@@ -172,7 +173,7 @@ int main(int argc, char* argv[])
       Vector3d deltaAngle = Vector3d(0,0,0);
       Vector3d deltaPos = Vector3d(0,0,0);
 
-      compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, deltaAngle, deltaPos,pIncrement, params.timeDelta);
+      compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle, &deltaPos, pIncrement, params.timeDelta);
       //geometry_msgs::Vector3 controlMeanAcc;
       //controlMeanAcc.x = (*deltaPos)[0];
       //controlMeanAcc.y = (*deltaPos)[1];
@@ -229,15 +230,15 @@ int main(int argc, char* argv[])
         double dir = s==0 ? -1 : 1;
         for (int l = 0; l<3; l++)
         {
-          double yaw = dir*(walker.model->legs[l][s].yaw - params.stanceLegYaws[l]);
+          double yaw = dir*walker.model->legs[l][s].yaw;
           double lift = dir*walker.model->legs[l][s].liftAngle;
           double knee = dir*walker.model->legs[l][s].kneeAngle;
                    
           if (false) // !firstFrame)
           {
-            double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/timeDelta;
-            double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/timeDelta;
-            double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/timeDelta;
+            double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/params.timeDelta;
+            double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/params.timeDelta;
+            double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/params.timeDelta;
             
             if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
               yaw = walker.model->legs[l][s].debugOldYaw + sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;

@@ -48,7 +48,7 @@ tip_offset_BR: [0.177, 0.0, 0.0] #Middle Right Leg
 tip_offset_CL: [0.177, 0.0, 0.0] #Back Left Leg
 tip_offset_CR: [0.177, 0.0, 0.0] #Back Right Leg
 
-stance_leg_yaws: [0.77, 0, -0.77]
+stance_leg_yaws: [0, 0, 0]
 yaw_limits: [1.2, 1.2, 1.2]
 knee_limits: [-2.6, 1.8]
 hip_limits: [-1.9,1.9] #CHECK THIS VALUE
