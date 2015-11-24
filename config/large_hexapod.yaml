@@ -6,15 +6,10 @@ hexapod_type: large_hexapod
 
 time_delta: 0.02
 
-move_to_start: true
-move_legs_sequentially: false
-time_to_start: 10.0
-
+#Compensation
 imu_compensation: false
-auto_compensation: false
-pitch_amplitude: 0.03
-roll_amplitude: 0.02
-manual_compensation: true
+auto_compensation: true
+manual_compensation: false
 
 gait_type: wave_gait
 
@@ -72,6 +67,28 @@ max_curvature_speed: 0.4
 step_curvature_allowance: 0.7
 
 interface_setup_speed: 0.5
+
+######################################################################
+# Pose Controller Parameters
+######################################################################
+
+#Move to Start
+move_to_start: true
+move_legs_sequentially: true
+time_to_start: 60.0
+
+#Auto pose compensation
+pitch_amplitude: 0.03
+roll_amplitude: 0.02
+
+#Manual pose compensation  
+max_pose_time: 2.0
+max_roll: 0.075
+max_pitch: -0.075
+max_yaw: 0.2
+max: 0.05
+max_y: 0.05
+max_z: 0.05
 
 ######################################################################
 ######################################################################

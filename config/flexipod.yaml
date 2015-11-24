@@ -1,19 +1,14 @@
 ######################################################################
-# Flexipod Parameters
+# Hexapod Parameters
 ######################################################################
 
 hexapod_type: flexipod
 
 time_delta: 0.02
 
-move_to_start: false
-move_legs_sequentailly: false
-time_to_start: 6.0
-
+#Compensation
 imu_compensation: true
 auto_compensation: false
-pitch_amplitude: 0.025
-roll_amplitude: 0.025
 manual_compensation: true
 
 gait_type: tripod_gait
@@ -72,6 +67,28 @@ max_curvature_speed: 0.4
 step_curvature_allowance: 0.7
 
 interface_setup_speed: 2.0
+
+######################################################################
+# Pose Controller Parameters
+######################################################################
+
+#Move to Start
+move_to_start: true
+move_legs_sequentially: false
+time_to_start: 5.0
+
+#Auto pose compensation
+pitch_amplitude: 0.025
+roll_amplitude: 0.025
+
+#Manual pose compensation  
+max_pose_time: 2.0
+max_roll: 0.075
+max_pitch: -0.075
+max_yaw: 0.2
+max: 0.05
+max_y: 0.05
+max_z: 0.05
 
 ######################################################################
 ######################################################################
