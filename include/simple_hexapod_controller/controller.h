@@ -95,4 +95,6 @@ struct PoseController
   
   PoseController(Model *model, Parameters params);
   bool updatePose(Vector3d targetTipPositions[3][2], Pose targetPose, double timeToPose, bool moveLegsSequentially=false);
+  double getPitchCompensation(double phase);
+  double getRollCompensation(double phase);
 };

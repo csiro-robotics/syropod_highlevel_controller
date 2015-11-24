@@ -86,7 +86,7 @@ max_pose_time: 2.0
 max_roll: 0.075
 max_pitch: -0.075
 max_yaw: 0.2
-max: 0.05
+max_x: 0.05
 max_y: 0.05
 max_z: 0.05
 

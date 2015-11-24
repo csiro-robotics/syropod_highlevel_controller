@@ -108,4 +108,99 @@ bool PoseController::updatePose(Vector3d targetTipPositions[3][2], Pose requeste
 }
 
 /***********************************************************************************************************************
+ * Calculates pitch for body compensation
+***********************************************************************************************************************/
+double PoseController::getPitchCompensation(double phase)
+{
+  double pitch;
+  double buffer = params.phaseOffset/2;
+  double phaseOffset = params.phaseOffset;
+  double p0[2] = {0*phaseOffset, -params.pitchAmplitude};
+  double p1[2] = {1*phaseOffset + buffer, -params.pitchAmplitude};
+  double p2[2] = {2*phaseOffset + buffer, params.pitchAmplitude};
+  double p3[2] = {4*phaseOffset + buffer, params.pitchAmplitude};
+  double p4[2] = {5*phaseOffset + buffer, -params.pitchAmplitude};
+  double p5[2] = {6*phaseOffset, -params.pitchAmplitude};
+    
+  if (phase >= p0[0] && phase < p1[0])
+    pitch = p0[1];
+  else if (phase >= p1[0] && phase < p2[0])
+  {
+    double gradient = (p2[1]-p1[1])/(p2[0]-p1[0]);
+    double offset = ((p2[0]-p1[0])/2 + p1[0]);
+    pitch = gradient*phase - gradient*offset;   //-2*phase/3 + 4;
+  }
+  else if (phase >= p2[0] && phase < p3[0])
+    pitch = p2[1];
+  else if (phase >= p3[0] && phase < p4[0])
+  {
+    double gradient = (p4[1]-p3[1])/(p4[0]-p3[0]);
+    double offset = ((p4[0]-p3[0])/2 + p3[0]);
+    pitch = gradient*phase - gradient*offset;   //2*phase/3 - 10;
+  }
+  else if (phase >= p4[0] && phase < p5[0])
+    pitch = p4[1];    
+  
+  return pitch;    
+}
+
+/***********************************************************************************************************************
+ * Calculates roll for body compensation
+***********************************************************************************************************************/
+double PoseController::getRollCompensation(double phase)
+{ 
+  double roll;
+  double buffer = params.swingPhase/2.25;
+  double phaseOffset = params.phaseOffset;
+  double p0[2] = {0, -params.rollAmplitude};           
+  double p1[2] = {0, -params.rollAmplitude}; 
+  double p2[2] = {0, params.rollAmplitude};
+  double p3[2] = {0, params.rollAmplitude};
+  double p4[2] = {0, -params.rollAmplitude};
+  double p5[2] = {0, -params.rollAmplitude};
+  
+  if (params.gaitType == "tripod_gait")
+  {
+    p0[0] = 0*phaseOffset;           
+    p1[0] = 0*phaseOffset + buffer; 
+    p2[0] = 1*phaseOffset - buffer;
+    p3[0] = 1*phaseOffset + buffer;
+    p4[0] = 2*phaseOffset - buffer;
+    p5[0] = 2*phaseOffset;
+  }
+  else if (params.gaitType == "wave_gait")
+  {
+    p0[0] = 0*phaseOffset;           
+    p1[0] = 0*phaseOffset + buffer; 
+    p2[0] = 1*phaseOffset - buffer;
+    p3[0] = 3*phaseOffset + buffer;
+    p4[0] = 4*phaseOffset - buffer;
+    p5[0] = 6*phaseOffset;
+  }
+  else
+    return 0.0;
+    
+  if (phase >= p0[0] && phase < p1[0])
+    roll = p0[1];
+  else if (phase >= p1[0] && phase < p2[0])
+  {
+    double gradient = (p2[1]-p1[1])/(p2[0]-p1[0]);
+    double offset = ((p2[0]-p1[0])/2 + p1[0]);
+    roll = gradient*phase - gradient*offset; //-2*phase + 3;
+  }     
+  else if (phase >= p2[0] && phase < p3[0])
+    roll = p2[1];
+  else if (phase >= p3[0] && phase < p4[0])
+  {
+    double gradient = (p4[1]-p3[1])/(p4[0]-p3[0]);
+    double offset = ((p4[0]-p3[0])/2 + p3[0]);
+    roll = gradient*phase - gradient*offset; //2*phase - 21;      
+  }
+  else if (phase >= p4[0] && phase < p5[0])
+    roll = p4[1];
+  
+  return roll;
+}
+
+/***********************************************************************************************************************
 ***********************************************************************************************************************/

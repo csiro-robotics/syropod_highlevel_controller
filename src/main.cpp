@@ -172,8 +172,6 @@ int main(int argc, char* argv[])
   {
     Pose adjust = Pose::identity();
     
-
-    
     if (params.imuCompensation)
     {
       //Auto Compensation using IMU feedback
@@ -191,8 +189,8 @@ int main(int argc, char* argv[])
     else if (params.autoCompensation)
     {
       //Automatic (non-feedback) compensation
-      double pitch = getPitchCompensation(walker);
-      double roll = getRollCompensation(walker);  
+      double pitch = poser.getPitchCompensation(walker.legSteppers[0][0].phase);
+      double roll = poser.getRollCompensation(walker.legSteppers[0][0].phase);  
       if (params.gaitType == "wave_gait")
         adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitch,roll,yawJoy));
       else if (params.gaitType == "tripod_gait")
@@ -310,7 +308,6 @@ void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 ***********************************************************************************************************************/
 void joypadPoseCallback(const geometry_msgs::Twist &twist)
 {
-   //ADJUSTED FOR SENSITIVITY OF JOYSTICK
   rollJoy = twist.angular.x*pParams->maxRoll;
   pitchJoy = twist.angular.y*pParams->maxPitch;
   yawJoy = twist.angular.z*pParams->maxYaw;  
@@ -328,105 +325,6 @@ void startCallback(const std_msgs::Bool &startBool)
     startFlag = true;
   else
     startFlag = false;
-}
-
-/***********************************************************************************************************************
- * Calculates pitch for body compensation
-***********************************************************************************************************************/
-double getPitchCompensation(WalkController walker)
-{
-  double pitch;
-  double amplitude = walker.params.pitchAmplitude;
-  double phase = walker.legSteppers[0][0].phase;
-  double buffer = walker.params.phaseOffset/2;
-  double phaseOffset = walker.params.phaseOffset;
-  double p0[2] = {0*phaseOffset, -amplitude};
-  double p1[2] = {1*phaseOffset + buffer, -amplitude};
-  double p2[2] = {2*phaseOffset + buffer, amplitude};
-  double p3[2] = {4*phaseOffset + buffer, amplitude};
-  double p4[2] = {5*phaseOffset + buffer, -amplitude};
-  double p5[2] = {6*phaseOffset, -amplitude};
-    
-  if (phase >= p0[0] && phase < p1[0])
-    pitch = p0[1];
-  else if (phase >= p1[0] && phase < p2[0])
-  {
-    double gradient = (p2[1]-p1[1])/(p2[0]-p1[0]);
-    double offset = ((p2[0]-p1[0])/2 + p1[0]);
-    pitch = gradient*phase - gradient*offset;   //-2*phase/3 + 4;
-  }
-  else if (phase >= p2[0] && phase < p3[0])
-    pitch = p2[1];
-  else if (phase >= p3[0] && phase < p4[0])
-  {
-    double gradient = (p4[1]-p3[1])/(p4[0]-p3[0]);
-    double offset = ((p4[0]-p3[0])/2 + p3[0]);
-    pitch = gradient*phase - gradient*offset;   //2*phase/3 - 10;
-  }
-  else if (phase >= p4[0] && phase < p5[0])
-    pitch = p4[1];    
-  
-  return pitch;    
-}
-
-/***********************************************************************************************************************
- * Calculates roll for body compensation
-***********************************************************************************************************************/
-double getRollCompensation(WalkController walker)
-{ 
-  double roll;
-  double amplitude = walker.params.rollAmplitude;
-  double phase = walker.legSteppers[0][0].phase;
-  double buffer = walker.params.swingPhase/2.25;
-  double phaseOffset = walker.params.phaseOffset;
-  double p0[2] = {0, -amplitude};           
-  double p1[2] = {0, -amplitude}; 
-  double p2[2] = {0, amplitude};
-  double p3[2] = {0, amplitude};
-  double p4[2] = {0, -amplitude};
-  double p5[2] = {0, -amplitude};
-  
-  if (walker.params.gaitType == "tripod_gait")
-  {
-    p0[0] = 0*phaseOffset;           
-    p1[0] = 0*phaseOffset + buffer; 
-    p2[0] = 1*phaseOffset - buffer;
-    p3[0] = 1*phaseOffset + buffer;
-    p4[0] = 2*phaseOffset - buffer;
-    p5[0] = 2*phaseOffset;
-  }
-  else if (walker.params.gaitType == "wave_gait")
-  {
-    p0[0] = 0*phaseOffset;           
-    p1[0] = 0*phaseOffset + buffer; 
-    p2[0] = 1*phaseOffset - buffer;
-    p3[0] = 3*phaseOffset + buffer;
-    p4[0] = 4*phaseOffset - buffer;
-    p5[0] = 6*phaseOffset;
-  }
-  else
-    return 0.0;
-    
-  if (phase >= p0[0] && phase < p1[0])
-    roll = p0[1];
-  else if (phase >= p1[0] && phase < p2[0])
-  {
-    double gradient = (p2[1]-p1[1])/(p2[0]-p1[0]);
-    double offset = ((p2[0]-p1[0])/2 + p1[0]);
-    roll = gradient*phase - gradient*offset; //-2*phase + 3;
-  }     
-  else if (phase >= p2[0] && phase < p3[0])
-    roll = p2[1];
-  else if (phase >= p3[0] && phase < p4[0])
-  {
-    double gradient = (p4[1]-p3[1])/(p4[0]-p3[0]);
-    double offset = ((p4[0]-p3[0])/2 + p3[0]);
-    roll = gradient*phase - gradient*offset; //2*phase - 21;      
-  }
-  else if (phase >= p4[0] && phase < p5[0])
-    roll = p4[1];
-  
-  return roll;
 }
 
 /***********************************************************************************************************************

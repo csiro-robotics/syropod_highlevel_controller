@@ -57,7 +57,7 @@ dynamixel_interface: true
 ######################################################################
 
 step_frequency: 0.1
-step_clearance: 0.1
+step_clearance: 0.2
 body_clearance: 0.4
 leg_span_scale: 0.6
 
@@ -83,12 +83,12 @@ roll_amplitude: 0.02
 
 #Manual pose compensation  
 max_pose_time: 2.0
-max_roll: 0.075
+max_roll: 0.15
 max_pitch: -0.075
-max_yaw: 0.2
-max: 0.05
-max_y: 0.05
-max_z: 0.05
+max_yaw: 0.1
+max_x: 0.35
+max_y: 0.5
+max_z: 0.8
 
 ######################################################################
 ######################################################################
