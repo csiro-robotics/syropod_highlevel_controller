@@ -56,6 +56,15 @@ struct Parameters
   double stepCurvatureAllowance;
   double interfaceSetupSpeed;
   
+  //Pose Controller Parameters
+  double maxPoseTime;
+  double maxRoll;
+  double maxPitch;
+  double maxYaw;
+  double maxX;
+  double maxY;
+  double maxZ;
+  
   //Gait Parameters
   double stancePhase;
   double swingPhase;

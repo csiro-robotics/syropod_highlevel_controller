@@ -104,6 +104,10 @@ struct Pose
   {
     return position + rotation.rotateVector(vec);
   }
+  Pose getPose(const Vector3d &vec) const
+  {
+    return Pose(position, rotation);
+  }
   Vector3d inverseTransformVector(const Vector3d &vec) const
   {
     return (~*this).transformVector(vec);

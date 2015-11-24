@@ -224,8 +224,11 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
  * Calculates body and stride velocities and uses velocities in body and leg state machines 
  * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature)
+void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature, double stepFrequencyMultiplier)
 {
+  //update stepFrequency
+  stepFrequency = params.stepFrequency*stepFrequencyMultiplier;
+  
   //DEBUGGING
   targets.clear();
   //DEBUGGING

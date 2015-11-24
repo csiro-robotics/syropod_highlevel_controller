@@ -20,15 +20,22 @@
 #include "sensor_msgs/Joy.h"
 
 //Globals for joypad callback
+static Parameters *pParams;
+
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
+
 static double pitchJoy = 0;
 static double rollJoy = 0;
 static double yawJoy = 0;
 static double xJoy = 0;
 static double yJoy = 0;
 static double zJoy = 0;
+
 static double poseTimeJoy = 0.2;
+static double stepFrequencyMultiplier = 1.0;
+
+
 double pIncrement=0;
 
 //Globals for joint states callback
@@ -72,6 +79,7 @@ int main(int argc, char* argv[])
     
   //Get parameters from rosparam via loaded config file
   Parameters params;
+  pParams = &params;
   getParameters(n, &params);
   
   ros::Rate r(roundToInt(1.0/params.timeDelta));         //frequency of the loop. 
@@ -200,7 +208,7 @@ int main(int argc, char* argv[])
     //localVelocity = Vector2d(1e-10, 1e-10);
     
     Pose startPose = Pose::identity();
-    Vector3d startTipPositions[3][2] = walker.identityTipPositions;   
+    Vector3d startTipPositions[3][2] = walker.identityTipPositions;
     
     //Update walk and pose controllers
     if (!started && params.moveToStart)
@@ -215,7 +223,7 @@ int main(int argc, char* argv[])
       double poseTime = params.manualCompensation ? poseTimeJoy : 0.0;
       poser.updatePose(walker.identityTipPositions, adjust, poseTime);
       turnRate = turnRate*turnRate*turnRate; // the cube just lets the thumbstick give small turns easier
-      walker.updateWalk(localVelocity, turnRate); 
+      walker.updateWalk(localVelocity, turnRate, stepFrequencyMultiplier); 
     }
   
     //DEBUGGING
@@ -289,10 +297,12 @@ void imuControllerIncrement(const sensor_msgs::Joy &gainAdjust)
 ***********************************************************************************************************************/
 void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
+  stepFrequencyMultiplier = (-0.5*twist.linear.z+1.5); //1.0->2.0
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
-  localVelocity = clamped(localVelocity, 1.0);
-  turnRate = twist.angular.x; //RS ROTATION CONTROL SCHEME
-  //turnRate = (twist.linear.z-twist.angular.z)/2; //TRIGGER ROTATION CONTROL SCHEME
+  //localVelocity = clamped(localVelocity, 1.0);
+  turnRate = twist.angular.x;
+  
+  poseTimeJoy = pParams->maxPoseTime*(0.5*twist.angular.z+0.5); //maxPoseTime->0.0
 }
 
 /***********************************************************************************************************************
@@ -301,12 +311,12 @@ void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 void joypadPoseCallback(const geometry_msgs::Twist &twist)
 {
    //ADJUSTED FOR SENSITIVITY OF JOYSTICK
-  rollJoy = twist.angular.x*0.075;
-  pitchJoy = twist.angular.y*-0.075;
-  yawJoy = twist.angular.z*0.2;  
-  xJoy = twist.linear.x*0.05;
-  yJoy = twist.linear.y*0.05; 
-  zJoy = twist.linear.z*0.05; 
+  rollJoy = twist.angular.x*pParams->maxRoll;
+  pitchJoy = twist.angular.y*pParams->maxPitch;
+  yawJoy = twist.angular.z*pParams->maxYaw;  
+  xJoy = twist.linear.x*pParams->maxX;
+  yJoy = twist.linear.y*pParams->maxY; 
+  zJoy = twist.linear.z*pParams->maxZ; 
 }
 
 /***********************************************************************************************************************
@@ -872,6 +882,50 @@ void getParameters(ros::NodeHandle n, Parameters *params)
     cout << "Error reading parameter/s (interface_setup_speed) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
   }
+  
+  /**********************************************************************************************************************/
+  // Pose Controller Parameters 
+  if (!n.getParam("max_pose_time", params->maxPoseTime))
+  {
+    cout << "Error reading parameter/s (max_pose_time) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  if (!n.getParam("max_roll", params->maxRoll))
+  {
+    cout << "Error reading parameter/s (max_roll) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  if (!n.getParam("max_pitch", params->maxPitch))
+  {
+    cout << "Error reading parameter/s (max_pitch) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  if (!n.getParam("max_yaw", params->maxYaw))
+  {
+    cout << "Error reading parameter/s (max_yaw) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  if (!n.getParam("max_x", params->maxX))
+  {
+    cout << "Error reading parameter/s (max_x) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  if (!n.getParam("max_y", params->maxY))
+  {
+    cout << "Error reading parameter/s (max_y) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  if (!n.getParam("max_z", params->maxZ))
+  {
+    cout << "Error reading parameter/s (max_z) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  } 
   
   /**********************************************************************************************************************/
   // Gait Parameters  
