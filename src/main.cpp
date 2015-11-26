@@ -240,7 +240,7 @@ int main(int argc, char* argv[])
           double lift = dir*walker.model->legs[l][s].liftAngle;
           double knee = dir*walker.model->legs[l][s].kneeAngle;
                    
-          if (false) // !firstFrame)
+          if (true) // !firstFrame)
           {
             double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/params.timeDelta;
             double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/params.timeDelta;
@@ -252,6 +252,7 @@ int main(int argc, char* argv[])
               lift = walker.model->legs[l][s].debugOldLiftAngle + sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*params.timeDelta;
             if (abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
               knee = walker.model->legs[l][s].debugOldKneeAngle + sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
+            if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || abs(liftVel) > hexapod.jointMaxAngularSpeeds[1] || abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
               cout << "WARNING: MAXIMUM SPEED EXCEEDED! Clamping to maximum angular speed for leg " << l << " side " << s << endl;
           }
           

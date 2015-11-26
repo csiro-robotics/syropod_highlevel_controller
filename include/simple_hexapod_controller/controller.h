@@ -52,12 +52,16 @@ struct WalkController
     
     Vector2d strideVector; // length gives stride length
     Vector3d currentTipPosition;
+    Vector3d originTipPosition;
     Vector3d defaultTipPosition;
+    
+    bool firstIteration = true;
     
     Vector3d updatePosition(Leg leg,
                             double liftHeight, 
                             Vector2d localCentreVelocity, 
                             double angularVelocity,
+                            double stepFrequency,
                             double timeDelta);
   } legSteppers[3][2];
   

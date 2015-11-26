@@ -10,6 +10,7 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
                                                     double liftHeight, 
                                                     Vector2d localCentreVelocity, 
                                                     double angularVelocity,
+                                                    double stepFrequency,
                                                     double timeDelta)
 {
   
@@ -27,6 +28,7 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
   // Swing Phase
   if (phase > swing0 && phase < swing1)
   {
+    /*
     // X and Y components of trajectory   
     Vector3d nodes[4];
     nodes[0] = currentTipPosition;
@@ -47,10 +49,78 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
     ASSERT(pos.squaredNorm() < 1000.0);
 
     return pos;
+    */
+    
+    Vector3d controlNodesPrimary[4];
+    Vector3d controlNodesSecondary[4];
+    
+    //Save initial tip position at beginning of swing
+    if (firstIteration)
+    {
+      originTipPosition = currentTipPosition;
+      firstIteration = false;
+    }
+    
+    //Control nodes for dual 3d cubic bezier curves
+    //Set as initial tip position
+    controlNodesPrimary[0] = originTipPosition; 
+    
+    //Set equal to node 1 gives zero velocity at liftoff
+    controlNodesPrimary[1] = controlNodesPrimary[0];    
+    
+    //Set equal to default tip position so that max liftheight and transition to 2nd bezier curve occurs at default tip position
+    controlNodesPrimary[3] = defaultTipPosition;   
+    
+    //Set accordingly for constant acceleration
+    double retrograde = 0.0;
+    //controlNodesPrimary[2] = originTipPosition - retrograde*((defaultTipPosition + strideVec*0.5) - originTipPosition);  
+    controlNodesPrimary[2] = (controlNodesPrimary[3] + 2*controlNodesPrimary[0])/3.0;
+    
+    //Set Z component of node to liftheight to make liftheight the max z value
+    controlNodesPrimary[2][2] = defaultTipPosition[2] + liftHeight;  
+    
+    //Set Z component of node to liftheight to make liftheight the max z value
+    controlNodesPrimary[3][2] = defaultTipPosition[2] + liftHeight;  
+    
+    //Set equal to primary control node 3 to allow continuity between curves
+    controlNodesSecondary[0] = controlNodesPrimary[3];  
+    
+    //Set as target tip position according to stride vector
+    controlNodesSecondary[3] = defaultTipPosition + strideVec*0.5;
+    
+    //Set equal to secondary node 3 gives zero velocity at touchdown
+    controlNodesSecondary[2] = controlNodesSecondary[3];
+    
+    //Set accordingly so that velocity at end of primary curve equals velocity at begginning of secondary curve
+    //controlNodesSecondary[1] = 2*controlNodesSecondary[0] - controlNodesPrimary[2];
+    controlNodesSecondary[1] = (controlNodesSecondary[0] + 2*controlNodesSecondary[2])/3.0;
+    
+    Vector3d deltaPos;  
+    Vector3d Pos;
+    double deltaT = (stancePhase + swingPhase)*stepFrequency*timeDelta/(0.5*(swingEnd-swingStart));
+    
+    //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
+    if (phase <= swingMid)
+    {
+      double tPrimary = (phase-swingStart)/(swingMid-swingStart);
+      deltaPos = deltaT*cubicBezierDot(controlNodesPrimary, tPrimary);
+      Pos = cubicBezier(controlNodesPrimary, tPrimary);
+    }
+    else if (phase > swingMid)
+    {
+      double tSecondary = (phase-swingMid)/(swingEnd-swingMid);
+      deltaPos = deltaT*cubicBezierDot(controlNodesSecondary, tSecondary);
+      Pos = cubicBezier(controlNodesSecondary, tSecondary);
+    }
+   
+    //pos += deltaPos;
+    pos = Pos;
+    
   }
   // Stance phase
   else
   {
+    firstIteration = true;
     double t = phase;
     if (t > (stancePhase + swingPhase)*0.5)
       t -= stancePhase + swingPhase; 
@@ -360,7 +430,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
       
       double liftHeight = stepClearance*maximumBodyHeight;
-      legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, localCentreVelocity, angularVelocity, timeDelta);      
+      legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, localCentreVelocity, angularVelocity, stepFrequency, timeDelta);      
       
       leg.applyLocalIK(legStepper.currentTipPosition);
       
