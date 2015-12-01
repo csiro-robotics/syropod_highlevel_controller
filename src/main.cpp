@@ -32,7 +32,7 @@ double pIncrement=0;
 
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
-double jointPositions[18];
+double jointPositions[5];
 bool jointPosFlag = false;
 bool startFlag = false;
 
@@ -72,11 +72,14 @@ int main(int argc, char* argv[])
   //DEBUGGING
   ros::Publisher tipPosPub[3][2];
   tipPosPub[0][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_00", 1);
+
+  /* Only using one leg
   tipPosPub[0][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_01", 1);
   tipPosPub[1][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_10", 1);
   tipPosPub[1][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_11", 1);
   tipPosPub[2][0] = n.advertise<geometry_msgs::Vector3>("tip_positions_20", 1);
   tipPosPub[2][1] = n.advertise<geometry_msgs::Vector3>("tip_positions_21", 1);
+  */
   //DEBUGGING
   
   //Get parameters from rosparam via loaded config file
@@ -93,7 +96,8 @@ int main(int argc, char* argv[])
   {
     ros::spinOnce();
     r.sleep();
-  }  
+  }
+  cout << "'Start' pressed" << endl;
   
   //MOVE_TO_START
   if (params.moveToStart)
@@ -107,7 +111,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-      for (int i=0; i<18; i++)
+      for (int i=0; i<5; i++)
         jointPositions[i] = 1e10;
     
       int spin = 1/params.timeDelta; //Max ros spin cycles to find joint positions
@@ -119,9 +123,9 @@ int main(int argc, char* argv[])
     }
   }
   
-  //Create hexapod model    
+  //Create hexapod model 
   Model hexapod(params);
-  
+
   hexapod.jointMaxAngularSpeeds = params.jointMaxAngularSpeeds;
   
   //MOVE_TO_START
@@ -130,9 +134,9 @@ int main(int argc, char* argv[])
     if (jointPosFlag)
     {
       // set initial leg angles
-      for (int leg = 0; leg<3; leg++)
+      for (int leg = 0; leg<1; leg++)
       {
-        for (int side = 0; side<2; side++)
+        for (int side = 0; side<1; side++)
         {
           double dir = side==0 ? -1 : 1;
           int index = leg*6+(side == 0 ? 0 : 3);
@@ -224,9 +228,9 @@ int main(int argc, char* argv[])
     
     //DEBUGGING
     geometry_msgs::Vector3 msg;
-    for (int l = 0; l<3; l++)
+    for (int l = 0; l<1; l++)
     {
-      for (int s = 0; s<2; s++)
+      for (int s = 0; s<1; s++)
       {
         msg.x = walker.tipPositions[l][s][0];
         msg.y = walker.tipPositions[l][s][1];
@@ -507,7 +511,75 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   
   /**********************************************************************************************************************/
   //Offset Parameters
-  //Root Offset Parameters
+  // Using just one leg 
+
+  std::vector<double> coxaJointOffset(3);
+  if(!n.getParam("coxa_joint_offset", coxaJointOffset))
+  {
+    cout << "Error reading parameter/s (coxa_joint_offset) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->coxaJointOffset = Map<Vector3d>(&coxaJointOffset[0], 3);
+  }
+
+  std::vector<double> coxatJointOffset(3);
+  if(!n.getParam("coxat_joint_offset", coxaJointOffset))
+  {
+    cout << "Error reading parameter/s (coxat_joint_offset) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->coxatJointOffset = Map<Vector3d>(&coxatJointOffset[0], 3);
+  }
+
+  std::vector<double> femurJointOffset(3);
+  if(!n.getParam("femur_joint_offset", femurJointOffset))
+  {
+    cout << "Error reading parameter/s (femur_joint_offset) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->femurJointOffset = Map<Vector3d>(&femurJointOffset[0], 3);
+  }
+
+  std::vector<double> tibiaJointOffset(3);
+  if(!n.getParam("tibia_joint_offset", tibiaJointOffset))
+  {
+    cout << "Error reading parameter/s (tibia_joint_offset) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->tibiaJointOffset = Map<Vector3d>(&tibiaJointOffset[0], 3);
+  }
+
+  std::vector<double> tarsusJointOffset(3);
+  if(!n.getParam("tarsus_joint_offset", tarsusJointOffset))
+  {
+    cout << "Error reading parameter/s (tarsus_joint_offset) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->tarsusJointOffset = Map<Vector3d>(&tarsusJointOffset[0], 3);
+  }
+
+  std::vector<double> tipOffset(3);
+  if(!n.getParam("tip_offset", tipOffset))
+  {
+    cout << "Error reading parameter/s (tip_offset) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->tipOffset = Map<Vector3d>(&tipOffset[0], 3);
+  }
+
+  
   std::vector<double> rootOffsetAL(3);
   if(!n.getParam("root_offset_AL", rootOffsetAL))
   {
@@ -955,12 +1027,21 @@ void jointStatesCallback(const sensor_msgs::JointState &joint_States)
       if (!strcmp(jointName, "front_left_body_coxa") ||
           !strcmp(jointName, "AL_coxa_joint"))
         jointPositions[0] = joint_States.position[i];
+      else if (!strcmp(jointName, "front_left_body_coxat") ||
+                !strcmp(jointName, "AL_coxat_joint"))
+        jointPositions[1] = joint_States.position[i];
       else if (!strcmp(jointName, "front_left_coxa_femour") ||
                 !strcmp(jointName, "AL_femur_joint"))
-        jointPositions[1] = joint_States.position[i];
+        jointPositions[2] = joint_States.position[i];
       else if (!strcmp(jointName, "front_left_femour_tibia") ||
                 !strcmp(jointName, "AL_tibia_joint"))
-        jointPositions[2] = joint_States.position[i];
+        jointPositions[3] = joint_States.position[i];
+      else if (!strcmp(jointName, "front_left_tibia_tarsus") ||
+                !strcmp(jointName, "AL_tarsus_joint"))
+       jointPositions[4] = joint_States.position[i];
+
+
+      /* using just one leg with 5-DOF
       else if (!strcmp(jointName, "front_right_body_coxa") ||
                 !strcmp(jointName, "AR_coxa_joint"))
         jointPositions[3] = joint_States.position[i];
@@ -1006,11 +1087,13 @@ void jointStatesCallback(const sensor_msgs::JointState &joint_States)
       else if (!strcmp(jointName, "rear_right_femour_tibia") ||
                 !strcmp(jointName, "CR_tibia_joint"))
         jointPositions[17] = joint_States.position[i];
+        */
     }
     
     //Check if all joint positions have been received from topic
+
     jointPosFlag = true;
-    for (int i=0; i<18; i++)
+    for (int i=0; i<5; i++)
     {  
       if (jointPositions[i] > 1e9)
         jointPosFlag = false;

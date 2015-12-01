@@ -27,10 +27,16 @@ void DynamixelProMotorInterface::publish(void)
 
   msg.name.push_back("front_left_body_coxa");
   msg.position.push_back (angles[0][0][0]);
-  msg.name.push_back("front_left_coxa_femour");
+  msg.name.push_back("front_left_body_coxat");
   msg.position.push_back (angles[0][0][1]);
-  msg.name.push_back("front_left_femour_tibia");
+  msg.name.push_back("front_left_coxa_femour");
   msg.position.push_back (angles[0][0][2]);
+  msg.name.push_back("front_left_femour_tibia");
+  msg.position.push_back (angles[0][0][3]);
+  msg.name.push_back("front_left_tibia_tarsus");
+  msg.position.push_back (angles[0][0][4]);
+
+  /* Using just one leg with 5-DOF
   msg.name.push_back("front_right_body_coxa");
   msg.position.push_back (angles[0][1][0]);
   msg.name.push_back("front_right_coxa_femour");
@@ -61,6 +67,7 @@ void DynamixelProMotorInterface::publish(void)
   msg.position.push_back (angles[2][1][1]);
   msg.name.push_back("rear_right_femour_tibia");
   msg.position.push_back (angles[2][1][2]);
+  */
 
   motor_pub.publish (msg);
 }

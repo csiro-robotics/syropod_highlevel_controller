@@ -5,12 +5,14 @@
 #include <Eigen/src/Core/Matrix.h>
 #include <boost/concept_check.hpp>
 
-// hard coded to 3 joints
+// hard coded to 5 joints
 struct Leg
 {
   double yaw;
+  double tiltAngle;
   double liftAngle;
   double kneeAngle;
+  double ankleAngle:
   
   // these are all local to parent
   Vector3d rootOffset;
