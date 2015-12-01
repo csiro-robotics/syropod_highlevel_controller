@@ -23,14 +23,9 @@ const double pi = M_PI; //< easier to read
 struct Parameters
 {
   std::string hexapodType;
-  double timeDelta;
-  bool moveToStart;
-  bool moveLegsSequentially;
-  double timeToStart;
+  double timeDelta;  
   bool imuCompensation;
-  bool autoCompensation;
-  double pitchAmplitude;
-  double rollAmplitude;
+  bool autoCompensation;  
   bool manualCompensation;
 
   //Hexapod Parameters
@@ -39,6 +34,7 @@ struct Parameters
   Vector3d kneeOffset[3][2];
   Vector3d tipOffset[3][2];
   Vector3d stanceLegYaws;
+  Vector3d physicalYawOffset;
   Vector3d yawLimits;
   Vector2d kneeLimits;
   Vector2d hipLimits;
@@ -50,13 +46,19 @@ struct Parameters
   double stepFrequency;
   double stepClearance;
   double bodyClearance;
-  double legSpanScale;  
+  double legSpanScale; 
+  bool legStateCorrection;
   double maxAcceleration;
   double maxCurvatureSpeed;
   double stepCurvatureAllowance;
   double interfaceSetupSpeed;
   
   //Pose Controller Parameters
+  bool moveToStart;
+  bool moveLegsSequentially;
+  double timeToStart;
+  double pitchAmplitude;
+  double rollAmplitude;
   double maxPoseTime;
   double maxRoll;
   double maxPitch;

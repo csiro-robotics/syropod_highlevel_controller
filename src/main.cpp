@@ -128,6 +128,7 @@ int main(int argc, char* argv[])
   {
     if (jointPosFlag)
     {
+      cout << "Moving to starting stance . . ." << endl;
       // set initial leg angles
       for (int leg = 0; leg<3; leg++)
       {
@@ -135,7 +136,7 @@ int main(int argc, char* argv[])
         {
           double dir = side==0 ? -1 : 1;
           int index = leg*6+(side == 0 ? 0 : 3);
-          hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0],
+          hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*params.physicalYawOffset[leg],
                                                             -jointPositions[index+1], 
                                                             jointPositions[index+2]));          
         }
@@ -166,7 +167,6 @@ int main(int argc, char* argv[])
   interface->setupSpeed(params.interfaceSetupSpeed);   
   
   //Position update loop
-  bool firstFrame = true;
   bool started = false;
   while (ros::ok())
   {
@@ -192,9 +192,9 @@ int main(int argc, char* argv[])
       double pitch = poser.getPitchCompensation(walker.legSteppers[0][0].phase);
       double roll = poser.getRollCompensation(walker.legSteppers[0][0].phase);  
       if (params.gaitType == "wave_gait")
-        adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitch,roll,yawJoy));
+        adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
       else if (params.gaitType == "tripod_gait")
-        adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,0,roll,yawJoy));
+        adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
     }    
     else if (params.manualCompensation)
     {    
@@ -207,11 +207,14 @@ int main(int argc, char* argv[])
     
     Pose startPose = Pose::identity();
     Vector3d startTipPositions[3][2] = walker.identityTipPositions;
-    
+   
     //Update walk and pose controllers
     if (!started && params.moveToStart)
     {
       started = poser.updatePose(startTipPositions, startPose, params.timeToStart, params.moveLegsSequentially);
+      if (started)
+        cout << "Now at starting stance." << endl;
+        
       for (int l = 0; l<3; l++)
         for (int s = 0; s<2; s++)
           hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].stanceTipPosition);
@@ -229,17 +232,19 @@ int main(int argc, char* argv[])
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     //DEBUGGING
     
+    
+    
     if (true)
     {
       for (int s = 0; s<2; s++)
       {
         double dir = s==0 ? -1 : 1;
         for (int l = 0; l<3; l++)
-        {
-          double yaw = dir*walker.model->legs[l][s].yaw;
+        {            
+          double yaw = dir*(walker.model->legs[l][s].yaw - params.physicalYawOffset[l]);
           double lift = dir*walker.model->legs[l][s].liftAngle;
           double knee = dir*walker.model->legs[l][s].kneeAngle;
-                   
+          
           if (true) // !firstFrame)
           {
             double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/params.timeDelta;
@@ -268,7 +273,6 @@ int main(int argc, char* argv[])
       interface->publish();
     }
     
-    firstFrame = false;
     ros::spinOnce();
     r.sleep();
 
@@ -347,25 +351,7 @@ void getParameters(ros::NodeHandle n, Parameters *params)
     cout << "Error reading parameter/s (time_delta) from rosparam" << endl;
     cout << "Check config file is loaded and type is correct" << endl;
   }
-  
-  if(!n.getParam("move_to_start", params->moveToStart))
-  {
-    cout << "Error reading parameter/s (move_to_start) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
-  }
-  
-  if(!n.getParam("move_legs_sequentially", params->moveLegsSequentially))
-  {
-    cout << "Error reading parameter/s (move_legs_sequentially) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
-  }
-  
-  if(!n.getParam("time_to_start", params->timeToStart))
-  {
-    cout << "Error reading parameter/s (time_to_start) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
-  }
-  
+    
   if(!n.getParam("imu_compensation", params->imuCompensation))
   {
     cout << "Error reading parameter/s (imu_compensation) from rosparam" << endl;
@@ -375,18 +361,6 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   if(!n.getParam("auto_compensation", params->autoCompensation))
   {
     cout << "Error reading parameter/s (auto_compensation) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
-  }
-  
-  if(!n.getParam("pitch_amplitude", params->pitchAmplitude))
-  {
-    cout << "Error reading parameter/s (pitch_amplitude) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
-  }
-  
-  if(!n.getParam("roll_amplitude", params->rollAmplitude))
-  {
-    cout << "Error reading parameter/s (roll_amplitude) from rosparam" << endl;
     cout << "Check config file is loaded and type is correct" << endl;  
   }
   
@@ -669,7 +643,8 @@ void getParameters(ros::NodeHandle n, Parameters *params)
     params->tipOffset[2][1] = Map<Vector3d>(&tipOffsetCR[0], 3);
   }
   
-  
+  /**********************************************************************************************************************/
+  //Yaw parameters 
   std::vector<double> stanceLegYaws(3);
   if(!n.getParam("stance_leg_yaws", stanceLegYaws))
   {
@@ -679,6 +654,17 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   else
   {
     params->stanceLegYaws = Map<Vector3d>(&stanceLegYaws[0], 3);
+  }
+  
+  std::vector<double> physicalYawOffset(3);
+  if(!n.getParam("physical_yaw_offset", physicalYawOffset))
+  {
+    cout << "Error reading parameter/s (stance_leg_yaws) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->physicalYawOffset = Map<Vector3d>(&physicalYawOffset[0], 3);
   }
   /**********************************************************************************************************************/
   //Joint Limit Parameters  
@@ -758,6 +744,12 @@ void getParameters(ros::NodeHandle n, Parameters *params)
     cout << "Check config file is loaded and type is correct" << endl;
   }
   
+  if(!n.getParam("leg_state_correction", params->legStateCorrection))
+  {
+    cout << "Error reading parameter/s (leg_state_correction) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
   if (!n.getParam("max_acceleration", params->maxAcceleration))
   {
     cout << "Error reading parameter/s (max_acceleration) from rosparam" <<endl; 
@@ -784,6 +776,36 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   
   /**********************************************************************************************************************/
   // Pose Controller Parameters 
+  if(!n.getParam("move_to_start", params->moveToStart))
+  {
+    cout << "Error reading parameter/s (move_to_start) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("move_legs_sequentially", params->moveLegsSequentially))
+  {
+    cout << "Error reading parameter/s (move_legs_sequentially) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("time_to_start", params->timeToStart))
+  {
+    cout << "Error reading parameter/s (time_to_start) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("pitch_amplitude", params->pitchAmplitude))
+  {
+    cout << "Error reading parameter/s (pitch_amplitude) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam("roll_amplitude", params->rollAmplitude))
+  {
+    cout << "Error reading parameter/s (roll_amplitude) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
   if (!n.getParam("max_pose_time", params->maxPoseTime))
   {
     cout << "Error reading parameter/s (max_pose_time) from rosparam" <<endl; 

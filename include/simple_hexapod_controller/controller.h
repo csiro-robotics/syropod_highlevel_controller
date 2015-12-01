@@ -2,12 +2,23 @@
 #include "model.h"
 
 //States for walking controller
-enum State
+enum RobotState
 {
   STARTING,
   STOPPING,
   MOVING,
   STOPPED
+};
+
+enum LegState
+{
+  SWING,
+  STANCE,
+  SWING_TRANSITION,
+  STANCE_TRANSITION,
+  STANCE_SUPPORT, //NOT IMPLEMENTED
+  TOUCHDOWN_CORRECTION,
+  LIFTOFF_CORRECTION
 };
 
 //Controller that handles walking
@@ -18,7 +29,7 @@ struct WalkController
   
   Parameters params;
   
-  State state = STOPPED;
+  RobotState state = STOPPED;
   
   double timeDelta;
   
@@ -50,10 +61,14 @@ struct WalkController
     double swingPhase;
     double transitionPeriod;
     
+    LegState state = STANCE;
+    
     Vector2d strideVector; // length gives stride length
     Vector3d currentTipPosition;
     Vector3d originTipPosition;
     Vector3d defaultTipPosition;
+    
+    bool tipTouchdown;
     
     bool firstIteration = true;
     
