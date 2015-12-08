@@ -34,13 +34,6 @@ struct Parameters
   bool manualCompensation;
 
   //Hexapod Parameters
-  Vector3d coxaJointOffset;
-  Vector3d coxatJointOffset;
-  Vector3d femurJointOffset;
-  Vector3d tibiaJointOffset;
-  Vector3d tarsusJointOffset;
-  Vector3d tipOffset;
-
   Vector3d rootOffset[3][2];
   Vector3d hipOffset[3][2];
   Vector3d kneeOffset[3][2];
