@@ -1,6 +1,10 @@
 #pragma once
 #include "model.h"
 
+#define SIMULTANEOUS_MODE 1
+#define TRIPOD_MODE 2
+#define SEQUENTIAL_MODE 3
+
 //States for walking controller
 enum RobotState
 {
@@ -105,15 +109,19 @@ struct PoseController
   Parameters params;
   
   double timeDelta;
+  bool firstIteration = true;
   
   double moveToPoseTime;
-  Vector3d originTipPosition[3][2];
+  Vector3d originTipPositions[3][2];
+  Vector3d midTipPositions[3][2];
   
   Pose currentPose;
   Pose targetPose;  
   
   PoseController(Model *model, Parameters params);
   bool updatePose(Vector3d targetTipPositions[3][2], Pose targetPose, double timeToPose, bool moveLegsSequentially=false);
+  bool stepToPosition(Vector3d targetTipPositions[3][2], WalkController walker, double stepSpeed=0.5, int mode=1);
+  bool adjustToHeight(double desiredHeight, double raiseSpeed=0.5);
   double getPitchCompensation(double phase);
   double getRollCompensation(double phase);
 };

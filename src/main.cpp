@@ -166,8 +166,66 @@ int main(int argc, char* argv[])
   
   interface->setupSpeed(params.interfaceSetupSpeed);   
   
-  //Position update loop
   bool started = false;
+  
+  /*DEBUGGING
+  bool stepToPose = false;
+  bool raiseToHeight = false;
+  bool stepToPose2 = false;
+  bool raiseToHeight2 = false;
+  bool stepToPose3 = false;
+  bool raiseToHeight3 = false;
+  bool stepToPose4 = false;
+  bool raiseToHeight4 = false;
+  DEBUGGING*/
+  
+  Pose startPose = Pose::identity();
+  
+  Vector3d startTipPositions[3][2] = walker.identityTipPositions;
+  
+  /*DEBUGGING
+  Vector3d scaledStartTipPositions[3][2];
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {
+      scaledStartTipPositions[l][s] = walker.identityTipPositions[l][s]*1.5;
+      scaledStartTipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
+    }
+  }
+  
+  Vector3d scaled2StartTipPositions[3][2];
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {
+      scaled2StartTipPositions[l][s] = walker.identityTipPositions[l][s]*1.0;
+      scaled2StartTipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
+    }
+  }
+  
+    
+  Vector3d sittingTipPositions[3][2] = walker.identityTipPositions;
+  for (int l = 0; l<3; l++)
+    for (int s = 0; s<2; s++)
+      sittingTipPositions[l][s] += Vector3d(0,0,0.25*walker.bodyClearance*walker.maximumBodyHeight);
+  
+  Vector3d zeroTipPositions[3][2];
+  for (int l = 0; l<3; l++)
+  {
+      for (int s = 0; s<2; s++)
+      {
+        double dir = (s==0 ? -1 : 1);
+        Vector3d correctedRootOffsets = Vector3d(dir*hexapod.legs[l][s].rootOffset[0], hexapod.legs[l][s].rootOffset[1], hexapod.legs[l][s].rootOffset[2]); 
+        zeroTipPositions[l][s] =  correctedRootOffsets+
+                                  dir*hexapod.legs[l][s].hipOffset+
+                                  dir*hexapod.legs[l][s].kneeOffset+
+                                  dir*hexapod.legs[l][s].tipOffset;
+      }
+  }
+  DEBUGGING*/
+  
+  //Position update loop
   while (ros::ok())
   {
     Pose adjust = Pose::identity();
@@ -203,11 +261,8 @@ int main(int argc, char* argv[])
     }   
     
     //Manual velocity control
-    //localVelocity = Vector2d(1e-10, 1e-10);
-    
-    Pose startPose = Pose::identity();
-    Vector3d startTipPositions[3][2] = walker.identityTipPositions;
-   
+    //localVelocity = Vector2d(1e-10, 1e-10);    
+  
     //Update walk and pose controllers
     if (!started && params.moveToStart)
     {
@@ -218,7 +273,43 @@ int main(int argc, char* argv[])
       for (int l = 0; l<3; l++)
         for (int s = 0; s<2; s++)
           hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].stanceTipPosition);
-    }    
+    }  
+    
+    /*DEBUGGING
+    else if (!stepToPose)
+    {
+      stepToPose = poser.stepToPosition(scaledStartTipPositions, walker, 1.0, 1);
+    } 
+    else if (!raiseToHeight)
+    {
+      raiseToHeight = poser.raiseToHeight(-0.5*walker.identityTipPositions[0][0][2]);
+    }
+    else if (!stepToPose2)
+    {
+      stepToPose2 = poser.stepToPosition(scaled2StartTipPositions, walker, 1.0, 3);
+    } 
+    else if (!raiseToHeight2)
+    {
+      raiseToHeight2 = poser.raiseToHeight(-1.0*walker.identityTipPositions[0][0][2]);
+    }
+    else if (!raiseToHeight3)
+    {
+      raiseToHeight3 = poser.raiseToHeight(-0.5*walker.identityTipPositions[0][0][2]);
+    }
+    else if (!stepToPose3)
+    {
+      stepToPose3 = poser.stepToPosition(scaledStartTipPositions, walker, 1.0, 3);
+    }
+    else if (!raiseToHeight4)
+    {
+      raiseToHeight4 = poser.raiseToHeight(-0.0*walker.identityTipPositions[0][0][2]);
+    }
+    else if (!stepToPose4)
+    {
+      stepToPose4 = poser.stepToPosition(zeroTipPositions, walker, 1.0, 1);
+    }
+    DEBUGGING*/   
+    
     else
     {   
       double poseTime = params.manualCompensation ? poseTimeJoy : 0.0;
@@ -245,7 +336,7 @@ int main(int argc, char* argv[])
           double lift = dir*walker.model->legs[l][s].liftAngle;
           double knee = dir*walker.model->legs[l][s].kneeAngle;
           
-          if (true) // !firstFrame)
+          if (false) // !firstFrame)
           {
             double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/params.timeDelta;
             double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/params.timeDelta;
