@@ -108,7 +108,7 @@ bool PoseController::updatePose(Vector3d targetTipPositions[3][2], Pose requeste
 }
 
 /***********************************************************************************************************************
- * Steps legs (sequentially or simultaneously) into desired tip positions
+ * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
 bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], WalkController walker, double stepSpeed, int mode)
 { 
@@ -226,7 +226,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], WalkContr
         controlNodesSecondary[1] = (controlNodesSecondary[0] + 2*controlNodesSecondary[2])/3.0;
         
         //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
-        if (fmod(moveToPoseTime,1.0) <= 0.49)
+        if (fmod(moveToPoseTime,1.0) < 0.5)
         {
           pos = cubicBezier(controlNodesPrimary, fmod(moveToPoseTime,1.0)*2.0);
         }
@@ -234,18 +234,17 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], WalkContr
         {
           pos = cubicBezier(controlNodesSecondary, (fmod(moveToPoseTime,1.0)-0.5)*2.0);
         }
-      
-        //Apply inverse kinematics
-        model->legs[l][s].applyLocalIK(pos); 
-        model->legs[l][s].applyFK(true);
+        
+        //Apply inverse kinematics to localTipPositions and stanceTipPositions
+        model->legs[l][s].applyLocalIK(pos, true); 
       }
     }
-  }
+  }  
   return false;
 }
 
 /***********************************************************************************************************************
- * Adjusts default body postion to desired height
+ * Adjusts default body postion to desired height (updates default stance)
 ***********************************************************************************************************************/
 bool PoseController::adjustToHeight(double desiredHeight, double raiseSpeed)
 {

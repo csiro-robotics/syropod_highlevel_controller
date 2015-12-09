@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
           int index = leg*6+(side == 0 ? 0 : 3);
           hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*params.physicalYawOffset[leg],
                                                             -jointPositions[index+1], 
-                                                            jointPositions[index+2]));          
+                                                            jointPositions[index+2]));
         }
       }
     }
@@ -167,48 +167,29 @@ int main(int argc, char* argv[])
   interface->setupSpeed(params.interfaceSetupSpeed);   
   
   bool started = false;
+  bool phase1 = false;
+  bool phase2 = false;
+  bool phase3 = false;
+  bool phase4 = false;
   
-  /*DEBUGGING
-  bool stepToPose = false;
-  bool raiseToHeight = false;
-  bool stepToPose2 = false;
-  bool raiseToHeight2 = false;
-  bool stepToPose3 = false;
-  bool raiseToHeight3 = false;
-  bool stepToPose4 = false;
-  bool raiseToHeight4 = false;
-  DEBUGGING*/
-  
-  Pose startPose = Pose::identity();
-  
+  Pose startPose = Pose::identity();  
   Vector3d startTipPositions[3][2] = walker.identityTipPositions;
+  double averageTipZ = 0.0;
+  for (int l=0; l<3; l++)
+    for (int s=0; s<2; s++)
+      averageTipZ += hexapod.legs[l][s].localTipPosition[2];
+  double startHeightScaler = (averageTipZ /= 6.0)/startTipPositions[0][0][2];
+  cout << startHeightScaler << endl;  
   
-  /*DEBUGGING
   Vector3d scaledStartTipPositions[3][2];
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {
-      scaledStartTipPositions[l][s] = walker.identityTipPositions[l][s]*1.5;
+      scaledStartTipPositions[l][s] = walker.identityTipPositions[l][s]*(-0.5*startHeightScaler+1.5);
       scaledStartTipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
     }
   }
-  
-  Vector3d scaled2StartTipPositions[3][2];
-  for (int l = 0; l<3; l++)
-  {
-    for (int s = 0; s<2; s++)
-    {
-      scaled2StartTipPositions[l][s] = walker.identityTipPositions[l][s]*1.0;
-      scaled2StartTipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
-    }
-  }
-  
-    
-  Vector3d sittingTipPositions[3][2] = walker.identityTipPositions;
-  for (int l = 0; l<3; l++)
-    for (int s = 0; s<2; s++)
-      sittingTipPositions[l][s] += Vector3d(0,0,0.25*walker.bodyClearance*walker.maximumBodyHeight);
   
   Vector3d zeroTipPositions[3][2];
   for (int l = 0; l<3; l++)
@@ -223,7 +204,7 @@ int main(int argc, char* argv[])
                                   dir*hexapod.legs[l][s].tipOffset;
       }
   }
-  DEBUGGING*/
+  
   
   //Position update loop
   while (ros::ok())
@@ -263,16 +244,31 @@ int main(int argc, char* argv[])
     //Manual velocity control
     //localVelocity = Vector2d(1e-10, 1e-10);    
   
+    double startSpeed = 1.0;
+  
     //Update walk and pose controllers
     if (!started && params.moveToStart)
-    {
-      started = poser.updatePose(startTipPositions, startPose, params.timeToStart, params.moveLegsSequentially);
+    {     
+      if (!phase1)
+        phase1 = poser.stepToPosition(scaledStartTipPositions, walker, startSpeed, 3);
+      else if (!phase2)
+        phase2 = poser.adjustToHeight(-0.5*(startHeightScaler+1.0)*startTipPositions[0][0][2], startSpeed);
+      else if (!phase3)
+        phase3 = poser.stepToPosition(startTipPositions, walker, startSpeed, 3);
+      else if (!phase4)
+        phase4 = poser.adjustToHeight(-startTipPositions[0][0][2], startSpeed);
+      else
+        started = true;
+        //started = poser.updatePose(zeroTipPositions, startPose, params.timeToStart, params.moveLegsSequentially);
+          
       if (started)
         cout << "Now at starting stance." << endl;
         
       for (int l = 0; l<3; l++)
         for (int s = 0; s<2; s++)
-          hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].stanceTipPosition);
+          hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].stanceTipPosition, true);
+        
+      hexapod.clampToLimits();  
     }  
     
     /*DEBUGGING

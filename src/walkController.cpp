@@ -496,7 +496,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       double liftHeight = stepClearance*maximumBodyHeight;
       legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, localCentreVelocity, angularVelocity, stepFrequency, timeDelta);      
       
-      leg.applyLocalIK(legStepper.currentTipPosition);
+      leg.applyLocalIK(legStepper.currentTipPosition, false);
       
       //DEBUGGING
       double liftOff = (params.stancePhase + params.transitionPeriod)*0.5;

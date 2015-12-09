@@ -16,8 +16,9 @@ void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
   applyFK(true);
 }
 
-void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)
+void Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
 {
+  cout << "TIP TARGET: " << tipTarget[0] << " : " << tipTarget[1] << " : " << tipTarget[2] << endl;
   tipTarget[0] *= mirrorDir;
   // application of cosine rule
   Vector3d target = tipTarget - rootOffset; // since rootOffset is fixed in root's space
@@ -39,15 +40,20 @@ void Leg::applyLocalIK(Vector3d tipTarget, bool updateTipPos)
   ASSERT(abs(yaw) < 7.0);
   ASSERT(abs(liftAngle) < 7.0);
   ASSERT(abs(kneeAngle) < 7.0);
-  if (updateTipPos)
-    applyFK();
+  
+  Vector3d resultTipPosition = applyFK(updateStance);
+  Vector3d diffVec = resultTipPosition - tipTarget;
+  double diff = diffVec.squaredNorm();
+  if (diff > 1e-6)
+    cout << "ERROR" << endl;
 }
 
-void Leg::applyFK(bool updateStance)
+Vector3d Leg::applyFK(bool updateStance)
 {
   localTipPosition = calculateFK(yaw, liftAngle, kneeAngle);
   if (updateStance)
     stanceTipPosition = localTipPosition;
+  return localTipPosition;
 }
 
 Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
@@ -58,6 +64,7 @@ Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
   tipPosition = Quat(Vector3d(0, -liftAngle, 0)).rotateVector(tipPosition) + hipOffset;
   tipPosition = Quat(Vector3d(0, 0, yaw)).rotateVector(tipPosition) + rootOffset;
   tipPosition[0] *= mirrorDir;
+  cout << "TIP POS: " << tipPosition[0] << " : " << tipPosition[1] << " : " << tipPosition[2] << endl;
   return tipPosition;
 }
 

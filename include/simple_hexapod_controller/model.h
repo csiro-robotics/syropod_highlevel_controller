@@ -23,10 +23,10 @@ struct Leg
 
   void init(double startYaw, double startLiftAngle, double startKneeAngle);
   // sets angles to reach local position relative to root
-  void applyLocalIK(Vector3d tipTarget, bool updateTipPos = true);
+  void applyLocalIK(Vector3d tipTarget, bool updateStance = false);
   void applyWorldIK(const Pose &rootPose, const Vector3d &worldTipTarget){ applyLocalIK(rootPose.inverseTransformVector(worldTipTarget)); }
   // works out local tip position from angles
-  void applyFK(bool updateStance = false);
+  Vector3d applyFK(bool updateStance = false);
   Vector3d calculateFK(double yaw, double liftAngle, double kneeAngle);
   
   double hipLength;
