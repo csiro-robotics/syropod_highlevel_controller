@@ -47,8 +47,9 @@ stance_leg_yaws: [0.77, 0, -0.77]
 physical_yaw_offset: [0.77, 0, -0.77]
 
 yaw_limits: [1.2, 1.2, 1.2]
-knee_limits: [-2.6, 1.8]
 hip_limits: [-1.9,1.9] #CHECK THIS VALUE
+knee_limits: [-2.6, 1.8]
+
 
 joint_max_angular_speeds: [10000,10000,10000] #CHECK THIS VALUE
 

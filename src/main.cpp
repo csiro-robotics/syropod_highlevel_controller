@@ -128,7 +128,6 @@ int main(int argc, char* argv[])
   {
     if (jointPosFlag)
     {
-      cout << "Moving to starting stance . . ." << endl;
       // set initial leg angles
       for (int leg = 0; leg<3; leg++)
       {
@@ -166,46 +165,11 @@ int main(int argc, char* argv[])
   
   interface->setupSpeed(params.interfaceSetupSpeed);   
   
-  bool started = false;
-  bool phase1 = false;
-  bool phase2 = false;
-  bool phase3 = false;
-  bool phase4 = false;
-  
-  Pose startPose = Pose::identity();  
-  Vector3d startTipPositions[3][2] = walker.identityTipPositions;
-  double averageTipZ = 0.0;
-  for (int l=0; l<3; l++)
-    for (int s=0; s<2; s++)
-      averageTipZ += hexapod.legs[l][s].localTipPosition[2];
-  double startHeightScaler = (averageTipZ /= 6.0)/startTipPositions[0][0][2];
-  cout << startHeightScaler << endl;  
-  
-  Vector3d scaledStartTipPositions[3][2];
-  for (int l = 0; l<3; l++)
-  {
-    for (int s = 0; s<2; s++)
-    {
-      scaledStartTipPositions[l][s] = walker.identityTipPositions[l][s]*(-0.5*startHeightScaler+1.5);
-      scaledStartTipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
-    }
-  }
-  
-  Vector3d zeroTipPositions[3][2];
-  for (int l = 0; l<3; l++)
-  {
-      for (int s = 0; s<2; s++)
-      {
-        double dir = (s==0 ? -1 : 1);
-        Vector3d correctedRootOffsets = Vector3d(dir*hexapod.legs[l][s].rootOffset[0], hexapod.legs[l][s].rootOffset[1], hexapod.legs[l][s].rootOffset[2]); 
-        zeroTipPositions[l][s] =  correctedRootOffsets+
-                                  dir*hexapod.legs[l][s].hipOffset+
-                                  dir*hexapod.legs[l][s].kneeOffset+
-                                  dir*hexapod.legs[l][s].tipOffset;
-      }
-  }
-  
-  
+  bool startUpComplete = false;
+  bool shutDownComplete = true;
+  double heightRatio;
+  double stepHeight;
+
   //Position update loop
   while (ros::ok())
   {
@@ -219,11 +183,6 @@ int main(int argc, char* argv[])
       Vector3d deltaPos = Vector3d(0,0,0);
 
       compensation(Vector3d(acc[0], acc[1], 0), walker.angularVelocity, &deltaAngle, &deltaPos, pIncrement, params.timeDelta);
-      //geometry_msgs::Vector3 controlMeanAcc;
-      //controlMeanAcc.x = (*deltaPos)[0];
-      //controlMeanAcc.y = (*deltaPos)[1];
-      //controlMeanAcc.z = (*deltaPos)[2];
-      //controlPub.publish(controlMeanAcc); 
     }
     else if (params.autoCompensation)
     {
@@ -242,77 +201,38 @@ int main(int argc, char* argv[])
     }   
     
     //Manual velocity control
-    //localVelocity = Vector2d(1e-10, 1e-10);    
-  
-    double startSpeed = 1.0;
-  
+    //localVelocity = Vector2d(1e-10, 1e-10);     
+     
     //Update walk and pose controllers
-    if (!started && params.moveToStart)
+    if (startFlag && !startUpComplete && params.moveToStart) 
     {     
-      if (!phase1)
-        phase1 = poser.stepToPosition(scaledStartTipPositions, walker, startSpeed, 3);
-      else if (!phase2)
-        phase2 = poser.adjustToHeight(-0.5*(startHeightScaler+1.0)*startTipPositions[0][0][2], startSpeed);
-      else if (!phase3)
-        phase3 = poser.stepToPosition(startTipPositions, walker, startSpeed, 3);
-      else if (!phase4)
-        phase4 = poser.adjustToHeight(-startTipPositions[0][0][2], startSpeed);
-      else
-        started = true;
-        //started = poser.updatePose(zeroTipPositions, startPose, params.timeToStart, params.moveLegsSequentially);
-          
-      if (started)
-        cout << "Now at starting stance." << endl;
-        
-      for (int l = 0; l<3; l++)
-        for (int s = 0; s<2; s++)
-          hexapod.legs[l][s].applyLocalIK(hexapod.legs[l][s].stanceTipPosition, true);
-        
-      hexapod.clampToLimits();  
-    }  
-    
-    /*DEBUGGING
-    else if (!stepToPose)
-    {
-      stepToPose = poser.stepToPosition(scaledStartTipPositions, walker, 1.0, 1);
-    } 
-    else if (!raiseToHeight)
-    {
-      raiseToHeight = poser.raiseToHeight(-0.5*walker.identityTipPositions[0][0][2]);
+      if (shutDownComplete)
+      {
+        cout << "Running startup sequence . . ." << endl;
+        heightRatio = poser.createStartUpSequence(walker);
+        stepHeight = walker.stepClearance*walker.maximumBodyHeight;
+        shutDownComplete = false;
+      }
+      startUpComplete = poser.startUpSequence(heightRatio, stepHeight); 
     }
-    else if (!stepToPose2)
+    else if (!startFlag && !shutDownComplete && params.moveToStart)
     {
-      stepToPose2 = poser.stepToPosition(scaled2StartTipPositions, walker, 1.0, 3);
-    } 
-    else if (!raiseToHeight2)
-    {
-      raiseToHeight2 = poser.raiseToHeight(-1.0*walker.identityTipPositions[0][0][2]);
+      if (startUpComplete)
+      {
+        cout << "Running shutdown sequence . . ." << endl;
+        heightRatio = poser.createStartUpSequence(walker);
+        stepHeight = walker.stepClearance*walker.maximumBodyHeight;
+        startUpComplete = false;
+      }
+      shutDownComplete = poser.shutDownSequence(heightRatio, stepHeight);        
     }
-    else if (!raiseToHeight3)
-    {
-      raiseToHeight3 = poser.raiseToHeight(-0.5*walker.identityTipPositions[0][0][2]);
-    }
-    else if (!stepToPose3)
-    {
-      stepToPose3 = poser.stepToPosition(scaledStartTipPositions, walker, 1.0, 3);
-    }
-    else if (!raiseToHeight4)
-    {
-      raiseToHeight4 = poser.raiseToHeight(-0.0*walker.identityTipPositions[0][0][2]);
-    }
-    else if (!stepToPose4)
-    {
-      stepToPose4 = poser.stepToPosition(zeroTipPositions, walker, 1.0, 1);
-    }
-    DEBUGGING*/   
-    
-    else
-    {   
+    else if (startUpComplete && !shutDownComplete)
+    {  
       double poseTime = params.manualCompensation ? poseTimeJoy : 0.0;
-      poser.updatePose(walker.identityTipPositions, adjust, poseTime);
+      poser.updateStance(walker.identityTipPositions, adjust, poseTime);
       turnRate = turnRate*turnRate*turnRate; // the cube just lets the thumbstick give small turns easier
       walker.updateWalk(localVelocity, turnRate, stepFrequencyMultiplier); 
-    }
+    }      
   
     //DEBUGGING
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose * adjust), Vector4d(1,1,1,1));

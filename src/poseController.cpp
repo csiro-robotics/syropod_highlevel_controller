@@ -17,7 +17,7 @@ PoseController::PoseController(Model *model, Parameters p):
  * Updates default stance tip positions according to desired pose at desired speed
  * This is then later used in walk controller where inverse kinematics are applied
 ***********************************************************************************************************************/
-bool PoseController::updatePose(Vector3d targetTipPositions[3][2], Pose requestedTargetPose, double timeToPose, bool moveLegsSequentially)
+bool PoseController::updateStance(Vector3d targetTipPositions[3][2], Pose requestedTargetPose, double timeToPose, bool moveLegsSequentially)
 {  
   double timeDivisor = moveLegsSequentially ? timeToPose/6.0:timeToPose; //seconds for a leg to move into position
   double timeLimit = moveLegsSequentially ? 6.0:1.0;
@@ -110,7 +110,7 @@ bool PoseController::updatePose(Vector3d targetTipPositions[3][2], Pose requeste
 /***********************************************************************************************************************
  * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
-bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], WalkController walker, double stepSpeed, int mode)
+bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode, double liftHeight, double stepSpeed)
 { 
   if (firstIteration)
   {
@@ -130,15 +130,14 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], WalkContr
   double timeLimit;
   switch (mode)
   {
-    case SEQUENTIAL_MODE:
-      timeLimit = 6.0;
+    case NO_STEP_MODE:
+    case SIMULTANEOUS_MODE:
+      timeLimit = 1.0;
       break;
     case TRIPOD_MODE:
       timeLimit = 2.0;
       break;
-    case SIMULTANEOUS_MODE:
-      timeLimit = 1.0;
-      break;
+    case SEQUENTIAL_MODE:
     default:
       timeLimit = 6.0;
       break;
@@ -159,11 +158,11 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], WalkContr
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
-    { 
+    {   
       //Determine if leg is to be moved this iteration based on mode      
       int currentLegInSequence = -1;
       int currentSideInSequence = -1;
-      if (mode == SIMULTANEOUS_MODE)    //All legs step simultaneously (one step of all legs)
+      if (mode == SIMULTANEOUS_MODE || mode == NO_STEP_MODE)    //All legs step simultaneously (one step of all legs)
       {
         currentLegInSequence  = l;
         currentSideInSequence = s;
@@ -185,10 +184,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], WalkContr
       //Update leg tip position
       if (currentLegInSequence == l && currentSideInSequence == s)
       {      
-        WalkController::LegStepper &legStepper = walker.legSteppers[l][s];
-        
-        Vector3d pos = legStepper.currentTipPosition;
-        double liftHeight = walker.stepClearance * walker.maximumBodyHeight;
+        Vector3d pos;
         
         Vector3d controlNodesPrimary[4];
         Vector3d controlNodesSecondary[4];
@@ -204,26 +200,30 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], WalkContr
         controlNodesPrimary[3] = midTipPositions[l][s];   
         
         //Set accordingly for constant acceleration
-        controlNodesPrimary[2] = (controlNodesPrimary[3] + 2*controlNodesPrimary[0])/3.0;
-        
-        //Set Z component of node to liftheight to make liftheight the max z value
-        controlNodesPrimary[2][2] = originTipPositions[l][s][2] + liftHeight;  
-        
-        //Set Z component of node to liftheight to make liftheight the max z value
-        controlNodesPrimary[3][2] = originTipPositions[l][s][2] + liftHeight;  
+        controlNodesPrimary[2] = (controlNodesPrimary[3] + 2*controlNodesPrimary[0])/3.0;      
         
         //Set equal to primary control node 3 to allow continuity between curves
         controlNodesSecondary[0] = controlNodesPrimary[3];  
         
         //Set as target tip position according to stride vector
-        controlNodesSecondary[3] = targetTipPositions[l][s];        
-        controlNodesSecondary[3][2] = originTipPositions[l][s][2];
+        controlNodesSecondary[3] = targetTipPositions[l][s]; 
         
         //Set equal to secondary node 3 gives zero velocity at touchdown
         controlNodesSecondary[2] = controlNodesSecondary[3];
         
         //Set accordingly so that velocity at end of primary curve equals velocity at begginning of secondary curve
         controlNodesSecondary[1] = (controlNodesSecondary[0] + 2*controlNodesSecondary[2])/3.0;
+        
+        //If stepping assume load bearing leg and return to starting height is required
+        if (mode != NO_STEP_MODE)
+        {
+          controlNodesPrimary[2][2] = originTipPositions[l][s][2] + liftHeight;  
+          controlNodesPrimary[3][2] = originTipPositions[l][s][2] + liftHeight; 
+          controlNodesSecondary[0][2] = originTipPositions[l][s][2] + liftHeight;
+          controlNodesSecondary[1][2] = originTipPositions[l][s][2] + liftHeight;
+          controlNodesSecondary[2][2] = originTipPositions[l][s][2];
+          controlNodesSecondary[3][2] = originTipPositions[l][s][2];
+        }  
         
         //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
         if (fmod(moveToPoseTime,1.0) < 0.5)
@@ -240,54 +240,134 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], WalkContr
       }
     }
   }  
+  model->clampToLimits();
   return false;
 }
 
 /***********************************************************************************************************************
- * Adjusts default body postion to desired height (updates default stance)
+ * Startup sequence
 ***********************************************************************************************************************/
-bool PoseController::adjustToHeight(double desiredHeight, double raiseSpeed)
-{
-  Vector3d controlNodes[4];
+bool PoseController::startUpSequence(double startHeightRatio, double stepHeight)
+{  
+  if (sequenceStep == 1 && startHeightRatio > 0.8)
+    sequenceStep = 3;
   
-  if (firstIteration)
+  bool res = false;
+  switch (sequenceStep)
   {
-    firstIteration = false;
-    for (int l = 0; l<3; l++)
-      for (int s = 0; s<2; s++)
-        originTipPositions[l][s] = model->legs[l][s].localTipPosition;
+    case 1:
+      res = stepToPosition(phase1TipPositions, (startHeightRatio < 0.1) ? SIMULTANEOUS_MODE:SEQUENTIAL_MODE, stepHeight);
+      break;
+    case 2:
+      res = stepToPosition(phase2TipPositions);
+      break;
+    case 3:
+      res = stepToPosition(phase3TipPositions, (startHeightRatio > 0.9) ? TRIPOD_MODE:SEQUENTIAL_MODE, stepHeight);
+      break;
+    case 4:
+      res = stepToPosition(phase4TipPositions);
+      break;
+    case 5:
+      sequenceStep = 1;
+      cout << "Startup sequence completed." << endl;
+      return true;
+    default:
+      return false;
   }
   
-  double deltaT = timeDelta*raiseSpeed;
+  if (res) 
+    sequenceStep++;
+  
+  return false;
+}
 
+/***********************************************************************************************************************
+ * Shutdown sequence
+***********************************************************************************************************************/
+bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight)
+{  
+  bool res = false;
+  switch (sequenceStep)
+  {
+    case 1:
+      res = stepToPosition(phase5TipPositions);
+      break;
+    case 2:
+      res = stepToPosition(phase6TipPositions, SEQUENTIAL_MODE, stepHeight);
+      break;
+    case 3:
+      res = stepToPosition(phase7TipPositions);
+      break;
+    case 4:
+      res = stepToPosition(phase8TipPositions, SIMULTANEOUS_MODE, stepHeight);
+      break;
+    case 5:
+      sequenceStep = 1;
+      cout << "Shutdown sequence completed." << endl;
+      return true;
+    default:      
+      return false;
+  }
+  
+  if (res) 
+    sequenceStep++;
+  
+  return false;
+}
+
+/***********************************************************************************************************************
+ * Calculates tip positions for startup sequence
+***********************************************************************************************************************/
+double PoseController::createStartUpSequence(WalkController walker)
+{  
+  //Get average z position of leg tips
+  double averageTipZ = 0.0;
+  for (int l=0; l<3; l++)
+    for (int s=0; s<2; s++)
+      averageTipZ += model->legs[l][s].localTipPosition[2];
+  averageTipZ /= 6.0;
+  
+  //Ratio of average tip z position to required default tip z position 
+  double startHeightRatio = averageTipZ/walker.identityTipPositions[0][0][2];
+  if (startHeightRatio < 0.0)
+    startHeightRatio = 0.0;
+  
+  double  desKneeAngle = 0.785+asin(model->legs[0][0].femurLength/(model->legs[0][0].tibiaLength*sqrt(2)));
+  Vector3d minStartTipPositions = model->legs[0][0].calculateFK(0.77,0.785,desKneeAngle);
+  double startStanceRatio = minStartTipPositions.squaredNorm()/walker.identityTipPositions[0][0].squaredNorm();
+  
+  double heightScaler = 0.65;
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {
-      controlNodes[0] = originTipPositions[l][s];   
-      controlNodes[3] = originTipPositions[l][s];
-      controlNodes[3][2] = -desiredHeight;
-      controlNodes[1] = controlNodes[0]; 
-      controlNodes[2] = controlNodes[3];
-     
-      Vector3d pos = cubicBezier(controlNodes, moveToPoseTime);
-      model->legs[l][s].applyLocalIK(pos); 
-      model->legs[l][s].applyFK(true);
+      phase1TipPositions[l][s] = walker.identityTipPositions[l][s]*(-(startStanceRatio-1.0)*startHeightRatio+startStanceRatio);
+      phase1TipPositions[l][s][2] = 0.0;
+      
+      phase2TipPositions[l][s] = phase1TipPositions[l][s];
+      phase2TipPositions[l][s][2] = (heightScaler+startHeightRatio*(1-heightScaler))*walker.identityTipPositions[0][0][2];
+      
+      phase3TipPositions[l][s] = walker.identityTipPositions[l][s];
+      
+      phase4TipPositions[l][s] = walker.identityTipPositions[l][s];
+      
+      phase5TipPositions[l][s] = walker.identityTipPositions[l][s];
+      phase5TipPositions[l][s][2] *= 0.7;
+      
+      phase6TipPositions[l][s] = walker.identityTipPositions[l][s]*1.3;
+      phase6TipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
+      
+      phase7TipPositions[l][s] = phase6TipPositions[l][s];
+      phase7TipPositions[l][s][2] = 0.0;
+      
+      double dir = (s==0 ? -1 : 1);
+      Vector3d correctedRootOffsets = Vector3d(dir*model->legs[l][s].rootOffset[0], model->legs[l][s].rootOffset[1], model->legs[l][s].rootOffset[2]); 
+      phase8TipPositions[l][s] =  correctedRootOffsets+dir*model->legs[l][s].hipOffset+dir*model->legs[l][s].kneeOffset+dir*model->legs[l][s].tipOffset;
+      //phase8TipPositions[l][s][2] = hexapod.legs[l][s].femurLength + hexapod.legs[l][s].tibiaLength;      
     }
-  }  
-  
-  if (abs(moveToPoseTime - 1.0) < 1e-3)
-  {
-    moveToPoseTime = 0.0;
-    firstIteration = true;
-    return true;
-  }
-  else 
-  {
-    //Increment time
-    moveToPoseTime += deltaT; 
-    return false;
   } 
+  
+  return startHeightRatio;
 }
 
 /***********************************************************************************************************************

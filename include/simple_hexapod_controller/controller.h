@@ -1,6 +1,8 @@
 #pragma once
 #include "model.h"
 
+//stepToPosition modes
+#define NO_STEP_MODE 0
 #define SIMULTANEOUS_MODE 1
 #define TRIPOD_MODE 2
 #define SEQUENTIAL_MODE 3
@@ -29,6 +31,7 @@ enum LegState
 struct WalkController
 {
   Model *model;
+  
   Pose pose; //DEBUGGING
   
   Parameters params;
@@ -106,6 +109,7 @@ struct WalkController
 struct PoseController
 {
   Model *model;
+  
   Parameters params;
   
   double timeDelta;
@@ -115,13 +119,26 @@ struct PoseController
   Vector3d originTipPositions[3][2];
   Vector3d midTipPositions[3][2];
   
+  //Used in startup and shutdown sequences
+  int sequenceStep = 1;
+  Vector3d phase1TipPositions[3][2];
+  Vector3d phase2TipPositions[3][2];
+  Vector3d phase3TipPositions[3][2];
+  Vector3d phase4TipPositions[3][2];
+  Vector3d phase5TipPositions[3][2];
+  Vector3d phase6TipPositions[3][2];
+  Vector3d phase7TipPositions[3][2];
+  Vector3d phase8TipPositions[3][2];  
+  
   Pose currentPose;
   Pose targetPose;  
   
   PoseController(Model *model, Parameters params);
-  bool updatePose(Vector3d targetTipPositions[3][2], Pose targetPose, double timeToPose, bool moveLegsSequentially=false);
-  bool stepToPosition(Vector3d targetTipPositions[3][2], WalkController walker, double stepSpeed=0.5, int mode=1);
-  bool adjustToHeight(double desiredHeight, double raiseSpeed=0.5);
+  bool updateStance(Vector3d targetTipPositions[3][2], Pose targetPose, double timeToPose, bool moveLegsSequentially=false);
+  bool stepToPosition(Vector3d targetTipPositions[3][2], int mode=0, double stepHeight = 0.0, double stepSpeed=1.0);
+  bool startUpSequence(double startHeightRatio, double stepHeight);
+  bool shutDownSequence(double startHeightRatio, double stepHeight);
+  double createStartUpSequence(WalkController walker); 
   double getPitchCompensation(double phase);
   double getRollCompensation(double phase);
 };
