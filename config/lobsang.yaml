@@ -22,26 +22,26 @@ root_offset_BR: [0.11, 0.0, 0.0] #Middle Right Leg
 root_offset_CL: [0.07, -0.12, 0.0] #Back Left Leg
 root_offset_CR: [0.07, -0.12, 0.0] #Back Right Leg
 
-hip_offset_AL: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Front Left Leg
-hip_offset_AR: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Front Right Leg
-hip_offset_BL: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Middle Left Leg
-hip_offset_BR: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Middle Right Leg
-hip_offset_CL: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Back Left Leg
-hip_offset_CR: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Back Right Leg
+hip_offset_AL: [0.06, 0.0, 0.0] #Front Left Leg
+hip_offset_AR: [0.06, 0.0, 0.0] #Front Right Leg
+hip_offset_BL: [0.06, 0.0, 0.0] #Middle Left Leg
+hip_offset_BR: [0.06, 0.0, 0.0] #Middle Right Leg
+hip_offset_CL: [0.06, 0.0, 0.0] #Back Left Leg
+hip_offset_CR: [0.06, 0.0, 0.0] #Back Right Leg
 
-knee_offset_AL: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Front Left Leg
-knee_offset_AR: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Front Right Leg
-knee_offset_BL: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Middle Left Leg
-knee_offset_BR: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Middle Right Leg
-knee_offset_CL: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Back Left Leg
-knee_offset_CR: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Back Right Leg
+knee_offset_AL: [0.0836, 0.0, 0.0] #Front Left Leg
+knee_offset_AR: [0.0836, 0.0, 0.0] #Front Right Leg
+knee_offset_BL: [0.0836, 0.0, 0.0] #Middle Left Leg
+knee_offset_BR: [0.0836, 0.0, 0.0] #Middle Right Leg
+knee_offset_CL: [0.0836, 0.0, 0.0] #Back Left Leg
+knee_offset_CR: [0.0836, 0.0, 0.0] #Back Right Leg
 
-tip_offset_AL: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Front Left Leg
-tip_offset_AR: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Front Right Leg
-tip_offset_BL: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Middle Left Leg
-tip_offset_BR: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Middle Right Leg
-tip_offset_CL: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Back Left Leg
-tip_offset_CR: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Back Right Leg
+tip_offset_AL: [0.177, 0.0, 0.0] #Front Left Leg
+tip_offset_AR: [0.177, 0.0, 0.0] #Front Right Leg
+tip_offset_BL: [0.177, 0.0, 0.0] #Middle Left Leg
+tip_offset_BR: [0.177, 0.0, 0.0] #Middle Right Leg
+tip_offset_CL: [0.177, 0.0, 0.0] #Back Left Leg
+tip_offset_CR: [0.177, 0.0, 0.0] #Back Right Leg
 
 stance_leg_yaws: [0.77, 0, -0.77]
 physical_yaw_offset: [0.77, 0, -0.77]

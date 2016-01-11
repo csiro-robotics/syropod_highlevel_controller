@@ -364,7 +364,7 @@ double PoseController::createSequence(WalkController walker)
       
       phase4TipPositions[l][s] = walker.identityTipPositions[l][s];
       
-      phase5TipPositions[l][s] = walker.identityTipPositions[l][s];
+      phase5TipPositions[l][s] = model->legs[l][s].localTipPosition;
       phase5TipPositions[l][s][2] *= 0.85;
       
       phase6TipPositions[l][s] = walker.identityTipPositions[l][s]*1.3;
@@ -379,8 +379,7 @@ double PoseController::createSequence(WalkController walker)
                                                model->legs[l][s].rootOffset[2]); 
       phase8TipPositions[l][s] =  correctedRootOffsets+
                                   dir*model->legs[l][s].hipOffset+
-                                  dir*model->legs[l][s].kneeOffset+
-                                  dir*model->legs[l][s].tipOffset;    
+                                  dir*model->legs[l][s].kneeOffset;    
     }
   }   
   return startHeightRatio;

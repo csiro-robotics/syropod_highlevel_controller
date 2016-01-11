@@ -427,7 +427,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.phase = 0;
         localCentreVelocity = Vector2d(0, 0);
         angularVelocity = 0.0;
-        //targets.clear();//DEBUGGING     
+        targets.clear();//DEBUGGING     
         legStepper.strideVector = Vector2d(0, 0);
       } 
     }
