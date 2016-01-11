@@ -23,14 +23,9 @@ const double pi = M_PI; //< easier to read
 struct Parameters
 {
   std::string hexapodType;
-  double timeDelta;
-  bool moveToStart;
-  bool moveLegsSequentially;
-  double timeToStart;
+  double timeDelta;  
   bool imuCompensation;
-  bool autoCompensation;
-  double pitchAmplitude;
-  double rollAmplitude;
+  bool autoCompensation;  
   bool manualCompensation;
 
   //Hexapod Parameters
@@ -39,6 +34,7 @@ struct Parameters
   Vector3d kneeOffset[3][2];
   Vector3d tipOffset[3][2];
   Vector3d stanceLegYaws;
+  Vector3d physicalYawOffset;
   Vector3d yawLimits;
   Vector2d kneeLimits;
   Vector2d hipLimits;
@@ -50,11 +46,26 @@ struct Parameters
   double stepFrequency;
   double stepClearance;
   double bodyClearance;
-  double legSpanScale;  
+  double legSpanScale; 
+  bool legStateCorrection;
   double maxAcceleration;
   double maxCurvatureSpeed;
   double stepCurvatureAllowance;
   double interfaceSetupSpeed;
+  
+  //Pose Controller Parameters
+  bool moveToStart;
+  bool moveLegsSequentially;
+  double timeToStart;
+  double pitchAmplitude;
+  double rollAmplitude;
+  double maxPoseTime;
+  double maxRoll;
+  double maxPitch;
+  double maxYaw;
+  double maxX;
+  double maxY;
+  double maxZ;
   
   //Gait Parameters
   double stancePhase;
@@ -97,6 +108,15 @@ inline T cubicBezier(T *points, double t)
          points[1] * (3.0*t*s*s) +
          points[2] * (3.0*t*t*s) +
          points[3] * (t*t*t);
+}
+
+template <class T>
+inline T cubicBezierDot(T *points, double t)
+{
+  double s = 1.0 - t;
+  return (3*s*s*(points[1]-points[0]) + 
+         6*s*t*(points[2]-points[1]) + 
+         3*t*t*(points[3]-points[2]));                
 }
 
 inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)

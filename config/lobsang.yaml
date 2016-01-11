@@ -6,14 +6,9 @@ hexapod_type: lobsang
 
 time_delta: 0.02
 
-move_to_start: true
-move_legs_sequentially: false
-time_to_start: 5.0
-
+#Compensation
 imu_compensation: false
 auto_compensation: false
-pitch_amplitude: 0.025
-roll_amplitude: 0.025
 manual_compensation: true
 
 gait_type: tripod_gait
@@ -27,31 +22,34 @@ root_offset_BR: [0.11, 0.0, 0.0] #Middle Right Leg
 root_offset_CL: [0.07, -0.12, 0.0] #Back Left Leg
 root_offset_CR: [0.07, -0.12, 0.0] #Back Right Leg
 
-hip_offset_AL: [0.06, 0.0, 0.0] #Front Left Leg
-hip_offset_AR: [0.06, 0.0, 0.0] #Front Right Leg
-hip_offset_BL: [0.06, 0.0, 0.0] #Middle Left Leg
-hip_offset_BR: [0.06, 0.0, 0.0] #Middle Right Leg
-hip_offset_CL: [0.06, 0.0, 0.0] #Back Left Leg
-hip_offset_CR: [0.06, 0.0, 0.0] #Back Right Leg
+hip_offset_AL: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Front Left Leg
+hip_offset_AR: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Front Right Leg
+hip_offset_BL: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Middle Left Leg
+hip_offset_BR: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Middle Right Leg
+hip_offset_CL: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Back Left Leg
+hip_offset_CR: [0.07, 0.0, 0.0] #[0.06, 0.0, 0.0] #Back Right Leg
 
-knee_offset_AL: [0.0836, 0.0, 0.0] #Front Left Leg
-knee_offset_AR: [0.0836, 0.0, 0.0] #Front Right Leg
-knee_offset_BL: [0.0836, 0.0, 0.0] #Middle Left Leg
-knee_offset_BR: [0.0836, 0.0, 0.0] #Middle Right Leg
-knee_offset_CL: [0.0836, 0.0, 0.0] #Back Left Leg
-knee_offset_CR: [0.0836, 0.0, 0.0] #Back Right Leg
+knee_offset_AL: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Front Left Leg
+knee_offset_AR: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Front Right Leg
+knee_offset_BL: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Middle Left Leg
+knee_offset_BR: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Middle Right Leg
+knee_offset_CL: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Back Left Leg
+knee_offset_CR: [0.095, 0.0, 0.0] #[0.0836, 0.0, 0.0] #Back Right Leg
 
-tip_offset_AL: [0.177, 0.0, 0.0] #Front Left Leg
-tip_offset_AR: [0.177, 0.0, 0.0] #Front Right Leg
-tip_offset_BL: [0.177, 0.0, 0.0] #Middle Left Leg
-tip_offset_BR: [0.177, 0.0, 0.0] #Middle Right Leg
-tip_offset_CL: [0.177, 0.0, 0.0] #Back Left Leg
-tip_offset_CR: [0.177, 0.0, 0.0] #Back Right Leg
+tip_offset_AL: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Front Left Leg
+tip_offset_AR: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Front Right Leg
+tip_offset_BL: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Middle Left Leg
+tip_offset_BR: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Middle Right Leg
+tip_offset_CL: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Back Left Leg
+tip_offset_CR: [0.19, 0.0, 0.0] #[0.177, 0.0, 0.0] #Back Right Leg
 
 stance_leg_yaws: [0.77, 0, -0.77]
+physical_yaw_offset: [0.77, 0, -0.77]
+
 yaw_limits: [1.2, 1.2, 1.2]
-knee_limits: [-2.6, 1.8]
 hip_limits: [-1.9,1.9] #CHECK THIS VALUE
+knee_limits: [-2.6, 1.8]
+
 
 joint_max_angular_speeds: [10000,10000,10000] #CHECK THIS VALUE
 
@@ -63,8 +61,10 @@ dynamixel_interface: true
 
 step_frequency: 1.0
 step_clearance: 0.1
-body_clearance: -1.0
+body_clearance: -1.0 #<1.0
 leg_span_scale: 1.0
+
+leg_state_correction: false #DO NOT USE
 
 max_acceleration: 0.1
 max_curvature_speed: 0.4
@@ -72,6 +72,28 @@ max_curvature_speed: 0.4
 step_curvature_allowance: 0.7
 
 interface_setup_speed: 2.5
+
+######################################################################
+# Pose Controller Parameters
+######################################################################
+
+#Move to Start
+move_to_start: true
+move_legs_sequentially: false
+time_to_start: 5.0
+
+#Auto pose compensation
+pitch_amplitude: 0.025
+roll_amplitude: 0.025
+
+#Manual pose compensation  
+max_pose_time: 2.0
+max_roll: 0.075
+max_pitch: -0.075
+max_yaw: 0.2
+max_x: 0.05
+max_y: 0.05
+max_z: 0.05
 
 ######################################################################
 ######################################################################

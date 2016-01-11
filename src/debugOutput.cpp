@@ -118,9 +118,9 @@ void DebugOutput::drawPoints(const vector<Vector3d>& points, const Vector4d &col
   marker.pose.orientation.z = 0.0;
   marker.pose.orientation.w = 1.0; 
   
-  marker.scale.x = 0.05;
-  marker.scale.y = 0.05;
-  marker.scale.z = 0.05;
+  marker.scale.x = 0.005;
+  marker.scale.y = 0.005;
+  marker.scale.z = 0.005;
   
   marker.color.r = colour[0];
   marker.color.g = colour[1];
