@@ -1,5 +1,5 @@
 
-#include "../include/simple_hexapod_controller/controller.h"
+#include "../include/simple_hexapod_controller/poseController.h"
 
 /***********************************************************************************************************************
  * Pose controller contructor
@@ -17,7 +17,10 @@ PoseController::PoseController(Model *model, Parameters p):
  * Updates default stance tip positions according to desired pose at desired speed
  * This is then later used in walk controller where inverse kinematics are applied
 ***********************************************************************************************************************/
-bool PoseController::updateStance(Vector3d targetTipPositions[3][2], Pose requestedTargetPose, double timeToPose, bool moveLegsSequentially)
+bool PoseController::updateStance(Vector3d targetTipPositions[3][2], 
+                                  Pose requestedTargetPose, 
+                                  double timeToPose, 
+                                  bool moveLegsSequentially)
 {  
   double timeDivisor = moveLegsSequentially ? timeToPose/6.0:timeToPose; //seconds for a leg to move into position
   double timeLimit = moveLegsSequentially ? 6.0:1.0;
@@ -110,11 +113,12 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2], Pose reques
 /***********************************************************************************************************************
  * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
-bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode, double liftHeight, double stepSpeed)
+bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mode, double liftHeight, double stepSpeed)
 { 
   if (firstIteration)
   {
     firstIteration = false;
+    moveToPoseTime = 0.0;
     for (int l = 0; l<3; l++)
     {
       for (int s = 0; s<2; s++)
@@ -143,9 +147,8 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
       break;
   }
   
-  if (abs(moveToPoseTime + deltaT - timeLimit) < 1e-3)
-  {
-    moveToPoseTime = 0.0;
+  if (abs(moveToPoseTime + deltaT - timeLimit) < 1e-3 || moveToPoseTime > timeLimit)
+  {    
     firstIteration = true;
     return true;
   }
@@ -196,7 +199,8 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
         //Set equal to node 1 gives zero velocity at liftoff
         controlNodesPrimary[1] = controlNodesPrimary[0];    
         
-        //Set equal to mid trajectory position so that max liftheight and transition to 2nd bezier curve occurs halfway along trajectory
+        //Set equal to mid trajectory position so that max liftheight and 
+        //transition to 2nd bezier curve occurs halfway along trajectory
         controlNodesPrimary[3] = midTipPositions[l][s];   
         
         //Set accordingly for constant acceleration
@@ -228,7 +232,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
         //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
         if (fmod(moveToPoseTime,1.0) < 0.5)
         {
-          pos = cubicBezier(controlNodesPrimary, fmod(moveToPoseTime,1.0)*2.0);
+          pos = cubicBezier(controlNodesPrimary, fmod(moveToPoseTime,1.0)*2.0);          
         }
         else
         {
@@ -247,29 +251,36 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
 /***********************************************************************************************************************
  * Startup sequence
 ***********************************************************************************************************************/
-bool PoseController::startUpSequence(double startHeightRatio, double stepHeight)
+bool PoseController::startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode)
 {  
+  int mode;
+  if (forceSequentialMode)
+    mode = SEQUENTIAL_MODE;
+  else if (sequenceStep == 1)
+    mode = startHeightRatio < 0.1 ? SIMULTANEOUS_MODE:SEQUENTIAL_MODE;
+  else if (sequenceStep == 3)
+    mode = startHeightRatio > 0.8 ? TRIPOD_MODE:SEQUENTIAL_MODE;
+  
   if (sequenceStep == 1 && startHeightRatio > 0.8)
-    sequenceStep = 3;
+    sequenceStep = 3;    
   
   bool res = false;
   switch (sequenceStep)
   {
     case 1:
-      res = stepToPosition(phase1TipPositions, (startHeightRatio < 0.1) ? SIMULTANEOUS_MODE:SEQUENTIAL_MODE, stepHeight);
+      res = stepToPosition(phase1TipPositions, mode, stepHeight);
       break;
     case 2:
       res = stepToPosition(phase2TipPositions);
       break;
     case 3:
-      res = stepToPosition(phase3TipPositions, (startHeightRatio > 0.9) ? TRIPOD_MODE:SEQUENTIAL_MODE, stepHeight);
+      res = stepToPosition(phase3TipPositions, mode, stepHeight);
       break;
     case 4:
       res = stepToPosition(phase4TipPositions);
       break;
     case 5:
       sequenceStep = 1;
-      cout << "Startup sequence completed." << endl;
       return true;
     default:
       return false;
@@ -284,7 +295,7 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight)
 /***********************************************************************************************************************
  * Shutdown sequence
 ***********************************************************************************************************************/
-bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight)
+bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode)
 {  
   bool res = false;
   switch (sequenceStep)
@@ -303,7 +314,6 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
       break;
     case 5:
       sequenceStep = 1;
-      cout << "Shutdown sequence completed." << endl;
       return true;
     default:      
       return false;
@@ -316,9 +326,9 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
 }
 
 /***********************************************************************************************************************
- * Calculates tip positions for startup sequence
+ * Calculates tip positions for startup/shutdown sequences
 ***********************************************************************************************************************/
-double PoseController::createStartUpSequence(WalkController walker)
+double PoseController::createSequence(WalkController walker)
 {  
   //Get average z position of leg tips
   double averageTipZ = 0.0;
@@ -332,27 +342,30 @@ double PoseController::createStartUpSequence(WalkController walker)
   if (startHeightRatio < 0.0)
     startHeightRatio = 0.0;
   
-  double  desKneeAngle = 0.785+asin(model->legs[0][0].femurLength/(model->legs[0][0].tibiaLength*sqrt(2)));
-  Vector3d minStartTipPositions = model->legs[0][0].calculateFK(0.77,0.785,desKneeAngle);
+  double liftAngle = pi/3;
+  double  desKneeAngle = liftAngle+asin(model->legs[0][0].femurLength/(model->legs[0][0].tibiaLength*sqrt(2)));
+  Vector3d minStartTipPositions = model->legs[0][0].calculateFK(0.77,liftAngle,desKneeAngle);
   double startStanceRatio = minStartTipPositions.squaredNorm()/walker.identityTipPositions[0][0].squaredNorm();
-  
-  double heightScaler = 0.65;
+ 
+  double heightScaler = 0.85;
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {
-      phase1TipPositions[l][s] = walker.identityTipPositions[l][s]*(-(startStanceRatio-1.0)*startHeightRatio+startStanceRatio);
+      double positionScaler = (-(startStanceRatio-1.0)*startHeightRatio+startStanceRatio);
+      phase1TipPositions[l][s] = walker.identityTipPositions[l][s]*positionScaler;
       phase1TipPositions[l][s][2] = 0.0;
       
       phase2TipPositions[l][s] = phase1TipPositions[l][s];
       phase2TipPositions[l][s][2] = (heightScaler+startHeightRatio*(1-heightScaler))*walker.identityTipPositions[0][0][2];
       
       phase3TipPositions[l][s] = walker.identityTipPositions[l][s];
+      phase3TipPositions[l][s][2] = phase2TipPositions[l][s][2];
       
       phase4TipPositions[l][s] = walker.identityTipPositions[l][s];
       
       phase5TipPositions[l][s] = walker.identityTipPositions[l][s];
-      phase5TipPositions[l][s][2] *= 0.7;
+      phase5TipPositions[l][s][2] *= 0.85;
       
       phase6TipPositions[l][s] = walker.identityTipPositions[l][s]*1.3;
       phase6TipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
@@ -361,13 +374,25 @@ double PoseController::createStartUpSequence(WalkController walker)
       phase7TipPositions[l][s][2] = 0.0;
       
       double dir = (s==0 ? -1 : 1);
-      Vector3d correctedRootOffsets = Vector3d(dir*model->legs[l][s].rootOffset[0], model->legs[l][s].rootOffset[1], model->legs[l][s].rootOffset[2]); 
-      phase8TipPositions[l][s] =  correctedRootOffsets+dir*model->legs[l][s].hipOffset+dir*model->legs[l][s].kneeOffset+dir*model->legs[l][s].tipOffset;
-      //phase8TipPositions[l][s][2] = hexapod.legs[l][s].femurLength + hexapod.legs[l][s].tibiaLength;      
+      Vector3d correctedRootOffsets = Vector3d(model->legs[l][s].rootOffset[0]*dir, 
+                                               model->legs[l][s].rootOffset[1], 
+                                               model->legs[l][s].rootOffset[2]); 
+      phase8TipPositions[l][s] =  correctedRootOffsets+
+                                  dir*model->legs[l][s].hipOffset+
+                                  dir*model->legs[l][s].kneeOffset+
+                                  dir*model->legs[l][s].tipOffset;    
     }
-  } 
-  
+  }   
   return startHeightRatio;
+}
+
+/***********************************************************************************************************************
+ * Reset sequence step
+***********************************************************************************************************************/
+void PoseController::resetSequence(void)
+{
+  sequenceStep = 1;
+  firstIteration = true;
 }
 
 /***********************************************************************************************************************

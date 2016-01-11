@@ -1,6 +1,9 @@
 
 #include "../include/simple_hexapod_controller/model.h"
 
+/***********************************************************************************************************************
+ * Initialises leg by calculating leg component lengths and applying forward kinematics for tip position
+***********************************************************************************************************************/
 void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
 {
   yaw = startYaw;
@@ -11,12 +14,17 @@ void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
   femurAngleOffset = atan2(kneeOffset[2], kneeOffset[0]);
   tibiaLength = tipOffset.norm();
   tibiaAngleOffset = atan2(tipOffset[2], tipOffset[0]);
-  minLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(max(0.0, pi-model->minMaxKneeBend[1]))); 
-  maxLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 2.0*femurLength*tibiaLength*cos(pi-max(0.0, model->minMaxKneeBend[0]))); 
+  minLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 
+    2.0*femurLength*tibiaLength*cos(max(0.0, pi-model->minMaxKneeBend[1]))); 
+  maxLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 
+    2.0*femurLength*tibiaLength*cos(pi-max(0.0, model->minMaxKneeBend[0]))); 
   applyFK(true);
 }
 
-void Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
+/***********************************************************************************************************************
+ * Applies inverse kinematics to achieve target tip position
+***********************************************************************************************************************/
+Vector3d Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
 {
   // application of cosine rule
   Vector3d target = tipTarget;
@@ -42,12 +50,19 @@ void Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
   ASSERT(abs(kneeAngle) < 7.0);
   
   Vector3d resultTipPosition = applyFK(updateStance);
-  Vector3d diffVec = resultTipPosition - tipTarget;
-  double diff = diffVec.squaredNorm();
-  if (diff > 1e-3)
-    cout << "ERROR: " << diff << endl;
+  
+  //This error occurs due to an imperfect vector rotation algorithm
+  Vector3d diffVec = resultTipPosition - tipTarget;  
+  //if (diffVec[0] > 1e-3 || diffVec[1] > 1e-3 || diffVec[2] > 1e-3)
+  //  cout << "FORWARD KINEMATICS ERROR: " << diffVec[0] << ":" << diffVec[1] << ":" << diffVec[2] << endl;
+  
+  Vector3d jointPositions = {yaw, liftAngle, kneeAngle};
+  return jointPositions;
 }
 
+/***********************************************************************************************************************
+ * Applies forward kinematics
+***********************************************************************************************************************/
 Vector3d Leg::applyFK(bool updateStance)
 {
   localTipPosition = calculateFK(yaw, liftAngle, kneeAngle);
@@ -56,6 +71,9 @@ Vector3d Leg::applyFK(bool updateStance)
   return localTipPosition;
 }
 
+/***********************************************************************************************************************
+ * Calculates forward kinematics
+***********************************************************************************************************************/
 Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
 {
   Vector3d tipPosition;
@@ -64,11 +82,13 @@ Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
   tipPosition = Quat(Vector3d(0, -liftAngle, 0)).rotateVector(tipPosition) + hipOffset;
   tipPosition = Quat(Vector3d(0, 0, yaw)).rotateVector(tipPosition) + rootOffset;
   tipPosition[0] *= mirrorDir;
+  
   return tipPosition;
 }
 
-
-// defines the hexapod model
+/***********************************************************************************************************************
+ * Defines hexapod model
+***********************************************************************************************************************/
 Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitAroundStance(params.yawLimits), minMaxKneeBend(params.kneeLimits), minMaxHipLift(params.hipLimits)
 {
   for (int l = 0; l<3; l++)
@@ -88,11 +108,17 @@ Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitA
   jointMaxAngularSpeeds = Vector3d(1e10,1e10,1e10);
 }
 
+/***********************************************************************************************************************
+ * Set individual leg joint angles
+***********************************************************************************************************************/
 void Model::setLegStartAngles(int side, int leg, const Vector3d &startAngles)
 {
   legs[leg][side].init(startAngles[0], startAngles[1], startAngles[2]);
 }
 
+/***********************************************************************************************************************
+ * Get locally referenced position values for location of joints from pose (root, hip, knee, tip)
+***********************************************************************************************************************/
 vector<Vector3d> Model::getJointPositions(const Pose &pose)
 {
   vector<Vector3d> positions;
@@ -116,6 +142,9 @@ vector<Vector3d> Model::getJointPositions(const Pose &pose)
   return positions;
 }
 
+/***********************************************************************************************************************
+ * Restrict joint angles to limits
+***********************************************************************************************************************/
 void Model::clampToLimits()
 {
   // clamp angles and alert if a limit has been hit
@@ -157,3 +186,7 @@ void Model::clampToLimits()
     }
   }
 }
+
+/***********************************************************************************************************************
+***********************************************************************************************************************/
+

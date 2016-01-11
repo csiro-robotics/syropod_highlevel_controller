@@ -1,9 +1,9 @@
-#include "../include/simple_hexapod_controller/controller.h"
+#include "../include/simple_hexapod_controller/walkController.h"
 
 /***********************************************************************************************************************
  * Deccelerates on approaching the ground during a step, allowing a softer landing.
- * as such, the swing phase is made from two time-symmetrical cubics and
- * the stance phase is linear with a shorter cubic acceleration prior to lifting off the ground
+ * as such, the swing phase is made from dual cubic bezier curves and
+ * all other phases linear.
 ***********************************************************************************************************************/
 Vector3d WalkController::LegStepper::updatePosition(Leg leg,
                                                     double liftHeight, 
@@ -18,13 +18,14 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
   double swingStart = stancePhase*0.5 + transitionPeriod*0.5;
   double swingEnd = stancePhase*0.5 + swingPhase - transitionPeriod*0.5;
   double swingMid = (swingStart + swingEnd)/2;
-  
-  double landSpeed = liftHeight*0.5;
-  
+   
+  /*
+  //OLD TIP TRAJECTORY METHOD
   // Swing Phase
+  double landSpeed = liftHeight*0.5;
   if (state == SWING)
   {
-    /*
+    
     // X and Y components of trajectory   
     Vector3d nodes[4];
     nodes[0] = currentTipPosition;
@@ -43,7 +44,11 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
     pos[2] = defaultTipPosition[2] + deltaZ;
     
     ASSERT(pos.squaredNorm() < 1000.0);
-    */
+  */
+    
+  // Swing Phase
+  if (state == SWING)
+  {
     Vector3d controlNodesPrimary[4];
     Vector3d controlNodesSecondary[4];
     
@@ -54,60 +59,51 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
       firstIteration = false;
     }
     
-    //Control nodes for dual 3d cubic bezier curves
-    //Set as initial tip position
-    controlNodesPrimary[0] = originTipPosition; 
+    //Control nodes for dual cubic bezier curves
+    //Primary Bezier curve
+    controlNodesPrimary[0] = originTipPosition;         //Set as initial tip position       
+    controlNodesPrimary[1] = controlNodesPrimary[0];    //Set equal to node 1 gives zero velocity at liftoff   
+    controlNodesPrimary[3] = defaultTipPosition;        //Set equal to default tip position so that max liftheight and transition to 2nd bezier curve occurs at default tip position    
+    controlNodesPrimary[3][2] += liftHeight;            //Set Z component of node to liftheight to make liftheight the max z value
+    double retrograde = 0.1;                            //Adds retrograde component to tip trajectory
+    controlNodesPrimary[2] = originTipPosition-retrograde*((defaultTipPosition + strideVec*0.5) - originTipPosition);
+    //ALTERNATIVE OPTION //controlNodesPrimary[2] = (controlNodesPrimary[3] + 2*controlNodesPrimary[0])/3.0; //Set accordingly for constant acceleration
+    controlNodesPrimary[2][2] = controlNodesPrimary[3][2];  //Set Z component of node to liftheight to make liftheight the max z value
+     
+    //Secondary Bezier curve
+    controlNodesSecondary[0] = controlNodesPrimary[3];                  //Set to allow continuity between curves 
+    controlNodesSecondary[3] = defaultTipPosition + strideVec*0.5;      //Set as target tip position according to stride vector
+    controlNodesSecondary[2] = controlNodesSecondary[3];                //Set equal to secondary node 3 gives zero velocity at touchdown
+    controlNodesSecondary[1] = 2*controlNodesSecondary[0] - controlNodesPrimary[2];  //Set accordingly so that velocity at end of primary curve equals velocity at begginning of secondary curve
+    //ALTERNATIVE OPTION //controlNodesSecondary[1] = (controlNodesSecondary[0] + 2*controlNodesSecondary[2])/3.0; //Set accordingly for constant acceleration
     
-    //Set equal to node 1 gives zero velocity at liftoff
-    controlNodesPrimary[1] = controlNodesPrimary[0];    
-    
-    //Set equal to default tip position so that max liftheight and transition to 2nd bezier curve occurs at default tip position
-    controlNodesPrimary[3] = defaultTipPosition;   
-    
-    //Set accordingly for constant acceleration
-    //double retrograde = 0.0;
-    //controlNodesPrimary[2] = originTipPosition - retrograde*((defaultTipPosition + strideVec*0.5) - originTipPosition);  
-    controlNodesPrimary[2] = (controlNodesPrimary[3] + 2*controlNodesPrimary[0])/3.0;
-    
-    //Set Z component of node to liftheight to make liftheight the max z value
-    controlNodesPrimary[2][2] = defaultTipPosition[2] + liftHeight;  
-    
-    //Set Z component of node to liftheight to make liftheight the max z value
-    controlNodesPrimary[3][2] = defaultTipPosition[2] + liftHeight;  
-    
-    //Set equal to primary control node 3 to allow continuity between curves
-    controlNodesSecondary[0] = controlNodesPrimary[3];  
-    
-    //Set as target tip position according to stride vector
-    controlNodesSecondary[3] = defaultTipPosition + strideVec*0.5;
-    
-    //Set equal to secondary node 3 gives zero velocity at touchdown
-    controlNodesSecondary[2] = controlNodesSecondary[3];
-    
-    //Set accordingly so that velocity at end of primary curve equals velocity at begginning of secondary curve
-    //controlNodesSecondary[1] = 2*controlNodesSecondary[0] - controlNodesPrimary[2];
-    controlNodesSecondary[1] = (controlNodesSecondary[0] + 2*controlNodesSecondary[2])/3.0;
-    
-    Vector3d deltaPos;  
+    //Vector3d deltaPos;  
     Vector3d Pos;
     double deltaT = (stancePhase + swingPhase)*stepFrequency*timeDelta/(0.5*(swingEnd-swingStart));
     
     //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
+    double tPrimary;
+    double tSecondary;
     if (phase <= swingMid)
     {
-      double tPrimary = (phase-swingStart)/(swingMid-swingStart);
-      deltaPos = deltaT*cubicBezierDot(controlNodesPrimary, tPrimary);
+      tPrimary = (phase-swingStart)/(swingMid-swingStart)+deltaT;
+      //deltaPos = deltaT*cubicBezierDot(controlNodesPrimary, tPrimary);
       Pos = cubicBezier(controlNodesPrimary, tPrimary);
     }
     else if (phase > swingMid)
     {
-      double tSecondary = (phase-swingMid)/(swingEnd-swingMid);
-      deltaPos = deltaT*cubicBezierDot(controlNodesSecondary, tSecondary);
+      tSecondary = (phase-swingMid)/(swingEnd-swingMid)+deltaT;
+      //deltaPos = deltaT*cubicBezierDot(controlNodesSecondary, tSecondary);
       Pos = cubicBezier(controlNodesSecondary, tSecondary);
     }
-   
+  
     //pos += deltaPos;
-    pos = Pos; 
+    pos = Pos;
+    
+    //DEBUGGING
+    //cout << "TIME: " << tPrimary << ":" << tSecondary << "\t\tORIGIN: " << originTipPosition[0] << ":" << originTipPosition[1] << ":" << originTipPosition[2] << "\t\tPOS: " << pos[0] << ":" << pos[1] << ":" << pos[2] << "\t\tTARGET: " << controlNodesSecondary[3][0] << ":" << controlNodesSecondary[3][1] << ":" << controlNodesSecondary[3][2] << endl; 
+    //DEBUGGING
+    
   }  
   // Stance phase
   else if (state == STANCE)
@@ -244,7 +240,7 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
     ASSERT(rad > 0.0); // cannot have negative radius
 
     // we should also take into account the stepClearance not getting too high for the leg to reach
-    double legTipBodyClearance = max(0.0, bodyClearance - params.stepCurvatureAllowance*stepClearance)*maximumBodyHeight; 
+    double legTipBodyClearance = max(0.0, bodyClearance-params.stepCurvatureAllowance*stepClearance)*maximumBodyHeight; 
     
     // if footprint radius due to lift is smaller due to yaw limits, reduce this minimum radius
     if (legTipBodyClearance < leg.minLegLength)
@@ -322,10 +318,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   //update stepFrequency
   stepFrequency = params.stepFrequency*stepFrequencyMultiplier;
   
-  //DEBUGGING
-  targets.clear();
-  //DEBUGGING
-  
   double onGroundRatio = (params.stancePhase+params.transitionPeriod)/(params.stancePhase + params.swingPhase);
   
   Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*stepFrequency/onGroundRatio;
@@ -350,6 +342,8 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   if (diffLength > 0.0)
     localCentreVelocity += diff * min(1.0, params.maxAcceleration*timeDelta/diffLength); 
   
+  
+  //State transitions for robot state machine.
   // State transition: STOPPED->STARTING
   if (state == STOPPED && !isMoving && normalSpeed)
     state = STARTING;
@@ -375,7 +369,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
     state = STOPPED;
   }  
    
-  //Phase iteration
+  //Robot State Machine
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -433,7 +427,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.phase = 0;
         localCentreVelocity = Vector2d(0, 0);
         angularVelocity = 0.0;
-        
+        //targets.clear();//DEBUGGING     
         legStepper.strideVector = Vector2d(0, 0);
       } 
     }
@@ -452,11 +446,15 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       double swingEnd = stanceStart - legStepper.transitionPeriod*0.5;
         
       if (legStepper.phase > stanceEnd && legStepper.phase < swingStart)
-      {
+      {        
         legStepper.state = SWING_TRANSITION;
       }
       else if (legStepper.phase > swingStart && legStepper.phase < swingEnd)
       {
+        //DEBUGGING
+        if (s==0 && l==0 && legStepper.state != SWING)
+          staticTargets.clear();
+        //DEBUGGING
         legStepper.state = SWING; 
         if (params.legStateCorrection)
         {
@@ -469,13 +467,13 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.state = STANCE_TRANSITION;
       }
       else
-      {
+      {        
         legStepper.state = STANCE; 
         if (params.legStateCorrection)
         {
           if (!legStepper.tipTouchdown)
             legStepper.state = LIFTOFF_CORRECTION;     
-        }
+        }        
       }
     }
   }
@@ -494,16 +492,17 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
       
       double liftHeight = stepClearance*maximumBodyHeight;
-      legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, localCentreVelocity, angularVelocity, stepFrequency, timeDelta);      
-      
-      leg.applyLocalIK(legStepper.currentTipPosition, false);
+      legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, 
+                                                                localCentreVelocity, 
+                                                                angularVelocity, 
+                                                                stepFrequency, 
+                                                                timeDelta); 
+      leg.applyLocalIK(legStepper.currentTipPosition);  
       
       //DEBUGGING
-      double liftOff = (params.stancePhase + params.transitionPeriod)*0.5;
-      double touchDown = (params.stancePhase*0.5 + params.swingPhase) - params.transitionPeriod*0.5;
-      if ((legStepper.phase < liftOff) || (legStepper.phase > touchDown))
-        targets.push_back(pose.transformVector(legStepper.currentTipPosition)); 
-      //DEBUGGING      
+      //staticTargets.push_back(model->legs[0][0].localTipPosition);
+      //targets.push_back(pose.transformVector(leg.localTipPosition)); 
+      //DEBUGGING
     }
   }  
   

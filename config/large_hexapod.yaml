@@ -8,8 +8,8 @@ time_delta: 0.02
 
 #Compensation
 imu_compensation: false
-auto_compensation: false
-manual_compensation: true
+auto_compensation: true
+manual_compensation: false
 
 gait_type: wave_gait
 
@@ -78,8 +78,8 @@ interface_setup_speed: 0.5
 
 #Move to Start
 move_to_start: true
-move_legs_sequentially: false
-time_to_start: 5.0
+move_legs_sequentially: true
+time_to_start: 12.0
 
 #Auto pose compensation
 pitch_amplitude: 0.03

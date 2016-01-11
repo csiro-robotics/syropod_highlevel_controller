@@ -23,7 +23,7 @@ struct Leg
 
   void init(double startYaw, double startLiftAngle, double startKneeAngle);
   // sets angles to reach local position relative to root
-  void applyLocalIK(Vector3d tipTarget, bool updateStance = false);
+  Vector3d applyLocalIK(Vector3d tipTarget, bool updateStance = false);
   void applyWorldIK(const Pose &rootPose, const Vector3d &worldTipTarget){ applyLocalIK(rootPose.inverseTransformVector(worldTipTarget)); }
   // works out local tip position from angles
   Vector3d applyFK(bool updateStance = false);
@@ -57,5 +57,6 @@ struct Model
   Vector3d jointMaxAngularSpeeds;
   void setLegStartAngles(int side, int leg, const Vector3d &startAngles);
   vector<Vector3d> getJointPositions(const Pose &pose);
+  vector<Vector3d> getJointPositions(vector<Vector3d> tipPositions);
   void clampToLimits();
 };
