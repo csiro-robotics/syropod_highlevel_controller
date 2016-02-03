@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
     }     
      
     //Run designed startup/shutdown sequences
-    if (true)//params.moveToStart)
+    if (params.moveToStart)
     {
       if (startFlag && !startUpComplete) 
       {     
