@@ -444,8 +444,13 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       double stanceStart = legStepper.stancePhase*0.5 + legStepper.swingPhase;
       double swingStart = stanceEnd + legStepper.transitionPeriod*0.5;
       double swingEnd = stanceStart - legStepper.transitionPeriod*0.5;
-        
-      if (legStepper.phase > stanceEnd && legStepper.phase < swingStart)
+       
+      
+      if (l==1)
+      {
+        legStepper.state = NOT_WALKING;
+      }
+      else if (legStepper.phase > stanceEnd && legStepper.phase < swingStart)
       {        
         legStepper.state = SWING_TRANSITION;
       }

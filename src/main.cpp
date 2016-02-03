@@ -38,11 +38,14 @@ static double stepFrequencyMultiplier = 1.0;
 
 double pIncrement=0;
 
+bool firstIteration2= true;
+
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
 double jointPositions[18];
 bool jointPosFlag = false;
 bool startFlag = false;
+bool testPose = false;
 
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
@@ -51,7 +54,7 @@ void imuControllerIncrement(const sensor_msgs::Joy &bButton);
 void startCallback(const std_msgs::Bool &startBool);
 
 void jointStatesCallback(const sensor_msgs::JointState &joint_States);
-void getParameters(ros::NodeHandle n, Parameters *params);
+void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait);
 
 /***********************************************************************************************************************
  * Main
@@ -75,7 +78,8 @@ int main(int argc, char* argv[])
   //Get parameters from rosparam via loaded config file
   Parameters params;
   pParams = &params;
-  getParameters(n, &params);
+  std::string forceGait; //Feed empty string for unforced gait choice
+  getParameters(n, &params, forceGait);
   
   ros::Rate r(roundToInt(1.0/params.timeDelta));         //frequency of the loop. 
   
@@ -154,6 +158,7 @@ int main(int argc, char* argv[])
   //Startup/Shutdown variables
   bool startUpComplete = false;
   bool shutDownComplete = true;
+  bool testPoseComplete = false;
   double heightRatio;
   double stepHeight;
   bool startUpFirstIteration = true;
@@ -177,19 +182,19 @@ int main(int argc, char* argv[])
                    pIncrement, params.timeDelta);
     }
     //Automatic (non-feedback) compensation
-    else if (params.autoCompensation)    {
-      
+    else if (params.autoCompensation)    
+    {      
       double pitch = poser.getPitchCompensation(walker.legSteppers[0][0].phase);
       double roll = poser.getRollCompensation(walker.legSteppers[0][0].phase);  
       if (params.gaitType == "wave_gait")
-        adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
+        adjust = Pose(Vector3d(0,0,0), Quat(1,-0.025,-0.025,0));
       else if (params.gaitType == "tripod_gait")
         adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
     }    
     //Manual (joystick controlled) body compensation 
     else if (params.manualCompensation)
     {          
-      adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
+      adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,-0.025,-0.025,0));
     }     
      
     //Run designed startup/shutdown sequences
@@ -255,9 +260,23 @@ int main(int argc, char* argv[])
           cout << "Startup sequence complete. \nReady to walk." << endl;
       }
     } 
+    
+    if (testPose && !testPoseComplete)
+    {
+      if (firstIteration2)
+      {        
+        getParameters(n, &params, "wave_gait");
+        params.autoCompensation = true;
+        params.manualCompensation = false;
+        params.stepFrequency*=0.1;
+        walker = WalkController(&hexapod, params);
+        firstIteration2= false;
+      }      
+      testPoseComplete = poser.testSequence(walker.stepClearance*walker.maximumBodyHeight);
+    }
       
     //Update walker and poser
-    if (startUpComplete && !shutDownComplete)
+    if (startUpComplete && !shutDownComplete && !testPoseComplete)
     {  
       double poseTime = params.manualCompensation ? poseTimeJoy : 0.0;
       poser.updateStance(walker.identityTipPositions, adjust, poseTime);
@@ -341,10 +360,12 @@ void imuControllerIncrement(const sensor_msgs::Joy &gainAdjust)
   if(gainAdjust.axes[7]==1)
   {
     pIncrement += 0.1;
+    testPose = true;
   } 
   if(gainAdjust.axes[7]==-1)
   {
     pIncrement -= 0.1;
+    testPose = false;
   }    
 }
 
@@ -464,7 +485,7 @@ void jointStatesCallback(const sensor_msgs::JointState &joint_States)
 /***********************************************************************************************************************
  * Gets hexapod parameters from rosparam server
 ***********************************************************************************************************************/
-void getParameters(ros::NodeHandle n, Parameters *params)
+void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait)
 {
   std::string paramString;
   
@@ -978,11 +999,18 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   } 
   
   /********************************************************************************************************************/
-  // Gait Parameters  
-  if (!n.getParam("gait_type", params->gaitType))
+  // Gait Parameters 
+  if (forceGait.empty())
   {
-    cout << "Error reading parameter/s (gaitType) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    if (!n.getParam("gait_type", params->gaitType))
+    {
+      cout << "Error reading parameter/s (gaitType) from rosparam" <<endl; 
+      cout << "Check config file is loaded and type is correct" << endl;
+    }
+  }
+  else
+  {
+    params->gaitType = forceGait;
   }
   
   paramString = params->gaitType+"_parameters/stance_phase";
