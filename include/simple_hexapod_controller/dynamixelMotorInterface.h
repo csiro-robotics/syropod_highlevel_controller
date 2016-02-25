@@ -9,7 +9,7 @@
 class DynamixelMotorInterface : public MotorInterface
 {
 public:
-  DynamixelMotorInterface() : publishers(3, vector<vector<ros::Publisher> >(2,vector<ros::Publisher>(3))), angles(3, vector<vector<double > >(2, vector<double >(3)))
+  DynamixelMotorInterface() : publishers(3, vector<vector<ros::Publisher> >(2,vector<ros::Publisher>(5))), angles(3, vector<vector<double > >(2, vector<double >(5)))
   {
     setupPublishers();
   }

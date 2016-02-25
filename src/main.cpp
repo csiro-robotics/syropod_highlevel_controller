@@ -282,8 +282,10 @@ int main(int argc, char* argv[])
       for (int l = 0; l<3; l++)
       {            
         double yaw = dir*(walker.model->legs[l][s].yaw - params.physicalYawOffset[l]);
+        double tilt = 0.0; //TBD
         double lift = dir*walker.model->legs[l][s].liftAngle;
         double knee = dir*walker.model->legs[l][s].kneeAngle;
+        double ankle = 0.0; //TBD
         
         if (false) // !firstFrame)
         {
@@ -316,8 +318,10 @@ int main(int argc, char* argv[])
         }
         
         interface->setTargetAngle(l, s, 0, yaw);
-        interface->setTargetAngle(l, s, 1, -lift);
-        interface->setTargetAngle(l, s, 2, knee);
+        interface->setTargetAngle(l, s, 1, tilt);
+        interface->setTargetAngle(l, s, 2, -lift);
+        interface->setTargetAngle(l, s, 3, knee);
+        interface->setTargetAngle(l, s, 4, ankle);
         
         walker.model->legs[l][s].debugOldYaw = yaw;
         walker.model->legs[l][s].debugOldLiftAngle = lift;
