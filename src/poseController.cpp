@@ -61,17 +61,20 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
     
     Leg &leg = model->legs[l][s]; 
     
-    Vector3d currentTipPosition = originTipPositions[l][s];
-    Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
-    
-    Vector3d nodes[4];
-    nodes[0] = currentTipPosition;
-    nodes[1] = nodes[0];
-    nodes[3] = targetTipPosition;
-    nodes[2] = nodes[3];
-    
-    Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
-    leg.stanceTipPosition += deltaPos;
+    if (leg.state == WALKING)
+    {    
+      Vector3d currentTipPosition = originTipPositions[l][s];
+      Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
+      
+      Vector3d nodes[4];
+      nodes[0] = currentTipPosition;
+      nodes[1] = nodes[0];
+      nodes[3] = targetTipPosition;
+      nodes[2] = nodes[3];
+      
+      Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
+      leg.stanceTipPosition += deltaPos;
+    }
   }
   else
   {   
@@ -81,17 +84,20 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
       {
         Leg &leg = model->legs[l][s]; 
         
-        Vector3d currentTipPosition = originTipPositions[l][s];
-        Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
-        
-        Vector3d nodes[4];
-        nodes[0] = currentTipPosition;
-        nodes[1] = nodes[0];
-        nodes[3] = targetTipPosition;
-        nodes[2] = nodes[3];
-        
-        Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
-        leg.stanceTipPosition += deltaPos;
+        if (leg.state == WALKING)
+        {        
+          Vector3d currentTipPosition = originTipPositions[l][s];
+          Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
+          
+          Vector3d nodes[4];
+          nodes[0] = currentTipPosition;
+          nodes[1] = nodes[0];
+          nodes[3] = targetTipPosition;
+          nodes[2] = nodes[3];
+          
+          Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
+          leg.stanceTipPosition += deltaPos;
+        }
       }
     }
   }  
@@ -360,6 +366,7 @@ bool PoseController::testSequence(double stepHeight)
       break;
     case 3:
       sequenceStep = 1;
+      currentPose = Pose::identity();
       return true;
     default:      
       return false;

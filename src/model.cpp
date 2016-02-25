@@ -103,6 +103,7 @@ Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitA
       leg.tipOffset  = params.tipOffset[l][s];
       leg.mirrorDir = s ? 1 : -1;
       leg.init(0,0,0);
+      leg.state = WALKING;
     }
   }
   jointMaxAngularSpeeds = Vector3d(1e10,1e10,1e10);

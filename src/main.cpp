@@ -33,10 +33,16 @@ static double xJoy = 0;
 static double yJoy = 0;
 static double zJoy = 0;
 
+static bool buttonA = false;
+static bool buttonB = false;
+static bool buttonY = false;
+
 static double poseTimeJoy = 0.2;
 static double stepFrequencyMultiplier = 1.0;
 
 double pIncrement=0;
+int gaitSelection = 0;
+int legSelection = 0;
 
 bool firstIteration2= true;
 
@@ -49,7 +55,9 @@ bool testPose = false;
 
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
-void imuControllerIncrement(const sensor_msgs::Joy &bButton);
+void imuControllerCallback(const sensor_msgs::Joy &input);
+void gaitSelectionCallback(const sensor_msgs::Joy &input);
+void legSelectionCallback(const sensor_msgs::Joy &input);
 
 void startCallback(const std_msgs::Bool &startBool);
 
@@ -70,8 +78,10 @@ int main(int argc, char* argv[])
   ros::Subscriber velocitySubscriber = n.subscribe("/desired_velocity", 1, joypadVelocityCallback);
   ros::Subscriber poseSubscriber = n.subscribe("/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, imuCallback);
-  ros::Subscriber bButton = n.subscribe("/joy", 1, imuControllerIncrement);
-    
+  ros::Subscriber imuControlSubscriber = n.subscribe("/joy", 1, imuControllerCallback);
+  ros::Subscriber gaitSelectSubscriber = n.subscribe("/joy", 1, gaitSelectionCallback);
+  ros::Subscriber legSelectSubscriber = n.subscribe("/joy", 1, legSelectionCallback);
+  
   ros::Subscriber startSubscriber = n.subscribe("/start_state", 1, startCallback);
   ros::Subscriber jointStatesSubscriber;  
     
@@ -96,6 +106,20 @@ int main(int argc, char* argv[])
   //Create hexapod model    
   Model hexapod(params);  
   hexapod.jointMaxAngularSpeeds = params.jointMaxAngularSpeeds;
+  
+  //Set initial gait selection number for gait toggling
+  if (params.gaitType == "tripod_gait")
+  {
+    gaitSelection = 0;
+  }
+  else if (params.gaitType == "wave_gait")
+  {
+    gaitSelection = 1;
+  }
+  else if (params.gaitType == "ripple_gait")
+  {
+    gaitSelection = 2;
+  }
   
   //Get current joint positions
   jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);    
@@ -185,20 +209,20 @@ int main(int argc, char* argv[])
     else if (params.autoCompensation)    
     {      
       double pitch = poser.getPitchCompensation(walker.legSteppers[0][0].phase);
-      double roll = poser.getRollCompensation(walker.legSteppers[0][0].phase);  
+      double roll = poser.getRollCompensation(walker.legSteppers[0][0].phase); 
       if (params.gaitType == "wave_gait")
-        adjust = Pose(Vector3d(0,0,0), Quat(1,-0.025,-0.025,0));
+        adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
       else if (params.gaitType == "tripod_gait")
         adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
     }    
     //Manual (joystick controlled) body compensation 
     else if (params.manualCompensation)
     {          
-      adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,-0.025,-0.025,0));
+      adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
     }     
      
     //Run designed startup/shutdown sequences
-    if (true)//params.moveToStart)
+    if (params.moveToStart)
     {
       if (startFlag && !startUpComplete) 
       {     
@@ -274,9 +298,50 @@ int main(int argc, char* argv[])
       }      
       testPoseComplete = poser.testSequence(walker.stepClearance*walker.maximumBodyHeight);
     }
+    
+    //Switch gait parameters and create new walker instance
+    if (gaitSelection == 0 && params.gaitType != "tripod_gait")
+    {
+      getParameters(n, &params, "tripod_gait");
+      walker = WalkController(&hexapod, params);
+      cout << "Tripod Gait Selected." << endl;
+    }
+    else if (gaitSelection == 1 && params.gaitType != "ripple_gait")
+    {
+      getParameters(n, &params, "ripple_gait");
+      params.stepFrequency*=0.5;
+      walker = WalkController(&hexapod, params); 
+      cout << "Ripple Gait Selected." << endl;
+    }
+    else if (gaitSelection == 2 && params.gaitType != "wave_gait")
+    {
+      getParameters(n, &params, "wave_gait");
+      params.stepFrequency*=0.1;
+      walker = WalkController(&hexapod, params); 
+      cout << "Wave Gait Selected." << endl;
+    }    
+    
+    //Leg Selection for Actuation
+    int l = legSelection/2;
+    int s = legSelection%2;
+    if (buttonB)
+    {
+      if (hexapod.legs[l][s].state == WALKING)
+      {
+        hexapod.legs[l][s].state = ACTUATING;
+        cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: ACTUATING." << endl; 
+      }
+      else if (hexapod.legs[l][s].state == ACTUATING)
+      {
+        hexapod.legs[l][s].state = WALKING;
+        cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING." << endl;
+      }
+      buttonB = false;
+    }
+    
       
     //Update walker and poser
-    if (startUpComplete && !shutDownComplete && !testPoseComplete)
+    if (startUpComplete && !shutDownComplete && testPose==testPoseComplete)
     {  
       double poseTime = params.manualCompensation ? poseTimeJoy : 0.0;
       poser.updateStance(walker.identityTipPositions, adjust, poseTime);
@@ -355,18 +420,54 @@ int main(int argc, char* argv[])
 /***********************************************************************************************************************
  * This callback increments the gains in the controller
 ***********************************************************************************************************************/
-void imuControllerIncrement(const sensor_msgs::Joy &gainAdjust)
+void imuControllerCallback(const sensor_msgs::Joy &input)
 {  
-  if(gainAdjust.axes[7]==1)
+  if(input.axes[7]==1)
   {
     pIncrement += 0.1;
     testPose = true;
   } 
-  if(gainAdjust.axes[7]==-1)
+  if(input.axes[7]==-1)
   {
     pIncrement -= 0.1;
     testPose = false;
   }    
+}
+
+/***********************************************************************************************************************
+ * Gait Selection Callback
+***********************************************************************************************************************/
+void gaitSelectionCallback(const sensor_msgs::Joy &input)
+{
+  if (input.buttons[0] && !buttonA)
+  {
+    buttonA = true;
+    gaitSelection = (gaitSelection+1)%3; //Three possible gait modes (currently)
+  }
+  else if (!input.buttons[0] && buttonA)
+  {
+    buttonA = false;
+  }
+}
+
+/***********************************************************************************************************************
+ * Actuating Leg Selection Callback
+***********************************************************************************************************************/
+void legSelectionCallback(const sensor_msgs::Joy &input)
+{
+  if (input.buttons[3] && !buttonY)
+  {
+    buttonY = true;
+    legSelection = (legSelection+1)%6; //6 Legs
+    cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " selected." << endl;
+  }
+  else if (!input.buttons[3] && buttonY)
+  {
+    buttonY = false;
+  }
+  
+  if (input.buttons[1] && !buttonB)
+    buttonB = true;
 }
 
 /***********************************************************************************************************************

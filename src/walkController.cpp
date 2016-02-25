@@ -263,7 +263,7 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
       identityTipPositions[l][side][0] *= model->legs[l][side].mirrorDir;
       
       legSteppers[l][side].defaultTipPosition = identityTipPositions[l][side];
-      legSteppers[l][side].currentTipPosition = identityTipPositions[l][side];
+      legSteppers[l][side].currentTipPosition = model->legs[l][side].localTipPosition;
     }
   }
   // check for overlapping radii
@@ -445,12 +445,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       double swingStart = stanceEnd + legStepper.transitionPeriod*0.5;
       double swingEnd = stanceStart - legStepper.transitionPeriod*0.5;
        
-      
-      if (l==1)
-      {
-        legStepper.state = NOT_WALKING;
-      }
-      else if (legStepper.phase > stanceEnd && legStepper.phase < swingStart)
+      if (legStepper.phase > stanceEnd && legStepper.phase < swingStart)
       {        
         legStepper.state = SWING_TRANSITION;
       }
@@ -491,18 +486,21 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
       
-      //Revise default and current tip positions from stanceTipPosition due to change in pose
-      Vector3d tipOffset = legStepper.defaultTipPosition - legStepper.currentTipPosition;
-      legStepper.defaultTipPosition = leg.stanceTipPosition;
-      legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
-      
-      double liftHeight = stepClearance*maximumBodyHeight;
-      legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, 
-                                                                localCentreVelocity, 
-                                                                angularVelocity, 
-                                                                stepFrequency, 
-                                                                timeDelta); 
-      leg.applyLocalIK(legStepper.currentTipPosition);  
+      if (leg.state == WALKING)
+      {
+        //Revise default and current tip positions from stanceTipPosition due to change in pose
+        Vector3d tipOffset = legStepper.defaultTipPosition - legStepper.currentTipPosition;
+        legStepper.defaultTipPosition = leg.stanceTipPosition;
+        legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
+        
+        double liftHeight = stepClearance*maximumBodyHeight;
+        legStepper.currentTipPosition = legStepper.updatePosition(leg, liftHeight, 
+                                                                  localCentreVelocity, 
+                                                                  angularVelocity, 
+                                                                  stepFrequency, 
+                                                                  timeDelta); 
+        leg.applyLocalIK(legStepper.currentTipPosition); 
+      }
       
       //DEBUGGING
       //staticTargets.push_back(model->legs[0][0].localTipPosition);

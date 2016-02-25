@@ -5,9 +5,17 @@
 #include <Eigen/src/Core/Matrix.h>
 #include <boost/concept_check.hpp>
 
+enum State
+{
+  WALKING,
+  ACTUATING,
+};
+
 // hard coded to 3 joints
 struct Leg
 {
+  State state;
+  
   double yaw;
   double liftAngle;
   double kneeAngle;
