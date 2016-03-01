@@ -266,12 +266,13 @@ int main(int argc, char* argv[])
     }
     
     //DEBUGGING 
-    for (int s = 0; s<2; s++)
-      for (int l = 0; l<3; l++)
-        walker.targets.push_back(walker.pose.transformVector(hexapod.legs[l][s].localTipPosition));
-    debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
-    debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
+    //for (int s = 0; s<2; s++)
+    //  for (int l = 0; l<3; l++)
+    //    walker.targets.push_back(walker.pose.transformVector(hexapod.legs[l][s].localTipPosition));
+    //debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
+    //debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     //debug.drawPoints(walker.staticTargets, Vector4d(1,0,0,1));
+    //targets.clear();
     //DEBUGGING
     
     
@@ -318,10 +319,10 @@ int main(int argc, char* argv[])
         }
         
         interface->setTargetAngle(l, s, 0, yaw);
-        interface->setTargetAngle(l, s, 1, tilt);
-        interface->setTargetAngle(l, s, 2, -lift);
-        interface->setTargetAngle(l, s, 3, knee);
-        interface->setTargetAngle(l, s, 4, ankle);
+        //interface->setTargetAngle(l, s, 1, tilt);
+        interface->setTargetAngle(l, s, 1, -lift);
+        interface->setTargetAngle(l, s, 2, knee);
+        //interface->setTargetAngle(l, s, 4, ankle);
         
         walker.model->legs[l][s].debugOldYaw = yaw;
         walker.model->legs[l][s].debugOldLiftAngle = lift;

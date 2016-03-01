@@ -89,7 +89,7 @@ void DynamixelMotorInterface::setPGain(double pGain)
 
 void DynamixelMotorInterface::setupPublishers(void)
 {
-  /*
+  
   publishers[0][0][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_left_body_coxa/command", 1);
   publishers[0][0][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_left_coxa_femour/command", 1);
   publishers[0][0][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_left_femour_tibia/command", 1);
@@ -108,8 +108,8 @@ void DynamixelMotorInterface::setupPublishers(void)
   publishers[2][1][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_right_body_coxa/command", 1);
   publishers[2][1][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_right_coxa_femour/command", 1);
   publishers[2][1][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_right_femour_tibia/command", 1);
-  */
   
+  /*
   // Front left leg (AL or [0][0][i] with 5 DOF for each leg i = 0 ... 4)
   publishers[0][0][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/AL_coxa_position_controller/command", 1);
   publishers[0][0][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/AL_coxat_position_controller/command", 1);
@@ -151,8 +151,8 @@ void DynamixelMotorInterface::setupPublishers(void)
   publishers[2][1][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/CR_femur_position_controller/command", 1);
   publishers[2][1][3]=nodehandler.advertise<std_msgs::Float64>("/hexapod/CR_tibia_position_controller/command", 1);
   publishers[2][1][4]=nodehandler.advertise<std_msgs::Float64>("/hexapod/CR_tarsus_position_controller/command", 1);
+  */
 }
-
 
 void DynamixelMotorInterface::setTargetAngle(int legID, int side, int jointID, double speed)
 {
@@ -166,7 +166,7 @@ void DynamixelMotorInterface::publish(void)
 
   for (i=0; i<3; i++)
     for (j=0; j<2; j++)
-      for (k=0; k<5; k++) {
+      for (k=0; k<3; k++) {
         msg.data = angles[i][j][k];
         publishers[i][j][k].publish(msg);
       }
