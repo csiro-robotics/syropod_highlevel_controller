@@ -43,6 +43,9 @@ sensor_msgs::JointState jointStates;
 double jointPositions[18];
 bool jointPosFlag = false;
 bool startFlag = false;
+bool test1 = false;
+bool test2 = false;
+bool test3 = false;
 
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
@@ -158,6 +161,33 @@ int main(int argc, char* argv[])
   double stepHeight;
   bool startUpFirstIteration = true;
   bool shutDownFirstIteration = true;
+  
+  Vector3d targetJointPositions1[3][2];
+  Vector3d targetJointPositions2[3][2];
+  Vector3d zeroJointPositions[3][2];
+  
+  zeroJointPositions[0][0] = Vector3d(0.785,0,0);
+  zeroJointPositions[0][1] = Vector3d(0.785,0,0);
+  zeroJointPositions[1][0] = Vector3d(0,0,0);  
+  zeroJointPositions[1][1] = Vector3d(0,0,0);
+  zeroJointPositions[2][0] = Vector3d(-0.785,0,0);
+  zeroJointPositions[2][1] = Vector3d(-0.785,0,0);
+  
+  targetJointPositions1[0][0] = Vector3d(1.57,0,0);
+  targetJointPositions1[0][1] = Vector3d(1.57,0,0);
+  targetJointPositions1[1][0] = Vector3d(0,1.57,1.57);
+  targetJointPositions1[1][1] = Vector3d(0,1.57,1.57);
+  targetJointPositions1[2][0] = Vector3d(-1.57,0,0);  
+  targetJointPositions1[2][1] = Vector3d(-1.57,0,0);
+  
+  targetJointPositions2[0][0] = Vector3d(1.57,1.57,-1.57);
+  targetJointPositions2[0][1] = Vector3d(1.57,1.57,-1.57);
+  targetJointPositions2[1][0] = Vector3d(-1.57,1.57,1.57);
+  targetJointPositions2[1][1] = Vector3d(-1.57,1.57,1.57);
+  targetJointPositions2[2][0] = Vector3d(-1.57,1.57,-1.57);  
+  targetJointPositions2[2][1] = Vector3d(-1.57,1.57,-1.57);
+  
+  
 
   //Position update loop
   while (ros::ok())
@@ -191,7 +221,8 @@ int main(int argc, char* argv[])
     {          
       adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
     }     
-     
+    
+    /*
     //Run designed startup/shutdown sequences
     if (params.moveToStart)
     {
@@ -264,18 +295,21 @@ int main(int argc, char* argv[])
       turnRate = turnRate*turnRate*turnRate; // the cube just lets the thumbstick give small turns easier
       walker.updateWalk(localVelocity, turnRate, stepFrequencyMultiplier); 
     }
+    */
     
-    for (int s=0; s<2; s++)
-    {
-      for (int l=0; l<3; l++)
-      { 
-        for (int j=0; j<3; j++)
-        {
-          poser.moveToJointPosition(l,s,j,0.0);
-        }
-      }
-    }
     
+    
+    if (!test1)
+      test1 = poser.moveToJointPosition(targetJointPositions1);
+    else if (!test2)
+      test2 = poser.moveToJointPosition(targetJointPositions2);
+    else if (!test3)
+      test3 = poser.moveToJointPosition(zeroJointPositions, 0.1);
+    
+      //poser.moveToJointPosition(0,1,0,0.785));
+    //poser.moveToJointPosition(2,0,0,0.785);
+    //poser.moveToJointPosition(2,1,0,-0.785);
+
     //DEBUGGING 
     //for (int s = 0; s<2; s++)
     //  for (int l = 0; l<3; l++)

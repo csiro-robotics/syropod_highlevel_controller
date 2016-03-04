@@ -251,22 +251,62 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
 /***********************************************************************************************************************
  * Safely directly set joint angle
 ***********************************************************************************************************************/
-bool PoseController::moveToJointPosition(int leg, int side, int joint, double position)
+bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double speed)
 {
-  switch(joint)
+  //Setup origin and target joint positions for bezier curve
+  if (firstIteration)
   {
-    case (0):
-      model->legs[leg][side].yaw = position;
-      break;
-    case(1):
-      model->legs[leg][side].liftAngle = position;
-      break;
-    case(2):
-      model->legs[leg][side].kneeAngle = position;
-    default:
-      break;
+    firstIteration = false;
+    moveToPoseTime = 0.0;
+    for (int l=0; l<3; l++)
+    {
+      for (int s=0; s<2; s++)
+      {
+        originJointPositions[l][s] = Vector3d(model->legs[l][s].yaw,
+                                              model->legs[l][s].liftAngle,
+                                              model->legs[l][s].kneeAngle);
+      }
+    }
   }
-  return true;
+  
+  double deltaT = timeDelta*speed;  
+  double timeLimit = 1.0;
+  
+  //Return true at end of timeLimit (target achieved)
+  if (abs(moveToPoseTime + deltaT - timeLimit) < 1e-3 || moveToPoseTime > timeLimit)
+  {    
+    firstIteration = true;
+    return true;
+  }
+  else 
+  {
+    moveToPoseTime += deltaT; 
+  }
+  
+  Vector3d pos;  
+  Vector3d controlNodes[4];
+  
+  for (int l=0; l<3; l++)
+  {
+    for (int s=0; s<2; s++)
+    {
+      //Control nodes for linear quadratic bezier curve
+      controlNodes[0] = originJointPositions[l][s]; 
+      controlNodes[1] = originJointPositions[l][s];  
+      controlNodes[2] = targetJointPositions[l][s];
+      controlNodes[3] = targetJointPositions[l][s];
+      
+      //Calculate change in position using bezier curve
+      pos = cubicBezier(controlNodes, moveToPoseTime);   
+      cout << "LS: " << l << s << " Time: " << moveToPoseTime << " ORIGIN: " << originJointPositions[l][s] << " CURRENT: " << pos << " TARGET: " << targetJointPositions[l][s] << endl;
+      
+      model->legs[l][s].yaw = pos[0];
+      model->legs[l][s].liftAngle = pos[1];
+      model->legs[l][s].kneeAngle = pos[2];
+    }
+  }
+ 
+  return false;
 }
 
 /***********************************************************************************************************************
