@@ -249,6 +249,27 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
 }
 
 /***********************************************************************************************************************
+ * Safely directly set joint angle
+***********************************************************************************************************************/
+bool PoseController::moveToJointPosition(int leg, int side, int joint, double position)
+{
+  switch(joint)
+  {
+    case (0):
+      model->legs[leg][side].yaw = position;
+      break;
+    case(1):
+      model->legs[leg][side].liftAngle = position;
+      break;
+    case(2):
+      model->legs[leg][side].kneeAngle = position;
+    default:
+      break;
+  }
+  return true;
+}
+
+/***********************************************************************************************************************
  * Startup sequence
 ***********************************************************************************************************************/
 bool PoseController::startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode)

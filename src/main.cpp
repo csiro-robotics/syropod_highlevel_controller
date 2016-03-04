@@ -265,6 +265,17 @@ int main(int argc, char* argv[])
       walker.updateWalk(localVelocity, turnRate, stepFrequencyMultiplier); 
     }
     
+    for (int s=0; s<2; s++)
+    {
+      for (int l=0; l<3; l++)
+      { 
+        for (int j=0; j<3; j++)
+        {
+          poser.moveToJointPosition(l,s,j,0.0);
+        }
+      }
+    }
+    
     //DEBUGGING 
     //for (int s = 0; s<2; s++)
     //  for (int l = 0; l<3; l++)
@@ -282,31 +293,31 @@ int main(int argc, char* argv[])
       double dir = s==0 ? -1 : 1;
       for (int l = 0; l<3; l++)
       {            
-        double yaw = dir*(walker.model->legs[l][s].yaw - params.physicalYawOffset[l]);
+        double yaw = dir*(hexapod.legs[l][s].yaw - params.physicalYawOffset[l]);
         double tilt = 0.0; //TBD
-        double lift = dir*walker.model->legs[l][s].liftAngle;
-        double knee = dir*walker.model->legs[l][s].kneeAngle;
+        double lift = dir*hexapod.legs[l][s].liftAngle;
+        double knee = dir*hexapod.legs[l][s].kneeAngle;
         double ankle = 0.0; //TBD
         
         if (false) // !firstFrame)
         {
-          double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/params.timeDelta;
-          double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/params.timeDelta;
-          double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/params.timeDelta;
+          double yawVel = (yaw - hexapod.legs[l][s].debugOldYaw)/params.timeDelta;
+          double liftVel = (lift - hexapod.legs[l][s].debugOldLiftAngle)/params.timeDelta;
+          double kneeVel = (knee - hexapod.legs[l][s].debugOldKneeAngle)/params.timeDelta;
           
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
           {
-            yaw = walker.model->legs[l][s].debugOldYaw + 
+            yaw = hexapod.legs[l][s].debugOldYaw + 
             sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;
           }
           if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
           {
-            lift = walker.model->legs[l][s].debugOldLiftAngle + 
+            lift = hexapod.legs[l][s].debugOldLiftAngle + 
             sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*params.timeDelta;
           }
           if (abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
           {
-            knee = walker.model->legs[l][s].debugOldKneeAngle + 
+            knee = hexapod.legs[l][s].debugOldKneeAngle + 
             sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
           }
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || 
@@ -324,9 +335,9 @@ int main(int argc, char* argv[])
         interface->setTargetAngle(l, s, 2, knee);
         //interface->setTargetAngle(l, s, 4, ankle);
         
-        walker.model->legs[l][s].debugOldYaw = yaw;
-        walker.model->legs[l][s].debugOldLiftAngle = lift;
-        walker.model->legs[l][s].debugOldKneeAngle = knee;
+        hexapod.legs[l][s].debugOldYaw = yaw;
+        hexapod.legs[l][s].debugOldLiftAngle = lift;
+        hexapod.legs[l][s].debugOldKneeAngle = knee;
       }
     }
     interface->publish();

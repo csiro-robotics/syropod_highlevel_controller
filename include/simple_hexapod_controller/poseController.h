@@ -46,6 +46,7 @@ struct PoseController
                       int mode=NO_STEP_MODE, 
                       double stepHeight = 0.0, 
                       double stepSpeed=1.0); //USE stepSpeed = 0.5 or 1.0
+  bool moveToJointPosition(int leg, int side, int joint, double position);
   bool startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   bool shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   double createSequence(WalkController walker); 
