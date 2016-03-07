@@ -8,6 +8,7 @@ hexapod:
 
     time_delta: 0.02
 
+  #Compensation
     imu_compensation: false
     auto_compensation: false
     manual_compensation: true
@@ -81,16 +82,16 @@ hexapod:
 ######################################################################
 
     pose_controller:
-      move_to_start: true
+      start_up_sequence: true
       move_legs_sequentially: false
       time_to_start: 5.0
 
-#Auto pose compensation parameters
+    #Auto pose compensation parameters
       auto_pose_compensation:
         pitch_amplitude: 0.025
         roll_amplitude: 0.025
 
-#Manual pose compensation parameters
+    #Manual pose compensation parameters
       manual_pose_compensation:  
         max_pose_time: 2.0
         max_roll: 0.075
@@ -100,7 +101,7 @@ hexapod:
         max_y: 0.05
         max_z: 0.05
 
-#Packed state, joint position parameters
+    #Packed state, joint position parameters
       packed_joint_positions:
         AL_packed_joint_positions: [1.57, 1.57, -1.57]
         AR_packed_joint_positions: [1.57, 1.57, -1.57]

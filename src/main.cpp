@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
   if(!jointStatesSubscriber)
   {
     cout << "Failed to subscribe to joint_states topic - check to see if topic is being published." << endl;
-    params.moveToStart = false;
+    params.startUpSequence = false;
   }
   else
   {
@@ -145,7 +145,7 @@ int main(int argc, char* argv[])
   else
   {
     cout << "Failed to acquire all joint position values" << endl;
-    params.moveToStart = false;
+    params.startUpSequence = false;
   }
   
   // Create walk and pose controller objects
@@ -254,7 +254,7 @@ int main(int argc, char* argv[])
       //Robot is in operational state (walking/posing/actuating etc.)
       case(RUNNING):
       {
-        if (!startFlag && params.moveToStart)
+        if (!startFlag && params.startUpSequence)
         {
           state = SHUTDOWN;
           cout << "Running shutdown sequence . . ." << endl;
@@ -318,10 +318,10 @@ int main(int argc, char* argv[])
         }
         if (checkPacked == 6)
         {
-          if (!params.moveToStart)
+          if (!params.startUpSequence)
           {
             cout << "WARNING! Robot currently in packed state and cannot run direct startup sequence." << endl;
-            cout << "Either manually unpack robot or set move_to_start to true in config file" << endl;
+            cout << "Either manually unpack robot or set start_up_sequence to true in config file" << endl;
             ASSERT(false);
           }
           else
@@ -329,7 +329,7 @@ int main(int argc, char* argv[])
             state = PACKED;
           }
         }
-        else if (!params.moveToStart)
+        else if (!params.startUpSequence)
         {    
           state = DIRECT;
           cout << "WARNING! Running direct startup sequence - assuming hexapod is not on the ground" << endl;
@@ -1019,9 +1019,9 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   // Pose Controller Parameters 
   paramString = baseParamString+"/pose_controller/";
   
-  if(!n.getParam(paramString+"move_to_start", params->moveToStart))
+  if(!n.getParam(paramString+"start_up_sequence", params->startUpSequence))
   {
-    cout << "Error reading parameter/s (move_to_start) from rosparam" << endl;
+    cout << "Error reading parameter/s (start_up_sequence) from rosparam" << endl;
     cout << "Check config file is loaded and type is correct" << endl;  
   }
   

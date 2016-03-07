@@ -48,7 +48,7 @@ struct PoseController
                       int mode=NO_STEP_MODE, 
                       double stepHeight = 0.0, 
                       double stepSpeed=1.0); //USE stepSpeed = 0.5 or 1.0
-  bool moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double speed=1.0);
+  bool moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double speed=0.5);
   bool startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   bool shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   double createSequence(WalkController walker); 

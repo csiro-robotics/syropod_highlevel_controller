@@ -54,7 +54,7 @@ struct Parameters
   double interfaceSetupSpeed;
   
   //Pose Controller Parameters
-  bool moveToStart;
+  bool startUpSequence;
   bool moveLegsSequentially;
   double timeToStart;
   double pitchAmplitude;
