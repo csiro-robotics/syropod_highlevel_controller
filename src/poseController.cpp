@@ -298,11 +298,12 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
       
       //Calculate change in position using bezier curve
       pos = cubicBezier(controlNodes, moveToPoseTime);   
-      cout << "LS: " << l << s << " Time: " << moveToPoseTime << " ORIGIN: " << originJointPositions[l][s] << " CURRENT: " << pos << " TARGET: " << targetJointPositions[l][s] << endl;
+      //cout << "LS: " << l << s << " Time: " << moveToPoseTime << " ORIGIN: " << originJointPositions[l][s] << " CURRENT: " << pos << " TARGET: " << targetJointPositions[l][s] << endl;
       
       model->legs[l][s].yaw = pos[0];
       model->legs[l][s].liftAngle = pos[1];
       model->legs[l][s].kneeAngle = pos[2];
+      model->legs[l][s].applyFK();
     }
   }
  
@@ -371,9 +372,6 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
       res = stepToPosition(phase7TipPositions);
       break;
     case 4:
-      res = stepToPosition(phase8TipPositions, SIMULTANEOUS_MODE, stepHeight);
-      break;
-    case 5:
       sequenceStep = 1;
       return true;
     default:      
@@ -426,21 +424,13 @@ double PoseController::createSequence(WalkController walker)
       phase4TipPositions[l][s] = walker.identityTipPositions[l][s];
       
       phase5TipPositions[l][s] = model->legs[l][s].localTipPosition;
-      phase5TipPositions[l][s][2] *= 0.85;
+      phase5TipPositions[l][s][2] *= heightScaler;
       
       phase6TipPositions[l][s] = walker.identityTipPositions[l][s]*1.3;
       phase6TipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
       
       phase7TipPositions[l][s] = phase6TipPositions[l][s];
       phase7TipPositions[l][s][2] = 0.0;
-      
-      double dir = (s==0 ? -1 : 1);
-      Vector3d correctedRootOffsets = Vector3d(model->legs[l][s].rootOffset[0]*dir, 
-                                               model->legs[l][s].rootOffset[1], 
-                                               model->legs[l][s].rootOffset[2]); 
-      phase8TipPositions[l][s] =  correctedRootOffsets+
-                                  dir*model->legs[l][s].hipOffset+
-                                  dir*model->legs[l][s].kneeOffset;    
     }
   }   
   return startHeightRatio;

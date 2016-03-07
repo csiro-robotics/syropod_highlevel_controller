@@ -66,7 +66,13 @@ struct Parameters
   double maxX;
   double maxY;
   double maxZ;
-  
+  Vector3d packedJointPositionsAL;
+  Vector3d packedJointPositionsAR;
+  Vector3d packedJointPositionsBL;
+  Vector3d packedJointPositionsBR;
+  Vector3d packedJointPositionsCL;
+  Vector3d packedJointPositionsCR;
+    
   //Gait Parameters
   double stancePhase;
   double swingPhase;
