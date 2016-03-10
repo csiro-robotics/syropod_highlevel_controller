@@ -413,7 +413,7 @@ double PoseController::createSequence(WalkController walker)
     {
       double positionScaler = (-(startStanceRatio-1.0)*startHeightRatio+startStanceRatio);
       phase1TipPositions[l][s] = walker.identityTipPositions[l][s]*positionScaler;
-      phase1TipPositions[l][s][2] = 0.0;
+      phase1TipPositions[l][s][2] = params.tipOffset[l][s][2];
       
       phase2TipPositions[l][s] = phase1TipPositions[l][s];
       phase2TipPositions[l][s][2] = (heightScaler+startHeightRatio*(1-heightScaler))*walker.identityTipPositions[0][0][2];
@@ -430,7 +430,7 @@ double PoseController::createSequence(WalkController walker)
       phase6TipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
       
       phase7TipPositions[l][s] = phase6TipPositions[l][s];
-      phase7TipPositions[l][s][2] = 0.0;
+      phase7TipPositions[l][s][2] = params.tipOffset[l][s][2];
     }
   }   
   return startHeightRatio;
