@@ -332,53 +332,6 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
 }
 
 /***********************************************************************************************************************
- * Test mode transition sequence
-***********************************************************************************************************************/
-bool PoseController::testSequence(double stepHeight)
-{  
-  bool res = false;
-  
-  Vector3d testPositions[3][2];
-  testPositions[0][0] = phase4TipPositions[0][0];
-  testPositions[0][1] = phase4TipPositions[0][1];
-  testPositions[1][0] = phase4TipPositions[1][0];
-  testPositions[1][1] = phase4TipPositions[1][1];
-  testPositions[2][0] = phase4TipPositions[2][0];
-  testPositions[2][1] = phase4TipPositions[2][1];
-    
-  Vector3d testPositions2[3][2];
-  testPositions2[0][0] = testPositions[0][0];
-  testPositions2[0][1] = testPositions[0][1];
-  testPositions2[1][0] = testPositions[1][0];
-  testPositions2[1][1] = testPositions[1][1];
-  testPositions2[2][0] = testPositions[2][0];
-  testPositions2[2][1] = testPositions[2][1];
-  testPositions2[1][0][2] += 0.2;
-  testPositions2[1][1][2] += 0.2;
-  
-  switch (sequenceStep)
-  {
-    case 1:
-      res = stepToPosition(testPositions, SEQUENTIAL_MODE, stepHeight);
-      break;
-    case 2:
-      res = stepToPosition(testPositions2, NO_STEP_MODE);
-      break;
-    case 3:
-      sequenceStep = 1;
-      currentPose = Pose::identity();
-      return true;
-    default:      
-      return false;
-  }
-  
-  if (res) 
-    sequenceStep++;
-  
-  return false;
-}
-
-/***********************************************************************************************************************
  * Calculates tip positions for startup/shutdown sequences
 ***********************************************************************************************************************/
 double PoseController::createSequence(WalkController walker)

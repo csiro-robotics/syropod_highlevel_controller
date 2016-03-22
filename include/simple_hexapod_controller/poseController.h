@@ -48,7 +48,6 @@ struct PoseController
                       double stepSpeed=1.0); //USE stepSpeed = 0.5 or 1.0
   bool startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   bool shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
-  bool testSequence(double stepHeight);
   double createSequence(WalkController walker); 
   void resetSequence(void);
   double getPitchCompensation(double phase);

@@ -44,14 +44,11 @@ double pIncrement=0;
 int gaitSelection = 0;
 int legSelection = 0;
 
-bool firstIteration2= true;
-
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
 double jointPositions[18];
 bool jointPosFlag = false;
 bool startFlag = false;
-bool testPose = false;
 
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
@@ -182,7 +179,6 @@ int main(int argc, char* argv[])
   //Startup/Shutdown variables
   bool startUpComplete = false;
   bool shutDownComplete = true;
-  bool testPoseComplete = false;
   double heightRatio;
   double stepHeight;
   bool startUpFirstIteration = true;
@@ -285,20 +281,6 @@ int main(int argc, char* argv[])
       }
     } 
     
-    if (testPose && !testPoseComplete)
-    {
-      if (firstIteration2)
-      {        
-        getParameters(n, &params, "wave_gait");
-        params.autoCompensation = true;
-        params.manualCompensation = false;
-        params.stepFrequency*=0.1;
-        walker = WalkController(&hexapod, params);
-        firstIteration2= false;
-      }      
-      testPoseComplete = poser.testSequence(walker.stepClearance*walker.maximumBodyHeight);
-    }
-    
     //Switch gait parameters and create new walker instance
     if (gaitSelection == 0 && params.gaitType != "tripod_gait")
     {
@@ -341,7 +323,7 @@ int main(int argc, char* argv[])
     
       
     //Update walker and poser
-    if (startUpComplete && !shutDownComplete && testPose==testPoseComplete)
+    if (startUpComplete && !shutDownComplete)
     {  
       double poseTime = params.manualCompensation ? poseTimeJoy : 0.0;
       poser.updateStance(walker.identityTipPositions, adjust, poseTime);
@@ -349,6 +331,7 @@ int main(int argc, char* argv[])
       walker.updateWalk(localVelocity, turnRate, stepFrequencyMultiplier); 
     }
     
+    /*
     //DEBUGGING 
     for (int s = 0; s<2; s++)
       for (int l = 0; l<3; l++)
@@ -356,7 +339,9 @@ int main(int argc, char* argv[])
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
     debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     //debug.drawPoints(walker.staticTargets, Vector4d(1,0,0,1));
+    targets.clear();
     //DEBUGGING
+    */
     
     
     //Publish desired joint angles
@@ -425,12 +410,10 @@ void imuControllerCallback(const sensor_msgs::Joy &input)
   if(input.axes[7]==1)
   {
     pIncrement += 0.1;
-    testPose = true;
   } 
   if(input.axes[7]==-1)
   {
     pIncrement -= 0.1;
-    testPose = false;
   }    
 }
 
