@@ -173,12 +173,12 @@ int main(int argc, char* argv[])
   Vector3d packedJointPositions[3][2];
   Vector3d unpackedJointPositions[3][2];
   
-  unpackedJointPositions[0][0] = Vector3d(params.physicalYawOffset[0],0,0);
-  unpackedJointPositions[0][1] = Vector3d(params.physicalYawOffset[0],0,0);
-  unpackedJointPositions[1][0] = Vector3d(params.physicalYawOffset[1],0,0);  
-  unpackedJointPositions[1][1] = Vector3d(params.physicalYawOffset[1],0,0);
-  unpackedJointPositions[2][0] = Vector3d(params.physicalYawOffset[2],0,0);
-  unpackedJointPositions[2][1] = Vector3d(params.physicalYawOffset[2],0,0);
+  unpackedJointPositions[0][0] = params.unpackedJointPositionsAL;
+  unpackedJointPositions[0][1] = params.unpackedJointPositionsAR;
+  unpackedJointPositions[1][0] = params.unpackedJointPositionsBL;
+  unpackedJointPositions[1][1] = params.unpackedJointPositionsBR;
+  unpackedJointPositions[2][0] = params.unpackedJointPositionsCL;
+  unpackedJointPositions[2][1] = params.unpackedJointPositionsCR; 
   packedJointPositions[0][0] = params.packedJointPositionsAL;
   packedJointPositions[0][1] = params.packedJointPositionsAR;
   packedJointPositions[1][0] = params.packedJointPositionsBL;
@@ -467,12 +467,28 @@ void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 ***********************************************************************************************************************/
 void joypadPoseCallback(const geometry_msgs::Twist &twist)
 {
-  rollJoy = twist.angular.x*pParams->maxRoll;
-  pitchJoy = twist.angular.y*pParams->maxPitch;
-  yawJoy = twist.angular.z*pParams->maxYaw;  
-  xJoy = twist.linear.x*pParams->maxX;
-  yJoy = twist.linear.y*pParams->maxY; 
-  zJoy = twist.linear.z*pParams->maxZ; 
+  double deadband = 0.1; //%10 deadband
+  
+  double newRollJoy = twist.angular.x*pParams->maxRoll;
+  double newPitchJoy = twist.angular.y*pParams->maxPitch;
+  double newYawJoy = twist.angular.z*pParams->maxYaw;
+  double newXJoy = twist.linear.x*pParams->maxX;
+  double newYJoy = twist.linear.y*pParams->maxY;
+  double newZJoy = twist.linear.z >= 0 ? twist.linear.z*pParams->maxZ : twist.linear.z*pParams->minZ;
+  
+  //Percentage change is above deadband value
+  if (abs(newRollJoy-rollJoy) > deadband*abs(rollJoy))
+    rollJoy = newRollJoy;
+  if (abs(newPitchJoy-pitchJoy) > deadband*abs(pitchJoy))
+    pitchJoy = newPitchJoy;
+  if (abs(newYawJoy-yawJoy) > deadband*abs(yawJoy))
+    yawJoy = newYawJoy;
+  if (abs(newXJoy-xJoy) > deadband*abs(xJoy))
+    xJoy = newXJoy;
+  if (abs(newYJoy-yJoy) > deadband*abs(yJoy))
+    yJoy = newYJoy;
+  if (abs(newZJoy-zJoy) > deadband*abs(zJoy))
+    zJoy = newZJoy; 
 }
 
 /***********************************************************************************************************************
@@ -1093,6 +1109,14 @@ void getParameters(ros::NodeHandle n, Parameters *params)
     cout << "Check config file is loaded and type is correct" << endl;
   } 
   
+  if (!n.getParam(paramString+"min_z", params->minZ))
+  {
+    cout << "Error reading parameter/s (min_z) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  } 
+  
+  /********************************************************************************************************************/
+  
   paramString = baseParamString + "/pose_controller/packed_joint_positions/";  
   std::vector<double> packedJointPositionsAL(3);
   if (!n.getParam(paramString+"AL_packed_joint_positions", packedJointPositionsAL))
@@ -1158,6 +1182,74 @@ void getParameters(ros::NodeHandle n, Parameters *params)
   else
   {
     params->packedJointPositionsCR = Map<Vector3d>(&packedJointPositionsCR[0], 3);
+  }
+  
+  /********************************************************************************************************************/
+  paramString = baseParamString + "/pose_controller/unpacked_joint_positions/";  
+  std::vector<double> unpackedJointPositionsAL(3);
+  if (!n.getParam(paramString+"AL_unpacked_joint_positions", unpackedJointPositionsAL))
+  {
+    cout << "Error reading parameter/s (AL_unpacked_joint_positions) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->unpackedJointPositionsAL = Map<Vector3d>(&unpackedJointPositionsAL[0], 3);
+  }
+    
+  std::vector<double> unpackedJointPositionsAR(3);
+  if (!n.getParam(paramString+"AR_unpacked_joint_positions", unpackedJointPositionsAR))
+  {
+    cout << "Error reading parameter/s (AR_unpacked_joint_positions) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->unpackedJointPositionsAR = Map<Vector3d>(&unpackedJointPositionsAR[0], 3);
+  }
+  
+  std::vector<double> unpackedJointPositionsBL(3);
+  if (!n.getParam(paramString+"BL_unpacked_joint_positions", unpackedJointPositionsBL))
+  {
+    cout << "Error reading parameter/s (BL_unpacked_joint_positions) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->unpackedJointPositionsBL = Map<Vector3d>(&unpackedJointPositionsBL[0], 3);
+  }
+  
+  std::vector<double> unpackedJointPositionsBR(3);
+  if (!n.getParam(paramString+"BR_unpacked_joint_positions", unpackedJointPositionsBR))
+  {
+    cout << "Error reading parameter/s (BR_unpacked_joint_positions) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->unpackedJointPositionsBR = Map<Vector3d>(&unpackedJointPositionsBR[0], 3);
+  }
+  
+  std::vector<double> unpackedJointPositionsCL(3);
+  if (!n.getParam(paramString+"CL_unpacked_joint_positions", unpackedJointPositionsCL))
+  {
+    cout << "Error reading parameter/s (CL_unpacked_joint_positions) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->unpackedJointPositionsCL = Map<Vector3d>(&unpackedJointPositionsCL[0], 3);
+  }
+  
+  std::vector<double> unpackedJointPositionsCR(3);
+  if (!n.getParam(paramString+"CR_unpacked_joint_positions", unpackedJointPositionsCR))
+  {
+    cout << "Error reading parameter/s (CR_unpacked_joint_positions) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  else
+  {
+    params->unpackedJointPositionsCR = Map<Vector3d>(&unpackedJointPositionsCR[0], 3);
   }
   
   /********************************************************************************************************************/

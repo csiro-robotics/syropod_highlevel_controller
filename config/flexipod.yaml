@@ -82,7 +82,7 @@ hexapod:
 ######################################################################
 
     pose_controller:
-      start_up_sequence: true
+      start_up_sequence: false #check packed/unpacked parameters below will work before using
       move_legs_sequentially: false
       time_to_start: 5.0
       
@@ -100,6 +100,7 @@ hexapod:
         max_x: 0.05
         max_y: 0.05
         max_z: 0.05
+        min_z: 0.05
         
     #Packed state, joint position parameters
       packed_joint_positions:
@@ -109,6 +110,15 @@ hexapod:
         BR_packed_joint_positions: [-1.57, 1.57, 1.57]  #CONFIRM VALUES BEFORE USE
         CL_packed_joint_positions: [-1.57, 1.57, -1.57] #CONFIRM VALUES BEFORE USE
         CR_packed_joint_positions: [-1.57, 1.57, -1.57] #CONFIRM VALUES BEFORE USE
+        
+    #Unpacked state, joint position parameters
+      unpacked_joint_positions:
+        AL_unpacked_joint_positions: [0.77, 0.785, 0.785]  #CONFIRM VALUES BEFORE USE
+        AR_unpacked_joint_positions: [0.77, 0.785, 0.785]  #CONFIRM VALUES BEFORE USE
+        BL_unpacked_joint_positions: [0.0, 0.785, 0.785]   #CONFIRM VALUES BEFORE USE
+        BR_unpacked_joint_positions: [0.0, 0.785, 0.785]   #CONFIRM VALUES BEFORE USE
+        CL_unpacked_joint_positions: [-0.77, 0.785, 0.785] #CONFIRM VALUES BEFORE USE
+        CR_unpacked_joint_positions: [-0.77, 0.785, 0.785] #CONFIRM VALUES BEFORE USE
 
 ######################################################################
 ######################################################################

@@ -229,6 +229,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
           controlNodesSecondary[3][2] = originTipPositions[l][s][2];
         }  
         
+        
         //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
         if (fmod(moveToPoseTime,1.0) < 0.5)
         {
@@ -238,6 +239,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
         {
           pos = cubicBezier(controlNodesSecondary, (fmod(moveToPoseTime,1.0)-0.5)*2.0);
         }
+        
         
         //Apply inverse kinematics to localTipPositions and stanceTipPositions
         model->legs[l][s].applyLocalIK(pos, true); 
@@ -319,7 +321,7 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
   if (forceSequentialMode)
     mode = SEQUENTIAL_MODE;
   else if (sequenceStep == 1)
-    mode = startHeightRatio < 0.1 ? SIMULTANEOUS_MODE:SEQUENTIAL_MODE;
+    mode = startHeightRatio < 0.1 ? NO_STEP_MODE:SEQUENTIAL_MODE;
   else if (sequenceStep == 3)
     mode = startHeightRatio > 0.8 ? TRIPOD_MODE:SEQUENTIAL_MODE;
   
@@ -330,7 +332,7 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
   switch (sequenceStep)
   {
     case 1:
-      res = stepToPosition(phase1TipPositions, mode, stepHeight, 1.0);
+      res = stepToPosition(phase1TipPositions, mode, stepHeight, 0.5);
       break;
     case 2:
       res = stepToPosition(phase2TipPositions, NO_STEP_MODE, 0.0, 0.5);
@@ -413,7 +415,7 @@ double PoseController::createSequence(WalkController walker)
     {
       double positionScaler = (-(startStanceRatio-1.0)*startHeightRatio+startStanceRatio);
       phase1TipPositions[l][s] = walker.identityTipPositions[l][s]*positionScaler;
-      phase1TipPositions[l][s][2] = 0.0;
+      phase1TipPositions[l][s][2] = -0.025; //parameterise
       
       phase2TipPositions[l][s] = phase1TipPositions[l][s];
       phase2TipPositions[l][s][2] = (heightScaler+startHeightRatio*(1-heightScaler))*walker.identityTipPositions[0][0][2];
@@ -430,7 +432,7 @@ double PoseController::createSequence(WalkController walker)
       phase6TipPositions[l][s][2] = walker.identityTipPositions[l][s][2];
       
       phase7TipPositions[l][s] = phase6TipPositions[l][s];
-      phase7TipPositions[l][s][2] = 0.0;
+      phase7TipPositions[l][s][2] = -0.025; //parameterise
     }
   }   
   return startHeightRatio;
