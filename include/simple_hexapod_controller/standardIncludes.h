@@ -54,7 +54,7 @@ struct Parameters
   double interfaceSetupSpeed;
   
   //Pose Controller Parameters
-  bool moveToStart;
+  bool startUpSequence;
   bool moveLegsSequentially;
   double timeToStart;
   double pitchAmplitude;
@@ -66,7 +66,20 @@ struct Parameters
   double maxX;
   double maxY;
   double maxZ;
-  
+  double minZ;
+  Vector3d packedJointPositionsAL;
+  Vector3d packedJointPositionsAR;
+  Vector3d packedJointPositionsBL;
+  Vector3d packedJointPositionsBR;
+  Vector3d packedJointPositionsCL;
+  Vector3d packedJointPositionsCR;
+  Vector3d unpackedJointPositionsAL;
+  Vector3d unpackedJointPositionsAR;
+  Vector3d unpackedJointPositionsBL;
+  Vector3d unpackedJointPositionsBR;
+  Vector3d unpackedJointPositionsCL;
+  Vector3d unpackedJointPositionsCR;
+    
   //Gait Parameters
   double stancePhase;
   double swingPhase;

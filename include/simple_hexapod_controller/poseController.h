@@ -13,6 +13,7 @@
 struct PoseController
 {
   Model *model;
+  WalkController *walker;
   
   Parameters params;
   
@@ -22,6 +23,8 @@ struct PoseController
   double moveToPoseTime;
   Vector3d originTipPositions[3][2];
   Vector3d midTipPositions[3][2];
+  
+  Vector3d originJointPositions[3][2];
   
   //Used in startup and shutdown sequences
   int sequenceStep = 1;
@@ -38,6 +41,7 @@ struct PoseController
   Pose targetPose;  
   
   PoseController(Model *model, Parameters params);
+  void assignWalkController(WalkController *pWalker);
   bool updateStance(Vector3d targetTipPositions[3][2], 
                     Pose targetPose, 
                     double timeToPose, 
@@ -45,7 +49,8 @@ struct PoseController
   bool stepToPosition(Vector3d (&targetTipPositions)[3][2], 
                       int mode=NO_STEP_MODE, 
                       double stepHeight = 0.0, 
-                      double stepSpeed=1.0); //USE stepSpeed = 0.5 or 1.0
+                      double stepSpeed=0.5); //USE stepSpeed = 0.5 or 1.0
+  bool moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double speed=0.5);
   bool startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   bool shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   double createSequence(WalkController walker); 
