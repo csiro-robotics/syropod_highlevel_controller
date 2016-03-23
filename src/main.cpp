@@ -44,6 +44,8 @@ double jointPositions[18];
 bool jointPosFlag = false;
 bool startFlag = false;
 
+bool firstIteration = true;
+
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
 void imuControllerIncrement(const sensor_msgs::Joy &bButton);
@@ -283,50 +285,65 @@ int main(int argc, char* argv[])
       for (int l = 0; l<3; l++)
       {            
         double yaw = dir*(walker.model->legs[l][s].yaw - params.physicalYawOffset[l]);
-        double tilt = 0.0; //TBD
         double lift = dir*walker.model->legs[l][s].liftAngle;
         double knee = dir*walker.model->legs[l][s].kneeAngle;
-        double ankle = 0.0; //TBD
         
-        if (false) // !firstFrame)
-        {
-          double yawVel = (yaw - walker.model->legs[l][s].debugOldYaw)/params.timeDelta;
-          double liftVel = (lift - walker.model->legs[l][s].debugOldLiftAngle)/params.timeDelta;
-          double kneeVel = (knee - walker.model->legs[l][s].debugOldKneeAngle)/params.timeDelta;
+        double yawVel = 0;
+        double liftVel = 0;
+        double kneeVel = 0;
+        
+        if (!firstIteration)
+        {       
+          yawVel = (yaw - walker.model->legs[l][s].oldYaw)/params.timeDelta;
+          liftVel = (lift - walker.model->legs[l][s].oldLiftAngle)/params.timeDelta;
+          kneeVel = (knee - walker.model->legs[l][s].oldKneeAngle)/params.timeDelta;
           
-          if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
-          {
-            yaw = walker.model->legs[l][s].debugOldYaw + 
-            sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;
-          }
-          if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
-          {
-            lift = walker.model->legs[l][s].debugOldLiftAngle + 
-            sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*params.timeDelta;
-          }
-          if (abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
-          {
-            knee = walker.model->legs[l][s].debugOldKneeAngle + 
-            sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
-          }
+          /*
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || 
               abs(liftVel) > hexapod.jointMaxAngularSpeeds[1] || 
               abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
           {
             cout << "WARNING: MAXIMUM SPEED EXCEEDED!" << endl;
             cout << "Clamping to maximum angular speed for leg: " << l << " side: " << s << endl;
+          } 
+          
+          
+          if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
+          {
+            yaw = walker.model->legs[l][s].oldYaw + 
+            sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;
+            yawVel = sign(yawVel)*hexapod.jointMaxAngularSpeeds[0];
           }
+          if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
+          {
+            lift = walker.model->legs[l][s].oldLiftAngle + 
+            sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*params.timeDelta;
+            liftVel = sign(liftVel)*hexapod.jointMaxAngularSpeeds[1];
+          }
+          if (abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
+          {
+            knee = walker.model->legs[l][s].oldKneeAngle + 
+            sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
+            kneeVel = sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2];
+          }  
+          */
+        }
+        else
+        {
+          firstIteration = false;
         }
         
         interface->setTargetAngle(l, s, 0, yaw);
-        //interface->setTargetAngle(l, s, 1, tilt);
         interface->setTargetAngle(l, s, 1, -lift);
         interface->setTargetAngle(l, s, 2, knee);
-        //interface->setTargetAngle(l, s, 4, ankle);
         
-        walker.model->legs[l][s].debugOldYaw = yaw;
-        walker.model->legs[l][s].debugOldLiftAngle = lift;
-        walker.model->legs[l][s].debugOldKneeAngle = knee;
+        interface->setVelocity(l, s, 0, yawVel);
+        interface->setVelocity(l, s, 1, liftVel);
+        interface->setVelocity(l, s, 2, kneeVel);
+              
+        hexapod.legs[l][s].oldYaw = yaw;
+        hexapod.legs[l][s].oldLiftAngle = lift;
+        hexapod.legs[l][s].oldKneeAngle = knee;
       }
     }
     interface->publish();

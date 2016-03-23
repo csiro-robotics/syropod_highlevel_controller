@@ -38,9 +38,9 @@ struct Leg
   double maxLegLength;
   double mirrorDir;  // 1 or -1 for mirrored
 
-  double debugOldYaw;
-  double debugOldLiftAngle;
-  double debugOldKneeAngle;
+  double oldYaw;
+  double oldLiftAngle;
+  double oldKneeAngle;
   
   struct Model *model; // so it can refer to model's joint limits
 };

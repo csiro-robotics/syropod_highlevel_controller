@@ -9,7 +9,7 @@ time_delta: 0.02
 #Compensation
 imu_compensation: false
 auto_compensation: false
-manual_compensation: false
+manual_compensation: true
 
 gait_type: wave_gait
 
@@ -52,7 +52,7 @@ hip_limits: [-0.436, 1.396]
 
 joint_max_angular_speeds: [1.0, 0.4, 0.4]
 
-dynamixel_interface: true
+dynamixel_interface: false #Set true for gazebo sim
 
 ######################################################################
 # Walk Controller Parameters
@@ -78,7 +78,7 @@ interface_setup_speed: 0.5
 
 #Move to Start
 move_to_start: false
-move_legs_sequentially: false
+move_legs_sequentially: true
 time_to_start: 12.0
 
 #Auto pose compensation

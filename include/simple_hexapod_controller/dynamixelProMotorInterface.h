@@ -10,7 +10,8 @@ public:
 
   DynamixelProMotorInterface();
 
-  void setTargetAngle(int legID, int side, int jointID, double speed);		
+  void setTargetAngle(int legID, int side, int jointID, double angle);
+  void setVelocity(int legID, int side, int jointID, double velocity);
   void setupSpeed(double speed);		
   virtual void publish(void);
   void setPGain(double pGain);
@@ -20,4 +21,5 @@ private:
   ros::NodeHandle nodehandler;
   ros::Publisher motor_pub;
   vector<vector<vector<double> > > angles;
+  vector<vector<vector<double> > > velocities;
 };

@@ -154,9 +154,14 @@ void DynamixelMotorInterface::setupPublishers(void)
   */
 }
 
-void DynamixelMotorInterface::setTargetAngle(int legID, int side, int jointID, double speed)
+void DynamixelMotorInterface::setTargetAngle(int legID, int side, int jointID, double angle)
 {
-  angles[legID][side][jointID] = speed;
+  angles[legID][side][jointID] = angle;
+}
+
+void DynamixelMotorInterface::setVelocity(int legID, int side, int jointID, double velocity)
+{
+  velocities[legID][side][jointID] = velocity;
 }
 
 void DynamixelMotorInterface::publish(void)
