@@ -1,7 +1,6 @@
 #pragma once
 #include "model.h"
 #include "debugOutput.h"
-#include "poseController.h"
 
 //States for walking controller
 enum RobotState
@@ -28,7 +27,6 @@ enum WalkState
 struct WalkController
 {
   Model *model;
-  PoseController *poser;
   
   Pose pose; //DEBUGGING
   
@@ -96,7 +94,6 @@ struct WalkController
   //    minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
 
   WalkController(Model *model, Parameters params);
-  void assignPoseController(PoseController *pPoser);
   
   // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
   // bodyOffset is body pose relative to the basic stance pose, 

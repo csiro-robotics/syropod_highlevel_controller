@@ -309,11 +309,6 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
   //DEBUGGING
 }
 
-void WalkController::assignPoseController(PoseController *pPoser)
-{
-  poser = pPoser;
-}
-
 /***********************************************************************************************************************
  * Calculates body and stride velocities and uses velocities in body and leg state machines 
  * to update tip positions and apply inverse kinematics
@@ -394,7 +389,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       
       if (state == STARTING)
       {    
-        /*
         localCentreVelocity = Vector2d(1e-10, 1e-10);
         angularVelocity = 1e-10;
         legStepper.strideVector = Vector2d(1e-10, 1e-10);
@@ -411,12 +405,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         }
         else
           legStepper.phase = iteratePhase(legStepper.phase);
-        
-        if (targetReached(legStepper.phase, targetPhase))
-          cout << "LEG/SIDE: " << l << ":" << s << " --- PHASE: TARGET MET" << endl;
-        else            
-          cout << "LEG/SIDE: " << l << ":" << s << " --- PHASE: " << legStepper.phase << endl;
-        */
       }
       else if (state == STOPPING)
       {   

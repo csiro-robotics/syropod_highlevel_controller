@@ -13,11 +13,6 @@ PoseController::PoseController(Model *model, Parameters p):
 {   
 } 
 
-void PoseController::assignWalkController(WalkController *pWalker)
-{
-  walker = pWalker;
-}
-
 /***********************************************************************************************************************
  * Updates default stance tip positions according to desired pose at desired speed
  * This is then later used in walk controller where inverse kinematics are applied

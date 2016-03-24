@@ -13,7 +13,6 @@
 struct PoseController
 {
   Model *model;
-  WalkController *walker;
   
   Parameters params;
   
@@ -41,7 +40,6 @@ struct PoseController
   Pose targetPose;  
   
   PoseController(Model *model, Parameters params);
-  void assignWalkController(WalkController *pWalker);
   bool updateStance(Vector3d targetTipPositions[3][2], 
                     Pose targetPose, 
                     double timeToPose, 
