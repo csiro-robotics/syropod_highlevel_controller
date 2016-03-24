@@ -444,11 +444,11 @@ int main(int argc, char* argv[])
     } 
     
     //DEBUGGING 
-    for (int s = 0; s<2; s++)
-      for (int l = 0; l<3; l++)
-        walker.targets.push_back(walker.pose.transformVector(hexapod.legs[l][s].localTipPosition));
-    debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
-    debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
+    //for (int s = 0; s<2; s++)
+    //  for (int l = 0; l<3; l++)
+    //    walker.targets.push_back(walker.pose.transformVector(hexapod.legs[l][s].localTipPosition));
+    //debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
+    //debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
     //debug.drawPoints(walker.staticTargets, Vector4d(1,0,0,1));
     //walker.targets.clear();
     //DEBUGGING    
