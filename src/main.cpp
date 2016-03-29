@@ -13,6 +13,7 @@
 #include <boost/concept_check.hpp>
 #include <iostream>
 #include "std_msgs/Bool.h"
+#include "std_msgs/Int8.h"
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/Vector3.h"
@@ -68,7 +69,7 @@ bool startFlag = false;
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
 void imuControllerCallback(const sensor_msgs::Joy &input);
-void gaitSelectionCallback(const sensor_msgs::Joy &input);
+void gaitSelectionCallback(const std_msgs::Int8 &input);
 void legSelectionCallback(const sensor_msgs::Joy &input);
 
 void startCallback(const std_msgs::Bool &startBool);
@@ -91,10 +92,10 @@ int main(int argc, char* argv[])
   ros::Subscriber poseSubscriber = n.subscribe("/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, imuCallback);
   ros::Subscriber imuControlSubscriber = n.subscribe("/joy", 1, imuControllerCallback);
-  ros::Subscriber gaitSelectSubscriber = n.subscribe("/joy", 1, gaitSelectionCallback);
   ros::Subscriber legSelectSubscriber = n.subscribe("/joy", 1, legSelectionCallback);
   
   ros::Subscriber startSubscriber = n.subscribe("/start_state", 1, startCallback);
+  ros::Subscriber gaitSelectSubscriber = n.subscribe("/gait_mode", 1, gaitSelectionCallback);
   ros::Subscriber jointStatesSubscriber;  
     
   //Get parameters from rosparam via loaded config file
@@ -533,17 +534,9 @@ void imuControllerCallback(const sensor_msgs::Joy &input)
 /***********************************************************************************************************************
  * Gait Selection Callback
 ***********************************************************************************************************************/
-void gaitSelectionCallback(const sensor_msgs::Joy &input)
+void gaitSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (input.buttons[0] && !buttonA)
-  {
-    buttonA = true;
-    gaitSelection = (gaitSelection+1)%3; //Three possible gait modes (currently)
-  }
-  else if (!input.buttons[0] && buttonA)
-  {
-    buttonA = false;
-  }
+  gaitSelection = input.data;
 }
 
 /***********************************************************************************************************************
