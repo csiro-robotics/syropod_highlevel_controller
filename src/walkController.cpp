@@ -421,8 +421,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       {
         legStepper.phase = 0;
         localCentreVelocity = Vector2d(0, 0);
-        angularVelocity = 0.0;
-        //.clear();//DEBUGGING     
+        angularVelocity = 0.0;   
         legStepper.strideVector = Vector2d(0, 0);
       } 
     }
@@ -498,11 +497,11 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   model->clampToLimits();  
   localCentreAcceleration = (localCentreVelocity - oldLocalCentreVelocity) / timeDelta;
   
-  //DEBUGGING
+  //RVIZ
   Vector2d push = localCentreVelocity*timeDelta;
   pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
   pose.rotation *= Quat(Vector3d(0.0,0.0,-angularVelocity*timeDelta));
-  //DEBUGGING
+  //RVIZ
 }
 
 /***********************************************************************************************************************

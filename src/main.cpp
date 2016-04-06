@@ -40,8 +40,7 @@ enum Gait
   RIPPLE_GAIT,
   WAVE_GAIT,
 };
-/*
- * REMOVE
+
 enum LegSelection
 {
   FRONT_LEFT,
@@ -51,7 +50,6 @@ enum LegSelection
   REAR_LEFT,
   REAR_RIGHT,
 };
-*/
 
 //Globals for joypad callbacks
 static Parameters *pParams;
@@ -59,7 +57,7 @@ static Parameters *pParams;
 State state = UNKNOWN;
 
 Gait gait = TRIPOD_GAIT;
-//LegSelection legSelection = FRONT_LEFT; REMOVE
+LegSelection legSelection = FRONT_LEFT;
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
@@ -75,6 +73,8 @@ static double poseTimeJoy = 0.2;
 static double stepFrequencyMultiplier = 1.0;
 
 double pIncrement=0;
+bool toggleLegState = false;
+bool debounce = false;
 
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
@@ -87,7 +87,8 @@ void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
 void imuControllerCallback(const sensor_msgs::Joy &input);
 void gaitSelectionCallback(const std_msgs::Int8 &input);
-//void legSelectionCallback(const std_msgs::Int8 &input); REMOVE
+void legSelectionCallback(const std_msgs::Int8 &input);
+void legStateCallback(const std_msgs::Bool &input);
 void startCallback(const std_msgs::Bool &input);
 
 void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait);
@@ -107,7 +108,8 @@ int main(int argc, char* argv[])
   ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, imuCallback);
   ros::Subscriber imuControlSubscriber = n.subscribe("/joy", 1, imuControllerCallback);
-  //ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, legSelectionCallback); REMOVE
+  ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, legSelectionCallback);
+  ros::Subscriber legStateSubscriber = n.subscribe("hexapod_remote/leg_state_toggle", 1, legStateCallback);
   
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, startCallback);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, gaitSelectionCallback);
@@ -316,26 +318,24 @@ int main(int argc, char* argv[])
           {
             state = GAIT_TRANSITION;
           }          
-          /*
-          //Leg Selection for Actuation
-          int l = legSelection/2;
-          int s = legSelection%2;
-          if (buttonB)
+          
+          //Leg Selection for toggling state          
+          if (toggleLegState)
           {
+            int l = legSelection/2;
+            int s = legSelection%2;
             if (hexapod.legs[l][s].state == WALKING)
             {
-              hexapod.legs[l][s].state = ACTUATING;
-              cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: ACTUATING." << endl; 
+              hexapod.legs[l][s].state = OFF;
+              cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: OFF." << endl; 
             }
-            else if (hexapod.legs[l][s].state == ACTUATING)
+            else if (hexapod.legs[l][s].state == OFF)
             {
               hexapod.legs[l][s].state = WALKING;
               cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING." << endl;
             }
-            buttonB = false;
+            toggleLegState = false;
           } 
-          REMOVE
-          */
         }
         break;
       } 
@@ -460,7 +460,6 @@ int main(int argc, char* argv[])
     } 
     
     //RVIZ
-    /*
     for (int s = 0; s<2; s++)
     {
       for (int l = 0; l<3; l++)
@@ -471,14 +470,13 @@ int main(int argc, char* argv[])
     }
     debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
     
-    //debug.drawPoints(debug.tipPositions, Vector4d(1,0,0,1)); //Actual Tip Trajectory Paths
-    debug.drawPoints(debug.staticTipPositions, Vector4d(1,0,0,1)); //Static Single Tip Trajectory command
+    debug.drawPoints(debug.tipPositions, Vector4d(1,0,0,1)); //Actual Tip Trajectory Paths
+    //debug.drawPoints(debug.staticTipPositions, Vector4d(1,0,0,1)); //Static Single Tip Trajectory command
 
     if (debug.tipPositions.size() > 2000)
       debug.tipPositions.erase(debug.tipPositions.end()-6,debug.tipPositions.end());
     if (debug.staticTipPositions.size() >= 6*(1/params.timeDelta))
       debug.staticTipPositions.clear();
-    */
     //RVIZ 
     
     //Publish desired joint angles
@@ -579,12 +577,56 @@ void gaitSelectionCallback(const std_msgs::Int8 &input)
 /***********************************************************************************************************************
  * Actuating Leg Selection Callback
 ***********************************************************************************************************************/
-/*
-void legSelectionCallback(const std_msgs::<vector>Int8 &input)
+void legSelectionCallback(const std_msgs::Int8 &input)
 {
-  legSelection = input.data;
+  switch (input.data)
+  {
+    case(0):
+      if (legSelection != FRONT_LEFT)
+      {
+        legSelection = FRONT_LEFT;
+        cout << "Front left leg selected." << endl;
+      }
+      break;
+    case(1):
+      if (legSelection != FRONT_RIGHT)
+      {
+        legSelection = FRONT_RIGHT;
+        cout << "Front right leg selected." << endl;
+      }
+      break;
+    case(2):
+      if (legSelection != MIDDLE_LEFT)
+      {
+        legSelection = MIDDLE_LEFT;
+        cout << "Middle left leg selected." << endl;
+      }
+      break;
+    case(3):
+      if (legSelection != MIDDLE_RIGHT)
+      {
+        legSelection = MIDDLE_RIGHT;
+        cout << "Middle right leg selected." << endl;
+      }
+      break;
+    case(4):
+      if (legSelection != REAR_LEFT)
+      {
+        legSelection = REAR_LEFT;
+        cout << "Rear left leg selected." << endl;
+      }
+      break;
+    case(5):
+      if (legSelection != REAR_RIGHT)
+      {
+        legSelection = REAR_RIGHT;
+        cout << "Rear right leg selected." << endl;
+      }
+      break;
+    default:
+      cout << "Unknown leg selection requested from control input." << endl;
+  }
 }
-*/
 
 /***********************************************************************************************************************
  * Joypad Velocity Topic Callback
@@ -643,6 +685,20 @@ void joypadPoseCallback(const geometry_msgs::Twist &twist)
 void startCallback(const std_msgs::Bool &input)
 {
   startFlag = input.data;
+}
+
+/***********************************************************************************************************************
+ * Toggle Leg State Callback
+***********************************************************************************************************************/
+void legStateCallback(const std_msgs::Bool &input)
+{
+  if (input.data && debounce)
+  {
+    toggleLegState = true;
+    debounce = false;
+  }
+  else if (!input.data && !toggleLegState)
+    debounce = true;
 }
 
 /***********************************************************************************************************************
