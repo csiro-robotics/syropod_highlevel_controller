@@ -84,6 +84,16 @@ int main(int argc, char* argv[])
   //Start User Message
   cout << "Press 'Start' to run controller" << endl;
   
+  //Setup motor interaface
+  MotorInterface *interface;
+  
+  if (params.dynamixelInterface)
+    interface = new DynamixelMotorInterface();  
+  else
+    interface = new DynamixelProMotorInterface();
+  
+  interface->setupSpeed(params.interfaceSetupSpeed);
+  
   //Loop waiting for start button press
   while(!startFlag)
   {
@@ -143,15 +153,7 @@ int main(int argc, char* argv[])
   DebugOutput debug;
   setCompensationDebug(debug);
 
-  //Setup motor interaface
-  MotorInterface *interface;
-  
-  if (params.dynamixelInterface)
-    interface = new DynamixelMotorInterface();  
-  else
-    interface = new DynamixelProMotorInterface();
-  
-  interface->setupSpeed(params.interfaceSetupSpeed);   
+     
   
   //Startup/Shutdown variables
   bool startUpComplete = false;

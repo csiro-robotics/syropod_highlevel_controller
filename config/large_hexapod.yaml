@@ -52,13 +52,13 @@ hip_limits: [-0.436, 1.396]
 
 joint_max_angular_speeds: [1.0, 0.4, 0.4]
 
-dynamixel_interface: false #Set true for gazebo sim
+dynamixel_interface: true #Set true for gazebo sim
 
 ######################################################################
 # Walk Controller Parameters
 ######################################################################
 
-step_frequency: 0.1
+step_frequency: 0.05
 step_clearance: 0.1
 body_clearance: 0.4
 leg_span_scale: 0.6
@@ -78,8 +78,8 @@ interface_setup_speed: 0.5
 
 #Move to Start
 move_to_start: false
-move_legs_sequentially: true
-time_to_start: 12.0
+move_legs_sequentially: false
+time_to_start: 60.0
 
 #Auto pose compensation
 pitch_amplitude: 0.03

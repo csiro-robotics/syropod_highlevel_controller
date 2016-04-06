@@ -31,6 +31,9 @@ void DynamixelProMotorInterface::publish(void)
 {
   sensor_msgs::JointState msg;
 
+  msg.header.stamp.sec = ros::Time::now().toSec();
+  msg.header.stamp.nsec = ros::Time::now().toNSec();
+  
   msg.name.push_back("front_left_body_coxa");
   msg.position.push_back (angles[0][0][0]);
   msg.velocity.push_back (velocities[0][0][0]);
@@ -101,8 +104,8 @@ void DynamixelProMotorInterface::publish(void)
   
   msg.name.push_back("rear_right_femour_tibia");
   msg.position.push_back (angles[2][1][2]);
-  msg.velocity.push_back (velocities[2][1][2]);
-  
+  msg.velocity.push_back (velocities[2][1][2]);  
+   
   motor_pub.publish (msg);
 }
 
