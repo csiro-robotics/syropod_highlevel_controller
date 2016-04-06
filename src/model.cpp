@@ -47,14 +47,16 @@ Vector3d Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
   kneeAngle = tibiaAngleOffset + kneeBend;
   ASSERT(abs(yaw) < 7.0);
   ASSERT(abs(liftAngle) < 7.0);
-  ASSERT(abs(kneeAngle) < 7.0);
+  ASSERT(abs(kneeAngle) < 7.0); 
   
   Vector3d resultTipPosition = applyFK(updateStance);
   
-  //This error occurs due to an imperfect vector rotation algorithm
+  /*
+  //Debugging Error Check: Any error occurs due to an imperfect vector rotation algorithm 
   Vector3d diffVec = resultTipPosition - tipTarget;  
-  //if (diffVec[0] > 1e-3 || diffVec[1] > 1e-3 || diffVec[2] > 1e-3)
-  //  cout << "FORWARD KINEMATICS ERROR: " << diffVec[0] << ":" << diffVec[1] << ":" << diffVec[2] << endl;
+  if (diffVec[0] > 1e-3 || diffVec[1] > 1e-3 || diffVec[2] > 1e-3)
+    cout << "FORWARD KINEMATICS ERROR: " << diffVec[0] << ":" << diffVec[1] << ":" << diffVec[2] << endl;
+  */
   
   Vector3d jointPositions = {yaw, liftAngle, kneeAngle};
   return jointPositions;
@@ -89,7 +91,12 @@ Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
 /***********************************************************************************************************************
  * Defines hexapod model
 ***********************************************************************************************************************/
-Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitAroundStance(params.yawLimits), minMaxKneeBend(params.kneeLimits), minMaxHipLift(params.hipLimits)
+Model::Model(Parameters params) : 
+  stanceLegYaws(params.stanceLegYaws), 
+  yawLimitAroundStance(params.yawLimits), 
+  minMaxKneeBend(params.kneeLimits), 
+  minMaxHipLift(params.hipLimits), 
+  jointMaxAngularSpeeds(params.jointMaxAngularSpeeds)
 {
   for (int l = 0; l<3; l++)
   {
@@ -106,7 +113,6 @@ Model::Model(Parameters params) : stanceLegYaws(params.stanceLegYaws), yawLimitA
       leg.state = WALKING;
     }
   }
-  jointMaxAngularSpeeds = Vector3d(1e10,1e10,1e10);
 }
 
 /***********************************************************************************************************************

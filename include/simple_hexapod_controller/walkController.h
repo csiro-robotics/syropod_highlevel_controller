@@ -83,9 +83,6 @@ struct WalkController
                             double timeDelta);
   } legSteppers[3][2];
   
-  vector<Vector3d> targets; //DEBUGGING
-  vector<Vector3d> staticTargets;
-  
   // Determines the basic stance pose which the hexapod will try to maintain, by finding the largest footprint 
   // radius that each leg can achieve for the specified level of clearance
   //    stepFrequency- preferred step cycles per second

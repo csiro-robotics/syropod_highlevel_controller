@@ -122,8 +122,8 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
 bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mode, double liftHeight, double stepSpeed)
 { 
   if (firstIteration)
-  {
-    //cout << "************************************************************************************************************" << endl;
+  {    
+    //cout << "************************************************************************************************************" << endl; //DEBUGGING
     firstIteration = false;
     moveToPoseTime = 0.0;
     for (int l = 0; l<3; l++)
@@ -226,7 +226,9 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
         {
           pos = cubicBezier(controlNodesSecondary, (fmod(moveToPoseTime,1.0)-0.5)*2.0);
         }
+        
         /*
+        //DEBUGGING
         if (l==0 && s==0)
         {
           cout << "ORIGIN: " << originTipPositions[0][0][0] << ":" << originTipPositions[0][0][1] << ":" << originTipPositions[0][0][2] <<
@@ -293,7 +295,9 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
       controlNodes[3] = targetJointPositions[l][s];
       
       //Calculate change in position using bezier curve
-      pos = cubicBezier(controlNodes, moveToPoseTime);   
+      pos = cubicBezier(controlNodes, moveToPoseTime); 
+      
+      //DEBUGGING
       //cout << "LS: " << l << s << " Time: " << moveToPoseTime << " ORIGIN: " << originJointPositions[l][s] << " CURRENT: " << pos << " TARGET: " << targetJointPositions[l][s] << endl;
       
       model->legs[l][s].yaw = pos[0];
@@ -301,8 +305,7 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
       model->legs[l][s].kneeAngle = pos[2];
       model->legs[l][s].applyFK();
     }
-  }
- 
+  } 
   return false;
 }
 
@@ -383,6 +386,7 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
 /***********************************************************************************************************************
  * Calculates tip positions for startup/shutdown sequences
 ***********************************************************************************************************************/
+//TBD REFACTORING
 double PoseController::createSequence(WalkController walker)
 {  
   //Get average z position of leg tips
@@ -442,7 +446,7 @@ void PoseController::resetSequence(void)
 }
 
 /***********************************************************************************************************************
- * Calculates pitch for body compensation
+ * Calculates pitch for auto body compensation
 ***********************************************************************************************************************/
 double PoseController::getPitchCompensation(double phase)
 {
@@ -479,7 +483,7 @@ double PoseController::getPitchCompensation(double phase)
 }
 
 /***********************************************************************************************************************
- * Calculates roll for body compensation
+ * Calculates roll for auto body compensation
 ***********************************************************************************************************************/
 double PoseController::getRollCompensation(double phase)
 { 

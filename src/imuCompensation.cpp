@@ -25,7 +25,7 @@ void imuCallback(const sensor_msgs::Imu &imudata)
 static const int numAccs = 500;
 static vector<Vector3d> accs(numAccs);
 static vector<double> times(numAccs);
-static int accIndex = 0;
+//static int accIndex = 0;
 
 Vector3d gaussianMean(double time, double timeStandardDeviation, double omega)
 {
@@ -48,9 +48,9 @@ Vector3d gaussianMean(double time, double timeStandardDeviation, double omega)
   return meanAcc;
 }
 
-static double t = 0;
+//static double t = 0;
 static double inputPhase = 0;
-Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos, double pIncrement, double timeDelta)
+void compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos, double pIncrement, double timeDelta)
 {
 //#define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
@@ -112,10 +112,14 @@ Vector3d compensation(const Vector3d &targetAccel, double targetAngularVel, Vect
   const double strength = 0.1;
   offsetPos = -totalAcc * strength;
   
-  return offsetPos;
+  *deltaPos = offsetPos;
+  *deltaAngle = Vector3d(0,0,0);
 #endif
   if (accel.squaredNorm()==0)
-    return Vector3d(0,0,0);
+  {
+    *deltaAngle = Vector3d(0,0,0);
+    *deltaPos = Vector3d(0,0,0);
+  }
   
   /*//Compensation for gravity
   Vector3d accelcomp;

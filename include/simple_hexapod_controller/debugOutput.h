@@ -11,6 +11,8 @@ public:
   void drawRobot(const Vector3d &extents, const vector<Vector3d> &legPoints, const Vector4d &colour);
   void plot(const vector<Vector2d> &points); // quick alternative to 2D plotting library
   void reset(){ robotID = 0; plotID = 0; }
+  vector<Vector3d> tipPositions;
+  vector<Vector3d> staticTipPositions;
   
 private:
   int robotID;

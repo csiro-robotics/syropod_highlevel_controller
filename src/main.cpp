@@ -34,10 +34,32 @@ enum State
   UNKNOWN,  
 };
 
+enum Gait
+{
+  TRIPOD_GAIT,
+  RIPPLE_GAIT,
+  WAVE_GAIT,
+};
+/*
+ * REMOVE
+enum LegSelection
+{
+  FRONT_LEFT,
+  FRONT_RIGHT,
+  MIDDLE_LEFT,
+  MIDDLE_RIGHT,
+  REAR_LEFT,
+  REAR_RIGHT,
+};
+*/
+
 //Globals for joypad callbacks
 static Parameters *pParams;
 
 State state = UNKNOWN;
+
+Gait gait = TRIPOD_GAIT;
+//LegSelection legSelection = FRONT_LEFT; REMOVE
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
@@ -49,16 +71,10 @@ static double xJoy = 0;
 static double yJoy = 0;
 static double zJoy = 0;
 
-static bool buttonA = false;
-static bool buttonB = false;
-static bool buttonY = false;
-
 static double poseTimeJoy = 0.2;
 static double stepFrequencyMultiplier = 1.0;
 
 double pIncrement=0;
-int gaitSelection = 0;
-int legSelection = 0;
 
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
@@ -66,15 +82,14 @@ double jointPositions[18];
 bool jointPosFlag = false;
 bool startFlag = false;
 
+void jointStatesCallback(const sensor_msgs::JointState &joint_States);
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
 void imuControllerCallback(const sensor_msgs::Joy &input);
 void gaitSelectionCallback(const std_msgs::Int8 &input);
-void legSelectionCallback(const sensor_msgs::Joy &input);
+//void legSelectionCallback(const std_msgs::Int8 &input); REMOVE
+void startCallback(const std_msgs::Bool &input);
 
-void startCallback(const std_msgs::Bool &startBool);
-
-void jointStatesCallback(const sensor_msgs::JointState &joint_States);
 void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait);
 
 /***********************************************************************************************************************
@@ -88,14 +103,14 @@ int main(int argc, char* argv[])
   
   ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
   
-  ros::Subscriber velocitySubscriber = n.subscribe("/desired_velocity", 1, joypadVelocityCallback);
-  ros::Subscriber poseSubscriber = n.subscribe("/desired_pose", 1, joypadPoseCallback);
+  ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, joypadVelocityCallback);
+  ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, imuCallback);
   ros::Subscriber imuControlSubscriber = n.subscribe("/joy", 1, imuControllerCallback);
-  ros::Subscriber legSelectSubscriber = n.subscribe("/joy", 1, legSelectionCallback);
+  //ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, legSelectionCallback); REMOVE
   
-  ros::Subscriber startSubscriber = n.subscribe("/start_state", 1, startCallback);
-  ros::Subscriber gaitSelectSubscriber = n.subscribe("/gait_mode", 1, gaitSelectionCallback);
+  ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, startCallback);
+  ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, gaitSelectionCallback);
   ros::Subscriber jointStatesSubscriber;  
     
   //Get parameters from rosparam via loaded config file
@@ -118,20 +133,19 @@ int main(int argc, char* argv[])
   
   //Create hexapod model    
   Model hexapod(params);  
-  hexapod.jointMaxAngularSpeeds = params.jointMaxAngularSpeeds;
   
   //Set initial gait selection number for gait toggling
   if (params.gaitType == "tripod_gait")
   {
-    gaitSelection = 0;
+    gait = TRIPOD_GAIT;
   }
   else if (params.gaitType == "wave_gait")
   {
-    gaitSelection = 1;
+    gait = RIPPLE_GAIT;
   }
   else if (params.gaitType == "ripple_gait")
   {
-    gaitSelection = 2;
+    gait = WAVE_GAIT;
   }
   
   //Get current joint positions
@@ -293,17 +307,15 @@ int main(int argc, char* argv[])
           //Update Walker and Poser
           double poseTime = params.manualCompensation ? poseTimeJoy : 0.0;
           poser.updateStance(walker.identityTipPositions, adjust, poseTime);
-          turnRate = turnRate*turnRate*turnRate; // the cube just lets the thumbstick give small turns easier
           walker.updateWalk(localVelocity, turnRate, stepFrequencyMultiplier);
           
           //Switch gait parameters and create new walker instance
-          if (gaitSelection == 0 && params.gaitType != "tripod_gait" ||
-              gaitSelection == 1 && params.gaitType != "ripple_gait" ||
-              gaitSelection == 2 && params.gaitType != "wave_gait")
+          if ((gait == TRIPOD_GAIT && params.gaitType != "tripod_gait") ||
+              (gait == RIPPLE_GAIT && params.gaitType != "ripple_gait") ||
+              (gait == WAVE_GAIT && params.gaitType != "wave_gait"))
           {
             state = GAIT_TRANSITION;
-          }
-          
+          }          
           /*
           //Leg Selection for Actuation
           int l = legSelection/2;
@@ -321,8 +333,9 @@ int main(int argc, char* argv[])
               cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING." << endl;
             }
             buttonB = false;
-          }
-          */         
+          } 
+          REMOVE
+          */
         }
         break;
       } 
@@ -333,16 +346,16 @@ int main(int argc, char* argv[])
         {
           state = RUNNING;
           getParameters(n, &params, params.gaitType);
-          switch (gaitSelection)
+          switch (gait)
           {
-            case (0):
+            case (TRIPOD_GAIT):
               getParameters(n, &params, "tripod_gait");
               break;
-            case(1):
+            case(RIPPLE_GAIT):
               getParameters(n, &params, "ripple_gait");
               params.stepFrequency*=0.5;
               break;
-            case(2):
+            case(WAVE_GAIT):
               getParameters(n, &params, "wave_gait");
               params.stepFrequency*=0.1;
               break;
@@ -363,7 +376,7 @@ int main(int argc, char* argv[])
         break;
       }
 
-	  //Robot transitions to packed state
+      //Robot transitions to packed state
       case(PACK):
       {
         if (poser.moveToJointPosition(packedJointPositions))
@@ -393,12 +406,14 @@ int main(int argc, char* argv[])
         {
           for (int s=0; s<2; s++)
           {
-            checkPacked += abs(hexapod.legs[l][s].yaw - packedJointPositions[l][s][0]) < 0.1 &&
-                           abs(hexapod.legs[l][s].liftAngle - packedJointPositions[l][s][1]) < 0.1 &&
-                           abs(hexapod.legs[l][s].kneeAngle - packedJointPositions[l][s][2]) < 0.1;
+            //Check all current joint positions are 'close' to packed joint positions
+            double tolerance = 0.1;
+            checkPacked += abs(hexapod.legs[l][s].yaw - packedJointPositions[l][s][0]) < tolerance &&
+                           abs(hexapod.legs[l][s].liftAngle - packedJointPositions[l][s][1]) < tolerance &&
+                           abs(hexapod.legs[l][s].kneeAngle - packedJointPositions[l][s][2]) < tolerance;
           }
         }
-        if (checkPacked == 6)
+        if (checkPacked == 6) //All joints in each leg are approximately in the packed position
         {
           if (!params.startUpSequence)
           {
@@ -444,15 +459,27 @@ int main(int argc, char* argv[])
       }
     } 
     
-    //DEBUGGING 
-    //for (int s = 0; s<2; s++)
-    //  for (int l = 0; l<3; l++)
-    //    walker.targets.push_back(walker.pose.transformVector(hexapod.legs[l][s].localTipPosition));
-    //debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
-    //debug.drawPoints(walker.targets, Vector4d(1,0,0,1));
-    //debug.drawPoints(walker.staticTargets, Vector4d(1,0,0,1));
-    //walker.targets.clear();
-    //DEBUGGING    
+    //RVIZ
+    /*
+    for (int s = 0; s<2; s++)
+    {
+      for (int l = 0; l<3; l++)
+      {
+        debug.tipPositions.insert(debug.tipPositions.begin(), walker.pose.transformVector(hexapod.legs[l][s].localTipPosition));
+        debug.staticTipPositions.insert(debug.staticTipPositions.begin(), hexapod.legs[l][s].localTipPosition);
+      }
+    }
+    debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
+    
+    //debug.drawPoints(debug.tipPositions, Vector4d(1,0,0,1)); //Actual Tip Trajectory Paths
+    debug.drawPoints(debug.staticTipPositions, Vector4d(1,0,0,1)); //Static Single Tip Trajectory command
+
+    if (debug.tipPositions.size() > 2000)
+      debug.tipPositions.erase(debug.tipPositions.end()-6,debug.tipPositions.end());
+    if (debug.staticTipPositions.size() >= 6*(1/params.timeDelta))
+      debug.staticTipPositions.clear();
+    */
+    //RVIZ 
     
     //Publish desired joint angles
     for (int s = 0; s<2; s++)
@@ -461,10 +488,8 @@ int main(int argc, char* argv[])
       for (int l = 0; l<3; l++)
       {            
         double yaw = dir*(hexapod.legs[l][s].yaw - params.physicalYawOffset[l]);
-        double tilt = 0.0; //TBD
         double lift = dir*hexapod.legs[l][s].liftAngle;
         double knee = dir*hexapod.legs[l][s].kneeAngle;
-        double ankle = 0.0; //TBD
         
         if (false) // !firstFrame)
         {
@@ -497,10 +522,8 @@ int main(int argc, char* argv[])
         }
         
         interface->setTargetAngle(l, s, 0, yaw);
-        //interface->setTargetAngle(l, s, 1, tilt);
         interface->setTargetAngle(l, s, 1, -lift);
         interface->setTargetAngle(l, s, 2, knee);
-        //interface->setTargetAngle(l, s, 4, ankle);
         
         hexapod.legs[l][s].debugOldYaw = yaw;
         hexapod.legs[l][s].debugOldLiftAngle = lift;
@@ -536,30 +559,32 @@ void imuControllerCallback(const sensor_msgs::Joy &input)
 ***********************************************************************************************************************/
 void gaitSelectionCallback(const std_msgs::Int8 &input)
 {
-  gaitSelection = input.data;
+  switch (input.data)
+  {
+    case(0):
+      gait = TRIPOD_GAIT;
+      break;
+    case(1):
+      gait = RIPPLE_GAIT;
+      break;
+    case(2):
+      gait = WAVE_GAIT;
+      break;
+    default:
+      cout << "Unknown gait requested from control input." << endl;
+  }
 }
+
 
 /***********************************************************************************************************************
  * Actuating Leg Selection Callback
 ***********************************************************************************************************************/
-void legSelectionCallback(const sensor_msgs::Joy &input)
+/*
+void legSelectionCallback(const std_msgs::<vector>Int8 &input)
 {
-  /*
-  if (input.buttons[3] && !buttonY)
-  {
-    buttonY = true;
-    legSelection = (legSelection+1)%6; //6 Legs
-    cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " selected." << endl;
-  }
-  else if (!input.buttons[3] && buttonY)
-  {
-    buttonY = false;
-  }
-  
-  if (input.buttons[1] && !buttonB)
-    buttonB = true;
-  */
+  legSelection = input.data;
 }
+*/
 
 /***********************************************************************************************************************
  * Joypad Velocity Topic Callback
@@ -569,7 +594,16 @@ void joypadVelocityCallback(const geometry_msgs::Twist &twist)
   stepFrequencyMultiplier = (-0.5*twist.linear.z+1.5); //Range: 1.0->2.0
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   //localVelocity = clamped(localVelocity, 1.0);
+
   turnRate = twist.angular.x;
+  turnRate = turnRate*turnRate*turnRate; // the cube just lets the thumbstick give small turns easier
+    
+  //Allows rotation without velocity input
+  if (localVelocity.norm() == 0.0)
+  {
+    localVelocity = Vector2d(0, twist.angular.x);
+    turnRate = sign(twist.angular.x);
+  }
   
   poseTimeJoy = pParams->maxPoseTime*(0.5*twist.angular.z+0.5); //Range: maxPoseTime->0.0
 }
@@ -606,12 +640,9 @@ void joypadPoseCallback(const geometry_msgs::Twist &twist)
 /***********************************************************************************************************************
  * Joypad Start State Topic Callback
 ***********************************************************************************************************************/
-void startCallback(const std_msgs::Bool &startBool)
+void startCallback(const std_msgs::Bool &input)
 {
-  if (startBool.data == true)
-    startFlag = true;
-  else
-    startFlag = false;
+  startFlag = input.data;
 }
 
 /***********************************************************************************************************************
@@ -621,7 +652,7 @@ void jointStatesCallback(const sensor_msgs::JointState &joint_States)
 {  
   if (!jointPosFlag)
   {
-    for (int i=0; i<joint_States.name.size(); i++)
+    for (uint i=0; i<joint_States.name.size(); i++)
     {
       const char* jointName = joint_States.name[i].c_str();
       if (!strcmp(jointName, "front_left_body_coxa") ||

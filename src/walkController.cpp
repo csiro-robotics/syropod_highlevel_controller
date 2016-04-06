@@ -301,12 +301,6 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
 
   pose.rotation = Quat(1,0,0,0);
   pose.position = Vector3d(0, 0, bodyClearance*maximumBodyHeight);
-
-  //DEBUGGING
-  for (int l = 0; l<3; l++)
-    for (int s = 0; s<2; s++)
-      targets.push_back(model->legs[l][s].localTipPosition);
-  //DEBUGGING
 }
 
 /***********************************************************************************************************************
@@ -321,7 +315,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   double onGroundRatio = (params.stancePhase+params.transitionPeriod)/(params.stancePhase + params.swingPhase);
   
   Vector2d localVelocity = localNormalisedVelocity*minFootprintRadius*stepFrequency/onGroundRatio;
-
+    
   double normalSpeed = localVelocity.norm();
   ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
   Vector2d oldLocalCentreVelocity = localCentreVelocity;
@@ -348,7 +342,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   if (state == STOPPED && !isMoving && normalSpeed)
   {
     state = STARTING;
-    //targetsNotMet = 0;
   }
   
   // State transition: STARTING->MOVING
@@ -429,7 +422,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.phase = 0;
         localCentreVelocity = Vector2d(0, 0);
         angularVelocity = 0.0;
-        targets.clear();//DEBUGGING     
+        //.clear();//DEBUGGING     
         legStepper.strideVector = Vector2d(0, 0);
       } 
     }
@@ -453,10 +446,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       }
       else if (legStepper.phase > swingStart && legStepper.phase < swingEnd)
       {
-        //DEBUGGING
-        if (s==0 && l==0 && legStepper.state != SWING)
-          staticTargets.clear();
-        //DEBUGGING
         legStepper.state = SWING; 
         if (params.legStateCorrection)
         {
@@ -503,11 +492,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
                                                                   timeDelta); 
         leg.applyLocalIK(legStepper.currentTipPosition); 
       }
-      
-      //DEBUGGING
-      //staticTargets.push_back(model->legs[0][0].localTipPosition);
-      //targets.push_back(pose.transformVector(leg.localTipPosition)); 
-      //DEBUGGING
     }
   }  
   
