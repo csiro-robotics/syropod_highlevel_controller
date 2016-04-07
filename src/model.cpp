@@ -109,7 +109,7 @@ Model::Model(Parameters params) :
       leg.kneeOffset = params.kneeOffset[l][s];
       leg.tipOffset  = params.tipOffset[l][s];
       leg.mirrorDir = s ? 1 : -1;
-      leg.init(0,0,0);
+      leg.init(0,max(0.0,minMaxHipLift[0]),max(0.0,minMaxKneeBend[0]));
       leg.state = WALKING;
     }
   }

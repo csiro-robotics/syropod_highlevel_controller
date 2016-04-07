@@ -87,6 +87,9 @@ struct Parameters
   std::vector<int> legSelectionPattern;
   std::vector<int> sideSelectionPattern;
   double transitionPeriod;
+  
+  //Debug Parameters
+  bool debug_rviz;
 };
 
 template<class T>

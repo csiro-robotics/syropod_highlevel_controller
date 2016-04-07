@@ -39,6 +39,7 @@ enum Gait
   TRIPOD_GAIT,
   RIPPLE_GAIT,
   WAVE_GAIT,
+  DEFAULT,
 };
 
 enum LegSelection
@@ -56,7 +57,7 @@ static Parameters *pParams;
 
 State state = UNKNOWN;
 
-Gait gait = TRIPOD_GAIT;
+Gait gait = DEFAULT;
 LegSelection legSelection = FRONT_LEFT;
 
 static Vector2d localVelocity(0,0);
@@ -126,6 +127,9 @@ int main(int argc, char* argv[])
   //Start User Message
   cout << "Press 'Start' to run controller" << endl;
   
+  if (params.debug_rviz)
+    cout << "WARNING: DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE." << endl;
+  
   //Loop waiting for start button press
   while(!startFlag)
   {
@@ -141,11 +145,11 @@ int main(int argc, char* argv[])
   {
     gait = TRIPOD_GAIT;
   }
-  else if (params.gaitType == "wave_gait")
+  else if (params.gaitType == "ripple_gait")
   {
     gait = RIPPLE_GAIT;
   }
-  else if (params.gaitType == "ripple_gait")
+  else if (params.gaitType == "wave_gait")
   {
     gait = WAVE_GAIT;
   }
@@ -187,7 +191,8 @@ int main(int argc, char* argv[])
   }
   else
   {
-    cout << "Failed to acquire all joint position values" << endl;
+    cout << "Failed to acquire all joint position values." << endl;
+    cout << "WARNING: ASSUMING STARTING JOINT POSITIONS ARE AT ZERO!" << endl;
     params.startUpSequence = false;
   }
   
@@ -251,9 +256,9 @@ int main(int argc, char* argv[])
     {      
       double pitch = poser.getPitchCompensation(walker.legSteppers[0][0].phase);
       double roll = poser.getRollCompensation(walker.legSteppers[0][0].phase); 
-      if (params.gaitType == "wave_gait")
+      if (gait == WAVE_GAIT)
         adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
-      else if (params.gaitType == "tripod_gait")
+      else if (gait == TRIPOD_GAIT)
         adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
     }    
     //Manual (joystick controlled) body compensation 
@@ -446,10 +451,9 @@ int main(int argc, char* argv[])
         if (startFlag)
         {
           int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
-          double stepHeight = walker.stepClearance*walker.maximumBodyHeight;
           double stepSpeed = 6.0/params.timeToStart;
           
-          if (poser.stepToPosition(walker.identityTipPositions, mode, stepHeight, stepSpeed))
+          if (poser.stepToPosition(walker.identityTipPositions, mode, 0, stepSpeed))
           {
             state = RUNNING;
             cout << "Startup sequence complete. \nReady to walk." << endl;
@@ -460,23 +464,29 @@ int main(int argc, char* argv[])
     } 
     
     //RVIZ
-    for (int s = 0; s<2; s++)
+    if (params.debug_rviz)
     {
-      for (int l = 0; l<3; l++)
+      for (int s = 0; s<2; s++)
       {
-        debug.tipPositions.insert(debug.tipPositions.begin(), walker.pose.transformVector(hexapod.legs[l][s].localTipPosition));
-        debug.staticTipPositions.insert(debug.staticTipPositions.begin(), hexapod.legs[l][s].localTipPosition);
+        for (int l = 0; l<3; l++)
+        {
+          debug.tipPositions.insert(debug.tipPositions.begin(), walker.pose.transformVector(hexapod.legs[l][s].localTipPosition));
+          debug.staticTipPositions.insert(debug.staticTipPositions.begin(), hexapod.legs[l][s].localTipPosition);
+        }
       }
+      debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
+      
+      debug.drawPoints(debug.tipPositions, Vector4d(1,0,0,1)); //Actual Tip Trajectory Paths
+      //debug.drawPoints(debug.staticTipPositions, Vector4d(1,0,0,1)); //Static Single Tip Trajectory command
+      
+      //cout << "Tip Positions Array Size: " << debug.tipPositions.size() << endl;
+      //cout << "Static Tip Positions Array Size: " << debug.staticTipPositions.size() << endl;
+      
+      if (debug.tipPositions.size() > 2000)
+        debug.tipPositions.erase(debug.tipPositions.end()-6,debug.tipPositions.end());
+      if (debug.staticTipPositions.size() >= 6*(1/params.timeDelta))
+        debug.staticTipPositions.clear();
     }
-    debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
-    
-    debug.drawPoints(debug.tipPositions, Vector4d(1,0,0,1)); //Actual Tip Trajectory Paths
-    //debug.drawPoints(debug.staticTipPositions, Vector4d(1,0,0,1)); //Static Single Tip Trajectory command
-
-    if (debug.tipPositions.size() > 2000)
-      debug.tipPositions.erase(debug.tipPositions.end()-6,debug.tipPositions.end());
-    if (debug.staticTipPositions.size() >= 6*(1/params.timeDelta))
-      debug.staticTipPositions.clear();
     //RVIZ 
     
     //Publish desired joint angles
@@ -559,6 +569,9 @@ void gaitSelectionCallback(const std_msgs::Int8 &input)
 {
   switch (input.data)
   {
+    case(-1):
+      gait = DEFAULT;
+      break;
     case(0):
       gait = TRIPOD_GAIT;
       break;
@@ -581,6 +594,8 @@ void legSelectionCallback(const std_msgs::Int8 &input)
 {
   switch (input.data)
   {
+    case(-1):
+      break;
     case(0):
       if (legSelection != FRONT_LEFT)
       {
@@ -1500,6 +1515,15 @@ void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait)
   {
     cout << "Error reading parameter/s (transition_period) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  /********************************************************************************************************************/
+  //Debug Parameters (set via launch file instead of by config files)
+  
+  paramString = "/hexapod/debug_parameters/rviz";
+  if (!n.getParam(paramString, params->debug_rviz))
+  {
+    params->debug_rviz = false;
   }
 }
 

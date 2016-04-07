@@ -11,13 +11,13 @@ hexapod:
   #Compensation
     imu_compensation: false
     auto_compensation: false
-    manual_compensation: false
+    manual_compensation: true
 
     gait_type: wave_gait
 
 ######################################################################
 
-    physical_leg_offset:
+    physical_leg_offsets:
       root_offset_AL: [0.1575, 0.5675, 0.0] #Front Left Leg
       root_offset_AR: [0.1575, 0.5675, 0.0] #Front Right Leg
       root_offset_BL: [0.1575, 0.0, 0.0] #Middle Left Leg
@@ -49,9 +49,10 @@ hexapod:
     stance_leg_yaws: [0.785, 0, -0.785]
     physical_yaw_offset: [0.0, 0.0, 0.0]
 
-    yaw_limits: [0.785, 0.785, 0.785]
-    knee_limits: [0.872, 2.791]
-    hip_limits: [-0.436, 1.396]
+    joint_limits:
+      yaw_limits: [0.785, 0.785, 0.785]
+      knee_limits: [0.872, 2.791]
+      hip_limits: [-0.436, 1.396]
 
     joint_max_angular_speeds: [1.0, 0.4, 0.4]
 
@@ -83,7 +84,7 @@ hexapod:
     pose_controller:
       start_up_sequence: false #DO NOT USE
       move_legs_sequentially: true
-      time_to_start: 12.0
+      time_to_start: 60.0
 
     #Auto pose compensation
       auto_pose_compensation:
