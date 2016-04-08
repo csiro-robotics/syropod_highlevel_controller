@@ -215,7 +215,7 @@ int main(int argc, char* argv[])
   
   //Startup/Shutdown variables
   double heightRatio = -1;
-  double stepHeight = -1;
+  double stepHeight = walker.stepClearance*walker.maximumBodyHeight;
   
   //Packed/Unpacked joint position arrays
   Vector3d packedJointPositions[3][2];
@@ -277,7 +277,6 @@ int main(int argc, char* argv[])
         {
           state = STARTUP;
           heightRatio = poser.createSequence(walker);
-          stepHeight = walker.stepClearance*walker.maximumBodyHeight;
         }
         break;
       }
@@ -347,6 +346,7 @@ int main(int argc, char* argv[])
       
       case(GAIT_TRANSITION):
       {
+        cout << stepHeight << endl;
         if (poser.stepToPosition(walker.identityTipPositions, TRIPOD_MODE, stepHeight, 2.0))
         {
           state = RUNNING;

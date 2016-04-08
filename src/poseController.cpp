@@ -327,6 +327,7 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
 bool PoseController::startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode)
 {  
   int mode;
+  double stepTime;
   if (forceSequentialMode)
     mode = SEQUENTIAL_MODE;
   else if (sequenceStep == 1)
@@ -335,22 +336,27 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
     mode = startHeightRatio > 0.8 ? TRIPOD_MODE:SEQUENTIAL_MODE;
   
   if (sequenceStep == 1 && startHeightRatio > 0.8)
-    sequenceStep = 3;    
+    sequenceStep = 3; 
+  
+  if (mode == SEQUENTIAL_MODE)
+    stepTime = 6.0;
+  else
+    stepTime = 2.0;
   
   bool res = false;
   switch (sequenceStep)
   {
     case 1:
-      res = stepToPosition(phase1TipPositions, mode, stepHeight, 2.0);
+      res = stepToPosition(phase1TipPositions, mode, stepHeight, stepTime);
       break;
     case 2:
-      res = stepToPosition(phase2TipPositions, NO_STEP_MODE, 0.0, 2.0);
+      res = stepToPosition(phase2TipPositions, NO_STEP_MODE, 0.0, stepTime);
       break;
     case 3:
-      res = stepToPosition(phase3TipPositions, mode, stepHeight, 2.0);
+      res = stepToPosition(phase3TipPositions, mode, stepHeight, stepTime);
       break;
     case 4:
-      res = stepToPosition(phase4TipPositions, NO_STEP_MODE, 0.0, 2.0);
+      res = stepToPosition(phase4TipPositions, NO_STEP_MODE, 0.0, stepTime);
       break;
     case 5:
       sequenceStep = 1;
@@ -377,7 +383,7 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
       res = stepToPosition(phase5TipPositions, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 2:
-      res = stepToPosition(phase6TipPositions, SEQUENTIAL_MODE, stepHeight, 2.0);
+      res = stepToPosition(phase6TipPositions, SEQUENTIAL_MODE, stepHeight, 6.0);
       break;
     case 3:
       res = stepToPosition(phase7TipPositions, NO_STEP_MODE, 0.0, 2.0);
