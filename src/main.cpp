@@ -451,9 +451,8 @@ int main(int argc, char* argv[])
         if (startFlag)
         {
           int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
-          double stepSpeed = 6.0/params.timeToStart;
           
-          if (poser.stepToPosition(walker.identityTipPositions, mode, 0, stepSpeed))
+          if (poser.stepToPosition(walker.identityTipPositions, mode, 0, params.timeToStart))
           {
             state = RUNNING;
             cout << "Startup sequence complete. \nReady to walk." << endl;

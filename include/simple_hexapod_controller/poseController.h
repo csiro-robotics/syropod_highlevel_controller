@@ -18,8 +18,10 @@ struct PoseController
   
   double timeDelta;
   bool firstIteration = true;
+  int masterIterationCount = 0;
   
-  double moveToPoseTime;
+  double moveToPoseTime = 0.0;
+  
   Vector3d originTipPositions[3][2];
   Vector3d midTipPositions[3][2];
   
@@ -47,7 +49,7 @@ struct PoseController
   bool stepToPosition(Vector3d (&targetTipPositions)[3][2], 
                       int mode=NO_STEP_MODE, 
                       double stepHeight = 0.0, 
-                      double stepSpeed=0.5); //USE stepSpeed = 0.5 or 1.0
+                      double stepSpeed = 2.0);
   bool moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double speed=0.5);
   bool startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   bool shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);

@@ -162,33 +162,39 @@ void Model::clampToLimits()
       Leg &leg = legs[l][side];
       if (leg.yaw - stanceLegYaws[l] < -yawLimitAroundStance[l])
       {
+        double diff = abs(leg.yaw - (-yawLimitAroundStance[l] + stanceLegYaws[l]));
+        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << -yawLimitAroundStance[l] + stanceLegYaws[l] << " by: " << diff << endl;
         leg.yaw = -yawLimitAroundStance[l] + stanceLegYaws[l];
-        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << -yawLimitAroundStance[l] + stanceLegYaws[l] << endl;
       }
       else if (leg.yaw - stanceLegYaws[l] > yawLimitAroundStance[l])
       {
-        leg.yaw = yawLimitAroundStance[l] + stanceLegYaws[l];
-        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << yawLimitAroundStance[l] + stanceLegYaws[l] << endl;
+        double diff = abs(leg.yaw - (yawLimitAroundStance[l] + stanceLegYaws[l]));
+        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << yawLimitAroundStance[l] + stanceLegYaws[l] << " by: " << diff << endl;
+        leg.yaw = yawLimitAroundStance[l] + stanceLegYaws[l];        
       }
       if (leg.liftAngle < minMaxHipLift[0])
       {
+        double diff = abs(leg.liftAngle - minMaxHipLift[0]);
+        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[0] << " by: " << diff << endl;
         leg.liftAngle = minMaxHipLift[0];
-        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[0] << endl;
       }
       else if (leg.liftAngle > minMaxHipLift[1])
       {
+        double diff = abs(leg.liftAngle - minMaxHipLift[1]);
+        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[1] << " by: " << diff << endl;
         leg.liftAngle = minMaxHipLift[1];
-        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[1] << endl;
       }
       if (leg.kneeAngle < minMaxKneeBend[0])
       {
+        double diff = abs(leg.kneeAngle - minMaxKneeBend[0]);
+        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[0] << " by: " << diff << endl;
         leg.kneeAngle = minMaxKneeBend[0];
-        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[0] << endl;
       }
       else if (leg.kneeAngle > minMaxKneeBend[1])
       {
+        double diff = abs(leg.kneeAngle - minMaxKneeBend[1]);
+        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[1] << " by: " << diff << endl;
         leg.kneeAngle = minMaxKneeBend[1];
-        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[1] << endl;
       }
     }
   }

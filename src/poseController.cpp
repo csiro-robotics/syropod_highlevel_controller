@@ -122,10 +122,9 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
 bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mode, double liftHeight, double stepSpeed)
 { 
   if (firstIteration)
-  {    
-    //cout << "************************************************************************************************************" << endl; //DEBUGGING
+  {       
     firstIteration = false;
-    moveToPoseTime = 0.0;
+    masterIterationCount = 0;
     for (int l = 0; l<3; l++)
     {
       for (int s = 0; s<2; s++)
@@ -133,15 +132,13 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
         originTipPositions[l][s] = model->legs[l][s].localTipPosition;
         midTipPositions[l][s] = 0.5*(targetTipPositions[l][s] + originTipPositions[l][s]);
       } 
-    }      
-  }
+    }  
+  } 
   
   if (mode == NO_STEP_MODE)
   {
     liftHeight = 0.0;
   }  
-  
-  double deltaT = timeDelta*stepSpeed;
   
   double timeLimit;
   switch (mode)
@@ -157,17 +154,27 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
     default:
       timeLimit = 6.0;
       break;
-  }
-  
-  if (abs(moveToPoseTime + deltaT - timeLimit) < 1e-3 || moveToPoseTime > timeLimit)
+  }  
+ 
+  int numIterations = roundToInt((stepSpeed/timeDelta)/(timeLimit*2))*(timeLimit*2); //Ensure compatible number of iterations 
+  double deltaT = timeLimit/numIterations;
+    
+  //Check if master count has reached final iteration and iterate if not
+  if (masterIterationCount >= numIterations)
   {    
     firstIteration = true;
     return true;
   }
   else 
   {
-    moveToPoseTime += deltaT; 
+    masterIterationCount++; 
   }
+  
+  //Eg: numIterations = 18 with 6 swings (sequential mode)
+  //masterIteration: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18
+  //swingIteration:  1,2,3,1,2,3,1,2,3, 1, 2, 3, 1, 2, 3, 1, 2, 3
+  //following code gives this pattern for any provided value of numIterations
+  int swingIterationCount = (masterIterationCount+(numIterations/int(timeLimit)-1))%(numIterations/int(timeLimit))+1;
   
   //Iterate through legs (sequentially or simultaneously)   
   for (int l = 0; l<3; l++)
@@ -184,7 +191,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
       }
       else if (mode == TRIPOD_MODE)     //Legs step in tripod gait (two steps of 3 legs)
       {
-        if (int(moveToPoseTime) == (l+s)%2)
+        if (int((masterIterationCount-1)/(numIterations/2)) == (l+s)%2) //Hacky way to get the correct legs for tripod
         {
           currentLegInSequence = l;
           currentSideInSequence = s;
@@ -192,8 +199,8 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
       }
       else if (mode == SEQUENTIAL_MODE) //Legs step sequentially (six steps of single legs)
       {
-        currentLegInSequence = (int(moveToPoseTime)/2);
-        currentSideInSequence = (int(moveToPoseTime)%2);
+        currentLegInSequence = (int((double(masterIterationCount-1)/double(numIterations))*3));
+        currentSideInSequence = ((masterIterationCount-1)/int(numIterations/timeLimit))%2;
       }
      
       //Update leg tip position
@@ -218,20 +225,25 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
         controlNodesSecondary[2] = controlNodesSecondary[3];
         
         //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
-        if (fmod(moveToPoseTime,1.0) < 0.5)
+        int halfSwingIteration = (numIterations/int(timeLimit))/2;
+        if (swingIterationCount <= (halfSwingIteration))
         {
-          pos = cubicBezier(controlNodesPrimary, fmod(moveToPoseTime,1.0)*2.0);          
+          pos = cubicBezier(controlNodesPrimary, swingIterationCount*deltaT*2.0);          
         }
         else
         {
-          pos = cubicBezier(controlNodesSecondary, (fmod(moveToPoseTime,1.0)-0.5)*2.0);
+          pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
         }
         
-        /*
         //DEBUGGING
+        /*
         if (l==0 && s==0)
         {
-          cout << "ORIGIN: " << originTipPositions[0][0][0] << ":" << originTipPositions[0][0][1] << ":" << originTipPositions[0][0][2] <<
+          double time = (swingIterationCount < halfSwingIteration) ? swingIterationCount*deltaT*2.0 : (swingIterationCount-halfSwingIteration)*deltaT*2.0;
+          cout << "MASTER ITERATION: " << masterIterationCount << 
+          "        SWING ITERATION: " << swingIterationCount <<
+          "        TIME: " << time <<
+          "        ORIGIN: " << originTipPositions[0][0][0] << ":" << originTipPositions[0][0][1] << ":" << originTipPositions[0][0][2] <<
           "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
           "        TARGET: " << targetTipPositions[0][0][0] << ":" << targetTipPositions[0][0][1] << ":" << targetTipPositions[0][0][2] << endl;
         }   
@@ -329,16 +341,16 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
   switch (sequenceStep)
   {
     case 1:
-      res = stepToPosition(phase1TipPositions, mode, stepHeight, 0.5);
+      res = stepToPosition(phase1TipPositions, mode, stepHeight, 2.0);
       break;
     case 2:
-      res = stepToPosition(phase2TipPositions, NO_STEP_MODE, 0.0, 0.5);
+      res = stepToPosition(phase2TipPositions, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 3:
-      res = stepToPosition(phase3TipPositions, mode, stepHeight, 1.0);
+      res = stepToPosition(phase3TipPositions, mode, stepHeight, 2.0);
       break;
     case 4:
-      res = stepToPosition(phase4TipPositions, NO_STEP_MODE, 0.0, 1.0);
+      res = stepToPosition(phase4TipPositions, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 5:
       sequenceStep = 1;
@@ -362,13 +374,13 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
   switch (sequenceStep)
   {
     case 1:
-      res = stepToPosition(phase5TipPositions, NO_STEP_MODE, 0.0, 1.0);
+      res = stepToPosition(phase5TipPositions, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 2:
-      res = stepToPosition(phase6TipPositions, SEQUENTIAL_MODE, stepHeight, 1.0);
+      res = stepToPosition(phase6TipPositions, SEQUENTIAL_MODE, stepHeight, 2.0);
       break;
     case 3:
-      res = stepToPosition(phase7TipPositions, NO_STEP_MODE, 0.0, 0.5);
+      res = stepToPosition(phase7TipPositions, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 4:
       sequenceStep = 1;
