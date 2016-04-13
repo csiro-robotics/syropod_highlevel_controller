@@ -103,7 +103,6 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
     //DEBUGGING
     //cout << "TIME: " << tPrimary << ":" << tSecondary << "\t\tORIGIN: " << originTipPosition[0] << ":" << originTipPosition[1] << ":" << originTipPosition[2] << "\t\tPOS: " << pos[0] << ":" << pos[1] << ":" << pos[2] << "\t\tTARGET: " << controlNodesSecondary[3][0] << ":" << controlNodesSecondary[3][1] << ":" << controlNodesSecondary[3][2] << endl; 
     //DEBUGGING
-    
   }  
   // Stance phase
   else if (state == STANCE)

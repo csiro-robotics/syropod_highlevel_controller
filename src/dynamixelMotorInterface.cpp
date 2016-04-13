@@ -109,6 +109,25 @@ void DynamixelMotorInterface::setupPublishers(void)
   publishers[2][1][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_right_coxa_femour/command", 1);
   publishers[2][1][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_right_femour_tibia/command", 1);
   
+  velPublishers[0][0][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_left_body_coxa/velocity", 1);
+  velPublishers[0][0][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_left_coxa_femour/velocity", 1);
+  velPublishers[0][0][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_left_femour_tibia/velocity", 1);
+  velPublishers[0][1][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_right_body_coxa/velocity", 1);
+  velPublishers[0][1][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_right_coxa_femour/velocity", 1);
+  velPublishers[0][1][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/front_right_femour_tibia/velocity", 1);
+  velPublishers[1][0][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/middle_left_body_coxa/velocity", 1);
+  velPublishers[1][0][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/middle_left_coxa_femour/velocity", 1);
+  velPublishers[1][0][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/middle_left_femour_tibia/velocity", 1);
+  velPublishers[1][1][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/middle_right_body_coxa/velocity", 1);
+  velPublishers[1][1][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/middle_right_coxa_femour/velocity", 1);
+  velPublishers[1][1][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/middle_right_femour_tibia/velocity", 1);
+  velPublishers[2][0][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_left_body_coxa/velocity", 1);
+  velPublishers[2][0][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_left_coxa_femour/velocity", 1);
+  velPublishers[2][0][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_left_femour_tibia/velocity", 1);
+  velPublishers[2][1][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_right_body_coxa/velocity", 1);
+  velPublishers[2][1][1]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_right_coxa_femour/velocity", 1);
+  velPublishers[2][1][2]=nodehandler.advertise<std_msgs::Float64>("/hexapod/rear_right_femour_tibia/velocity", 1);
+  
   /*
   // Front left leg (AL or [0][0][i] with 5 DOF for each leg i = 0 ... 4)
   publishers[0][0][0]=nodehandler.advertise<std_msgs::Float64>("/hexapod/AL_coxa_position_controller/command", 1);
@@ -154,21 +173,29 @@ void DynamixelMotorInterface::setupPublishers(void)
   */
 }
 
-void DynamixelMotorInterface::setTargetAngle(int legID, int side, int jointID, double speed)
+void DynamixelMotorInterface::setTargetAngle(int legID, int side, int jointID, double angle)
 {
-  angles[legID][side][jointID] = speed;
+  angles[legID][side][jointID] = angle;
+}
+
+void DynamixelMotorInterface::setVelocity(int legID, int side, int jointID, double velocity)
+{
+  velocities[legID][side][jointID] = velocity;
 }
 
 void DynamixelMotorInterface::publish(void)
 {
   std_msgs::Float64 msg;
+  std_msgs::Float64 velMsg;
   int i, j, k;
 
   for (i=0; i<3; i++)
     for (j=0; j<2; j++)
       for (k=0; k<3; k++) {
         msg.data = angles[i][j][k];
+        velMsg.data = velocities[i][j][k];
         publishers[i][j][k].publish(msg);
+        velPublishers[i][j][k].publish(velMsg);
       }
 }
 

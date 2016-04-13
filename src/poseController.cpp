@@ -123,6 +123,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
 { 
   if (firstIteration)
   {       
+    //cout << "************************************************************************************************************" << endl;
     firstIteration = false;
     masterIterationCount = 0;
     for (int l = 0; l<3; l++)
@@ -234,6 +235,15 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
         {
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
         }
+        /*
+        if (l==0 && s==0)
+        {
+          cout << "ORIGIN: " << originTipPositions[0][0][0] << ":" << originTipPositions[0][0][1] << ":" << originTipPositions[0][0][2] <<
+          "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
+          "        TARGET: " << targetTipPositions[0][0][0] << ":" << targetTipPositions[0][0][1] << ":" << targetTipPositions[0][0][2] << endl;
+        } 
+        */
+        
         
         //DEBUGGING
         /*

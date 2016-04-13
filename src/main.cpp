@@ -76,6 +76,7 @@ static double stepFrequencyMultiplier = 1.0;
 double pIncrement=0;
 bool toggleLegState = false;
 bool debounce = false;
+int firstIteration = 0;
 
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
@@ -130,6 +131,16 @@ int main(int argc, char* argv[])
   if (params.debug_rviz)
     cout << "WARNING: DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE." << endl;
   
+  //Setup motor interaface
+  MotorInterface *interface;
+  
+  if (params.dynamixelInterface)
+    interface = new DynamixelMotorInterface();  
+  else
+    interface = new DynamixelProMotorInterface();
+  
+  interface->setupSpeed(params.interfaceSetupSpeed);
+
   //Loop waiting for start button press
   while(!startFlag)
   {
@@ -203,16 +214,6 @@ int main(int argc, char* argv[])
   DebugOutput debug;
   setCompensationDebug(debug);
 
-  //Setup motor interaface
-  MotorInterface *interface;
-  
-  if (params.dynamixelInterface)
-    interface = new DynamixelMotorInterface();  
-  else
-    interface = new DynamixelProMotorInterface();
-  
-  interface->setupSpeed(params.interfaceSetupSpeed);   
-  
   //Startup/Shutdown variables
   double heightRatio = -1;
   double stepHeight = walker.stepClearance*walker.maximumBodyHeight;
@@ -497,43 +498,60 @@ int main(int argc, char* argv[])
         double lift = dir*hexapod.legs[l][s].liftAngle;
         double knee = dir*hexapod.legs[l][s].kneeAngle;
         
-        if (false) // !firstFrame)
-        {
-          double yawVel = (yaw - hexapod.legs[l][s].debugOldYaw)/params.timeDelta;
-          double liftVel = (lift - hexapod.legs[l][s].debugOldLiftAngle)/params.timeDelta;
-          double kneeVel = (knee - hexapod.legs[l][s].debugOldKneeAngle)/params.timeDelta;
+        double yawVel = 0;
+        double liftVel = 0;
+        double kneeVel = 0;
+        
+        if (firstIteration >= 6)  //First Iteration of ALL legs
+        {       
+          yawVel = (yaw - hexapod.legs[l][s].oldYaw)/params.timeDelta;
+          liftVel = (lift - hexapod.legs[l][s].oldLiftAngle)/params.timeDelta;
+          kneeVel = (knee - hexapod.legs[l][s].oldKneeAngle)/params.timeDelta;
           
-          if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
-          {
-            yaw = hexapod.legs[l][s].debugOldYaw + 
-            sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;
-          }
-          if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
-          {
-            lift = hexapod.legs[l][s].debugOldLiftAngle + 
-            sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*params.timeDelta;
-          }
-          if (abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
-          {
-            knee = hexapod.legs[l][s].debugOldKneeAngle + 
-            sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
-          }
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || 
               abs(liftVel) > hexapod.jointMaxAngularSpeeds[1] || 
               abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
           {
             cout << "WARNING: MAXIMUM SPEED EXCEEDED!" << endl;
             cout << "Clamping to maximum angular speed for leg: " << l << " side: " << s << endl;
+          } 
+          /*
+          if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
+          {
+            yaw = hexapod.legs[l][s].oldYaw + 
+            sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;
+            yawVel = sign(yawVel)*hexapod.jointMaxAngularSpeeds[0];
           }
+          if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
+          {
+            lift = hexapod.legs[l][s].oldLiftAngle + 
+            sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*params.timeDelta;
+            liftVel = sign(liftVel)*hexapod.jointMaxAngularSpeeds[1];
+          }
+          if (abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
+          {
+            knee = hexapod.legs[l][s].oldKneeAngle + 
+            sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
+            kneeVel = sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2];
+          } 
+          */
+        }
+        else
+        {
+          firstIteration++; //First Iteration of ALL legs
         }
         
         interface->setTargetAngle(l, s, 0, yaw);
         interface->setTargetAngle(l, s, 1, -lift);
         interface->setTargetAngle(l, s, 2, knee);
         
-        hexapod.legs[l][s].debugOldYaw = yaw;
-        hexapod.legs[l][s].debugOldLiftAngle = lift;
-        hexapod.legs[l][s].debugOldKneeAngle = knee;
+        interface->setVelocity(l, s, 0, yawVel);
+        interface->setVelocity(l, s, 1, liftVel);
+        interface->setVelocity(l, s, 2, kneeVel);
+              
+        hexapod.legs[l][s].oldYaw = yaw;
+        hexapod.legs[l][s].oldLiftAngle = lift;
+        hexapod.legs[l][s].oldKneeAngle = knee;
       }
     }
     interface->publish();
