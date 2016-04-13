@@ -346,7 +346,6 @@ int main(int argc, char* argv[])
       
       case(GAIT_TRANSITION):
       {
-        cout << stepHeight << endl;
         if (poser.stepToPosition(walker.identityTipPositions, TRIPOD_MODE, stepHeight, 2.0))
         {
           state = RUNNING;
