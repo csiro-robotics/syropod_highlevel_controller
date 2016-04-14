@@ -507,7 +507,7 @@ int main(int argc, char* argv[])
           yawVel = (yaw - hexapod.legs[l][s].oldYaw)/params.timeDelta;
           liftVel = (lift - hexapod.legs[l][s].oldLiftAngle)/params.timeDelta;
           kneeVel = (knee - hexapod.legs[l][s].oldKneeAngle)/params.timeDelta;
-          
+          /*
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || 
               abs(liftVel) > hexapod.jointMaxAngularSpeeds[1] || 
               abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
@@ -515,7 +515,8 @@ int main(int argc, char* argv[])
             cout << "WARNING: MAXIMUM SPEED EXCEEDED!" << endl;
             cout << "Clamping to maximum angular speed for leg: " << l << " side: " << s << endl;
           } 
-          /*
+          */
+          
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
           {
             yaw = hexapod.legs[l][s].oldYaw + 
@@ -534,7 +535,6 @@ int main(int argc, char* argv[])
             sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
             kneeVel = sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2];
           } 
-          */
         }
         else
         {
@@ -586,7 +586,6 @@ void gaitSelectionCallback(const std_msgs::Int8 &input)
   switch (input.data)
   {
     case(-1):
-      gait = DEFAULT;
       break;
     case(0):
       gait = TRIPOD_GAIT;
