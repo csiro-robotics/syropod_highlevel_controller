@@ -268,21 +268,22 @@ int main(int argc, char* argv[])
       adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
     }         
     
-    //Robot state machine
+    //Hexapod state machine
     switch (state)
     {
-      //Robot is in a state of unpacking itself into neutral 'unpacked' position
+      //Hexapod is in a state of unpacking itself into neutral 'unpacked' position
       case(UNPACK):
       {
         if (poser.moveToJointPosition(unpackedJointPositions))
-        {
+        {          
           state = STARTUP;
+          cout << "Hexapod unpacked. Running startup sequence . . ." << endl;
           heightRatio = poser.createSequence(walker);
         }
         break;
       }
         
-      //Robot steps safely from unpacked position into the operational 'walking' position
+      //Hexapod steps safely from unpacked position into the operational 'walking' position
       case(STARTUP):
       {
         if (heightRatio == -1 || stepHeight == -1)
@@ -299,7 +300,7 @@ int main(int argc, char* argv[])
         break;
       }
       
-      //Robot is in operational state (walking/posing/actuating etc.)
+      //Hexapod is in operational state (walking/posing/actuating etc.)
       case(RUNNING):
       {
         if (!startFlag && params.startUpSequence)
@@ -371,34 +372,35 @@ int main(int argc, char* argv[])
         break;
       }
       
-      //Robot steps from operational position into a safe position where it can then begin packing procedure
+      //Hexapod steps from operational position into a safe position where it can then begin packing procedure
       case(SHUTDOWN):
       {
         if (poser.shutDownSequence(heightRatio, stepHeight, params.moveLegsSequentially))
         {
           state = PACK;
+          cout << "Shutdown sequence complete. Packing hexapod . . ." << endl;
         } 
         break;
       }
 
-      //Robot transitions to packed state
+      //Hexapod transitions to packed state
       case(PACK):
       {
         if (poser.moveToJointPosition(packedJointPositions))
         {
           state = PACKED;
-          cout << "Shutdown sequence complete." << endl;  
+          cout << "Hexapod packing complete." << endl;  
         }
         break;
       }   
       
-      //Robot in packed state
+      //Hexapod in packed state
       case(PACKED):
       {           
         if (startFlag)
         {
           state = UNPACK;
-          cout << "Running startup sequence . . ." << endl;
+          cout << "Unpacking hexapod . . ." << endl;
         }
         break;
       }        
@@ -422,8 +424,8 @@ int main(int argc, char* argv[])
         {
           if (!params.startUpSequence)
           {
-            cout << "WARNING! Robot currently in packed state and cannot run direct startup sequence." << endl;
-            cout << "Either manually unpack robot or set start_up_sequence to true in config file" << endl;
+            cout << "WARNING! Hexapod currently in packed state and cannot run direct startup sequence." << endl;
+            cout << "Either manually unpack hexapod or set start_up_sequence to true in config file" << endl;
             ASSERT(false);
           }
           else
@@ -440,7 +442,7 @@ int main(int argc, char* argv[])
         else if (startFlag)
         {
           state = STARTUP;
-          cout << "Running startup sequence . . ." << endl;
+          cout << "Hexapod unpacked. Running startup sequence . . ." << endl;
         }         
         break;
       }

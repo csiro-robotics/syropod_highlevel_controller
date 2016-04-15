@@ -234,16 +234,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
         else
         {
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
-        }
-        /*
-        if (l==0 && s==0)
-        {
-          cout << "ORIGIN: " << originTipPositions[0][0][0] << ":" << originTipPositions[0][0][1] << ":" << originTipPositions[0][0][2] <<
-          "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
-          "        TARGET: " << targetTipPositions[0][0][0] << ":" << targetTipPositions[0][0][1] << ":" << targetTipPositions[0][0][2] << endl;
-        } 
-        */
-        
+        }        
         
         //DEBUGGING
         /*
@@ -277,7 +268,7 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
   if (firstIteration)
   {
     firstIteration = false;
-    moveToPoseTime = 0.0;
+    masterIterationCount = 0;
     for (int l=0; l<3; l++)
     {
       for (int s=0; s<2; s++)
@@ -288,19 +279,19 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
       }
     }
   }
+
+  int numIterations = roundToInt(speed/timeDelta);
+  double deltaT = 1.0/numIterations;
   
-  double deltaT = timeDelta*speed;  
-  double timeLimit = 1.0;
-  
-  //Return true at end of timeLimit (target achieved)
-  if (abs(moveToPoseTime + deltaT - timeLimit) < 1e-3 || moveToPoseTime > timeLimit)
+  //Return true at end after all iterations (target achieved)
+  if (masterIterationCount >= numIterations)
   {    
     firstIteration = true;
     return true;
   }
   else 
   {
-    moveToPoseTime += deltaT; 
+    masterIterationCount++; 
   }
   
   Vector3d pos;  
@@ -310,18 +301,28 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
   {
     for (int s=0; s<2; s++)
     {
-      //Control nodes for linear quadratic bezier curve
+      //Control nodes for linear cubic bezier curve
       controlNodes[0] = originJointPositions[l][s]; 
       controlNodes[1] = originJointPositions[l][s];  
       controlNodes[2] = targetJointPositions[l][s];
       controlNodes[3] = targetJointPositions[l][s];
       
       //Calculate change in position using bezier curve
-      pos = cubicBezier(controlNodes, moveToPoseTime); 
+      pos = cubicBezier(controlNodes, masterIterationCount*deltaT); 
       
       //DEBUGGING
-      //cout << "LS: " << l << s << " Time: " << moveToPoseTime << " ORIGIN: " << originJointPositions[l][s] << " CURRENT: " << pos << " TARGET: " << targetJointPositions[l][s] << endl;
-      
+      /*
+      if (l==0 && s==0)
+      {
+        double time = masterIterationCount*deltaT;
+        cout << "MASTER ITERATION: " << masterIterationCount << 
+        "        TIME: " << time <<
+        "        ORIGIN: " << originJointPositions[0][0][0] << ":" << originJointPositions[0][0][1] << ":" << originJointPositions[0][0][2] <<
+        "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
+        "        TARGET: " << targetJointPositions[0][0][0] << ":" << targetJointPositions[0][0][1] << ":" << targetJointPositions[0][0][2] << endl;
+      }   
+      */
+        
       model->legs[l][s].yaw = pos[0];
       model->legs[l][s].liftAngle = pos[1];
       model->legs[l][s].kneeAngle = pos[2];
