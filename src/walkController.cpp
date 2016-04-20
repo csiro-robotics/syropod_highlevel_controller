@@ -60,22 +60,22 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
     }
     
     //Control nodes for dual cubic bezier curves
-    //Primary Bezier curve
     controlNodesPrimary[0] = originTipPosition;         //Set as initial tip position       
     controlNodesPrimary[1] = controlNodesPrimary[0];    //Set equal to node 1 gives zero velocity at liftoff   
     controlNodesPrimary[3] = defaultTipPosition;        //Set equal to default tip position so that max liftheight and transition to 2nd bezier curve occurs at default tip position    
-    controlNodesPrimary[3][2] += liftHeight;            //Set Z component of node to liftheight to make liftheight the max z value
-    double retrograde = 0.1;                            //Adds retrograde component to tip trajectory
-    controlNodesPrimary[2] = originTipPosition-retrograde*((defaultTipPosition + strideVec*0.5) - originTipPosition);
-    //ALTERNATIVE OPTION //controlNodesPrimary[2] = (controlNodesPrimary[3] + 2*controlNodesPrimary[0])/3.0; //Set accordingly for constant acceleration
-    controlNodesPrimary[2][2] = controlNodesPrimary[3][2];  //Set Z component of node to liftheight to make liftheight the max z value
-     
-    //Secondary Bezier curve
-    controlNodesSecondary[0] = controlNodesPrimary[3];                  //Set to allow continuity between curves 
+    controlNodesPrimary[3][2] = defaultTipPosition[2] + liftHeight;            //Set Z component of node to liftheight to make liftheight the max z value
+
+    controlNodesSecondary[0] = controlNodesPrimary[3];                  //Set for position continuity between curves (C0 Smoothness)
     controlNodesSecondary[3] = defaultTipPosition + strideVec*0.5;      //Set as target tip position according to stride vector
     controlNodesSecondary[2] = controlNodesSecondary[3];                //Set equal to secondary node 3 gives zero velocity at touchdown
-    controlNodesSecondary[1] = 2*controlNodesSecondary[0] - controlNodesPrimary[2];  //Set accordingly so that velocity at end of primary curve equals velocity at begginning of secondary curve
-    //ALTERNATIVE OPTION //controlNodesSecondary[1] = (controlNodesSecondary[0] + 2*controlNodesSecondary[2])/3.0; //Set accordingly for constant acceleration
+    
+    double retrograde = 0.1;                            //Adds retrograde component to tip trajectory
+    controlNodesPrimary[2] = controlNodesPrimary[0]-retrograde*(controlNodesSecondary[3] - controlNodesPrimary[0]); //Set for more control of trajectory (only C1 smooth)
+    //ALTERNATIVE OPTION //controlNodesPrimary[2] = controlNodesSecondary[0] + (controlNodesPrimary[1] - controlNodesSecondary[2])/4.0; ///Set for acceleration continuity between curves (C2 Smoothness)   
+    controlNodesPrimary[2][2] = defaultTipPosition[2] + liftHeight; //Set Z component of node to liftheight to make liftheight the max z value
+    
+    controlNodesSecondary[1] = 2*controlNodesSecondary[0] - controlNodesPrimary[2];  //Set for velocity continuity between curves (C1 Smoothness)
+    controlNodesSecondary[1][2] = defaultTipPosition[2] + liftHeight; //Set Z component of node to liftheight to make liftheight the max z value
     
     //Vector3d deltaPos;  
     Vector3d Pos;
@@ -89,12 +89,14 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
       tPrimary = (phase-swingStart)/(swingMid-swingStart)+deltaT;
       //deltaPos = deltaT*cubicBezierDot(controlNodesPrimary, tPrimary);
       Pos = cubicBezier(controlNodesPrimary, tPrimary);
+      //cout << "TPRIMARY: " << tPrimary << "      POS: " << Pos << endl;
     }
     else if (phase > swingMid)
     {
       tSecondary = (phase-swingMid)/(swingEnd-swingMid)+deltaT;
       //deltaPos = deltaT*cubicBezierDot(controlNodesSecondary, tSecondary);
       Pos = cubicBezier(controlNodesSecondary, tSecondary);
+      //cout << "TSECONDARY: " << tSecondary << "      POS: " << Pos << endl;
     }
   
     //pos += deltaPos;
@@ -396,7 +398,10 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
             targetsNotMet--;
         }
         else
+        {
           legStepper.phase = iteratePhase(legStepper.phase);
+          // cout << "LS: " << l << ":"<<  s << "        TARGET: " << targetPhase << "        CURRENT: " << legStepper.phase << endl;
+        }
       }
       else if (state == STOPPING)
       {   
@@ -410,7 +415,10 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
             targetsNotMet--;          
         }
         else
-          legStepper.phase = iteratePhase(legStepper.phase);  
+        {
+          legStepper.phase = iteratePhase(legStepper.phase);
+          //cout << "LS: " << l << ":"<<  s << "        TARGET: " << targetPhase << "        CURRENT: " << legStepper.phase << endl;
+        }
       }
       else if (state == MOVING)
       {

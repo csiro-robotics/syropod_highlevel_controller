@@ -166,7 +166,11 @@ int main(int argc, char* argv[])
   }
   
   //Get current joint positions
-  jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);    
+  if (params.hexapodType == "large_hexapod")
+    jointStatesSubscriber = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback);    
+  else
+    jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
+  
   if(!jointStatesSubscriber)
   {
     cout << "Failed to subscribe to joint_states topic - check to see if topic is being published." << endl;
@@ -185,8 +189,48 @@ int main(int argc, char* argv[])
       r.sleep();
     }
   }     
-  if (jointPosFlag)
+  
+  if (jointStatesSubscriber)
   {
+    if (!jointPosFlag)
+    {
+      cout << "Failed to acquire ALL joint position values." << endl;
+      cout << "WARNING: WILL ASSUME UNKNOWN JOINT POSITIONS ARE AT ZERO!" << endl;
+      cout << "PRESS B BUTTON IF YOU WISH TO CONTINUE . . ." << endl;
+      //Loop waiting for start button press
+      while(!toggleLegState)
+      {
+        ros::spinOnce();
+        r.sleep();
+      }
+      
+      for (int leg = 0; leg<3; leg++)
+      {
+        for (int side = 0; side<2; side++)
+        {
+          int index = leg*6+(side == 0 ? 0 : 3);
+          double dir = side==0 ? -1 : 1;
+          if (jointPositions[index] == 1e10)
+          {
+            jointPositions[index] = 0.0;
+            cout << "Joint: " << index << " Set to: " << jointPositions[index] << endl;
+          }
+          if (jointPositions[index+1] == 1e10)
+          {
+            jointPositions[index+1] = dir*max(0.0,hexapod.minMaxHipLift[0]);
+            cout << "Joint: " << index+1 << " Set to: " << jointPositions[index+1] << endl;           
+          }
+          if (jointPositions[index+2] == 1e10)
+          {
+            
+            jointPositions[index+2] = dir*max(0.0,hexapod.minMaxKneeBend[0]);
+            cout << "Joint: " << index+2 << " Set to: " << jointPositions[index+2] << endl;
+          }
+        }
+      } 
+      params.startUpSequence = false;
+    } 
+    
     // set initial leg angles
     for (int leg = 0; leg<3; leg++)
     {
@@ -199,12 +243,6 @@ int main(int argc, char* argv[])
                                                           jointPositions[index+2]));
       }
     }
-  }
-  else
-  {
-    cout << "Failed to acquire all joint position values." << endl;
-    cout << "WARNING: ASSUMING STARTING JOINT POSITIONS ARE AT ZERO!" << endl;
-    params.startUpSequence = false;
   }
   
   // Create walk and pose controller objects
@@ -358,14 +396,13 @@ int main(int argc, char* argv[])
               getParameters(n, &params, "tripod_gait");
               break;
             case(RIPPLE_GAIT):
-              getParameters(n, &params, "ripple_gait");
-              params.stepFrequency*=0.5;
+              getParameters(n, &params, "ripple_gait"); 
               break;
             case(WAVE_GAIT):
               getParameters(n, &params, "wave_gait");
-              params.stepFrequency*=0.1;
               break;
-          }          
+          }   
+          params.stepFrequency*=(params.swingPhase/params.stancePhase);
           walker = WalkController(&hexapod, params);
           cout << params.gaitType << " Selected." << endl;
         }
