@@ -195,7 +195,7 @@ int main(int argc, char* argv[])
     if (!jointPosFlag)
     {
       cout << "Failed to acquire ALL joint position values." << endl;
-      cout << "WARNING: WILL ASSUME UNKNOWN JOINT POSITIONS ARE AT ZERO!" << endl;
+      cout << "WARNING: WILL SET UNKNOWN JOINT POSITIONS TO DEFAULTS!" << endl;
       cout << "PRESS B BUTTON IF YOU WISH TO CONTINUE . . ." << endl;
       //Loop waiting for start button press
       while(!toggleLegState)
@@ -213,21 +213,21 @@ int main(int argc, char* argv[])
           if (jointPositions[index] == 1e10)
           {
             jointPositions[index] = 0.0;
-            cout << "Joint: " << index << " Set to: " << jointPositions[index] << endl;
+            cout << "Leg: " << leg << ":" << side << " body-coxa joint set to: " << jointPositions[index] << endl;
           }
           if (jointPositions[index+1] == 1e10)
           {
             jointPositions[index+1] = dir*max(0.0,hexapod.minMaxHipLift[0]);
-            cout << "Joint: " << index+1 << " Set to: " << jointPositions[index+1] << endl;           
+            cout << "Leg: " << leg << ":" << side << " coxa-femour joint set to: " << jointPositions[index+1] << endl;
           }
           if (jointPositions[index+2] == 1e10)
           {
             
             jointPositions[index+2] = dir*max(0.0,hexapod.minMaxKneeBend[0]);
-            cout << "Joint: " << index+2 << " Set to: " << jointPositions[index+2] << endl;
+            cout << "Leg: " << leg << ":" << side << " femour-tibia joint set to: " << jointPositions[index+2] << endl;
           }
         }
-      } 
+      }
       params.startUpSequence = false;
     } 
     
@@ -528,6 +528,7 @@ int main(int argc, char* argv[])
     //RVIZ 
     
     //Publish desired joint angles
+    bool tooFast = false;
     for (int s = 0; s<2; s++)
     {
       double dir = s==0 ? -1 : 1;
@@ -546,34 +547,25 @@ int main(int argc, char* argv[])
           yawVel = (yaw - hexapod.legs[l][s].oldYaw)/params.timeDelta;
           liftVel = (lift - hexapod.legs[l][s].oldLiftAngle)/params.timeDelta;
           kneeVel = (knee - hexapod.legs[l][s].oldKneeAngle)/params.timeDelta;
-          /*
-          if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0] || 
-              abs(liftVel) > hexapod.jointMaxAngularSpeeds[1] || 
-              abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
-          {
-            cout << "WARNING: MAXIMUM SPEED EXCEEDED!" << endl;
-            cout << "Clamping to maximum angular speed for leg: " << l << " side: " << s << endl;
-          } 
-          */
-          
+                            
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
           {
-            yaw = hexapod.legs[l][s].oldYaw + 
-            sign(yawVel)*hexapod.jointMaxAngularSpeeds[0]*params.timeDelta;
+            cout << "Leg: " << l << ":" << s << " body_coxa joint velocity (" << yawVel << ") exceeds maximum (" << sign(yawVel)*hexapod.jointMaxAngularSpeeds[0] << ") - CLAMPING TO MAXIMUM!" << endl; 
             yawVel = sign(yawVel)*hexapod.jointMaxAngularSpeeds[0];
+            yaw = hexapod.legs[l][s].oldYaw + yawVel*params.timeDelta;
           }
           if (abs(liftVel) > hexapod.jointMaxAngularSpeeds[1])
           {
-            lift = hexapod.legs[l][s].oldLiftAngle + 
-            sign(liftVel)*hexapod.jointMaxAngularSpeeds[1]*params.timeDelta;
+            cout << "Leg: " << l << ":" << s << " coxa_femour joint velocity (" << liftVel << ") exceeds maximum (" << sign(liftVel)*hexapod.jointMaxAngularSpeeds[1] << ") - CLAMPING TO MAXIMUM!" << endl;                 
             liftVel = sign(liftVel)*hexapod.jointMaxAngularSpeeds[1];
+            lift = hexapod.legs[l][s].oldLiftAngle + liftVel*params.timeDelta;
           }
           if (abs(kneeVel) > hexapod.jointMaxAngularSpeeds[2])
           {
-            knee = hexapod.legs[l][s].oldKneeAngle + 
-            sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2]*params.timeDelta;
+            cout << "Leg: " << l << ":" << s << " femour_tibia joint velocity (" << kneeVel << ") exceeds maximum (" << sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2] << ") - CLAMPING TO MAXIMUM!" << endl; 
             kneeVel = sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2];
-          } 
+            knee = hexapod.legs[l][s].oldKneeAngle + kneeVel*params.timeDelta;
+          }           
         }
         else
         {
@@ -585,14 +577,15 @@ int main(int argc, char* argv[])
         interface->setTargetAngle(l, s, 2, knee);
         
         interface->setVelocity(l, s, 0, yawVel);
-        interface->setVelocity(l, s, 1, liftVel);
+        interface->setVelocity(l, s, 1, -liftVel);
         interface->setVelocity(l, s, 2, kneeVel);
-              
+          
         hexapod.legs[l][s].oldYaw = yaw;
         hexapod.legs[l][s].oldLiftAngle = lift;
         hexapod.legs[l][s].oldKneeAngle = knee;
       }
     }
+    
     interface->publish();
     
     ros::spinOnce();

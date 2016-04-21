@@ -190,13 +190,18 @@ void DynamixelMotorInterface::publish(void)
   int i, j, k;
 
   for (i=0; i<3; i++)
+  {
     for (j=0; j<2; j++)
-      for (k=0; k<3; k++) {
+    {
+      for (k=0; k<3; k++) 
+      {
         msg.data = angles[i][j][k];
         velMsg.data = velocities[i][j][k];
         publishers[i][j][k].publish(msg);
         velPublishers[i][j][k].publish(velMsg);
       }
+    }
+  }
 }
 
 
