@@ -50,6 +50,7 @@ enum LegSelection
   MIDDLE_RIGHT,
   REAR_LEFT,
   REAR_RIGHT,
+  NO_SELECTION,
 };
 
 //Globals for joypad callbacks
@@ -58,7 +59,7 @@ static Parameters *pParams;
 State state = UNKNOWN;
 
 Gait gait = DEFAULT;
-LegSelection legSelection = FRONT_LEFT;
+LegSelection legSelection = NO_SELECTION;
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
@@ -197,12 +198,14 @@ int main(int argc, char* argv[])
       cout << "Failed to acquire ALL joint position values." << endl;
       cout << "WARNING: WILL SET UNKNOWN JOINT POSITIONS TO DEFAULTS!" << endl;
       cout << "PRESS B BUTTON IF YOU WISH TO CONTINUE . . ." << endl;
+      
       //Loop waiting for start button press
-      while(!toggleLegState)
+      while(!toggleLegState) //using toggleLegState for convenience only
       {
         ros::spinOnce();
         r.sleep();
-      }
+      }      
+      toggleLegState = false;
       
       for (int leg = 0; leg<3; leg++)
       {
@@ -528,7 +531,6 @@ int main(int argc, char* argv[])
     //RVIZ 
     
     //Publish desired joint angles
-    bool tooFast = false;
     for (int s = 0; s<2; s++)
     {
       double dir = s==0 ? -1 : 1;
