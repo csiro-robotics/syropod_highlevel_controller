@@ -125,29 +125,39 @@ int main(int argc, char* argv[])
   getParameters(n, &params, forceGait);
   
   ros::Rate r(roundToInt(1.0/params.timeDelta));         //frequency of the loop. 
-  
-  //Start User Message
-  cout << "Press 'Start' to run controller" << endl;
-  
-  if (params.debug_rviz)
-    cout << "WARNING: DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE." << endl;
-  
+     
   //Setup motor interaface
   MotorInterface *interface;
   
   if (params.dynamixelInterface)
+  {
+    if (params.hexapodType == "large_hexapod")
+    {
+      cout << "WARNING: Using dynamixel motor interface - will not work with Large Hexapod (simulations only)." << endl; 
+      cout << "Set dynamixel_interface to false in config file if using Large Hexapod.\n" << endl;
+    }
     interface = new DynamixelMotorInterface();  
+  }
   else
+  {
+    cout << "WARNING: Using dynamixel PRO motor interface - will only work with Large Hexapod Robot (not simulations or small hexapod platforms)." << endl;
+    cout << "Set dynamixel_interface to true in config file if not using Large Hexapod.\n" << endl;
     interface = new DynamixelProMotorInterface();
+  }
   
   interface->setupSpeed(params.interfaceSetupSpeed);
 
+  if (params.debug_rviz)
+    cout << "WARNING: DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE." << endl;
+  
   //Loop waiting for start button press
+  cout << "Press 'Start' to run controller . . ." << endl;  
   while(!startFlag)
   {
     ros::spinOnce();
     r.sleep();
-  }  
+  }   
+  cout << "Controller started.\n" << endl;
   
   //Create hexapod model    
   Model hexapod(params);  
@@ -174,7 +184,7 @@ int main(int argc, char* argv[])
   
   if(!jointStatesSubscriber)
   {
-    cout << "Failed to subscribe to joint_states topic - check to see if topic is being published." << endl;
+    cout << "WARNING: Failed to subscribe to joint_states topic! - check to see if topic is being published.\n" << endl;
     params.startUpSequence = false;
   }
   else
@@ -195,9 +205,8 @@ int main(int argc, char* argv[])
   {
     if (!jointPosFlag)
     {
-      cout << "Failed to acquire ALL joint position values." << endl;
-      cout << "WARNING: WILL SET UNKNOWN JOINT POSITIONS TO DEFAULTS!" << endl;
-      cout << "PRESS B BUTTON IF YOU WISH TO CONTINUE . . ." << endl;
+      cout << "WARNING: Failed to acquire ALL joint position values!" << endl;
+      cout << "Press B Button if you wish to continue with all unknown joint positions set to defaults . . .\n" << endl;
       
       //Loop waiting for start button press
       while(!toggleLegState) //using toggleLegState for convenience only
@@ -231,6 +240,7 @@ int main(int argc, char* argv[])
           }
         }
       }
+      cout << "" << endl;
       params.startUpSequence = false;
     } 
     
@@ -318,7 +328,7 @@ int main(int argc, char* argv[])
         if (poser.moveToJointPosition(unpackedJointPositions))
         {          
           state = STARTUP;
-          cout << "Hexapod unpacked. Running startup sequence . . ." << endl;
+          cout << "Hexapod unpacked. Running startup sequence . . .\n" << endl;
           heightRatio = poser.createSequence(walker);
         }
         break;
@@ -336,7 +346,7 @@ int main(int argc, char* argv[])
         if (poser.startUpSequence(heightRatio, stepHeight, params.moveLegsSequentially))  
         {            
           state = RUNNING;
-          cout << "Startup sequence complete. \nReady to walk." << endl;
+          cout << "Startup sequence complete. \nReady to walk.\n" << endl;
         }
         break;
       }
@@ -347,7 +357,7 @@ int main(int argc, char* argv[])
         if (!startFlag && params.startUpSequence)
         {
           state = SHUTDOWN;
-          cout << "Running shutdown sequence . . ." << endl;
+          cout << "Running shutdown sequence . . .\n" << endl;
           heightRatio = poser.createSequence(walker);
           stepHeight = walker.stepClearance*walker.maximumBodyHeight;
         }
@@ -374,12 +384,12 @@ int main(int argc, char* argv[])
             if (hexapod.legs[l][s].state == WALKING)
             {
               hexapod.legs[l][s].state = OFF;
-              cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: OFF." << endl; 
+              cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: OFF.\n" << endl; 
             }
             else if (hexapod.legs[l][s].state == OFF)
             {
               hexapod.legs[l][s].state = WALKING;
-              cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING." << endl;
+              cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING.\n" << endl;
             }
             toggleLegState = false;
           } 
@@ -392,7 +402,6 @@ int main(int argc, char* argv[])
         if (poser.stepToPosition(walker.identityTipPositions, TRIPOD_MODE, stepHeight, 2.0))
         {
           state = RUNNING;
-          getParameters(n, &params, params.gaitType);
           switch (gait)
           {
             case (TRIPOD_GAIT):
@@ -407,7 +416,7 @@ int main(int argc, char* argv[])
           }   
           params.stepFrequency*=(params.swingPhase/params.stancePhase);
           walker = WalkController(&hexapod, params);
-          cout << params.gaitType << " Selected." << endl;
+          cout << params.gaitType << " Selected.\n" << endl;
         }
         break;
       }
@@ -418,7 +427,7 @@ int main(int argc, char* argv[])
         if (poser.shutDownSequence(heightRatio, stepHeight, params.moveLegsSequentially))
         {
           state = PACK;
-          cout << "Shutdown sequence complete. Packing hexapod . . ." << endl;
+          cout << "Shutdown sequence complete. Packing hexapod . . .\n" << endl;
         } 
         break;
       }
@@ -429,7 +438,7 @@ int main(int argc, char* argv[])
         if (poser.moveToJointPosition(packedJointPositions))
         {
           state = PACKED;
-          cout << "Hexapod packing complete." << endl;  
+          cout << "Hexapod packing complete.\n" << endl;  
         }
         break;
       }   
@@ -440,7 +449,7 @@ int main(int argc, char* argv[])
         if (startFlag)
         {
           state = UNPACK;
-          cout << "Unpacking hexapod . . ." << endl;
+          cout << "Unpacking hexapod . . .\n" << endl;
         }
         break;
       }        
@@ -465,7 +474,7 @@ int main(int argc, char* argv[])
           if (!params.startUpSequence)
           {
             cout << "WARNING! Hexapod currently in packed state and cannot run direct startup sequence." << endl;
-            cout << "Either manually unpack hexapod or set start_up_sequence to true in config file" << endl;
+            cout << "Either manually unpack hexapod or set start_up_sequence to true in config file\n" << endl;
             ASSERT(false);
           }
           else
@@ -477,12 +486,12 @@ int main(int argc, char* argv[])
         {    
           state = DIRECT;
           cout << "WARNING! Running direct startup sequence - assuming hexapod is not on the ground" << endl;
-          cout << "Running startup sequence (Complete in " << params.timeToStart << " seconds) . . ." << endl;       
+          cout << "Running startup sequence (Complete in " << params.timeToStart << " seconds) . . .\n" << endl;       
         }
         else if (startFlag)
         {
           state = STARTUP;
-          cout << "Hexapod unpacked. Running startup sequence . . ." << endl;
+          cout << "Hexapod unpacked. Running startup sequence . . .\n" << endl;
         }         
         break;
       }
@@ -497,7 +506,7 @@ int main(int argc, char* argv[])
           if (poser.stepToPosition(walker.identityTipPositions, mode, 0, params.timeToStart))
           {
             state = RUNNING;
-            cout << "Startup sequence complete. \nReady to walk." << endl;
+            cout << "Startup sequence complete. \nReady to walk.\n" << endl;
           }
         }
         break;
@@ -631,7 +640,7 @@ void gaitSelectionCallback(const std_msgs::Int8 &input)
       gait = WAVE_GAIT;
       break;
     default:
-      cout << "Unknown gait requested from control input." << endl;
+      cout << "Unknown gait requested from control input.\n" << endl;
   }
 }
 
@@ -649,46 +658,46 @@ void legSelectionCallback(const std_msgs::Int8 &input)
       if (legSelection != FRONT_LEFT)
       {
         legSelection = FRONT_LEFT;
-        cout << "Front left leg selected." << endl;
+        cout << "Front left leg selected.\n" << endl;
       }
       break;
     case(1):
       if (legSelection != FRONT_RIGHT)
       {
         legSelection = FRONT_RIGHT;
-        cout << "Front right leg selected." << endl;
+        cout << "Front right leg selected.\n" << endl;
       }
       break;
     case(2):
       if (legSelection != MIDDLE_LEFT)
       {
         legSelection = MIDDLE_LEFT;
-        cout << "Middle left leg selected." << endl;
+        cout << "Middle left leg selected.\n" << endl;
       }
       break;
     case(3):
       if (legSelection != MIDDLE_RIGHT)
       {
         legSelection = MIDDLE_RIGHT;
-        cout << "Middle right leg selected." << endl;
+        cout << "Middle right leg selected.\n" << endl;
       }
       break;
     case(4):
       if (legSelection != REAR_LEFT)
       {
         legSelection = REAR_LEFT;
-        cout << "Rear left leg selected." << endl;
+        cout << "Rear left leg selected.\n" << endl;
       }
       break;
     case(5):
       if (legSelection != REAR_RIGHT)
       {
         legSelection = REAR_RIGHT;
-        cout << "Rear right leg selected." << endl;
+        cout << "Rear right leg selected.\n" << endl;
       }
       break;
     default:
-      cout << "Unknown leg selection requested from control input." << endl;
+      cout << "Unknown leg selection requested from control input.\n" << endl;
   }
 }
 
