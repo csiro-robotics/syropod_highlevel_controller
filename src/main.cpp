@@ -399,7 +399,7 @@ int main(int argc, char* argv[])
       
       case(GAIT_TRANSITION):
       {
-        if (poser.stepToPosition(walker.identityTipPositions, TRIPOD_MODE, stepHeight, 2.0))
+        if (poser.stepToPosition(walker.identityTipPositions, TRIPOD_MODE, stepHeight, 1.0/params.stepFrequency))
         {
           state = RUNNING;
           switch (gait)
@@ -534,7 +534,7 @@ int main(int argc, char* argv[])
       
       if (debug.tipPositions.size() > 2000)
         debug.tipPositions.erase(debug.tipPositions.end()-6,debug.tipPositions.end());
-      if (debug.staticTipPositions.size() >= 6*(1/params.timeDelta))
+      if (debug.staticTipPositions.size() >= 6*(1/(params.timeDelta*params.stepFrequency)))
         debug.staticTipPositions.clear();
     }
     //RVIZ 
@@ -586,7 +586,7 @@ int main(int argc, char* argv[])
         interface->setTargetAngle(l, s, 0, yaw);
         interface->setTargetAngle(l, s, 1, -lift);
         interface->setTargetAngle(l, s, 2, knee);
-        
+               
         interface->setVelocity(l, s, 0, yawVel);
         interface->setVelocity(l, s, 1, -liftVel);
         interface->setVelocity(l, s, 2, kneeVel);

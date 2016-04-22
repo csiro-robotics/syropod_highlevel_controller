@@ -227,7 +227,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
         
         //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
         int halfSwingIteration = (numIterations/int(timeLimit))/2;
-        if (swingIterationCount <= (halfSwingIteration))
+        if (swingIterationCount <= halfSwingIteration)
         {
           pos = cubicBezier(controlNodesPrimary, swingIterationCount*deltaT*2.0);          
         }

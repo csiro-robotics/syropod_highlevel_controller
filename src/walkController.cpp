@@ -15,36 +15,11 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
   Vector3d strideVec(strideVector[0], strideVector[1], 0.0);
   Vector3d pos = currentTipPosition;
  
+  double phaseLength = stancePhase + swingPhase;
   double swingStart = stancePhase*0.5 + transitionPeriod*0.5;
   double swingEnd = stancePhase*0.5 + swingPhase - transitionPeriod*0.5;
-  double swingMid = (swingStart + swingEnd)/2;
-   
-  /*
-  //OLD TIP TRAJECTORY METHOD
-  // Swing Phase
-  double landSpeed = liftHeight*0.5;
-  if (state == SWING)
-  {
-    
-    // X and Y components of trajectory   
-    Vector3d nodes[4];
-    nodes[0] = currentTipPosition;
-    nodes[3] = defaultTipPosition+strideVec*0.5;
-    nodes[1] = nodes[0] - strideVec / 6.0;
-    nodes[2] = nodes[3] + strideVec / 3.0;
-    
-    pos = cubicBezier(nodes, (phase-swingStart) / (swingEnd - swingStart));
-    
-    // Z component of trajectory    
-    double t = 1.0 - abs(phase - swingMid)/(swingEnd-swingMid);
-
-    double a = landSpeed - 2.0*liftHeight;
-    double b = liftHeight - landSpeed - a;
-    double deltaZ = a*t*t*t + b*t*t + landSpeed*t;
-    pos[2] = defaultTipPosition[2] + deltaZ;
-    
-    ASSERT(pos.squaredNorm() < 1000.0);
-  */
+  double swingLength = swingEnd - swingStart;
+  double swingMid = swingLength/2;
     
   // Swing Phase
   if (state == SWING)
@@ -56,9 +31,23 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
     if (firstIteration)
     {
       originTipPosition = currentTipPosition;
+      masterIterationCount = 0;
       firstIteration = false;
     }
     
+    int numIterations = roundToInt((swingLength/phaseLength)/(stepFrequency*timeDelta)/2.0)*2.0;  //Ensure compatible number of iterations 
+    double deltaT = 1.0/numIterations;
+    
+    //Check if master count has reached final iteration and iterate if not
+    if (masterIterationCount >= numIterations)
+    {    
+      firstIteration = true;
+    }
+    else 
+    {
+      masterIterationCount++; 
+    }
+       
     //Control nodes for dual cubic bezier curves
     controlNodesPrimary[0] = originTipPosition;         //Set as initial tip position       
     controlNodesPrimary[1] = controlNodesPrimary[0];    //Set equal to node 1 gives zero velocity at liftoff   
@@ -77,33 +66,28 @@ Vector3d WalkController::LegStepper::updatePosition(Leg leg,
     controlNodesSecondary[1] = 2*controlNodesSecondary[0] - controlNodesPrimary[2];  //Set for velocity continuity between curves (C1 Smoothness)
     controlNodesSecondary[1][2] = defaultTipPosition[2] + liftHeight; //Set Z component of node to liftheight to make liftheight the max z value
     
-    //Vector3d deltaPos;  
-    Vector3d Pos;
-    double deltaT = (stancePhase + swingPhase)*stepFrequency*timeDelta/(0.5*(swingEnd-swingStart));
+    Vector3d deltaPos;
     
     //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
-    double tPrimary;
-    double tSecondary;
-    if (phase <= swingMid)
+    double t1, t2;
+    int halfSwingIteration = numIterations/2;
+    if (masterIterationCount <= halfSwingIteration)
     {
-      tPrimary = (phase-swingStart)/(swingMid-swingStart)+deltaT;
-      //deltaPos = deltaT*cubicBezierDot(controlNodesPrimary, tPrimary);
-      Pos = cubicBezier(controlNodesPrimary, tPrimary);
-      //cout << "TPRIMARY: " << tPrimary << "      POS: " << Pos << endl;
+      t1 = masterIterationCount*deltaT*2.0;
+      //deltaPos = 2.0*deltaT*cubicBezierDot(controlNodesPrimary, t1);
+      pos = cubicBezier(controlNodesPrimary, t1);
     }
-    else if (phase > swingMid)
+    else
     {
-      tSecondary = (phase-swingMid)/(swingEnd-swingMid)+deltaT;
-      //deltaPos = deltaT*cubicBezierDot(controlNodesSecondary, tSecondary);
-      Pos = cubicBezier(controlNodesSecondary, tSecondary);
-      //cout << "TSECONDARY: " << tSecondary << "      POS: " << Pos << endl;
+      t2 = (masterIterationCount-halfSwingIteration)*deltaT*2.0;
+      //deltaPos = 2.0*deltaT*cubicBezierDot(controlNodesSecondary, t2);
+      pos = cubicBezier(controlNodesSecondary, t2);
     }
   
     //pos += deltaPos;
-    pos = Pos;
     
     //DEBUGGING
-    //cout << "TIME: " << tPrimary << ":" << tSecondary << "\t\tORIGIN: " << originTipPosition[0] << ":" << originTipPosition[1] << ":" << originTipPosition[2] << "\t\tPOS: " << pos[0] << ":" << pos[1] << ":" << pos[2] << "\t\tTARGET: " << controlNodesSecondary[3][0] << ":" << controlNodesSecondary[3][1] << ":" << controlNodesSecondary[3][2] << endl; 
+    //cout << "ITERATION: " << masterIterationCount << "\tTIME: " << t1 << ":" << t2 << "\tORIGIN: " << originTipPosition[0] << ":" << originTipPosition[1] << ":" << originTipPosition[2] << "\tPOS: " << pos[0] << ":" << pos[1] << ":" << pos[2] << "\tTARGET: " << controlNodesSecondary[3][0] << ":" << controlNodesSecondary[3][1] << ":" << controlNodesSecondary[3][2] << endl; 
     //DEBUGGING
   }  
   // Stance phase

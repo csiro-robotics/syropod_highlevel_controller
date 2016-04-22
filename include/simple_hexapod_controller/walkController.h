@@ -58,6 +58,8 @@ struct WalkController
     
   struct LegStepper
   {
+    int masterIterationCount = 0;
+    
     double phase;
     double phaseOffset;
     double stancePhase;
