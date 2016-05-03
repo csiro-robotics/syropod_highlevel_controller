@@ -16,6 +16,9 @@ struct Leg
 {
   LegState state;
   
+  int legIndex;
+  int sideIndex;
+  
   double yaw;
   double liftAngle;
   double kneeAngle;
@@ -61,6 +64,8 @@ struct Model
   Vector3d yawLimitAroundStance;
   Vector2d minMaxKneeBend;
   Vector2d minMaxHipLift;
+  Vector3d localTipPositions[3][2];
+  Vector3d stanceTipPositions[3][2];
   Model(Parameters params);
   Vector3d jointMaxAngularSpeeds;
   void setLegStartAngles(int side, int leg, const Vector3d &startAngles);

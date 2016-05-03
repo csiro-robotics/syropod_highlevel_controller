@@ -53,8 +53,8 @@ struct PoseController
   bool moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double speed=2.0);
   bool startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   bool shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
-  double createSequence(WalkController walker); 
+  double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
-  double getPitchCompensation(double phase);
-  double getRollCompensation(double phase);
+  double getPitchCompensation(double phaseProgress);
+  double getRollCompensation(double phaseProgress);
 };

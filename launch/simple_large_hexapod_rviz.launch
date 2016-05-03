@@ -6,4 +6,5 @@
 	<node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find simple_hexapod_controller)/rviz_cfg/hexapod.rviz"/>
 	
 	<param name="/hexapod/debug_parameters/rviz" value="true"/>
+        <param name="/hexapod/parameters/dynamixel_interface" value="true"/>
 </launch>

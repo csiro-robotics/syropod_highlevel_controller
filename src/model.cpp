@@ -68,8 +68,12 @@ Vector3d Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
 Vector3d Leg::applyFK(bool updateStance)
 {
   localTipPosition = calculateFK(yaw, liftAngle, kneeAngle);
+  model->localTipPositions[legIndex][sideIndex] = localTipPosition;
   if (updateStance)
+  {
     stanceTipPosition = localTipPosition;
+    model->stanceTipPositions[legIndex][sideIndex] = stanceTipPosition;
+  }
   return localTipPosition;
 }
 
@@ -104,6 +108,8 @@ Model::Model(Parameters params) :
     {
       Leg &leg = legs[l][s];
       leg.model = this;
+      leg.legIndex = l;
+      leg.sideIndex = s;
       leg.rootOffset = params.rootOffset[l][s];
       leg.hipOffset  = params.hipOffset[l][s];
       leg.kneeOffset = params.kneeOffset[l][s];
@@ -160,40 +166,59 @@ void Model::clampToLimits()
     for (int side = 0; side<2; side++)
     {
       Leg &leg = legs[l][side];
+      double messageTolerance = 0.01;
       if (leg.yaw - stanceLegYaws[l] < -yawLimitAroundStance[l])
       {
         double diff = abs(leg.yaw - (-yawLimitAroundStance[l] + stanceLegYaws[l]));
-        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << -yawLimitAroundStance[l] + stanceLegYaws[l] << " by: " << diff << endl;
+        if (diff > messageTolerance)
+        {
+          cout << "leg " << l << " side " << side << " exceeded yaw limit: " << -yawLimitAroundStance[l] + stanceLegYaws[l] << " by: " << diff << endl;
+        }
         leg.yaw = -yawLimitAroundStance[l] + stanceLegYaws[l];
       }
       else if (leg.yaw - stanceLegYaws[l] > yawLimitAroundStance[l])
       {
         double diff = abs(leg.yaw - (yawLimitAroundStance[l] + stanceLegYaws[l]));
-        cout << "leg " << l << " side " << side << " exceeded yaw limit: " << yawLimitAroundStance[l] + stanceLegYaws[l] << " by: " << diff << endl;
+        if (diff > messageTolerance)
+        {
+          cout << "leg " << l << " side " << side << " exceeded yaw limit: " << yawLimitAroundStance[l] + stanceLegYaws[l] << " by: " << diff << endl;
+        }
         leg.yaw = yawLimitAroundStance[l] + stanceLegYaws[l];        
       }
       if (leg.liftAngle < minMaxHipLift[0])
       {
         double diff = abs(leg.liftAngle - minMaxHipLift[0]);
-        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[0] << " by: " << diff << endl;
+        if (diff > messageTolerance)
+        {
+          cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[0] << " by: " << diff << endl;
+        }
         leg.liftAngle = minMaxHipLift[0];
       }
       else if (leg.liftAngle > minMaxHipLift[1])
       {
         double diff = abs(leg.liftAngle - minMaxHipLift[1]);
-        cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[1] << " by: " << diff << endl;
+        if (diff > messageTolerance)
+        {
+          cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[1] << " by: " << diff << endl;
+        }
         leg.liftAngle = minMaxHipLift[1];
       }
       if (leg.kneeAngle < minMaxKneeBend[0])
       {
         double diff = abs(leg.kneeAngle - minMaxKneeBend[0]);
-        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[0] << " by: " << diff << endl;
+        if (diff > messageTolerance)
+        {
+          cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[0] << " by: " << diff << endl;
+        }
         leg.kneeAngle = minMaxKneeBend[0];
       }
       else if (leg.kneeAngle > minMaxKneeBend[1])
       {
         double diff = abs(leg.kneeAngle - minMaxKneeBend[1]);
-        cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[1] << " by: " << diff << endl;
+        if (diff > messageTolerance)
+        {
+          cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[1] << " by: " << diff << endl;
+        }
         leg.kneeAngle = minMaxKneeBend[1];
       }
     }

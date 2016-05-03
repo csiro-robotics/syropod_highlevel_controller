@@ -20,6 +20,38 @@ const double pi = M_PI; //< easier to read
  #define ATTEMPT(x_, y_) assert(x_ y_)
 #endif
 
+enum State
+{
+  UNPACK,
+  STARTUP,
+  RUNNING,
+  GAIT_TRANSITION,
+  SHUTDOWN,
+  PACK,
+  PACKED,
+  DIRECT,
+  UNKNOWN,  
+};
+
+enum LegSelection
+{
+  FRONT_LEFT,
+  FRONT_RIGHT,
+  MIDDLE_LEFT,
+  MIDDLE_RIGHT,
+  REAR_LEFT,
+  REAR_RIGHT,
+  NO_SELECTION,
+};
+
+enum Gait
+{
+  TRIPOD_GAIT,
+  RIPPLE_GAIT,
+  WAVE_GAIT,
+  DEFAULT,
+};
+
 struct Parameters
 {
   std::string hexapodType;

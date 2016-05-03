@@ -63,7 +63,7 @@ hexapod:
 ######################################################################
 
     walk_controller:
-      step_frequency: 1.0
+      step_frequency: 2.0
       step_clearance: 0.1
       body_clearance: -1.0 #<1.0
       leg_span_scale: 1.0
@@ -106,8 +106,8 @@ hexapod:
       packed_joint_positions:
         AL_packed_joint_positions: [1.57, 1.57, -1.57] #CONFIRM VALUES BEFORE USE
         AR_packed_joint_positions: [1.57, 1.57, -1.57] #CONFIRM VALUES BEFORE USE
-        BL_packed_joint_positions: [-1.57, 1.57, 1.57] #CONFIRM VALUES BEFORE USE
-        BR_packed_joint_positions: [-1.57, 1.57, 1.57] #CONFIRM VALUES BEFORE USE
+        BL_packed_joint_positions: [-1.57, 1.57, -1.57] #CONFIRM VALUES BEFORE USE
+        BR_packed_joint_positions: [-1.57, 1.57, -1.57] #CONFIRM VALUES BEFORE USE
         CL_packed_joint_positions: [-1.57, 1.57, -1.57]#CONFIRM VALUES BEFORE USE
         CR_packed_joint_positions: [-1.57, 1.57, -1.57]#CONFIRM VALUES BEFORE USE
         

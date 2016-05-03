@@ -17,10 +17,10 @@ enum WalkState
   STANCE,
   SWING_TRANSITION,
   STANCE_TRANSITION,
-  STANCE_SUPPORT, //NOT IMPLEMENTED
   TOUCHDOWN_CORRECTION,
   LIFTOFF_CORRECTION,
-  NOT_WALKING
+  FORCE_STANCE,
+  FORCE_STOP
 };
 
 //Controller that handles walking
@@ -41,6 +41,12 @@ struct WalkController
   double stepClearance;
   double bodyClearance;
   
+  int phaseLength;
+  int stanceEnd;   
+  int swingStart;
+  int swingEnd;     
+  int stanceStart;
+  
   std::vector<int> legSelectionPattern;
   std::vector<int> sideSelectionPattern;
   
@@ -51,20 +57,16 @@ struct WalkController
   Vector2d localCentreVelocity;
   Vector2d localCentreAcceleration;
   double angularVelocity;
-  double moveToStartTime;
   double maximumBodyHeight;
   
-  int targetsNotMet = 6;
+  int targetsMet = 0;
     
   struct LegStepper
   {
-    int masterIterationCount = 0;
+    bool metTarget = false;
     
-    double phase;
-    double phaseOffset;
-    double stancePhase;
-    double swingPhase;
-    double transitionPeriod;
+    int phase;
+    int phaseOffset;
     
     WalkState state = STANCE;
     
@@ -75,14 +77,11 @@ struct WalkController
     
     bool tipTouchdown;
     
-    bool firstIteration = true;
+    struct WalkController *walker; //So LegStepper can access walkcontroller member variables
     
-    Vector3d updatePosition(Leg leg,
-                            double liftHeight, 
-                            Vector2d localCentreVelocity, 
-                            double angularVelocity,
-                            double stepFrequency,
-                            double timeDelta);
+    void updateSwingPos(Vector3d *pos);
+    void updatePosition();
+    
   } legSteppers[3][2];
   
   // Determines the basic stance pose which the hexapod will try to maintain, by finding the largest footprint 
@@ -98,7 +97,6 @@ struct WalkController
   // bodyOffset is body pose relative to the basic stance pose, 
   // note that large offsets may prevent achievable leg positions
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
-  void updateWalk(Vector2d newLocalVelocity, double newCurvature, double stepFrequencyMultiplier);
-  double iteratePhase(double phase);
-  bool targetReached(double phase, double targetPhase);
+  void updateWalk(Vector2d newLocalVelocity, double newCurvature);
+  void setGaitParams(Parameters p);
 };

@@ -21,38 +21,6 @@
 #include <dynamic_reconfigure/server.h>
 #include "sensor_msgs/Joy.h"
 
-enum State
-{
-  UNPACK,
-  STARTUP,
-  RUNNING,
-  GAIT_TRANSITION,
-  SHUTDOWN,
-  PACK,
-  PACKED,
-  DIRECT,
-  UNKNOWN,  
-};
-
-enum Gait
-{
-  TRIPOD_GAIT,
-  RIPPLE_GAIT,
-  WAVE_GAIT,
-  DEFAULT,
-};
-
-enum LegSelection
-{
-  FRONT_LEFT,
-  FRONT_RIGHT,
-  MIDDLE_LEFT,
-  MIDDLE_RIGHT,
-  REAR_LEFT,
-  REAR_RIGHT,
-  NO_SELECTION,
-};
-
 //Globals for joypad callbacks
 static Parameters *pParams;
 
@@ -147,8 +115,11 @@ int main(int argc, char* argv[])
   
   interface->setupSpeed(params.interfaceSetupSpeed);
 
+  //RVIZ simulation warning message
   if (params.debug_rviz)
+  {
     cout << "WARNING: DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE." << endl;
+  }
   
   //Loop waiting for start button press
   cout << "Press 'Start' to run controller . . ." << endl;  
@@ -178,9 +149,13 @@ int main(int argc, char* argv[])
   
   //Get current joint positions
   if (params.hexapodType == "large_hexapod")
-    jointStatesSubscriber = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback);    
+  {
+    jointStatesSubscriber = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback); 
+  }
   else
+  {
     jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
+  }
   
   if(!jointStatesSubscriber)
   {
@@ -190,7 +165,9 @@ int main(int argc, char* argv[])
   else
   {
     for (int i=0; i<18; i++)
+    {
       jointPositions[i] = 1e10;
+    }
   
     //Wait for joint positions via callback
     int spin = 1/params.timeDelta; //Max ros spin cycles to find joint positions
@@ -259,15 +236,15 @@ int main(int argc, char* argv[])
   }
   
   // Create walk and pose controller objects
-  WalkController walker(&hexapod, params);
-  PoseController poser(&hexapod, params);
+  WalkController *walker = new WalkController(&hexapod, params);
+  PoseController *poser = new PoseController(&hexapod, params);
     
   DebugOutput debug;
   setCompensationDebug(debug);
 
   //Startup/Shutdown variables
   double heightRatio = -1;
-  double stepHeight = walker.stepClearance*walker.maximumBodyHeight;
+  double stepHeight = walker->stepClearance*walker->maximumBodyHeight;
   
   //Packed/Unpacked joint position arrays
   Vector3d packedJointPositions[3][2];
@@ -294,24 +271,29 @@ int main(int argc, char* argv[])
     //Auto Compensation using IMU feedback
     if (params.imuCompensation)
     {      
-      Vector2d acc = walker.localCentreAcceleration;
+      Vector2d acc = walker->localCentreAcceleration;
       Vector3d deltaAngle = Vector3d(0,0,0);
       Vector3d deltaPos = Vector3d(0,0,0);
 
       compensation(Vector3d(acc[0], acc[1], 0),
-                   walker.angularVelocity, 
+                   walker->angularVelocity, 
                    &deltaAngle, &deltaPos, 
                    pIncrement, params.timeDelta);
     }
     //Automatic (non-feedback) compensation
     else if (params.autoCompensation)    
     {      
-      double pitch = poser.getPitchCompensation(walker.legSteppers[0][0].phase);
-      double roll = poser.getRollCompensation(walker.legSteppers[0][0].phase); 
-      if (gait == WAVE_GAIT)
+      double phaseProgress = double(walker->legSteppers[0][0].phase)/double(walker->phaseLength);
+      double pitch = poser->getPitchCompensation(phaseProgress);
+      double roll = poser->getRollCompensation(phaseProgress);
+      if (params.gaitType == "wave_gait")
+      {
         adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
-      else if (gait == TRIPOD_GAIT)
+      }
+      else if (params.gaitType == "tripod_gait")
+      {
         adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
+      }              
     }    
     //Manual (joystick controlled) body compensation 
     else if (params.manualCompensation)
@@ -325,25 +307,30 @@ int main(int argc, char* argv[])
       //Hexapod is in a state of unpacking itself into neutral 'unpacked' position
       case(UNPACK):
       {
-        if (poser.moveToJointPosition(unpackedJointPositions))
+        if (poser->moveToJointPosition(unpackedJointPositions))
         {          
           state = STARTUP;
           cout << "Hexapod unpacked. Running startup sequence . . .\n" << endl;
-          heightRatio = poser.createSequence(walker);
+          
+          //Create startup sequence and parameters for STARTUP
+          poser->updateStance(walker->identityTipPositions, adjust, 0.0);
+          heightRatio = poser->createSequence(hexapod.stanceTipPositions);
+          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
         }
         break;
       }
         
       //Hexapod steps safely from unpacked position into the operational 'walking' position
       case(STARTUP):
-      {
+      {       
         if (heightRatio == -1 || stepHeight == -1)
         {
-          heightRatio = poser.createSequence(walker);
-          stepHeight = walker.stepClearance*walker.maximumBodyHeight;
+          poser->updateStance(walker->identityTipPositions, adjust, 0.0);
+          heightRatio = poser->createSequence(hexapod.stanceTipPositions);
+          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
         }
-        
-        if (poser.startUpSequence(heightRatio, stepHeight, params.moveLegsSequentially))  
+          
+        if (poser->startUpSequence(heightRatio, stepHeight, params.moveLegsSequentially))
         {            
           state = RUNNING;
           cout << "Startup sequence complete. \nReady to walk.\n" << endl;
@@ -358,24 +345,29 @@ int main(int argc, char* argv[])
         {
           state = SHUTDOWN;
           cout << "Running shutdown sequence . . .\n" << endl;
-          heightRatio = poser.createSequence(walker);
-          stepHeight = walker.stepClearance*walker.maximumBodyHeight;
+          
+          //Create shutdown sequence and parameters for SHUTDOWN
+          heightRatio = poser->createSequence(hexapod.stanceTipPositions);
+          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
         }
         else 
-        {   
-          //Update Walker and Poser
-          double poseTime = params.manualCompensation ? poseTimeJoy : 0.0;
-          poser.updateStance(walker.identityTipPositions, adjust, poseTime);
-          walker.updateWalk(localVelocity, turnRate, stepFrequencyMultiplier);
-          
-          //Switch gait parameters and create new walker instance
+        {             
+          //Switch to gait transition state
           if ((gait == TRIPOD_GAIT && params.gaitType != "tripod_gait") ||
               (gait == RIPPLE_GAIT && params.gaitType != "ripple_gait") ||
               (gait == WAVE_GAIT && params.gaitType != "wave_gait"))
           {
             state = GAIT_TRANSITION;
-          }          
-          
+            cout << "Transitioning to new gait . . .\n" << endl;
+          } 
+          else
+          {
+            //Update Walker and Poser
+            double poseTime = (params.autoCompensation || params.imuCompensation) ? 0.0 : poseTimeJoy;
+            poser->updateStance(walker->identityTipPositions, adjust, poseTime);
+            walker->updateWalk(localVelocity, turnRate);
+          }            
+            
           //Leg Selection for toggling state          
           if (toggleLegState)
           {
@@ -397,26 +389,50 @@ int main(int argc, char* argv[])
         break;
       } 
       
+      //Cycle walker until in a stopped state, update walk controller parameters for new gait and adjust pose 
       case(GAIT_TRANSITION):
       {
-        if (poser.stepToPosition(walker.identityTipPositions, TRIPOD_MODE, stepHeight, 1.0/params.stepFrequency))
+        if (walker->state == STOPPED)
         {
-          state = RUNNING;
-          switch (gait)
+          if ((gait == TRIPOD_GAIT && params.gaitType != "tripod_gait") ||
+              (gait == RIPPLE_GAIT && params.gaitType != "ripple_gait") ||
+              (gait == WAVE_GAIT && params.gaitType != "wave_gait"))
           {
-            case (TRIPOD_GAIT):
-              getParameters(n, &params, "tripod_gait");
-              break;
-            case(RIPPLE_GAIT):
-              getParameters(n, &params, "ripple_gait"); 
-              break;
-            case(WAVE_GAIT):
-              getParameters(n, &params, "wave_gait");
-              break;
-          }   
-          params.stepFrequency*=(params.swingPhase/params.stancePhase);
-          walker = WalkController(&hexapod, params);
-          cout << params.gaitType << " Selected.\n" << endl;
+            switch (gait)
+            {
+              case (TRIPOD_GAIT):
+                getParameters(n, &params, "tripod_gait");
+                break;
+              case(RIPPLE_GAIT):
+                getParameters(n, &params, "ripple_gait"); 
+                break;
+              case(WAVE_GAIT):
+                getParameters(n, &params, "wave_gait");
+                break;
+            }   
+            walker->setGaitParams(params);
+            poser->params = params;
+          }
+          else
+          {   
+            //Adjust pose for new gait
+            poser->updateStance(walker->identityTipPositions, adjust, 0.0);
+            if (poser->stepToPosition(hexapod.stanceTipPositions, SIMULTANEOUS_MODE, stepHeight, 2.0/params.stepFrequency))
+            {
+              state = RUNNING;            
+              cout << "Now using " << params.gaitType << " mode.\n" << endl;
+            }
+          }          
+        }
+        else if (walker->state == STOPPING || walker->state == STARTING)
+        {
+          double poseTime = (params.autoCompensation || params.imuCompensation) ? 0.0 : poseTimeJoy;
+          poser->updateStance(walker->identityTipPositions, adjust, poseTime);
+          walker->updateWalk(localVelocity, turnRate);
+        }
+        else if (walker->state == MOVING)
+        {
+          walker->state = STOPPING;
         }
         break;
       }
@@ -424,7 +440,7 @@ int main(int argc, char* argv[])
       //Hexapod steps from operational position into a safe position where it can then begin packing procedure
       case(SHUTDOWN):
       {
-        if (poser.shutDownSequence(heightRatio, stepHeight, params.moveLegsSequentially))
+        if (poser->shutDownSequence(heightRatio, stepHeight, params.moveLegsSequentially))
         {
           state = PACK;
           cout << "Shutdown sequence complete. Packing hexapod . . .\n" << endl;
@@ -435,7 +451,7 @@ int main(int argc, char* argv[])
       //Hexapod transitions to packed state
       case(PACK):
       {
-        if (poser.moveToJointPosition(packedJointPositions))
+        if (poser->moveToJointPosition(packedJointPositions))
         {
           state = PACKED;
           cout << "Hexapod packing complete.\n" << endl;  
@@ -480,6 +496,7 @@ int main(int argc, char* argv[])
           else
           {
             state = PACKED;
+            cout << "Hexapod currently packed.\n" << endl;  
           }
         }
         else if (!params.startUpSequence)
@@ -492,6 +509,11 @@ int main(int argc, char* argv[])
         {
           state = STARTUP;
           cout << "Hexapod unpacked. Running startup sequence . . .\n" << endl;
+          
+          //Create startup sequence and parameters for STARTUP
+          poser->updateStance(walker->identityTipPositions, adjust, 0.0);
+          heightRatio = poser->createSequence(hexapod.stanceTipPositions);
+          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
         }         
         break;
       }
@@ -502,8 +524,8 @@ int main(int argc, char* argv[])
         if (startFlag)
         {
           int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
-          
-          if (poser.stepToPosition(walker.identityTipPositions, mode, 0, params.timeToStart))
+          poser->updateStance(walker->identityTipPositions, adjust, 0.0);
+          if (poser->stepToPosition(hexapod.stanceTipPositions, mode, 0, params.timeToStart))
           {
             state = RUNNING;
             cout << "Startup sequence complete. \nReady to walk.\n" << endl;
@@ -520,11 +542,11 @@ int main(int argc, char* argv[])
       {
         for (int l = 0; l<3; l++)
         {
-          debug.tipPositions.insert(debug.tipPositions.begin(), walker.pose.transformVector(hexapod.legs[l][s].localTipPosition));
+          debug.tipPositions.insert(debug.tipPositions.begin(), walker->pose.transformVector(hexapod.legs[l][s].localTipPosition));
           debug.staticTipPositions.insert(debug.staticTipPositions.begin(), hexapod.legs[l][s].localTipPosition);
         }
       }
-      debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker.pose), Vector4d(1,1,1,1));    
+      debug.drawRobot(hexapod.legs[0][0].rootOffset, hexapod.getJointPositions(walker->pose), Vector4d(1,1,1,1));    
       
       debug.drawPoints(debug.tipPositions, Vector4d(1,0,0,1)); //Actual Tip Trajectory Paths
       //debug.drawPoints(debug.staticTipPositions, Vector4d(1,0,0,1)); //Static Single Tip Trajectory command
@@ -533,9 +555,13 @@ int main(int argc, char* argv[])
       //cout << "Static Tip Positions Array Size: " << debug.staticTipPositions.size() << endl;
       
       if (debug.tipPositions.size() > 2000)
+      {
         debug.tipPositions.erase(debug.tipPositions.end()-6,debug.tipPositions.end());
-      if (debug.staticTipPositions.size() >= 6*(1/(params.timeDelta*params.stepFrequency)))
+      }
+      if (debug.staticTipPositions.size() >= 6*(1/(params.timeDelta*walker->stepFrequency)))
+      {
         debug.staticTipPositions.clear();
+      }
     }
     //RVIZ 
     
@@ -604,6 +630,9 @@ int main(int argc, char* argv[])
 
     debug.reset();
   }
+  delete walker;
+  delete poser;
+  return 0;
 }
 
 /***********************************************************************************************************************
@@ -739,17 +768,29 @@ void joypadPoseCallback(const geometry_msgs::Twist &twist)
   
   //Percentage change is above deadband value
   if (abs(newRollJoy-rollJoy) > deadband*abs(rollJoy))
+  {
     rollJoy = newRollJoy;
+  }
   if (abs(newPitchJoy-pitchJoy) > deadband*abs(pitchJoy))
+  {
     pitchJoy = newPitchJoy;
+  }
   if (abs(newYawJoy-yawJoy) > deadband*abs(yawJoy))
+  {
     yawJoy = newYawJoy;
+  }
   if (abs(newXJoy-xJoy) > deadband*abs(xJoy))
+  {
     xJoy = newXJoy;
+  }
   if (abs(newYJoy-yJoy) > deadband*abs(yJoy))
+  {
     yJoy = newYJoy;
+  }
   if (abs(newZJoy-zJoy) > deadband*abs(zJoy))
+  {
     zJoy = newZJoy; 
+  }
 }
 
 /***********************************************************************************************************************
@@ -771,7 +812,9 @@ void legStateCallback(const std_msgs::Bool &input)
     debounce = false;
   }
   else if (!input.data && !toggleLegState)
+  {
     debounce = true;
+  }
 }
 
 /***********************************************************************************************************************
@@ -786,58 +829,94 @@ void jointStatesCallback(const sensor_msgs::JointState &joint_States)
       const char* jointName = joint_States.name[i].c_str();
       if (!strcmp(jointName, "front_left_body_coxa") ||
           !strcmp(jointName, "AL_coxa_joint"))
+      {
         jointPositions[0] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "front_left_coxa_femour") ||
                 !strcmp(jointName, "AL_femur_joint"))
+      {
         jointPositions[1] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "front_left_femour_tibia") ||
                 !strcmp(jointName, "AL_tibia_joint"))
+      {
         jointPositions[2] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "front_right_body_coxa") ||
                 !strcmp(jointName, "AR_coxa_joint"))
+      {
         jointPositions[3] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "front_right_coxa_femour") ||
                 !strcmp(jointName, "AR_femur_joint"))
+      {
         jointPositions[4] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "front_right_femour_tibia") ||
                 !strcmp(jointName, "AR_tibia_joint"))
+      {
         jointPositions[5] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "middle_left_body_coxa") ||
                 !strcmp(jointName, "BL_coxa_joint"))
+      {
         jointPositions[6] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "middle_left_coxa_femour") ||
                 !strcmp(jointName, "BL_femur_joint"))
+      {
         jointPositions[7] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "middle_left_femour_tibia") ||
                 !strcmp(jointName, "BL_tibia_joint"))
+      {
         jointPositions[8] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "middle_right_body_coxa") ||
                 !strcmp(jointName, "BR_coxa_joint"))
+      {
         jointPositions[9] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "middle_right_coxa_femour") ||
                 !strcmp(jointName, "BR_femur_joint"))
+      {
         jointPositions[10] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "middle_right_femour_tibia") ||
                 !strcmp(jointName, "BR_tibia_joint"))
+      {
         jointPositions[11] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "rear_left_body_coxa") ||
                 !strcmp(jointName, "CL_coxa_joint"))
+      {
         jointPositions[12] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "rear_left_coxa_femour") ||
                 !strcmp(jointName, "CL_femur_joint"))
+      {
         jointPositions[13] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "rear_left_femour_tibia") ||
                 !strcmp(jointName, "CL_tibia_joint"))
+      {
         jointPositions[14] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "rear_right_body_coxa") ||
                 !strcmp(jointName, "CR_coxa_joint"))
+      {
         jointPositions[15] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "rear_right_coxa_femour") ||
                 !strcmp(jointName, "CR_femur_joint"))
+      {
         jointPositions[16] = joint_States.position[i];
+      }
       else if (!strcmp(jointName, "rear_right_femour_tibia") ||
                 !strcmp(jointName, "CR_tibia_joint"))
+      {
         jointPositions[17] = joint_States.position[i];
+      }
     }
     
     //Check if all joint positions have been received from topic

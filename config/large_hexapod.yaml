@@ -56,14 +56,14 @@ hexapod:
 
     joint_max_angular_speeds: [1.0, 0.4, 0.4]
 
-    dynamixel_interface: true #Set true for simulations
+    dynamixel_interface: false #Set true for simulations
 
 ######################################################################
 # Walk Controller Parameters
 ######################################################################
 
     walk_controller:
-      step_frequency: 0.03
+      step_frequency: 0.25
       step_clearance: 0.1
       body_clearance: 0.4
       leg_span_scale: 0.6
@@ -89,7 +89,7 @@ hexapod:
     #Auto pose compensation
       auto_pose_compensation:
         pitch_amplitude: 0.03
-        roll_amplitude: 0.02
+        roll_amplitude: 0.01
 
     #Manual pose compensation 
       manual_pose_compensation:

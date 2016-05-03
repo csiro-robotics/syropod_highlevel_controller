@@ -22,12 +22,28 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
                                   double timeToPose, 
                                   bool moveLegsSequentially)
 {  
+  //Instantaneous change in pose
+  if (timeToPose == 0)
+  {
+    for (int l = 0; l<3; l++)
+    {
+      for (int s = 0; s<2; s++)
+      {
+        model->legs[l][s].stanceTipPosition = requestedTargetPose.inverseTransformVector(targetTipPositions[l][s]);
+        model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition;        
+      }
+    }
+    return true;    
+  }
+  
   double timeDivisor = moveLegsSequentially ? timeToPose/6.0:timeToPose; //seconds for a leg to move into position
   double timeLimit = moveLegsSequentially ? 6.0:1.0;
   
   //Local pose is already at target pose return immediately 
   if (currentPose == requestedTargetPose)
+  {
     return true;
+  }
     
   //Check if new target pose is requested
   if (requestedTargetPose != targetPose)
@@ -36,18 +52,15 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
     currentPose = Pose::zero(); //unknown current pose
     moveToPoseTime = 0;
     for (int l = 0; l<3; l++)
+    {
       for (int s = 0; s<2; s++)
+      {
         originTipPositions[l][s] = model->legs[l][s].stanceTipPosition; 
+      }
+    }
   }
   
-  //Instantaneous change in pose
-  if (timeToPose == 0)
-  {
-    for (int l = 0; l<3; l++)
-      for (int s = 0; s<2; s++)
-        model->legs[l][s].stanceTipPosition = requestedTargetPose.inverseTransformVector(targetTipPositions[l][s]);
-    return true;    
-  }
+  
   
   //Increment time
   ASSERT(timeDivisor != 0);
@@ -63,17 +76,17 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
     
     if (leg.state == WALKING)
     {    
-      Vector3d currentTipPosition = originTipPositions[l][s];
       Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
       
       Vector3d nodes[4];
-      nodes[0] = currentTipPosition;
+      nodes[0] = originTipPositions[l][s];
       nodes[1] = nodes[0];
       nodes[3] = targetTipPosition;
       nodes[2] = nodes[3];
       
       Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
       leg.stanceTipPosition += deltaPos;
+      model->stanceTipPositions[l][s] = leg.stanceTipPosition;
     }
   }
   else
@@ -86,17 +99,17 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
         
         if (leg.state == WALKING)
         {        
-          Vector3d currentTipPosition = originTipPositions[l][s];
           Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
           
           Vector3d nodes[4];
-          nodes[0] = currentTipPosition;
+          nodes[0] = originTipPositions[l][s];
           nodes[1] = nodes[0];
           nodes[3] = targetTipPosition;
           nodes[2] = nodes[3];
           
           Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
           leg.stanceTipPosition += deltaPos;
+          model->stanceTipPositions[l][s] = leg.stanceTipPosition;           
         }
       }
     }
@@ -107,9 +120,14 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
   {
     moveToPoseTime = 0;
     currentPose = targetPose; 
+    targetPose = Pose::zero();
     for (int l = 0; l<3; l++)
+    {
       for (int s = 0; s<2; s++)
+      {
         originTipPositions[l][s] = model->legs[l][s].stanceTipPosition;
+      }
+    }
     return true;
   }
   
@@ -119,11 +137,10 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
 /***********************************************************************************************************************
  * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
-bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mode, double liftHeight, double stepSpeed)
+bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mode, double liftHeight, double timeToStep)
 { 
   if (firstIteration)
   {       
-    //cout << "************************************************************************************************************" << endl;
     firstIteration = false;
     masterIterationCount = 0;
     for (int l = 0; l<3; l++)
@@ -157,7 +174,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
       break;
   }  
  
-  int numIterations = roundToInt((stepSpeed/timeDelta)/(timeLimit*2))*(timeLimit*2); //Ensure compatible number of iterations 
+  int numIterations = roundToInt((timeToStep/timeDelta)/(timeLimit*2))*(timeLimit*2); //Ensure compatible number of iterations 
   double deltaT = timeLimit/numIterations;
     
   //Check if master count has reached final iteration and iterate if not
@@ -206,19 +223,30 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
      
       //Update leg tip position
       if (currentLegInSequence == l && currentSideInSequence == s)
-      {      
+      {         
         Vector3d pos;
         
         Vector3d controlNodesPrimary[4];
         Vector3d controlNodesSecondary[4];
+
+        //If tip z position is required to change then set stepHeight to zero
+        double stepHeight;
+        if (abs(originTipPositions[l][s][2] - targetTipPositions[l][s][2]) > 1e-3)
+        {
+          stepHeight = 0.0;
+        }
+        else
+        {
+          stepHeight = liftHeight;
+        }
         
         //Control nodes for dual 3d cubic bezier curves
         controlNodesPrimary[0] = originTipPositions[l][s]; 
         controlNodesPrimary[1] = controlNodesPrimary[0];    
         controlNodesPrimary[3] = midTipPositions[l][s];  
-        controlNodesPrimary[3][2] += liftHeight;
+        controlNodesPrimary[3][2] += stepHeight;
         controlNodesPrimary[2] = controlNodesPrimary[0];
-        controlNodesPrimary[2][2] += liftHeight;
+        controlNodesPrimary[2][2] += stepHeight;
         
         controlNodesSecondary[0] = controlNodesPrimary[3];
         controlNodesSecondary[1] = 2*controlNodesSecondary[0] - controlNodesPrimary[2];
@@ -247,7 +275,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
           "        ORIGIN: " << originTipPositions[0][0][0] << ":" << originTipPositions[0][0][1] << ":" << originTipPositions[0][0][2] <<
           "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
           "        TARGET: " << targetTipPositions[0][0][0] << ":" << targetTipPositions[0][0][1] << ":" << targetTipPositions[0][0][2] << endl;
-        }   
+        } 
         */
        
         //Apply inverse kinematics to localTipPositions and stanceTipPositions
@@ -262,7 +290,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
 /***********************************************************************************************************************
  * Safely directly set joint angle
 ***********************************************************************************************************************/
-bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double speed)
+bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double timeToMove)
 {
   //Setup origin and target joint positions for bezier curve
   if (firstIteration)
@@ -280,7 +308,7 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
     }
   }
 
-  int numIterations = roundToInt(speed/timeDelta);
+  int numIterations = roundToInt(timeToMove/timeDelta);
   double deltaT = 1.0/numIterations;
   
   //Return true at end after all iterations (target achieved)
@@ -340,19 +368,31 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
   int mode;
   double stepTime;
   if (forceSequentialMode)
+  {
     mode = SEQUENTIAL_MODE;
+  }
   else if (sequenceStep == 1)
+  {
     mode = startHeightRatio < 0.1 ? NO_STEP_MODE:SEQUENTIAL_MODE;
+  }
   else if (sequenceStep == 3)
+  {
     mode = startHeightRatio > 0.8 ? TRIPOD_MODE:SEQUENTIAL_MODE;
+  }
   
   if (sequenceStep == 1 && startHeightRatio > 0.8)
-    sequenceStep = 3; 
+  {
+    sequenceStep = 3;
+  }
   
   if (mode == SEQUENTIAL_MODE)
+  {
     stepTime = 6.0;
+  }
   else
+  {
     stepTime = 2.0;
+  }
   
   bool res = false;
   switch (sequenceStep)
@@ -377,7 +417,9 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
   }
   
   if (res) 
+  {
     sequenceStep++;
+  }
   
   return false;
 }
@@ -407,7 +449,9 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
   }
   
   if (res) 
+  {
     sequenceStep++;
+  }
   
   return false;
 }
@@ -416,24 +460,30 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
  * Calculates tip positions for startup/shutdown sequences
 ***********************************************************************************************************************/
 //TBD REFACTORING
-double PoseController::createSequence(WalkController walker)
+double PoseController::createSequence(Vector3d targetTipPositions[3][2])
 {  
   //Get average z position of leg tips
   double averageTipZ = 0.0;
   for (int l=0; l<3; l++)
+  {
     for (int s=0; s<2; s++)
+    {
       averageTipZ += model->legs[l][s].localTipPosition[2];
+    }
+  }
   averageTipZ /= 6.0;
   
   //Ratio of average tip z position to required default tip z position 
-  double startHeightRatio = averageTipZ/walker.identityTipPositions[0][0][2];
+  double startHeightRatio = averageTipZ/targetTipPositions[0][0][2];
   if (startHeightRatio < 0.0)
+  {
     startHeightRatio = 0.0;
+  }
   
   double liftAngle = pi/3;
   double  desKneeAngle = liftAngle+asin(model->legs[0][0].femurLength/(model->legs[0][0].tibiaLength*sqrt(2)));
   Vector3d minStartTipPositions = model->legs[0][0].calculateFK(0.77,liftAngle,desKneeAngle);
-  double startStanceRatio = minStartTipPositions.squaredNorm()/walker.identityTipPositions[0][0].squaredNorm();
+  double startStanceRatio = minStartTipPositions.squaredNorm()/targetTipPositions[0][0].squaredNorm();
  
   double heightScaler = 0.85;
   for (int l = 0; l<3; l++)
@@ -441,21 +491,21 @@ double PoseController::createSequence(WalkController walker)
     for (int s = 0; s<2; s++)
     {
       double positionScaler = (-(startStanceRatio-1.0)*startHeightRatio+startStanceRatio);
-      phase1TipPositions[l][s] = walker.identityTipPositions[l][s]*positionScaler;
+      phase1TipPositions[l][s] = targetTipPositions[l][s]*positionScaler;
       phase1TipPositions[l][s][2] = -0.025; //parameterise
       
       phase2TipPositions[l][s] = phase1TipPositions[l][s];
-      phase2TipPositions[l][s][2] = (heightScaler+startHeightRatio*(1-heightScaler))*walker.identityTipPositions[0][0][2];
+      phase2TipPositions[l][s][2] = (heightScaler+startHeightRatio*(1-heightScaler))*targetTipPositions[0][0][2];
       
-      phase3TipPositions[l][s] = walker.identityTipPositions[l][s];
+      phase3TipPositions[l][s] = targetTipPositions[l][s];
       phase3TipPositions[l][s][2] = phase2TipPositions[l][s][2];
       
-      phase4TipPositions[l][s] = walker.identityTipPositions[l][s];
+      phase4TipPositions[l][s] = targetTipPositions[l][s];
       
       phase5TipPositions[l][s] = model->legs[l][s].localTipPosition;
       phase5TipPositions[l][s][2] *= heightScaler;
       
-      phase6TipPositions[l][s] = walker.identityTipPositions[l][s]*1.3;
+      phase6TipPositions[l][s] = targetTipPositions[l][s]*1.3;
       phase6TipPositions[l][s][2] = phase5TipPositions[l][s][2];
       
       phase7TipPositions[l][s] = phase6TipPositions[l][s];
@@ -477,36 +527,44 @@ void PoseController::resetSequence(void)
 /***********************************************************************************************************************
  * Calculates pitch for auto body compensation
 ***********************************************************************************************************************/
-double PoseController::getPitchCompensation(double phase)
+double PoseController::getPitchCompensation(double phaseProgress)
 {
+  //All calculated using percentages
   double pitch;
-  double buffer = params.phaseOffset/2;
-  double phaseOffset = params.phaseOffset;
+  double phaseOffset = params.phaseOffset/(params.stancePhase+params.swingPhase+2.0*params.transitionPeriod);
+  double buffer = phaseOffset/2;  
+  
   double p0[2] = {0*phaseOffset, -params.pitchAmplitude};
   double p1[2] = {1*phaseOffset + buffer, -params.pitchAmplitude};
-  double p2[2] = {2*phaseOffset + buffer, params.pitchAmplitude};
-  double p3[2] = {4*phaseOffset + buffer, params.pitchAmplitude};
+  double p2[2] = {2*phaseOffset + buffer,  params.pitchAmplitude};
+  double p3[2] = {4*phaseOffset + buffer,  params.pitchAmplitude};
   double p4[2] = {5*phaseOffset + buffer, -params.pitchAmplitude};
   double p5[2] = {6*phaseOffset, -params.pitchAmplitude};
     
-  if (phase >= p0[0] && phase < p1[0])
+  if (phaseProgress >= p0[0] && phaseProgress < p1[0])
+  {
     pitch = p0[1];
-  else if (phase >= p1[0] && phase < p2[0])
+  }
+  else if (phaseProgress >= p1[0] && phaseProgress < p2[0])
   {
     double gradient = (p2[1]-p1[1])/(p2[0]-p1[0]);
     double offset = ((p2[0]-p1[0])/2 + p1[0]);
-    pitch = gradient*phase - gradient*offset;   //-2*phase/3 + 4;
+    pitch = gradient*phaseProgress - gradient*offset;   //-2*phase/3 + 4;
   }
-  else if (phase >= p2[0] && phase < p3[0])
+  else if (phaseProgress >= p2[0] && phaseProgress < p3[0])
+  {
     pitch = p2[1];
-  else if (phase >= p3[0] && phase < p4[0])
+  }
+  else if (phaseProgress >= p3[0] && phaseProgress < p4[0])
   {
     double gradient = (p4[1]-p3[1])/(p4[0]-p3[0]);
     double offset = ((p4[0]-p3[0])/2 + p3[0]);
-    pitch = gradient*phase - gradient*offset;   //2*phase/3 - 10;
+    pitch = gradient*phaseProgress - gradient*offset;   //2*phase/3 - 10;
   }
-  else if (phase >= p4[0] && phase < p5[0])
+  else if (phaseProgress >= p4[0] && phaseProgress < p5[0])
+  {
     pitch = p4[1];    
+  }
   
   return pitch;    
 }
@@ -514,18 +572,15 @@ double PoseController::getPitchCompensation(double phase)
 /***********************************************************************************************************************
  * Calculates roll for auto body compensation
 ***********************************************************************************************************************/
-double PoseController::getRollCompensation(double phase)
+double PoseController::getRollCompensation(double phaseProgress)
 { 
   double roll;
-  double buffer = params.swingPhase/2.25;
-  double phaseOffset = params.phaseOffset;
-  double p0[2] = {0, -params.rollAmplitude};           
-  double p1[2] = {0, -params.rollAmplitude}; 
-  double p2[2] = {0, params.rollAmplitude};
-  double p3[2] = {0, params.rollAmplitude};
-  double p4[2] = {0, -params.rollAmplitude};
-  double p5[2] = {0, -params.rollAmplitude};
+  double phaseOffset = params.phaseOffset/(params.stancePhase+params.swingPhase+2.0*params.transitionPeriod);
+  double buffer = phaseOffset/2.25;
   
+  double p0[2], p1[2], p2[2], p3[2], p4[2], p5[2];
+  
+  double rollAmplitude;
   if (params.gaitType == "tripod_gait")
   {
     p0[0] = 0*phaseOffset;           
@@ -534,6 +589,7 @@ double PoseController::getRollCompensation(double phase)
     p3[0] = 1*phaseOffset + buffer;
     p4[0] = 2*phaseOffset - buffer;
     p5[0] = 2*phaseOffset;
+    rollAmplitude = -params.rollAmplitude;
   }
   else if (params.gaitType == "wave_gait")
   {
@@ -543,28 +599,44 @@ double PoseController::getRollCompensation(double phase)
     p3[0] = 3*phaseOffset + buffer;
     p4[0] = 4*phaseOffset - buffer;
     p5[0] = 6*phaseOffset;
+    rollAmplitude = params.rollAmplitude;
   }
   else
+  {
     return 0.0;
+  }
+  
+  p0[1] = -rollAmplitude;           
+  p1[1] = -rollAmplitude; 
+  p2[1] = rollAmplitude;
+  p3[1] = rollAmplitude;
+  p4[1] = -rollAmplitude;
+  p5[1] = -rollAmplitude;
     
-  if (phase >= p0[0] && phase < p1[0])
+  if (phaseProgress >= p0[0] && phaseProgress < p1[0])
+  {
     roll = p0[1];
-  else if (phase >= p1[0] && phase < p2[0])
+  }
+  else if (phaseProgress >= p1[0] && phaseProgress < p2[0])
   {
     double gradient = (p2[1]-p1[1])/(p2[0]-p1[0]);
     double offset = ((p2[0]-p1[0])/2 + p1[0]);
-    roll = gradient*phase - gradient*offset; //-2*phase + 3;
+    roll = gradient*phaseProgress - gradient*offset; //-2*phaseProgress + 3;
   }     
-  else if (phase >= p2[0] && phase < p3[0])
+  else if (phaseProgress >= p2[0] && phaseProgress < p3[0])
+  {
     roll = p2[1];
-  else if (phase >= p3[0] && phase < p4[0])
+  }
+  else if (phaseProgress >= p3[0] && phaseProgress < p4[0])
   {
     double gradient = (p4[1]-p3[1])/(p4[0]-p3[0]);
     double offset = ((p4[0]-p3[0])/2 + p3[0]);
-    roll = gradient*phase - gradient*offset; //2*phase - 21;      
+    roll = gradient*phaseProgress - gradient*offset; //2*phaseProgress - 21;      
   }
-  else if (phase >= p4[0] && phase < p5[0])
+  else if (phaseProgress >= p4[0] && phaseProgress < p5[0])
+  {
     roll = p4[1];
+  }
   
   return roll;
 }

@@ -4,40 +4,40 @@
 
 wave_gait_parameters:
 
- stance_phase: 16
- swing_phase: 2
- phase_offset: 3
+  stance_phase: 78
+  swing_phase: 8
+  phase_offset: 15
 
- leg_selection_pattern: [0,1,2,2,1,0]
- side_selection_pattern: [0,0,0,1,1,1]
+  leg_selection_pattern: [0,1,2,2,1,0]
+  side_selection_pattern: [0,0,0,1,1,1]
 
- transition_period: 0.4 #swing*0.2
+  transition_period: 2 #swing*0.2
 
 ######################################################################
 
 tripod_gait_parameters:
 
- stance_phase: 1
- swing_phase: 1
- phase_offset: 1
+  stance_phase: 4
+  swing_phase: 4
+  phase_offset: 5
 
- leg_selection_pattern: [0,1,2,0,1,2]
- side_selection_pattern: [0,0,0,1,1,1]
+  leg_selection_pattern: [0,1,2,0,1,2]
+  side_selection_pattern: [0,0,0,1,1,1]
 
- transition_period: 0.2 #swing*0.2
+  transition_period: 1 #swing*0.2
 
 ######################################################################
 
 ripple_gait_parameters:
 
- stance_phase: 4
- swing_phase: 2
- phase_offset: 1
+  stance_phase: 18
+  swing_phase: 8
+  phase_offset: 5
 
- leg_selection_pattern: [2,0,1,2,0,1]
- side_selection_pattern: [1,0,1,0,1,0]
+  leg_selection_pattern: [2,0,1,2,0,1]
+  side_selection_pattern: [1,0,1,0,1,0]
 
- transition_period: 0.4 #swing*0.2
+  transition_period: 2 #swing*0.2
 
 ######################################################################
 ######################################################################
