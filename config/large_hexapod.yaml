@@ -13,7 +13,7 @@ hexapod:
     auto_compensation: false
     manual_compensation: true
 
-    gait_type: wave_gait
+    gait_type: balance_gait
 
 ######################################################################
 
@@ -63,7 +63,7 @@ hexapod:
 ######################################################################
 
     walk_controller:
-      step_frequency: 0.25
+      step_frequency: 0.125
       step_clearance: 0.05
       body_clearance: 0.4
       leg_span_scale: 0.6

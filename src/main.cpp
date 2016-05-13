@@ -146,6 +146,10 @@ int main(int argc, char* argv[])
   {
     gait = WAVE_GAIT;
   }
+  else if (params.gaitType == "balance_gait")
+  {
+    gait = BALANCE_GAIT;
+  }
   
   //Get current joint positions
   if (params.hexapodType == "large_hexapod")
@@ -417,7 +421,7 @@ int main(int argc, char* argv[])
           {   
             //Adjust pose for new gait
             poser->updateStance(walker->identityTipPositions, adjust, 0.0);
-            if (poser->stepToPosition(hexapod.stanceTipPositions, SIMULTANEOUS_MODE, stepHeight, 2.0/params.stepFrequency))
+            if (poser->stepToPosition(hexapod.stanceTipPositions, SIMULTANEOUS_MODE, stepHeight, 1.0/params.stepFrequency))
             {
               state = RUNNING;            
               cout << "Now using " << params.gaitType << " mode.\n" << endl;
@@ -1611,43 +1615,38 @@ void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait)
   {
     params->gaitType = forceGait;
   } 
+  
+  baseParamString = "/hexapod/gait_parameters/";
 
-  paramString = params->gaitType+"_parameters/stance_phase";
+  paramString = baseParamString+params->gaitType+"/stance_phase";
   if (!n.getParam(paramString, params->stancePhase))
   {
     cout << "Error reading parameter/s (stance_phase) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
   }
   
-  paramString = params->gaitType+"_parameters/swing_phase";
+  paramString = baseParamString+params->gaitType+"/swing_phase";
   if (!n.getParam(paramString, params->swingPhase))
   {
     cout << "Error reading parameter/s (swing_phase) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
   }
   
-  paramString = params->gaitType+"_parameters/phase_offset";
+  paramString = baseParamString+params->gaitType+"/phase_offset";
   if (!n.getParam(paramString, params->phaseOffset))
   {
     cout << "Error reading parameter/s (phase_offset) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
   }
   
-  paramString = params->gaitType+"_parameters/leg_selection_pattern";
-  if (!n.getParam(paramString, params->legSelectionPattern))
+  paramString = baseParamString+params->gaitType+"/offset_multiplier";
+  if (!n.getParam(paramString, params->offsetMultiplier))
   {
-    cout << "Error reading parameter/s (leg_selection_pattern) from rosparam" <<endl; 
+    cout << "Error reading parameter/s (offset_multiplier) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
   }
   
-  paramString = params->gaitType+"_parameters/side_selection_pattern";
-  if (!n.getParam(paramString, params->sideSelectionPattern))
-  {
-    cout << "Error reading parameter/s (side_selection_pattern) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
-  }
-  
-  paramString = params->gaitType+"_parameters/transition_period";
+  paramString = baseParamString+params->gaitType+"/transition_period";
   if (!n.getParam(paramString, params->transitionPeriod))
   {
     cout << "Error reading parameter/s (transition_period) from rosparam" <<endl; 

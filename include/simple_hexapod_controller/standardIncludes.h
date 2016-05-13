@@ -49,6 +49,7 @@ enum Gait
   TRIPOD_GAIT,
   RIPPLE_GAIT,
   WAVE_GAIT,
+  BALANCE_GAIT,
   DEFAULT,
 };
 
@@ -116,8 +117,7 @@ struct Parameters
   double stancePhase;
   double swingPhase;
   double phaseOffset;  
-  std::vector<int> legSelectionPattern;
-  std::vector<int> sideSelectionPattern;
+  std::vector<int> offsetMultiplier;
   double transitionPeriod;
   
   //Debug Parameters

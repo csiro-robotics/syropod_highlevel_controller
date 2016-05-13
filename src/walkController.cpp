@@ -71,8 +71,7 @@ void WalkController::LegStepper::updateSwingPos(Vector3d *pos)
 }
 
 void WalkController::LegStepper::updatePosition()
-{
-  
+{  
   Vector3d pos = currentTipPosition;
   Vector2d localCentreVelocity = walker->localCentreVelocity;
   double angularVelocity = walker->angularVelocity;
@@ -277,22 +276,27 @@ void WalkController::setGaitParams(Parameters p)
   //Normalises the step phase length to match the total number of iterations over a full step
   int basePhaseLength = params.stancePhase + params.swingPhase + params.transitionPeriod*2.0;
   double swingRatio = (params.swingPhase+params.transitionPeriod)/basePhaseLength; //Used to modify stepFreqency based on gait
-  phaseLength = (roundToInt((1.0/(params.stepFrequency*timeDelta))/(basePhaseLength*swingRatio))*(basePhaseLength*swingRatio))/swingRatio;
+  phaseLength = (roundToInt((1.0/(2.0*params.stepFrequency*timeDelta))/(basePhaseLength*swingRatio))*(basePhaseLength*swingRatio))/swingRatio;
   stepFrequency = 1/(phaseLength*timeDelta); //adjust stepFrequency to match corrected phaseLength
-  int normaliser = phaseLength/(basePhaseLength);
+  ASSERT(phaseLength%basePhaseLength == 0);
+  int normaliser = phaseLength/basePhaseLength;
   stanceEnd *= normaliser;   
   swingStart *= normaliser;
   swingEnd *= normaliser;     
   stanceStart *= normaliser;
   
-  for (int i = 0; i<6; i++)
-  {       
-    int l = params.legSelectionPattern[i];
-    int s = params.sideSelectionPattern[i];
-    legSteppers[l][s].phaseOffset = (int(params.phaseOffset*normaliser)*i)%phaseLength;
-    legSteppers[l][s].defaultTipPosition = identityTipPositions[l][s];
-    legSteppers[l][s].currentTipPosition = identityTipPositions[l][s];
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {       
+      int index = 2*l+s;
+      int multiplier = params.offsetMultiplier[index];
+      legSteppers[l][s].phaseOffset = (int(params.phaseOffset*normaliser)*multiplier)%phaseLength;
+      legSteppers[l][s].defaultTipPosition = identityTipPositions[l][s];
+      legSteppers[l][s].currentTipPosition = identityTipPositions[l][s];
+    }
   }
+  int test = 0;
 }
 
 /***********************************************************************************************************************
@@ -516,6 +520,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         
         legStepper.updatePosition(); //updates current tip position
         leg.applyLocalIK(legStepper.currentTipPosition);  
+
       }
     }
   }  
