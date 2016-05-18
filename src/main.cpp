@@ -1,6 +1,3 @@
-/* (c) Copyright CSIRO 2013. Author: Thomas Lowe
-   This software is provided under the terms of Schedule 1 of the license agreement between CSIRO, 3DLM and GeoSLAM.
-*/
 #include "../include/simple_hexapod_controller/standardIncludes.h"
 #include "../include/simple_hexapod_controller/model.h"
 #include "../include/simple_hexapod_controller/walkController.h"
@@ -84,7 +81,8 @@ int main(int argc, char* argv[])
   
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, startCallback);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, gaitSelectionCallback);
-  ros::Subscriber jointStatesSubscriber;  
+  ros::Subscriber jointStatesSubscriber1;
+  ros::Subscriber jointStatesSubscriber2;  
     
   //Get parameters from rosparam via loaded config file
   Parameters params;
@@ -152,16 +150,10 @@ int main(int argc, char* argv[])
   }
   
   //Get current joint positions
-  if (params.hexapodType == "large_hexapod")
-  {
-    jointStatesSubscriber = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback); 
-  }
-  else
-  {
-    jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
-  }
+  jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback); 
+  jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
   
-  if(!jointStatesSubscriber)
+  if(!jointStatesSubscriber1 && !jointStatesSubscriber2)
   {
     cout << "WARNING: Failed to subscribe to joint_states topic! - check to see if topic is being published.\n" << endl;
     params.startUpSequence = false;
@@ -182,7 +174,7 @@ int main(int argc, char* argv[])
     }
   }     
   
-  if (jointStatesSubscriber)
+  if (jointStatesSubscriber1 || jointStatesSubscriber2)
   {
     if (!jointPosFlag)
     {
@@ -249,6 +241,8 @@ int main(int argc, char* argv[])
   //Startup/Shutdown variables
   double heightRatio = -1;
   double stepHeight = walker->stepClearance*walker->maximumBodyHeight;
+  int excludeLeg = -1;
+  int excludeSide = -1;
   
   //Packed/Unpacked joint position arrays
   Vector3d packedJointPositions[3][2];
@@ -286,10 +280,26 @@ int main(int argc, char* argv[])
     }
     //Automatic (non-feedback) compensation
     else if (params.autoCompensation)    
-    {      
-      double phaseProgress = double(walker->legSteppers[0][0].phase)/double(walker->phaseLength);
-      double pitch = poser->getPitchCompensation(phaseProgress);
-      double roll = poser->getRollCompensation(phaseProgress);
+    {   
+      double roll = 0.0;
+      double pitch = 0.0;
+      for (int l=0; l<3; l++)
+      {
+        for (int s=0; s<2; s++)
+        {
+          if (walker->legSteppers[l][s].state == SWING)
+          {
+            roll = poser->getRollCompensation(l,s);
+            pitch = poser->getPitchCompensation(l,s);
+            excludeLeg = l;
+            excludeSide = s;
+          }
+        }
+      }
+      
+      //double phaseProgress = double(walker->legSteppers[0][0].phase)/double(walker->phaseLength);
+      //double pitch = 0.0;//poser->getPitchCompensation(phaseProgress);
+      //double roll = poser->getRollCompensation(phaseProgress);
       if (params.gaitType == "wave_gait")
       {
         adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
@@ -297,7 +307,7 @@ int main(int argc, char* argv[])
       else if (params.gaitType == "tripod_gait")
       {
         adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
-      }              
+      }             
     }    
     //Manual (joystick controlled) body compensation 
     else if (params.manualCompensation)
@@ -368,7 +378,7 @@ int main(int argc, char* argv[])
           {
             //Update Walker and Poser
             double poseTime = (params.autoCompensation || params.imuCompensation) ? 0.0 : poseTimeJoy;
-            poser->updateStance(walker->identityTipPositions, adjust, poseTime);
+            poser->updateStance(walker->identityTipPositions, adjust, poseTime, false, excludeLeg, excludeSide);
             walker->updateWalk(localVelocity, turnRate);
           }            
             
@@ -412,6 +422,8 @@ int main(int argc, char* argv[])
                 break;
               case(WAVE_GAIT):
                 getParameters(n, &params, "wave_gait");
+                break;
+              default:
                 break;
             }   
             walker->setGaitParams(params);

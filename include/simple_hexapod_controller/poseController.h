@@ -45,7 +45,7 @@ struct PoseController
   bool updateStance(Vector3d targetTipPositions[3][2], 
                     Pose targetPose, 
                     double timeToPose, 
-                    bool moveLegsSequentially=false);
+                    bool moveLegsSequentially=false, int excludeLeg=-1, int excludeSide=-1);
   bool stepToPosition(Vector3d (&targetTipPositions)[3][2], 
                       int mode=NO_STEP_MODE, 
                       double stepHeight = 0.0, 
@@ -55,6 +55,6 @@ struct PoseController
   bool shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
-  double getPitchCompensation(double phaseProgress);
-  double getRollCompensation(double phaseProgress);
+  double getPitchCompensation(int leg, int side);
+  double getRollCompensation(int leg, int side);
 };

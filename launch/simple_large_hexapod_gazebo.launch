@@ -6,5 +6,6 @@
 	<node name="Hexapod" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node"/>
 
         <param name="/hexapod/parameters/dynamixel_interface" value="true"/>
+        <remap from="/hexapod_joint_state" to="/hexapod/joint_states"/>
         <param name="/hexapod/parameters/pose_controller/time_to_start" value="0.0"/>
 </launch>
