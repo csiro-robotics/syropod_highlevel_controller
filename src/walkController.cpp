@@ -296,7 +296,6 @@ void WalkController::setGaitParams(Parameters p)
       legSteppers[l][s].currentTipPosition = identityTipPositions[l][s];
     }
   }
-  int test = 0;
 }
 
 /***********************************************************************************************************************
