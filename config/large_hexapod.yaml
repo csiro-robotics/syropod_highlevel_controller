@@ -10,7 +10,7 @@ hexapod:
 
   #Compensation
     imu_compensation: false
-    auto_compensation: false
+    auto_compensation: true
     manual_compensation: true
 
     gait_type: balance_gait

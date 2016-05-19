@@ -233,7 +233,7 @@ int main(int argc, char* argv[])
   
   // Create walk and pose controller objects
   WalkController *walker = new WalkController(&hexapod, params);
-  PoseController *poser = new PoseController(&hexapod, params);
+  PoseController *poser = new PoseController(&hexapod, walker, params);
     
   DebugOutput debug;
   setCompensationDebug(debug);
@@ -241,8 +241,6 @@ int main(int argc, char* argv[])
   //Startup/Shutdown variables
   double heightRatio = -1;
   double stepHeight = walker->stepClearance*walker->maximumBodyHeight;
-  int excludeLeg = -1;
-  int excludeSide = -1;
   
   //Packed/Unpacked joint position arrays
   Vector3d packedJointPositions[3][2];
@@ -281,33 +279,7 @@ int main(int argc, char* argv[])
     //Automatic (non-feedback) compensation
     else if (params.autoCompensation)    
     {   
-      double roll = 0.0;
-      double pitch = 0.0;
-      for (int l=0; l<3; l++)
-      {
-        for (int s=0; s<2; s++)
-        {
-          if (walker->legSteppers[l][s].state == SWING)
-          {
-            roll = poser->getRollCompensation(l,s);
-            pitch = poser->getPitchCompensation(l,s);
-            excludeLeg = l;
-            excludeSide = s;
-          }
-        }
-      }
-      
-      //double phaseProgress = double(walker->legSteppers[0][0].phase)/double(walker->phaseLength);
-      //double pitch = 0.0;//poser->getPitchCompensation(phaseProgress);
-      //double roll = poser->getRollCompensation(phaseProgress);
-      if (params.gaitType == "wave_gait")
-      {
-        adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
-      }
-      else if (params.gaitType == "tripod_gait")
-      {
-        adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
-      }             
+      adjust = poser->autoCompensation();             
     }    
     //Manual (joystick controlled) body compensation 
     else if (params.manualCompensation)
@@ -325,11 +297,6 @@ int main(int argc, char* argv[])
         {          
           state = STARTUP;
           cout << "Hexapod unpacked. Running startup sequence . . .\n" << endl;
-          
-          //Create startup sequence and parameters for STARTUP
-          poser->updateStance(walker->identityTipPositions, adjust, 0.0);
-          heightRatio = poser->createSequence(hexapod.stanceTipPositions);
-          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
         }
         break;
       }
@@ -339,7 +306,6 @@ int main(int argc, char* argv[])
       {       
         if (heightRatio == -1 || stepHeight == -1)
         {
-          poser->updateStance(walker->identityTipPositions, adjust, 0.0);
           heightRatio = poser->createSequence(hexapod.stanceTipPositions);
           stepHeight = walker->stepClearance*walker->maximumBodyHeight;
         }
@@ -359,26 +325,27 @@ int main(int argc, char* argv[])
         {
           state = SHUTDOWN;
           cout << "Running shutdown sequence . . .\n" << endl;
-          
-          //Create shutdown sequence and parameters for SHUTDOWN
-          heightRatio = poser->createSequence(hexapod.stanceTipPositions);
-          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
         }
         else 
-        {             
+        {  
+          //Update stance
+          double poseTime = (params.autoCompensation || params.imuCompensation) ? 0.0 : poseTimeJoy;
+          poser->updateStance(walker->identityTipPositions, adjust, poseTime, false, params.autoCompensation);
+            
           //Switch to gait transition state
           if ((gait == TRIPOD_GAIT && params.gaitType != "tripod_gait") ||
               (gait == RIPPLE_GAIT && params.gaitType != "ripple_gait") ||
               (gait == WAVE_GAIT && params.gaitType != "wave_gait"))
           {
-            state = GAIT_TRANSITION;
-            cout << "Transitioning to new gait . . .\n" << endl;
+            walker->updateWalk(Vector2d(0.0,0.0), 0.0);
+            if (walker->state == STOPPED)
+            {
+              state = GAIT_TRANSITION;
+            }
           } 
           else
           {
-            //Update Walker and Poser
-            double poseTime = (params.autoCompensation || params.imuCompensation) ? 0.0 : poseTimeJoy;
-            poser->updateStance(walker->identityTipPositions, adjust, poseTime, false, excludeLeg, excludeSide);
+            //Update Walker            
             walker->updateWalk(localVelocity, turnRate);
           }            
             
@@ -406,56 +373,36 @@ int main(int argc, char* argv[])
       //Cycle walker until in a stopped state, update walk controller parameters for new gait and adjust pose 
       case(GAIT_TRANSITION):
       {
-        if (walker->state == STOPPED)
+        switch (gait)
         {
-          if ((gait == TRIPOD_GAIT && params.gaitType != "tripod_gait") ||
-              (gait == RIPPLE_GAIT && params.gaitType != "ripple_gait") ||
-              (gait == WAVE_GAIT && params.gaitType != "wave_gait"))
-          {
-            switch (gait)
-            {
-              case (TRIPOD_GAIT):
-                getParameters(n, &params, "tripod_gait");
-                break;
-              case(RIPPLE_GAIT):
-                getParameters(n, &params, "ripple_gait"); 
-                break;
-              case(WAVE_GAIT):
-                getParameters(n, &params, "wave_gait");
-                break;
-              default:
-                break;
-            }   
-            walker->setGaitParams(params);
-            poser->params = params;
-          }
-          else
-          {   
-            //Adjust pose for new gait
-            poser->updateStance(walker->identityTipPositions, adjust, 0.0);
-            if (poser->stepToPosition(hexapod.stanceTipPositions, SIMULTANEOUS_MODE, stepHeight, 1.0/params.stepFrequency))
-            {
-              state = RUNNING;            
-              cout << "Now using " << params.gaitType << " mode.\n" << endl;
-            }
-          }          
-        }
-        else if (walker->state == STOPPING || walker->state == STARTING)
-        {
-          double poseTime = (params.autoCompensation || params.imuCompensation) ? 0.0 : poseTimeJoy;
-          poser->updateStance(walker->identityTipPositions, adjust, poseTime);
-          walker->updateWalk(localVelocity, turnRate);
-        }
-        else if (walker->state == MOVING)
-        {
-          walker->state = STOPPING;
-        }
+          case (TRIPOD_GAIT):
+            getParameters(n, &params, "tripod_gait");
+            break;
+          case(RIPPLE_GAIT):
+            getParameters(n, &params, "ripple_gait"); 
+            break;
+          case(WAVE_GAIT):
+            getParameters(n, &params, "wave_gait");
+            break;
+          default:
+            break;
+        }   
+        walker->setGaitParams(params);
+        poser->params = params;
+        
+        state = RUNNING;            
+        cout << "Now using " << params.gaitType << " mode.\n" << endl;        
         break;
       }
       
       //Hexapod steps from operational position into a safe position where it can then begin packing procedure
       case(SHUTDOWN):
       {
+        if (heightRatio == -1 || stepHeight == -1)
+        {
+          heightRatio = poser->createSequence(walker->identityTipPositions);
+          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
+        }
         if (poser->shutDownSequence(heightRatio, stepHeight, params.moveLegsSequentially))
         {
           state = PACK;
@@ -525,11 +472,6 @@ int main(int argc, char* argv[])
         {
           state = STARTUP;
           cout << "Hexapod unpacked. Running startup sequence . . .\n" << endl;
-          
-          //Create startup sequence and parameters for STARTUP
-          poser->updateStance(walker->identityTipPositions, adjust, 0.0);
-          heightRatio = poser->createSequence(hexapod.stanceTipPositions);
-          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
         }         
         break;
       }
@@ -540,8 +482,7 @@ int main(int argc, char* argv[])
         if (startFlag)
         {
           int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
-          poser->updateStance(walker->identityTipPositions, adjust, 0.0);
-          if (poser->stepToPosition(hexapod.stanceTipPositions, mode, 0, params.timeToStart))
+          if (poser->stepToPosition(walker->identityTipPositions, mode, 0, params.timeToStart))
           {
             state = RUNNING;
             cout << "Startup sequence complete. \nReady to walk.\n" << endl;
@@ -671,21 +612,27 @@ void imuControllerCallback(const sensor_msgs::Joy &input)
 ***********************************************************************************************************************/
 void gaitSelectionCallback(const std_msgs::Int8 &input)
 {
-  switch (input.data)
+  if (input.data != gait && state == RUNNING)
   {
-    case(-1):
-      break;
-    case(0):
-      gait = TRIPOD_GAIT;
-      break;
-    case(1):
-      gait = RIPPLE_GAIT;
-      break;
-    case(2):
-      gait = WAVE_GAIT;
-      break;
-    default:
-      cout << "Unknown gait requested from control input.\n" << endl;
+    switch (input.data)
+    {
+      case(-1):
+        break;
+      case(TRIPOD_GAIT):
+        cout << "Transitioning to tripod_gait mode . . .\n" << endl;
+        gait = TRIPOD_GAIT;
+        break;
+      case(RIPPLE_GAIT):
+        cout << "Transitioning to ripple_gait mode . . .\n" << endl;
+        gait = RIPPLE_GAIT;
+        break;
+      case(WAVE_GAIT):
+        cout << "Transitioning to wave_gait mode . . .\n" << endl;
+        gait = WAVE_GAIT;
+        break;
+      default:
+        cout << "Unknown gait requested from control input.\n" << endl;
+    }
   }
 }
 

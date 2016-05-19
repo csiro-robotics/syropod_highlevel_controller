@@ -13,7 +13,7 @@
 struct PoseController
 {
   Model *model;
-  
+  WalkController *walker;
   Parameters params;
   
   double timeDelta;
@@ -41,11 +41,12 @@ struct PoseController
   Pose currentPose;
   Pose targetPose;  
   
-  PoseController(Model *model, Parameters params);
+  PoseController(Model *model, WalkController *walker, Parameters params);
   bool updateStance(Vector3d targetTipPositions[3][2], 
                     Pose targetPose, 
                     double timeToPose, 
-                    bool moveLegsSequentially=false, int excludeLeg=-1, int excludeSide=-1);
+                    bool moveLegsSequentially=false,
+                    bool excludeSwingingLegs=false);
   bool stepToPosition(Vector3d (&targetTipPositions)[3][2], 
                       int mode=NO_STEP_MODE, 
                       double stepHeight = 0.0, 
@@ -55,6 +56,5 @@ struct PoseController
   bool shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
-  double getPitchCompensation(int leg, int side);
-  double getRollCompensation(int leg, int side);
+  Pose autoCompensation(void);
 };

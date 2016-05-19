@@ -4,8 +4,9 @@
 /***********************************************************************************************************************
  * Pose controller contructor
 ***********************************************************************************************************************/
-PoseController::PoseController(Model *model, Parameters p): 
+PoseController::PoseController(Model *model, WalkController *walker, Parameters p): 
   model(model), 
+  walker(walker),
   params(p), 
   timeDelta(p.timeDelta),
   currentPose(Pose::zero()), 
@@ -21,8 +22,7 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
                                   Pose requestedTargetPose, 
                                   double timeToPose, 
                                   bool moveLegsSequentially,
-                                  int excludeLeg,
-                                  int excludeSide
+                                  bool excludeSwingingLegs
                                  )
 {  
   //Instantaneous change in pose
@@ -32,7 +32,7 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
     {
       for (int s = 0; s<2; s++)
       {
-        if (l != excludeLeg || s != excludeSide)
+        if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
         {
           model->legs[l][s].stanceTipPosition = requestedTargetPose.inverseTransformVector(targetTipPositions[l][s]);
           model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition;  
@@ -78,7 +78,7 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
     int l = int(moveToPoseTime)/2;
     int s = int(moveToPoseTime)%2;
     
-    if (l != excludeLeg || s != excludeSide)
+    if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
     {    
       Leg &leg = model->legs[l][s]; 
       
@@ -104,7 +104,7 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
     {
       for (int s = 0; s<2; s++)
       {
-        if (l != excludeLeg || s != excludeSide)
+        if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
         { 
           Leg &leg = model->legs[l][s]; 
           
@@ -539,23 +539,33 @@ void PoseController::resetSequence(void)
 /***********************************************************************************************************************
  * Calculates pitch for auto body compensation
 ***********************************************************************************************************************/
-double PoseController::getPitchCompensation(int leg, int side)
+Pose PoseController::autoCompensation(void)
 {
-  double zDiff = model->localTipPositions[leg][side][2] - model->stanceTipPositions[leg][side][2];
-  zDiff *= -(leg-1);
-  double pitch = zDiff*params.pitchAmplitude;
-  return pitch; 
-}
-
-/***********************************************************************************************************************
- * Calculates roll for auto body compensation
-***********************************************************************************************************************/
-double PoseController::getRollCompensation(int leg, int side)//double phaseProgress)
-{ 
-  double zDiff = model->localTipPositions[leg][side][2] - model->stanceTipPositions[leg][side][2];
-  zDiff *= pow(-1.0, side);
-  double roll = zDiff*params.rollAmplitude;
-  return roll;
+  double roll = 0.0;
+  double pitch = 0.0;
+  for (int l=0; l<3; l++)
+  {
+    for (int s=0; s<2; s++)
+    {
+      if (walker->legSteppers[l][s].state == SWING)
+      {
+        double zDiff = model->localTipPositions[l][s][2] - model->stanceTipPositions[l][s][2];
+        roll = zDiff*pow(-1.0, s)*params.rollAmplitude;
+        pitch = zDiff*(-(l-1))*params.pitchAmplitude;
+      }
+    }
+  }
+  Pose adjust = Pose::identity();
+  if (walker->params.gaitType == "wave_gait")
+  {
+    adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
+  }
+  else if (walker->params.gaitType == "tripod_gait")
+  {
+    adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
+  }
+  
+  return adjust;
 }
 
 /***********************************************************************************************************************
