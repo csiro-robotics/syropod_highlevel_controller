@@ -24,7 +24,8 @@ static Parameters *pParams;
 State state = UNKNOWN;
 
 Gait gait = DEFAULT;
-LegSelection legSelection = NO_SELECTION;
+LegSelection legSelection = NO_LEG_SELECTION;
+ParamSelection paramSelection = NO_PARAM_SELECTION;
 
 static Vector2d localVelocity(0,0);
 static double turnRate = 0;
@@ -38,6 +39,9 @@ static double zJoy = 0;
 
 static double poseTimeJoy = 0.2;
 static double stepFrequencyMultiplier = 1.0;
+
+static double paramScaler = 1.0;
+static bool paramAdjusted = false;
 
 double pIncrement=0;
 bool toggleLegState = false;
@@ -58,6 +62,8 @@ void gaitSelectionCallback(const std_msgs::Int8 &input);
 void legSelectionCallback(const std_msgs::Int8 &input);
 void legStateCallback(const std_msgs::Bool &input);
 void startCallback(const std_msgs::Bool &input);
+void paramSelectionCallback(const std_msgs::Int8 &input);
+void paramAdjustCallback(const std_msgs::Int8 &input);
 
 void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait);
 
@@ -75,9 +81,11 @@ int main(int argc, char* argv[])
   ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, joypadVelocityCallback);
   ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, joypadPoseCallback);
   ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, imuCallback);
-  ros::Subscriber imuControlSubscriber = n.subscribe("/joy", 1, imuControllerCallback);
+  //ros::Subscriber imuControlSubscriber = n.subscribe("/joy", 1, imuControllerCallback);
   ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, legSelectionCallback);
   ros::Subscriber legStateSubscriber = n.subscribe("hexapod_remote/leg_state_toggle", 1, legStateCallback);
+  ros::Subscriber paramSelectionSubscriber = n.subscribe("hexapod_remote/param_selection", 1, paramSelectionCallback);
+  ros::Subscriber paramAdjustmentSubscriber = n.subscribe("hexapod_remote/param_adjustment", 1, paramAdjustCallback);
   
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, startCallback);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, gaitSelectionCallback);
@@ -89,6 +97,8 @@ int main(int argc, char* argv[])
   pParams = &params;
   std::string forceGait; //Feed empty string for unforced gait choice
   getParameters(n, &params, forceGait);
+  
+  Parameters defaultParams = params;
   
   ros::Rate r(roundToInt(1.0/params.timeDelta));         //frequency of the loop. 
      
@@ -356,6 +366,26 @@ int main(int argc, char* argv[])
             }
             toggleLegState = false;
           } 
+          
+          //Parameter paramAdjustment
+          if (paramAdjusted)
+          {
+            switch(paramSelection)
+            {
+              case(NO_PARAM_SELECTION):
+                break;
+              case(STEP_FREQUENCY):
+                params.stepFrequency = defaultParams.stepFrequency*paramScaler;
+                walker->setGaitParams(params);
+                poser->params = params;
+                cout << "Parameter 'step_frequency' now set to " << int(paramScaler*100) << "% of default (" << params.stepFrequency << ")." << endl;
+                break;
+              default:
+                cout << "Attempting to adjust unknown parameter." << endl;
+                break;
+            }
+            paramAdjusted = false;
+          }
         }
         break;
       } 
@@ -580,16 +610,42 @@ int main(int argc, char* argv[])
 /***********************************************************************************************************************
  * This callback increments the gains in the controller
 ***********************************************************************************************************************/
-void imuControllerCallback(const sensor_msgs::Joy &input)
-{  
-  if(input.axes[7]==1)
+void paramSelectionCallback(const std_msgs::Int8 &input)
+{
+  if (state == RUNNING)
   {
-    pIncrement += 0.1;
-  } 
-  if(input.axes[7]==-1)
+    switch (input.data)
+    {
+      case(0):
+        break;
+      case(1):
+        if (paramSelection != STEP_FREQUENCY)
+        {
+          paramSelection = STEP_FREQUENCY;
+          cout << "step_frequency parameter selected.\n" << endl;
+        }
+        break;
+      default:
+        cout << "Unknown parameter selection requested from control input.\n" << endl;
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Toggle Leg State Callback
+***********************************************************************************************************************/
+void paramAdjustCallback(const std_msgs::Int8 &input)
+{
+  if (paramSelection != NO_PARAM_SELECTION)
   {
-    pIncrement -= 0.1;
-  }    
+    double baseScaler = 10.0;
+    double newParamScaler = 1.0+(input.data/baseScaler);
+    if (paramScaler != newParamScaler)
+    {
+      paramScaler = newParamScaler;
+      paramAdjusted = true;
+    }
+  }
 }
 
 /***********************************************************************************************************************
@@ -627,54 +683,57 @@ void gaitSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void legSelectionCallback(const std_msgs::Int8 &input)
 {
-  switch (input.data)
+  if (state == RUNNING)
   {
-    case(-1):
-      break;
-    case(0):
-      if (legSelection != FRONT_LEFT)
-      {
-        legSelection = FRONT_LEFT;
-        cout << "Front left leg selected.\n" << endl;
-      }
-      break;
-    case(1):
-      if (legSelection != FRONT_RIGHT)
-      {
-        legSelection = FRONT_RIGHT;
-        cout << "Front right leg selected.\n" << endl;
-      }
-      break;
-    case(2):
-      if (legSelection != MIDDLE_LEFT)
-      {
-        legSelection = MIDDLE_LEFT;
-        cout << "Middle left leg selected.\n" << endl;
-      }
-      break;
-    case(3):
-      if (legSelection != MIDDLE_RIGHT)
-      {
-        legSelection = MIDDLE_RIGHT;
-        cout << "Middle right leg selected.\n" << endl;
-      }
-      break;
-    case(4):
-      if (legSelection != REAR_LEFT)
-      {
-        legSelection = REAR_LEFT;
-        cout << "Rear left leg selected.\n" << endl;
-      }
-      break;
-    case(5):
-      if (legSelection != REAR_RIGHT)
-      {
-        legSelection = REAR_RIGHT;
-        cout << "Rear right leg selected.\n" << endl;
-      }
-      break;
-    default:
-      cout << "Unknown leg selection requested from control input.\n" << endl;
+    switch (input.data)
+    {
+      case(-1):
+        break;
+      case(0):
+        if (legSelection != FRONT_LEFT)
+        {
+          legSelection = FRONT_LEFT;
+          cout << "Front left leg selected.\n" << endl;
+        }
+        break;
+      case(1):
+        if (legSelection != FRONT_RIGHT)
+        {
+          legSelection = FRONT_RIGHT;
+          cout << "Front right leg selected.\n" << endl;
+        }
+        break;
+      case(2):
+        if (legSelection != MIDDLE_LEFT)
+        {
+          legSelection = MIDDLE_LEFT;
+          cout << "Middle left leg selected.\n" << endl;
+        }
+        break;
+      case(3):
+        if (legSelection != MIDDLE_RIGHT)
+        {
+          legSelection = MIDDLE_RIGHT;
+          cout << "Middle right leg selected.\n" << endl;
+        }
+        break;
+      case(4):
+        if (legSelection != REAR_LEFT)
+        {
+          legSelection = REAR_LEFT;
+          cout << "Rear left leg selected.\n" << endl;
+        }
+        break;
+      case(5):
+        if (legSelection != REAR_RIGHT)
+        {
+          legSelection = REAR_RIGHT;
+          cout << "Rear right leg selected.\n" << endl;
+        }
+        break;
+      default:
+        cout << "Unknown leg selection requested from control input.\n" << endl;
+    }
   }
 }
 

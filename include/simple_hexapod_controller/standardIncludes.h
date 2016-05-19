@@ -41,7 +41,7 @@ enum LegSelection
   MIDDLE_RIGHT,
   REAR_LEFT,
   REAR_RIGHT,
-  NO_SELECTION,
+  NO_LEG_SELECTION,
 };
 
 enum Gait
@@ -51,6 +51,12 @@ enum Gait
   WAVE_GAIT,
   BALANCE_GAIT,
   DEFAULT,
+};
+
+enum ParamSelection
+{
+  NO_PARAM_SELECTION,
+  STEP_FREQUENCY,
 };
 
 struct Parameters
