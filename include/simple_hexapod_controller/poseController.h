@@ -28,7 +28,8 @@ struct PoseController
   Vector3d originJointPositions[3][2];
   
   //Used in startup and shutdown sequences
-  int sequenceStep = 1;
+  int sequenceStep = 0;
+  double startHeightRatio;
   Vector3d phase1TipPositions[3][2];
   Vector3d phase2TipPositions[3][2];
   Vector3d phase3TipPositions[3][2];
@@ -52,8 +53,8 @@ struct PoseController
                       double stepHeight = 0.0, 
                       double stepSpeed = 2.0);
   bool moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double speed=2.0);
-  bool startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
-  bool shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode);
+  bool startUpSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
+  bool shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
   Pose autoCompensation(void);

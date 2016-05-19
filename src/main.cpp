@@ -303,14 +303,8 @@ int main(int argc, char* argv[])
         
       //Hexapod steps safely from unpacked position into the operational 'walking' position
       case(STARTUP):
-      {       
-        if (heightRatio == -1 || stepHeight == -1)
-        {
-          heightRatio = poser->createSequence(hexapod.stanceTipPositions);
-          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
-        }
-          
-        if (poser->startUpSequence(heightRatio, stepHeight, params.moveLegsSequentially))
+      {                
+        if (poser->startUpSequence(walker->identityTipPositions, params.moveLegsSequentially))
         {            
           state = RUNNING;
           cout << "Startup sequence complete. \nReady to walk.\n" << endl;
@@ -397,13 +391,8 @@ int main(int argc, char* argv[])
       
       //Hexapod steps from operational position into a safe position where it can then begin packing procedure
       case(SHUTDOWN):
-      {
-        if (heightRatio == -1 || stepHeight == -1)
-        {
-          heightRatio = poser->createSequence(walker->identityTipPositions);
-          stepHeight = walker->stepClearance*walker->maximumBodyHeight;
-        }
-        if (poser->shutDownSequence(heightRatio, stepHeight, params.moveLegsSequentially))
+      {         
+        if (poser->shutDownSequence(walker->identityTipPositions, params.moveLegsSequentially))
         {
           state = PACK;
           cout << "Shutdown sequence complete. Packing hexapod . . .\n" << endl;

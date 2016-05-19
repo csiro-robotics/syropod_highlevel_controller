@@ -375,8 +375,21 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
 /***********************************************************************************************************************
  * Startup sequence
 ***********************************************************************************************************************/
-bool PoseController::startUpSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode)
+bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode)
 {  
+  if (sequenceStep == 0)
+  {
+    startHeightRatio = createSequence(targetTipPositions);
+    if (startHeightRatio > 0.8)
+    {
+      sequenceStep = 3;
+    }
+    else
+    {
+      sequenceStep = 1;
+    }
+  }
+  
   int mode;
   double stepTime;
   if (forceSequentialMode)
@@ -392,11 +405,6 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
     mode = startHeightRatio > 0.8 ? TRIPOD_MODE:SEQUENTIAL_MODE;
   }
   
-  if (sequenceStep == 1 && startHeightRatio > 0.8)
-  {
-    sequenceStep = 3;
-  }
-  
   if (mode == SEQUENTIAL_MODE)
   {
     stepTime = 6.0;
@@ -407,6 +415,7 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
   }
   
   bool res = false;
+  double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
   switch (sequenceStep)
   {
     case 1:
@@ -422,7 +431,7 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
       res = stepToPosition(phase4TipPositions, NO_STEP_MODE, 0.0, stepTime);
       break;
     case 5:
-      sequenceStep = 1;
+      sequenceStep = 0;
       return true;
     default:
       return false;
@@ -439,11 +448,16 @@ bool PoseController::startUpSequence(double startHeightRatio, double stepHeight,
 /***********************************************************************************************************************
  * Shutdown sequence
 ***********************************************************************************************************************/
-bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight, bool forceSequentialMode)
+bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode)
 {  
   bool res = false;
+  double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
   switch (sequenceStep)
   {
+    case 0:
+      createSequence(targetTipPositions);
+      res = true;
+      break;
     case 1:
       res = stepToPosition(phase5TipPositions, NO_STEP_MODE, 0.0, 2.0);
       break;
@@ -454,7 +468,7 @@ bool PoseController::shutDownSequence(double startHeightRatio, double stepHeight
       res = stepToPosition(phase7TipPositions, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 4:
-      sequenceStep = 1;
+      sequenceStep = 0;
       return true;
     default:      
       return false;
