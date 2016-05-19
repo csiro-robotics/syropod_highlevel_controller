@@ -238,10 +238,6 @@ int main(int argc, char* argv[])
   DebugOutput debug;
   setCompensationDebug(debug);
 
-  //Startup/Shutdown variables
-  double heightRatio = -1;
-  double stepHeight = walker->stepClearance*walker->maximumBodyHeight;
-  
   //Packed/Unpacked joint position arrays
   Vector3d packedJointPositions[3][2];
   Vector3d unpackedJointPositions[3][2];
