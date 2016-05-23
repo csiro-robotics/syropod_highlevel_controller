@@ -147,8 +147,16 @@ void WalkController::LegStepper::updatePosition()
  * finding the largest footprint radius that each leg can achieve for the 
  * specified level of clearance.
 ***********************************************************************************************************************/
-WalkController::WalkController(Model *model, Parameters p): model(model), params(p)
+WalkController::WalkController(Model *model, Parameters p)
 { 
+  init(model, p);
+}
+
+void WalkController::init(Model *m, Parameters p)
+{
+  model = m;
+  params = p;
+  
   stepClearance = params.stepClearance;
   bodyClearance = params.bodyClearance;
   timeDelta = params.timeDelta;

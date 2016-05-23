@@ -91,8 +91,9 @@ struct WalkController
   //    stanceLegYaws- natural yaw pose per leg
   //    minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
 
-  WalkController(Model *model, Parameters params);
+  WalkController(Model *model, Parameters p);
   
+  void init(Model *model, Parameters p);
   // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
   // bodyOffset is body pose relative to the basic stance pose, 
   // note that large offsets may prevent achievable leg positions

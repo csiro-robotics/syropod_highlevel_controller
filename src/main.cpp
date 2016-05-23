@@ -41,7 +41,10 @@ static double poseTimeJoy = 0.2;
 static double stepFrequencyMultiplier = 1.0;
 
 static double paramScaler = 1.0;
-static bool paramAdjusted = false;
+static bool adjustParam = false;
+static double param_adjust_sensitivity;
+
+static bool changeGait = false;
 
 double pIncrement=0;
 bool toggleLegState = false;
@@ -65,7 +68,8 @@ void startCallback(const std_msgs::Bool &input);
 void paramSelectionCallback(const std_msgs::Int8 &input);
 void paramAdjustCallback(const std_msgs::Int8 &input);
 
-void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait);
+void getParameters(ros::NodeHandle n, Parameters *params);
+void getGaitParameters(ros::NodeHandle n, Parameters *params, std::string forceGait);
 
 /***********************************************************************************************************************
  * Main
@@ -85,18 +89,20 @@ int main(int argc, char* argv[])
   ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, legSelectionCallback);
   ros::Subscriber legStateSubscriber = n.subscribe("hexapod_remote/leg_state_toggle", 1, legStateCallback);
   ros::Subscriber paramSelectionSubscriber = n.subscribe("hexapod_remote/param_selection", 1, paramSelectionCallback);
-  ros::Subscriber paramAdjustmentSubscriber = n.subscribe("hexapod_remote/param_adjustment", 1, paramAdjustCallback);
+  ros::Subscriber paramAdjustmentSubscriber = n.subscribe("hexapod_remote/param_adjust", 1, paramAdjustCallback);
   
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, startCallback);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, gaitSelectionCallback);
   ros::Subscriber jointStatesSubscriber1;
-  ros::Subscriber jointStatesSubscriber2;  
+  ros::Subscriber jointStatesSubscriber2; 
+  
+  
     
   //Get parameters from rosparam via loaded config file
   Parameters params;
   pParams = &params;
-  std::string forceGait; //Feed empty string for unforced gait choice
-  getParameters(n, &params, forceGait);
+
+  getParameters(n, &params);
   
   Parameters defaultParams = params;
   
@@ -327,27 +333,130 @@ int main(int argc, char* argv[])
           cout << "Running shutdown sequence . . .\n" << endl;
         }
         else 
-        {  
+        {     
           //Update stance
           double poseTime = (params.autoCompensation || params.imuCompensation) ? 0.0 : poseTimeJoy;
           poser->updateStance(walker->identityTipPositions, adjust, poseTime, false, params.autoCompensation);
-            
-          //Switch to gait transition state
-          if ((gait == TRIPOD_GAIT && params.gaitType != "tripod_gait") ||
-              (gait == RIPPLE_GAIT && params.gaitType != "ripple_gait") ||
-              (gait == WAVE_GAIT && params.gaitType != "wave_gait"))
+          
+          //Adjust parameters         
+          if (adjustParam)
           {
-            walker->updateWalk(Vector2d(0.0,0.0), 0.0);
+            //Force hexapod to stop walking
+            localVelocity = Vector2d(0.0,0.0);
+            turnRate = 0.0;
             if (walker->state == STOPPED)
             {
-              state = GAIT_TRANSITION;
+              std::string paramString;
+              double paramVal;
+              switch(paramSelection)
+              {
+                case(NO_PARAM_SELECTION):
+                {
+                  break;
+                }
+                case(STEP_FREQUENCY):
+                {
+                  if (paramScaler == -1)
+                  {
+                    paramScaler = params.stepFrequency/defaultParams.stepFrequency;
+                  }
+                  params.stepFrequency = minMax(defaultParams.stepFrequency*paramScaler, 0.1, 3.0);
+                  walker->setGaitParams(params);
+                  poser->params = params;
+                  paramString = "step_frequency";
+                  paramVal = params.stepFrequency;
+                  break;
+                }
+                case(STEP_CLEARANCE):
+                {
+                  if (paramScaler == -1)
+                  {
+                    paramScaler = params.stepClearance/defaultParams.stepClearance;
+                  }
+                  params.stepClearance = minMax(defaultParams.stepClearance*paramScaler, 0.01, 0.4); 
+                  walker->init(&hexapod, params);
+                  paramString = "step_clearance";
+                  paramVal = params.stepClearance;
+                  break;
+                }
+                case(BODY_CLEARANCE):
+                {                  
+                  if (defaultParams.bodyClearance == -1)
+                  {
+                    params.bodyClearance = walker->bodyClearance;
+                    defaultParams.bodyClearance = params.bodyClearance;
+                  }                   
+                  if (paramScaler == -1)
+                  {
+                    paramScaler = params.bodyClearance/defaultParams.bodyClearance;
+                  }                  
+                  params.bodyClearance = minMax(defaultParams.bodyClearance*paramScaler, 0.1, 0.99);                     
+                  walker->init(&hexapod, params);
+                  paramString = "body_clearance";
+                  paramVal = params.bodyClearance;                  
+                  break;
+                }                
+                case(LEG_SPAN_SCALE):
+                {                                  
+                  if (paramScaler == -1)
+                  {
+                    paramScaler = params.legSpanScale/defaultParams.legSpanScale;
+                  }                  
+                  params.legSpanScale = minMax(defaultParams.legSpanScale*paramScaler, 0.1, 1.5);                     
+                  walker->init(&hexapod, params);
+                  paramString = "leg_span_scale";
+                  paramVal = params.legSpanScale;                  
+                  break;
+                }
+                default:
+                {
+                  cout << "Attempting to adjust unknown parameter.\n" << endl;
+                  break;
+                }
+              }
+              
+              //Update tip Positions for new parameter value
+              double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
+              if (poser->stepToPosition(walker->identityTipPositions, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
+              {    
+                cout << "Parameter '" + paramString + "' set to " << roundToInt(paramScaler*100) << "% of default (" << paramVal << ").\n" << endl;
+                adjustParam = false;
+              }                  
+            }
+          }
+            
+          //Switch gait
+          if (changeGait)
+          {
+            //Force hexapod to stop walking
+            localVelocity = Vector2d(0.0,0.0);
+            turnRate = 0.0;
+            if (walker->state == STOPPED)
+            {
+              switch (gait)
+              {
+                case (TRIPOD_GAIT):
+                  getGaitParameters(n, &params, "tripod_gait");
+                  break;
+                case(RIPPLE_GAIT):
+                  getGaitParameters(n, &params, "ripple_gait"); 
+                  break;
+                case(WAVE_GAIT):
+                  getGaitParameters(n, &params, "wave_gait");
+                  break;
+                default:
+                  cout << "Attempting to change to unknown gait." << endl;
+                  break;
+              }   
+              walker->setGaitParams(params);
+              poser->params = params;                 
+              cout << "Now using " << params.gaitType << " mode.\n" << endl;
+              changeGait = false;
             }
           } 
-          else
-          {
-            //Update Walker            
-            walker->updateWalk(localVelocity, turnRate);
-          }            
+
+          //Update Walker            
+          walker->updateWalk(localVelocity, turnRate);          
             
           //Leg Selection for toggling state          
           if (toggleLegState)
@@ -366,54 +475,9 @@ int main(int argc, char* argv[])
             }
             toggleLegState = false;
           } 
-          
-          //Parameter paramAdjustment
-          if (paramAdjusted)
-          {
-            switch(paramSelection)
-            {
-              case(NO_PARAM_SELECTION):
-                break;
-              case(STEP_FREQUENCY):
-                params.stepFrequency = defaultParams.stepFrequency*paramScaler;
-                walker->setGaitParams(params);
-                poser->params = params;
-                cout << "Parameter 'step_frequency' now set to " << int(paramScaler*100) << "% of default (" << params.stepFrequency << ")." << endl;
-                break;
-              default:
-                cout << "Attempting to adjust unknown parameter." << endl;
-                break;
-            }
-            paramAdjusted = false;
-          }
         }
         break;
-      } 
-      
-      //Cycle walker until in a stopped state, update walk controller parameters for new gait and adjust pose 
-      case(GAIT_TRANSITION):
-      {
-        switch (gait)
-        {
-          case (TRIPOD_GAIT):
-            getParameters(n, &params, "tripod_gait");
-            break;
-          case(RIPPLE_GAIT):
-            getParameters(n, &params, "ripple_gait"); 
-            break;
-          case(WAVE_GAIT):
-            getParameters(n, &params, "wave_gait");
-            break;
-          default:
-            break;
-        }   
-        walker->setGaitParams(params);
-        poser->params = params;
-        
-        state = RUNNING;            
-        cout << "Now using " << params.gaitType << " mode.\n" << endl;        
-        break;
-      }
+      }         
       
       //Hexapod steps from operational position into a safe position where it can then begin packing procedure
       case(SHUTDOWN):
@@ -612,21 +676,47 @@ int main(int argc, char* argv[])
 ***********************************************************************************************************************/
 void paramSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (state == RUNNING)
+  if (state == RUNNING && input.data != paramSelection)
   {
+    paramScaler = -1;
     switch (input.data)
     {
-      case(0):
+      case(NO_PARAM_SELECTION):
+      {
+        paramSelection = NO_PARAM_SELECTION;
+        cout << "No parameters currently selected.\n" << endl;
         break;
-      case(1):
-        if (paramSelection != STEP_FREQUENCY)
-        {
-          paramSelection = STEP_FREQUENCY;
-          cout << "step_frequency parameter selected.\n" << endl;
-        }
+      }
+      case(STEP_FREQUENCY):
+      {
+        paramSelection = STEP_FREQUENCY;
+        cout << "step_frequency parameter selected.\n" << endl;
         break;
+      }
+      case(STEP_CLEARANCE):
+      {
+        paramSelection = STEP_CLEARANCE;
+        cout << "step_clearance parameter selected.\n" << endl;
+        break;
+      }
+      case(BODY_CLEARANCE):
+      {
+        paramSelection = BODY_CLEARANCE;
+        cout << "body_clearance parameter selected.\n" << endl;
+        break;
+      }      
+      case(LEG_SPAN_SCALE):
+      {
+        paramSelection = LEG_SPAN_SCALE;
+        cout << "leg_span_scale parameter selected.\n" << endl;
+        break;
+      }
       default:
-        cout << "Unknown parameter selection requested from control input.\n" << endl;
+      {
+        paramSelection = NO_PARAM_SELECTION;
+        cout << "Unknown parameter selection requested from control input. No parameters currently selected.\n" << endl;
+        break;
+      }
     }
   }
 }
@@ -636,15 +726,20 @@ void paramSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void paramAdjustCallback(const std_msgs::Int8 &input)
 {
-  if (paramSelection != NO_PARAM_SELECTION)
+  if (input.data != 0.0 && !adjustParam && paramSelection != NO_PARAM_SELECTION)
   {
-    double baseScaler = 10.0;
-    double newParamScaler = 1.0+(input.data/baseScaler);
-    if (paramScaler != newParamScaler)
+    if (paramScaler != -1)
     {
-      paramScaler = newParamScaler;
-      paramAdjusted = true;
+      paramScaler += input.data/param_adjust_sensitivity;
+      paramScaler = minMax(paramScaler, 0.1, 3.0);      //Parameter scaler ranges from 10%->300%
+      
+      cout << "Adjusting selected parameter . . . (WARNING: Changing parameters may crash controller)\n" << endl;
     }
+    else
+    {
+      cout << "Checking selected parameter value . . .\n" << endl;
+    }
+    adjustParam = true;
   }
 }
 
@@ -673,6 +768,10 @@ void gaitSelectionCallback(const std_msgs::Int8 &input)
         break;
       default:
         cout << "Unknown gait requested from control input.\n" << endl;
+    }
+    if (gait == input.data)
+    {
+      changeGait = true;
     }
   }
 }
@@ -939,10 +1038,14 @@ void jointStatesCallback(const sensor_msgs::JointState &joint_States)
 /***********************************************************************************************************************
  * Gets hexapod parameters from rosparam server
 ***********************************************************************************************************************/
-void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait)
+void getParameters(ros::NodeHandle n, Parameters *params)
 {
   std::string baseParamString="/hexapod/parameters/";
   std::string paramString;
+  std::string forceGait; 
+  
+  //Gait Parameters
+  getGaitParameters(n, params, forceGait); //giving empty forceGait string gives default gait parameter
   
   // Hexapod Parameters
   if(!n.getParam(baseParamString+"hexapod_type", params->hexapodType))
@@ -1603,9 +1706,36 @@ void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait)
   {
     params->unpackedJointPositionsCR = Map<Vector3d>(&unpackedJointPositionsCR[0], 3);
   }
+   
+  /********************************************************************************************************************/
+  //Debug Parameters (set via launch file instead of by config files)
+  
+  paramString = "/hexapod/debug_parameters/rviz";
+  if (!n.getParam(paramString, params->debug_rviz))
+  {
+    params->debug_rviz = false;
+  }
   
   /********************************************************************************************************************/
-  // Gait Parameters 
+  //Hexapod remote parameters (set via hexapod_remote launch file instead of by config files)
+  paramString = "/hexapod_remote/param_adjust_sensitivity";
+  if (!n.getParam(paramString, param_adjust_sensitivity))
+  {
+    cout << "Error reading parameter/s (param_adjust_sensitivity) from rosparam" <<endl; 
+    cout << "Check hexapod_remote is running and launch file properly set param" << endl;
+    param_adjust_sensitivity = 10.0; //Default to 10.0 (as per default in hexapod_remote)
+  }
+}
+
+
+/***********************************************************************************************************************
+ * Gets gait parameters from rosparam server
+***********************************************************************************************************************/
+void getGaitParameters(ros::NodeHandle n, Parameters *params, std::string forceGait)
+{
+  std::string baseParamString="/hexapod/parameters/";
+  std::string paramString;
+  
   if (forceGait.empty())
   {
     if (!n.getParam(baseParamString+"gait_type", params->gaitType))
@@ -1654,15 +1784,6 @@ void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait)
   {
     cout << "Error reading parameter/s (transition_period) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
-  }
-  
-  /********************************************************************************************************************/
-  //Debug Parameters (set via launch file instead of by config files)
-  
-  paramString = "/hexapod/debug_parameters/rviz";
-  if (!n.getParam(paramString, params->debug_rviz))
-  {
-    params->debug_rviz = false;
   }
 }
 

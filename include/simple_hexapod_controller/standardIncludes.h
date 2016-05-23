@@ -25,7 +25,6 @@ enum State
   UNPACK,
   STARTUP,
   RUNNING,
-  GAIT_TRANSITION,
   SHUTDOWN,
   PACK,
   PACKED,
@@ -57,6 +56,9 @@ enum ParamSelection
 {
   NO_PARAM_SELECTION,
   STEP_FREQUENCY,
+  STEP_CLEARANCE,
+  BODY_CLEARANCE,
+  LEG_SPAN_SCALE,
 };
 
 struct Parameters
@@ -181,6 +183,11 @@ inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)
 inline Vector3d minVector(const Vector3d &a, const Vector3d &b)
 {
   return Vector3d(min(a[0], b[0]), min(a[1], b[1]), min(a[2], b[2]));
+}
+
+inline double minMax(const double val, const double minimum, const double maximum)
+{
+  return (val > (minimum+maximum)/2) ? min(maximum, val) : max(minimum, val);
 }
 
 /// Past tense avoids confusion, result is passed back
