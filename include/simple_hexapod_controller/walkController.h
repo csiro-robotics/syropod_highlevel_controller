@@ -6,8 +6,8 @@
 enum RobotState
 {
   STARTING,
-  STOPPING,
   MOVING,
+  STOPPING,  
   STOPPED
 };
 

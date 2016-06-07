@@ -350,28 +350,24 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legSteppers[l][s].phase = legSteppers[l][s].phaseOffset;
       }
     }
-  }
-  
+  }  
   // State transition: STARTING->MOVING
-  if (state == STARTING && targetsMet == NUM_LEGS)
+  else if (state == STARTING && targetsMet == NUM_LEGS)
   {
     targetsMet = 0;
     state = MOVING;
-  }
-  
+  }  
   // State transition: MOVING->STOPPING
-  if (state == MOVING && !normalSpeed)
+  else if (state == MOVING && !normalSpeed)
   {
     state = STOPPING;
-  }
-  
+  }  
   // State transition: STOPPING->STOPPED
-  if (state == STOPPING && targetsMet == NUM_LEGS)
+  else if (state == STOPPING && targetsMet == NUM_LEGS)
   {
     targetsMet = 0;
     state = STOPPED;
-  }  
-    
+  }      
    
   //Robot State Machine
   for (int l = 0; l<3; l++)
@@ -422,13 +418,13 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
               targetsMet++;
             }
           }
-        }  
+        }          
         
-        //Front_left leg only "meets target" after completing extra step AND returning to zero phase
         if (!legStepper.metTarget)
         {
           legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
           
+          //Front_left leg only "meets target" after completing extra step AND returning to zero phase
           if (l==0 && s==0 && legStepper.state == FORCE_STOP && legStepper.phase == 0)
           {
             legStepper.metTarget = true;
@@ -518,8 +514,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
         
         legStepper.updatePosition(); //updates current tip position
-        leg.applyLocalIK(legStepper.currentTipPosition);  
-
+        leg.applyLocalIK(legStepper.currentTipPosition); 
       }
     }
   }  
