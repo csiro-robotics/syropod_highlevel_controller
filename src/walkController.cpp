@@ -183,7 +183,7 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
     // find biggest circle footprint inside the pie segment defined by the body clearance and the yaw limits
     Leg &leg = model->legs[l][0];
     // downward angle of leg
-    double legDrop = atan2(bodyClearance*maximumBodyHeight, leg.maxLegLength);
+    double legDrop = acos((bodyClearance*maximumBodyHeight)/leg.maxLegLength);
     double horizontalRange = 0;
     double rad = 1e10;
 
@@ -302,7 +302,7 @@ void WalkController::setGaitParams(Parameters p)
  * Calculates body and stride velocities and uses velocities in body and leg state machines 
  * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature)
+void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature, double velocityMultiplier)
 {
   double onGroundRatio = double(phaseLength-(swingEnd-swingStart))/double(phaseLength);
   
@@ -310,6 +310,8 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   if (state != STOPPING)
   {
     localVelocity = localNormalisedVelocity*minFootprintRadius*stepFrequency/onGroundRatio;
+    ASSERT(velocityMultiplier <= 2.0); 
+    localVelocity *= velocityMultiplier;
   }
   else
   {

@@ -37,7 +37,7 @@ static double yJoy = 0;
 static double zJoy = 0;
 
 static double poseTimeJoy = 0.2;
-static double stepFrequencyMultiplier = 1.0;
+static double velocityMultiplier = 1.0;
 
 double pIncrement=0;
 bool toggleLegState = false;
@@ -336,7 +336,7 @@ int main(int argc, char* argv[])
           else
           {
             //Update Walker            
-            walker->updateWalk(localVelocity, turnRate);
+            walker->updateWalk(localVelocity, turnRate, velocityMultiplier);
           }            
             
           //Leg Selection for toggling state          
@@ -683,7 +683,7 @@ void legSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
-  stepFrequencyMultiplier = (-0.5*twist.linear.z+1.5); //Range: 1.0->2.0
+  velocityMultiplier = (-0.5*twist.linear.z+1.5); //Range: 1.0->2.0
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   //localVelocity = clamped(localVelocity, 1.0);
 
