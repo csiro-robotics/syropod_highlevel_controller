@@ -7,6 +7,7 @@
 #include "../include/simple_hexapod_controller/dynamixelMotorInterface.h"
 #include "../include/simple_hexapod_controller/dynamixelProMotorInterface.h"
 #include "../include/simple_hexapod_controller/imuCompensation.h"
+#include "../include/simple_hexapod_controller/impedanceControl.h"
 #include <boost/concept_check.hpp>
 #include <iostream>
 #include "std_msgs/Bool.h"
@@ -234,6 +235,9 @@ int main(int argc, char* argv[])
   // Create walk and pose controller objects
   WalkController *walker = new WalkController(&hexapod, params);
   PoseController *poser = new PoseController(&hexapod, walker, params);
+  ImpedanceControl *impedance = new ImpedanceControl(params);
+  
+  double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
     
   DebugOutput debug;
   setCompensationDebug(debug);
@@ -281,7 +285,28 @@ int main(int argc, char* argv[])
     else if (params.manualCompensation)
     {          
       adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
-    }         
+    }      
+    
+    if (params.impedanceControl)
+    {
+      vector<vector<double> > tipForce(3, vector<double>(2)); // this contains the force measurement of every leg of length (3, vector<double >(2))
+      tipForce[0][0] = 0.001;
+      tipForce[0][1] = 0.0;
+      tipForce[1][0] = 0.0;
+      tipForce[1][1] = 0.0;
+      tipForce[2][0] = 0.0;
+      tipForce[2][1] = 0.0;
+      vector<vector<double> > dZ(3, vector<double >(2));
+      dZ = impedance->updateImpedance(tipForce);
+      for (int l = 0; l<3; l++)
+      {
+        for (int s = 0; s<2; s++)
+        {
+          deltaZ[l][s] = dZ[l][s];
+          //cout << deltaZ[l][s] << endl;
+        }
+      }
+    }
     
     //Hexapod state machine
     switch (state)
@@ -327,7 +352,7 @@ int main(int argc, char* argv[])
               (gait == RIPPLE_GAIT && params.gaitType != "ripple_gait") ||
               (gait == WAVE_GAIT && params.gaitType != "wave_gait"))
           {
-            walker->updateWalk(Vector2d(0.0,0.0), 0.0);
+            walker->updateWalk(Vector2d(0.0,0.0), 0.0, deltaZ);
             if (walker->state == STOPPED)
             {
               state = GAIT_TRANSITION;
@@ -336,7 +361,7 @@ int main(int argc, char* argv[])
           else
           {
             //Update Walker            
-            walker->updateWalk(localVelocity, turnRate, velocityMultiplier);
+            walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier);
           }            
             
           //Leg Selection for toggling state          
@@ -1543,6 +1568,47 @@ void getParameters(ros::NodeHandle n, Parameters *params, std::string forceGait)
   else
   {
     params->unpackedJointPositionsCR = Map<Vector3d>(&unpackedJointPositionsCR[0], 3);
+  }
+  
+  /********************************************************************************************************************/
+  // Impedance Control Parameters 
+  
+  paramString = baseParamString+"/impedance_controller/";
+
+  if (!n.getParam(paramString+"impedance_control", params->impedanceControl))
+  {
+    cout << "Error reading parameter/s (impedance_control) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+
+  if (!n.getParam(paramString+"integrator_step_time", params->integratorStepTime))
+  {
+    cout << "Error reading parameter/s (integrator_step_time) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+
+  if (!n.getParam(paramString+"virtual_mass", params->virtualMass))
+  {
+    cout << "Error reading parameter/s (virtual_mass) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+
+  if (!n.getParam(paramString+"virtual_stiffness", params->virtualStiffness))
+  {
+    cout << "Error reading parameter/s (virtual_stiffness) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+
+  if (!n.getParam(paramString+"virtual_damping_ratio", params->virtualDampingRatio))
+  {
+    cout << "Error reading parameter/s (virtual_damping_ratio) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+
+  if (!n.getParam(paramString+"force_gain", params->forceGain))
+  {
+    cout << "Error reading parameter/s (force_gain) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
   }
   
   /********************************************************************************************************************/

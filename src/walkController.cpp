@@ -302,7 +302,7 @@ void WalkController::setGaitParams(Parameters p)
  * Calculates body and stride velocities and uses velocities in body and leg state machines 
  * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature, double velocityMultiplier)
+void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature, double deltaZ[3][2], double velocityMultiplier)
 {
   double onGroundRatio = double(phaseLength-(swingEnd-swingStart))/double(phaseLength);
   
@@ -516,6 +516,8 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
         
         legStepper.updatePosition(); //updates current tip position
+        legStepper.currentTipPosition[2] += deltaZ[l][s];
+        
         leg.applyLocalIK(legStepper.currentTipPosition); 
       }
     }

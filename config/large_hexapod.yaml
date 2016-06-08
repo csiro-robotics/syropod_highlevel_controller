@@ -13,7 +13,7 @@ hexapod:
     auto_compensation: true
     manual_compensation: true
 
-    gait_type: balance_gait
+    gait_type: wave_gait
 
 ######################################################################
 
@@ -63,7 +63,7 @@ hexapod:
 ######################################################################
 
     walk_controller:
-      step_frequency: 0.125
+      step_frequency: 0.25
       step_clearance: 0.05
       body_clearance: 0.4
       leg_span_scale: 0.6
@@ -88,8 +88,8 @@ hexapod:
 
     #Auto pose compensation
       auto_pose_compensation:
-        pitch_amplitude: 0.3
-        roll_amplitude: 0.2
+        pitch_amplitude: 0.1
+        roll_amplitude: 0.05
 
     #Manual pose compensation 
       manual_pose_compensation:
@@ -120,5 +120,17 @@ hexapod:
         CL_unpacked_joint_positions: [0.0, 0.785, 0.785] #CONFIRM VALUES BEFORE USE
         CR_unpacked_joint_positions: [0.0, 0.785, 0.785] #CONFIRM VALUES BEFORE USE
 
+######################################################################
+# Impendance Controller Parameters
+######################################################################
+
+    impedance_controller:
+      impedance_control: true
+      integrator_step_time: 0.03
+      virtual_mass: 10.0
+      virtual_stiffness: 8.0
+      virtual_damping_ratio: 0.7
+      force_gain: 1.0
+        
 ######################################################################
 ######################################################################

@@ -149,7 +149,7 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
 /***********************************************************************************************************************
  * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
-bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mode, double liftHeight, double timeToStep)
+bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode, double liftHeight, double timeToStep)
 { 
   if (firstIteration)
   {       
@@ -302,7 +302,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
 /***********************************************************************************************************************
  * Safely directly set joint angle
 ***********************************************************************************************************************/
-bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double timeToMove)
+bool PoseController::moveToJointPosition(Vector3d targetJointPositions[3][2], double timeToMove)
 {
   //Setup origin and target joint positions for bezier curve
   if (firstIteration)

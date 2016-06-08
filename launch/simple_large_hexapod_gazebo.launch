@@ -3,7 +3,7 @@
 	<include file="$(find hexapod_remote)/launch/hexapod_remote.launch" />
 	<rosparam file="$(find simple_hexapod_controller)/config/large_hexapod.yaml" command="load"/>
 	<rosparam file="$(find simple_hexapod_controller)/config/gait.yaml" command="load"/>
-	<node name="Hexapod" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node" output="screen"/>
+	<!--node name="Hexapod" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node" output="screen"/-->
 
         <param name="/hexapod/parameters/dynamixel_interface" value="true"/>
         <param name="/hexapod/parameters/pose_controller/time_to_start" value="0.0"/>

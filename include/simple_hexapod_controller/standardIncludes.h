@@ -112,6 +112,14 @@ struct Parameters
   Vector3d unpackedJointPositionsBR;
   Vector3d unpackedJointPositionsCL;
   Vector3d unpackedJointPositionsCR;
+  
+  //Impedance Controller Parameters
+  bool impedanceControl;
+  double integratorStepTime;
+  double virtualMass;
+  double virtualStiffness;
+  double virtualDampingRatio;
+  double forceGain;
     
   //Gait Parameters
   double stancePhase;

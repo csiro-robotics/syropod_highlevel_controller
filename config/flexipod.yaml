@@ -121,4 +121,16 @@ hexapod:
         CR_unpacked_joint_positions: [-0.77, 0.785, 0.785] #CONFIRM VALUES BEFORE USE
 
 ######################################################################
+# Impendance Controller Parameters
+######################################################################
+
+    impedance_controller:
+      impedance_control: false
+      integrator_step_time: 0.03
+      virtual_mass: 10.0
+      virtual_stiffness: 8.0
+      virtual_damping_ratio: 0.7
+      force_gain: 1.0
+      
+######################################################################
 ######################################################################
