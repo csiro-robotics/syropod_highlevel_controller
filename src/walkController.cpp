@@ -72,74 +72,52 @@ void WalkController::LegStepper::updateSwingPos(Vector3d *pos)
 
 void WalkController::LegStepper::updatePosition()
 {  
-  Vector3d pos = currentTipPosition;
   Vector2d localCentreVelocity = walker->localCentreVelocity;
   double angularVelocity = walker->angularVelocity;
   
   // Swing Phase
   if (state == SWING)
   {
-    updateSwingPos(&pos);
+    updateSwingPos(&currentTipPosition);
   }  
   // Stance phase
-  else if (state == STANCE)
+  else if (state == STANCE ||
+           state == STANCE_TRANSITION ||
+           state == SWING_TRANSITION)
   {    
     // X & Y Components of Trajectory
     Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;      
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
+      Vector2d(currentTipPosition[1], -currentTipPosition[0]))*walker->timeDelta;      
+    currentTipPosition[0] += deltaPos[0];
+    currentTipPosition[1] += deltaPos[1];
     
     // Z component of trajectory  
-    // No Z component change during Stance phase
-  }
-  else if (state == SWING_TRANSITION)
-  {   
-    // X & Y Components of Trajectory
-    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
+    /*
+    int stanceLength = walker->phaseLength - (walker->swingEnd-walker->swingStart);
+    int iteration;
+    if (phase >= walker->swingEnd)
+      iteration = phase - walker->swingEnd + 1;
+    else
+      iteration = phase + stanceLength/2 + 1;    
     
-    // Z component of trajectory  
-    //TBD
+    double deltaT = 1.0/stanceLength;
+    
+    Vector3d controlNodes[4];
+    double stanceDepth = walker->stepClearance*walker->maximumBodyHeight*0.5;
+    
+    controlNodes[0] = Vector3d(0.0,0.0,defaultTipPosition[2]);
+    controlNodes[1] = Vector3d(0.0,0.0,defaultTipPosition[2]-stanceDepth);
+    controlNodes[2] = Vector3d(0.0,0.0,defaultTipPosition[2]-stanceDepth);
+    controlNodes[3] = Vector3d(0.0,0.0,defaultTipPosition[2]);
+    
+    double deltaZ = (deltaT*cubicBezierDot(controlNodes, deltaT*iteration))[2];
+    
+    currentTipPosition[2] += deltaZ;
+    */
+    //DEBUGGING
+    //cout << "ITERATION: " << iteration << "\tTIME: " <<  deltaT*iteration << "\tORIGIN: " << defaultTipPosition[2] << "\tPOS: " << pos[2] << "\tTARGET: " << controlNodes[2][2] << endl; 
+    //DEBUGGING  
   }  
-  else if (state == STANCE_TRANSITION)
-  {    
-    // X & Y Components of Trajectory
-    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
-    
-    // Z component of trajectory  
-    //TBD
-  }  
-  else if (state == TOUCHDOWN_CORRECTION)
-  {    
-    // X & Y Components of Trajectory
-    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
-    
-    //Z Component of Trajectory
-    //Early touchdown requires no height correction
-  }
-  else if (state == LIFTOFF_CORRECTION)
-  {
-    // X & Y Components of Trajectory
-    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
-    
-    // Z Component of Trajectory
-    pos[2] -= 0.001;    //TBD REFINEMENT
-  }
-  
-  ASSERT(pos.squaredNorm() < 1000.0);
-  currentTipPosition = pos;
 }
 
 /***********************************************************************************************************************
@@ -473,14 +451,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       else if (legStepper.phase >= swingStart && legStepper.phase < swingEnd)
       {
         legStepper.state = SWING;
-
-        if (params.legStateCorrection)
-        {
-          if (legStepper.tipTouchdown)
-          {
-            legStepper.state = TOUCHDOWN_CORRECTION;
-          }
-        }          
       }
       else if (legStepper.phase >= swingEnd && legStepper.phase < stanceStart)
       {
@@ -489,13 +459,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       else if (legStepper.phase < stanceEnd || legStepper.phase >= stanceStart)
       {        
         legStepper.state = STANCE; 
-        if (params.legStateCorrection)
-        {
-          if (!legStepper.tipTouchdown)
-          {
-            legStepper.state = LIFTOFF_CORRECTION;   
-          }
-        }        
       }       
     }
   }
@@ -508,7 +471,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
       
-      if (leg.state == WALKING)
+      if (leg.state == WALKING && state != STOPPED)
       {
         //Revise default and current tip positions from stanceTipPosition due to change in pose
         Vector3d tipOffset = legStepper.defaultTipPosition - legStepper.currentTipPosition;
@@ -516,9 +479,14 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
         
         legStepper.updatePosition(); //updates current tip position
-        legStepper.currentTipPosition[2] += deltaZ[l][s];
-        
-        leg.applyLocalIK(legStepper.currentTipPosition); 
+        if (l == 1 && s==1)
+        {
+          Vector3d adjustedPos = legStepper.currentTipPosition;
+          adjustedPos[2] += deltaZ[l][s];
+          leg.applyLocalIK(adjustedPos); 
+        }
+        else
+          leg.applyLocalIK(legStepper.currentTipPosition); 
       }
     }
   }  

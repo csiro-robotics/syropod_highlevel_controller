@@ -291,7 +291,10 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
         */
        
         //Apply inverse kinematics to localTipPositions and stanceTipPositions
-        model->legs[l][s].applyLocalIK(pos, true); 
+        if (model->legs[l][s].state != OFF)
+        {
+          model->legs[l][s].applyLocalIK(pos, true); 
+        }
       }
     }
   }  

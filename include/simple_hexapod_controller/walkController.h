@@ -75,7 +75,7 @@ struct WalkController
     Vector3d originTipPosition;
     Vector3d defaultTipPosition;
     
-    bool tipTouchdown;
+    bool tipTouchdown = true;
     
     struct WalkController *walker; //So LegStepper can access walkcontroller member variables
     

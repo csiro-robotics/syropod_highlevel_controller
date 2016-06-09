@@ -10,7 +10,7 @@ hexapod:
 
   #Compensation
     imu_compensation: false
-    auto_compensation: true
+    auto_compensation: false
     manual_compensation: true
 
     gait_type: wave_gait
@@ -41,8 +41,8 @@ hexapod:
 
       tip_offset_AL: [1.5, 0.0, 0.0] #Front Left Leg
       tip_offset_AR: [1.5, 0.0, 0.0] #Front Right Leg
-      tip_offset_BL: [1.5, 0.0, 0.0] #Middle Left Leg
-      tip_offset_BR: [1.5, 0.0, 0.0] #Middle Right Leg
+      tip_offset_BL: [1.6, 0.0, 0.0] #Middle Left Leg
+      tip_offset_BR: [1.6, 0.0, 0.0] #Middle Right Leg
       tip_offset_CL: [1.5, 0.0, 0.0] #Back Left Leg
       tip_offset_CR: [1.5, 0.0, 0.0] #Back Right Leg
 
@@ -84,7 +84,7 @@ hexapod:
     pose_controller:
       start_up_sequence: false #DO NOT USE
       move_legs_sequentially: false
-      time_to_start: 12.0
+      time_to_start: 0.0
 
     #Auto pose compensation
       auto_pose_compensation:
@@ -127,10 +127,10 @@ hexapod:
     impedance_controller:
       impedance_control: true
       integrator_step_time: 0.03
-      virtual_mass: 10.0
+      virtual_mass: 20.0
       virtual_stiffness: 8.0
-      virtual_damping_ratio: 0.7
-      force_gain: 1.0
+      virtual_damping_ratio: 2.0
+      force_gain: 2.0
         
 ######################################################################
 ######################################################################

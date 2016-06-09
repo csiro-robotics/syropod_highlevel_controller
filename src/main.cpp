@@ -48,10 +48,11 @@ int firstIteration = 0;
 //Globals for joint states callback
 sensor_msgs::JointState jointStates;
 double jointPositions[18];
+double jointEfforts[18];
 bool jointPosFlag = false;
 bool startFlag = false;
 
-void jointStatesCallback(const sensor_msgs::JointState &joint_States);
+void jointStatesCallback(const sensor_msgs::JointState &jointStates);
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
 void imuControllerCallback(const sensor_msgs::Joy &input);
@@ -151,8 +152,8 @@ int main(int argc, char* argv[])
   }
   
   //Get current joint positions
-  jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback); 
-  jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
+  jointStatesSubscriber1 = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
+  jointStatesSubscriber2 = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback);
   
   if(!jointStatesSubscriber1 && !jointStatesSubscriber2)
   {
@@ -287,26 +288,35 @@ int main(int argc, char* argv[])
       adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
     }      
     
-    if (params.impedanceControl)
+    if (params.impedanceControl && state == RUNNING)
     {
       vector<vector<double> > tipForce(3, vector<double>(2)); // this contains the force measurement of every leg of length (3, vector<double >(2))
-      tipForce[0][0] = 0.001;
-      tipForce[0][1] = 0.0;
-      tipForce[1][0] = 0.0;
-      tipForce[1][1] = 0.0;
-      tipForce[2][0] = 0.0;
-      tipForce[2][1] = 0.0;
+      for (int l = 0; l<3; l++)
+      {
+        for (int s = 0; s<2; s++)
+        {
+          int index = 6*l+3*s+1;
+          int dir = (s==0) ? 1:-1; 
+          tipForce[l][s] = dir*jointEfforts[index];
+        }
+      }
       vector<vector<double> > dZ(3, vector<double >(2));
       dZ = impedance->updateImpedance(tipForce);
       for (int l = 0; l<3; l++)
       {
         for (int s = 0; s<2; s++)
         {
-          deltaZ[l][s] = dZ[l][s];
-          //cout << deltaZ[l][s] << endl;
+          deltaZ[l][s] = dZ[l][s]; 
         }
       }
+      int l = 1;
+      int s = 1;
+      int index = 6*l+3*s+1;
+      int dir = (s==0) ? 1:-1; 
+      cout << /*"\tEFFORT: "*/ " " << dir*jointEfforts[index] << /*"ADJUSTED_ZPOS: "*/ " " << 1000*hexapod.legs[l][s].localTipPosition[2] << /*"\tDELTAZ: "*/ " " << 1000*deltaZ[l][s] << /*\tZPOS: "*/ " " << 1000*walker->legSteppers[l][s].currentTipPosition[2] << endl;
     }
+    
+    
     
     //Hexapod state machine
     switch (state)
@@ -326,12 +336,12 @@ int main(int argc, char* argv[])
       case(STARTUP):
       {                
         if (poser->startUpSequence(walker->identityTipPositions, params.moveLegsSequentially))
-        {            
+        {    
           state = RUNNING;
-          cout << "Startup sequence complete. \nReady to walk.\n" << endl;
+          cout << "Startup sequence complete.\nReady to walk.\n" << endl;
         }
         break;
-      }
+      }       
       
       //Hexapod is in operational state (walking/posing/actuating etc.)
       case(RUNNING):
@@ -360,7 +370,9 @@ int main(int argc, char* argv[])
           } 
           else
           {
-            //Update Walker            
+            //Update Walker 
+            localVelocity = Vector2d(0.0,1.0);
+            turnRate = 0.0;
             walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier);
           }            
             
@@ -551,7 +563,7 @@ int main(int argc, char* argv[])
           yawVel = (yaw - hexapod.legs[l][s].oldYaw)/params.timeDelta;
           liftVel = (lift - hexapod.legs[l][s].oldLiftAngle)/params.timeDelta;
           kneeVel = (knee - hexapod.legs[l][s].oldKneeAngle)/params.timeDelta;
-                            
+          /*                  
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
           {
             cout << "Leg: " << l << ":" << s << " body_coxa joint velocity (" << yawVel << ") exceeds maximum (" << sign(yawVel)*hexapod.jointMaxAngularSpeeds[0] << ") - CLAMPING TO MAXIMUM!" << endl; 
@@ -569,7 +581,8 @@ int main(int argc, char* argv[])
             cout << "Leg: " << l << ":" << s << " femour_tibia joint velocity (" << kneeVel << ") exceeds maximum (" << sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2] << ") - CLAMPING TO MAXIMUM!" << endl; 
             kneeVel = sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2];
             knee = hexapod.legs[l][s].oldKneeAngle + kneeVel*params.timeDelta;
-          }           
+          }  
+          */
         }
         else
         {
@@ -793,103 +806,118 @@ void legStateCallback(const std_msgs::Bool &input)
 /***********************************************************************************************************************
  * Gets ALL joint positions from joint state messages
 ***********************************************************************************************************************/
-void jointStatesCallback(const sensor_msgs::JointState &joint_States)
+void jointStatesCallback(const sensor_msgs::JointState &jointStates)
 {  
-  if (!jointPosFlag)
+  for (uint i=0; i<jointStates.name.size(); i++)
   {
-    for (uint i=0; i<joint_States.name.size(); i++)
+    const char* jointName = jointStates.name[i].c_str();
+    if (!strcmp(jointName, "front_left_body_coxa") ||
+        !strcmp(jointName, "AL_coxa_joint"))
     {
-      const char* jointName = joint_States.name[i].c_str();
-      if (!strcmp(jointName, "front_left_body_coxa") ||
-          !strcmp(jointName, "AL_coxa_joint"))
-      {
-        jointPositions[0] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "front_left_coxa_femour") ||
-                !strcmp(jointName, "AL_femur_joint"))
-      {
-        jointPositions[1] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "front_left_femour_tibia") ||
-                !strcmp(jointName, "AL_tibia_joint"))
-      {
-        jointPositions[2] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "front_right_body_coxa") ||
-                !strcmp(jointName, "AR_coxa_joint"))
-      {
-        jointPositions[3] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "front_right_coxa_femour") ||
-                !strcmp(jointName, "AR_femur_joint"))
-      {
-        jointPositions[4] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "front_right_femour_tibia") ||
-                !strcmp(jointName, "AR_tibia_joint"))
-      {
-        jointPositions[5] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "middle_left_body_coxa") ||
-                !strcmp(jointName, "BL_coxa_joint"))
-      {
-        jointPositions[6] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "middle_left_coxa_femour") ||
-                !strcmp(jointName, "BL_femur_joint"))
-      {
-        jointPositions[7] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "middle_left_femour_tibia") ||
-                !strcmp(jointName, "BL_tibia_joint"))
-      {
-        jointPositions[8] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "middle_right_body_coxa") ||
-                !strcmp(jointName, "BR_coxa_joint"))
-      {
-        jointPositions[9] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "middle_right_coxa_femour") ||
-                !strcmp(jointName, "BR_femur_joint"))
-      {
-        jointPositions[10] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "middle_right_femour_tibia") ||
-                !strcmp(jointName, "BR_tibia_joint"))
-      {
-        jointPositions[11] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "rear_left_body_coxa") ||
-                !strcmp(jointName, "CL_coxa_joint"))
-      {
-        jointPositions[12] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "rear_left_coxa_femour") ||
-                !strcmp(jointName, "CL_femur_joint"))
-      {
-        jointPositions[13] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "rear_left_femour_tibia") ||
-                !strcmp(jointName, "CL_tibia_joint"))
-      {
-        jointPositions[14] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "rear_right_body_coxa") ||
-                !strcmp(jointName, "CR_coxa_joint"))
-      {
-        jointPositions[15] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "rear_right_coxa_femour") ||
-                !strcmp(jointName, "CR_femur_joint"))
-      {
-        jointPositions[16] = joint_States.position[i];
-      }
-      else if (!strcmp(jointName, "rear_right_femour_tibia") ||
-                !strcmp(jointName, "CR_tibia_joint"))
-      {
-        jointPositions[17] = joint_States.position[i];
-      }
+      jointPositions[0] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[0] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "front_left_coxa_femour") ||
+              !strcmp(jointName, "AL_femur_joint"))
+    {
+      jointPositions[1] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[1] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "front_left_femour_tibia") ||
+              !strcmp(jointName, "AL_tibia_joint"))
+    {
+      jointPositions[2] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[2] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "front_right_body_coxa") ||
+              !strcmp(jointName, "AR_coxa_joint"))
+    {
+      jointPositions[3] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[3] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "front_right_coxa_femour") ||
+              !strcmp(jointName, "AR_femur_joint"))
+    {
+      jointPositions[4] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[4] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "front_right_femour_tibia") ||
+              !strcmp(jointName, "AR_tibia_joint"))
+    {
+      jointPositions[5] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[5] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "middle_left_body_coxa") ||
+              !strcmp(jointName, "BL_coxa_joint"))
+    {
+      jointPositions[6] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[6] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "middle_left_coxa_femour") ||
+              !strcmp(jointName, "BL_femur_joint"))
+    {
+      jointPositions[7] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[7] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "middle_left_femour_tibia") ||
+              !strcmp(jointName, "BL_tibia_joint"))
+    {
+      jointPositions[8] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[8] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "middle_right_body_coxa") ||
+              !strcmp(jointName, "BR_coxa_joint"))
+    {
+      jointPositions[9] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[9] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "middle_right_coxa_femour") ||
+              !strcmp(jointName, "BR_femur_joint"))
+    {
+      jointPositions[10] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[10] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "middle_right_femour_tibia") ||
+              !strcmp(jointName, "BR_tibia_joint"))
+    {
+      jointPositions[11] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[11] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "rear_left_body_coxa") ||
+              !strcmp(jointName, "CL_coxa_joint"))
+    {
+      jointPositions[12] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[12] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "rear_left_coxa_femour") ||
+              !strcmp(jointName, "CL_femur_joint"))
+    {
+      jointPositions[13] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[13] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "rear_left_femour_tibia") ||
+              !strcmp(jointName, "CL_tibia_joint"))
+    {
+      jointPositions[14] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[14] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "rear_right_body_coxa") ||
+              !strcmp(jointName, "CR_coxa_joint"))
+    {
+      jointPositions[15] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[15] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "rear_right_coxa_femour") ||
+              !strcmp(jointName, "CR_femur_joint"))
+    {
+      jointPositions[16] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[16] = jointStates.effort[i];}
+    }
+    else if (!strcmp(jointName, "rear_right_femour_tibia") ||
+              !strcmp(jointName, "CR_tibia_joint"))
+    {
+      jointPositions[17] = jointStates.position[i];
+      if (jointStates.effort.size()) {jointEfforts[17] = jointStates.effort[i];}
     }
     
     //Check if all joint positions have been received from topic
