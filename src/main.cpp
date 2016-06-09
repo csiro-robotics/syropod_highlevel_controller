@@ -297,7 +297,7 @@ int main(int argc, char* argv[])
         {
           int index = 6*l+3*s+1;
           int dir = (s==0) ? 1:-1; 
-          tipForce[l][s] = dir*jointEfforts[index];
+          tipForce[l][s] = dir*jointEfforts[index]/* - dir*25.0*/;
         }
       }
       vector<vector<double> > dZ(3, vector<double >(2));
@@ -311,9 +311,7 @@ int main(int argc, char* argv[])
       }
       int l = 1;
       int s = 1;
-      int index = 6*l+3*s+1;
-      int dir = (s==0) ? 1:-1; 
-      cout << /*"\tEFFORT: "*/ " " << dir*jointEfforts[index] << /*"ADJUSTED_ZPOS: "*/ " " << 1000*hexapod.legs[l][s].localTipPosition[2] << /*"\tDELTAZ: "*/ " " << 1000*deltaZ[l][s] << /*\tZPOS: "*/ " " << 1000*walker->legSteppers[l][s].currentTipPosition[2] << endl;
+      cout << /*"\tEFFORT: "*/ " " << tipForce[l][s] << /*"ADJUSTED_ZPOS: "*/ " " << 1000*hexapod.legs[l][s].localTipPosition[2] << /*"\tDELTAZ: "*/ " " << 1000*deltaZ[l][s] << /*\tZPOS: "*/ " " << 1000*walker->legSteppers[l][s].currentTipPosition[2] << endl;
     }
     
     
