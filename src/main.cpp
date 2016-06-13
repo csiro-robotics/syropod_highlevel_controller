@@ -298,14 +298,21 @@ int main(int argc, char* argv[])
       //USE TIP FORCES
       if (true)
       {
-        tipForce[0][0] = tipForces[0];
-        tipForce[0][1] = tipForces[1];
-        tipForce[1][0] = tipForces[2];
-        tipForce[1][1] = tipForces[3];
-        tipForce[2][0] = tipForces[4];
-        tipForce[2][1] = tipForces[5];
+        double offset = 1225.0;
+        for (int l = 0; l<3; l++)
+        {
+          for (int s = 0; s<2; s++)
+          {
+            tipForce[l][s] = tipForces[2*l+s] - offset;
+            double maxForce = 500.0;
+            double minForce = 0.0;
+            if (tipForce[l][s] > maxForce) {tipForce[l][s] = maxForce;}
+            else if (tipForce[l][s] < minForce) {tipForce[l][s] = minForce;}
+          }
+        }        
       }
       //USE JOINT EFFORT VALUES
+      /*
       else
       {
         for (int l = 0; l<3; l++)
@@ -321,7 +328,8 @@ int main(int argc, char* argv[])
             else if (tipForce[l][s] < minForce) {tipForce[l][s] = minForce;}
           }
         }
-      }        
+      }  
+      */
       
       vector<vector<double> > dZ(3, vector<double >(2));
       dZ = impedance->updateImpedance(tipForce);
