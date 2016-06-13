@@ -606,7 +606,7 @@ int main(int argc, char* argv[])
           yawVel = (yaw - hexapod.legs[l][s].oldYaw)/params.timeDelta;
           liftVel = (lift - hexapod.legs[l][s].oldLiftAngle)/params.timeDelta;
           kneeVel = (knee - hexapod.legs[l][s].oldKneeAngle)/params.timeDelta;
-          /*                  
+                 
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
           {
             cout << "Leg: " << l << ":" << s << " body_coxa joint velocity (" << yawVel << ") exceeds maximum (" << sign(yawVel)*hexapod.jointMaxAngularSpeeds[0] << ") - CLAMPING TO MAXIMUM!" << endl; 
@@ -625,7 +625,6 @@ int main(int argc, char* argv[])
             kneeVel = sign(kneeVel)*hexapod.jointMaxAngularSpeeds[2];
             knee = hexapod.legs[l][s].oldKneeAngle + kneeVel*params.timeDelta;
           }  
-          */
         }
         else
         {
