@@ -398,8 +398,6 @@ int main(int argc, char* argv[])
           else
           {
             //Update Walker 
-            localVelocity = Vector2d(0.0,1.0);
-            turnRate = 0.0;
             walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier);
           }            
             
