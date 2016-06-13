@@ -481,7 +481,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.updatePosition(); //updates current tip position
 
         Vector3d adjustedPos = legStepper.currentTipPosition;
-        adjustedPos[2] += deltaZ[l][s];
+        adjustedPos[2] -= deltaZ[l][s];
         leg.applyLocalIK(adjustedPos); 
       }
     }

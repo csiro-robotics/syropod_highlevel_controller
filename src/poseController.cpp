@@ -566,7 +566,7 @@ Pose PoseController::autoCompensation(void)
     {
       if (walker->legSteppers[l][s].state == SWING)
       {
-        double zDiff = model->localTipPositions[l][s][2] - model->stanceTipPositions[l][s][2];
+        double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - model->stanceTipPositions[l][s][2];
         roll = zDiff*pow(-1.0, s)*params.rollAmplitude;
         pitch = zDiff*(-(l-1))*params.pitchAmplitude;
       }

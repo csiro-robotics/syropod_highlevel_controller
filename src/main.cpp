@@ -49,10 +49,12 @@ int firstIteration = 0;
 sensor_msgs::JointState jointStates;
 double jointPositions[18];
 double jointEfforts[18];
+double tipForces[6];
 bool jointPosFlag = false;
 bool startFlag = false;
 
 void jointStatesCallback(const sensor_msgs::JointState &jointStates);
+void tipForceCallback(const sensor_msgs::JointState &jointStates);
 void joypadVelocityCallback(const geometry_msgs::Twist &twist);
 void joypadPoseCallback(const geometry_msgs::Twist &twist);
 void imuControllerCallback(const sensor_msgs::Joy &input);
@@ -84,7 +86,8 @@ int main(int argc, char* argv[])
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, startCallback);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, gaitSelectionCallback);
   ros::Subscriber jointStatesSubscriber1;
-  ros::Subscriber jointStatesSubscriber2;  
+  ros::Subscriber jointStatesSubscriber2; 
+  ros::Subscriber tipForceSubscriber;
     
   //Get parameters from rosparam via loaded config file
   Parameters params;
@@ -154,6 +157,7 @@ int main(int argc, char* argv[])
   //Get current joint positions
   jointStatesSubscriber1 = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
   jointStatesSubscriber2 = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback);
+  tipForceSubscriber = n.subscribe("/motor_encoders", 1, tipForceCallback);
   
   if(!jointStatesSubscriber1 && !jointStatesSubscriber2)
   {
@@ -259,7 +263,7 @@ int main(int argc, char* argv[])
   packedJointPositions[1][1] = params.packedJointPositionsBR;
   packedJointPositions[2][0] = params.packedJointPositionsCL;
   packedJointPositions[2][1] = params.packedJointPositionsCR; 
-
+  
   //Position update loop
   while (ros::ok())
   {
@@ -291,15 +295,34 @@ int main(int argc, char* argv[])
     if (params.impedanceControl && state == RUNNING)
     {
       vector<vector<double> > tipForce(3, vector<double>(2)); // this contains the force measurement of every leg of length (3, vector<double >(2))
-      for (int l = 0; l<3; l++)
+      //USE TIP FORCES
+      if (true)
       {
-        for (int s = 0; s<2; s++)
-        {
-          int index = 6*l+3*s+1;
-          int dir = (s==0) ? 1:-1; 
-          tipForce[l][s] = dir*jointEfforts[index]/* - dir*25.0*/;
-        }
+        tipForce[0][0] = tipForces[0];
+        tipForce[0][1] = tipForces[1];
+        tipForce[1][0] = tipForces[2];
+        tipForce[1][1] = tipForces[3];
+        tipForce[2][0] = tipForces[4];
+        tipForce[2][1] = tipForces[5];
       }
+      //USE JOINT EFFORT VALUES
+      else
+      {
+        for (int l = 0; l<3; l++)
+        {
+          for (int s = 0; s<2; s++)
+          {
+            int index = 6*l+3*s+1;
+            int dir = (s==0) ? -1:1;    
+            double maxForce = 1e9;
+            double minForce = -1e9;
+            tipForce[l][s] = dir*jointEfforts[index];
+            if (tipForce[l][s] > maxForce) {tipForce[l][s] = maxForce;}
+            else if (tipForce[l][s] < minForce) {tipForce[l][s] = minForce;}
+          }
+        }
+      }        
+      
       vector<vector<double> > dZ(3, vector<double >(2));
       dZ = impedance->updateImpedance(tipForce);
       for (int l = 0; l<3; l++)
@@ -309,12 +332,10 @@ int main(int argc, char* argv[])
           deltaZ[l][s] = dZ[l][s]; 
         }
       }
-      int l = 1;
-      int s = 1;
-      cout << /*"\tEFFORT: "*/ " " << tipForce[l][s] << /*"ADJUSTED_ZPOS: "*/ " " << 1000*hexapod.legs[l][s].localTipPosition[2] << /*"\tDELTAZ: "*/ " " << 1000*deltaZ[l][s] << /*\tZPOS: "*/ " " << 1000*walker->legSteppers[l][s].currentTipPosition[2] << endl;
-    }
-    
-    
+      cout << hexapod.legs[0][0].localTipPosition[2] << " " << hexapod.legs[0][1].localTipPosition[2] << " " << hexapod.legs[1][0].localTipPosition[2] << " " << hexapod.legs[1][1].localTipPosition[2] << " " << hexapod.legs[2][0].localTipPosition[2] << " " << hexapod.legs[2][1].localTipPosition[2] << " ";  
+      cout << walker->legSteppers[0][0].currentTipPosition[2] << " " << walker->legSteppers[0][1].currentTipPosition[2] << " " << walker->legSteppers[1][0].currentTipPosition[2] << " " << walker->legSteppers[1][1].currentTipPosition[2] << " " << walker->legSteppers[2][0].currentTipPosition[2] << " " << walker->legSteppers[2][1].currentTipPosition[2] << " ";
+      cout << tipForce[0][0] << " " << tipForce[0][1] << " " << tipForce[1][0] << " " << tipForce[1][1] << " " << tipForce[2][0] << " " << tipForce[2][1] << endl;      
+    }   
     
     //Hexapod state machine
     switch (state)
@@ -591,7 +612,7 @@ int main(int argc, char* argv[])
         interface->setTargetAngle(l, s, 1, -lift);
         interface->setTargetAngle(l, s, 2, knee);
                
-        interface->setVelocity(l, s, 0, yawVel);
+        //interface->setVelocity(l, s, 0, yawVel);
         interface->setVelocity(l, s, 1, -liftVel);
         interface->setVelocity(l, s, 2, kneeVel);
           
@@ -926,6 +947,19 @@ void jointStatesCallback(const sensor_msgs::JointState &jointStates)
         jointPosFlag = false;
     }
   }
+}
+
+/***********************************************************************************************************************
+ * Gets tip forces
+***********************************************************************************************************************/
+void tipForceCallback(const sensor_msgs::JointState &jointStates)
+{  
+  tipForces[0] = jointStates.effort[0];
+  tipForces[1] = jointStates.effort[2];
+  tipForces[2] = jointStates.effort[4];
+  tipForces[3] = jointStates.effort[6];
+  tipForces[4] = jointStates.effort[8];
+  tipForces[5] = jointStates.effort[10];  
 }
 
 /***********************************************************************************************************************
