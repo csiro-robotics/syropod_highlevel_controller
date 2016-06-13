@@ -12,6 +12,7 @@
 #include <iostream>
 #include "std_msgs/Bool.h"
 #include "std_msgs/Int8.h"
+#include "std_msgs/Float32.h"
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/Vector3.h"
@@ -75,6 +76,13 @@ int main(int argc, char* argv[])
   ros::NodeHandle n_priv("~");  
   
   ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
+  ros::Publisher tipPositions[3][2];
+  tipPositions[0][0] = n.advertise<std_msgs::Float32>("/hexapod/front_left_tip_position_z", 1000);
+  tipPositions[0][1] = n.advertise<std_msgs::Float32>("/hexapod/front_right_tip_position_z", 1000);
+  tipPositions[1][0] = n.advertise<std_msgs::Float32>("/hexapod/middle_left_tip_position_z", 1000);
+  tipPositions[1][1] = n.advertise<std_msgs::Float32>("/hexapod/middle_right_tip_position_z", 1000);
+  tipPositions[2][0] = n.advertise<std_msgs::Float32>("/hexapod/rear_left_tip_position_z", 1000);
+  tipPositions[2][1] = n.advertise<std_msgs::Float32>("/hexapod/rear_right_tip_position_z", 1000);
   
   ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, joypadVelocityCallback);
   ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, joypadPoseCallback);
@@ -312,7 +320,6 @@ int main(int argc, char* argv[])
         }        
       }
       //USE JOINT EFFORT VALUES
-      /*
       else
       {
         for (int l = 0; l<3; l++)
@@ -329,7 +336,6 @@ int main(int argc, char* argv[])
           }
         }
       } 
-      */
       
       vector<vector<double> > dZ(3, vector<double >(2));
       dZ = impedance->updateImpedance(tipForce);
@@ -340,9 +346,9 @@ int main(int argc, char* argv[])
           deltaZ[l][s] = dZ[l][s]; 
         }
       }
-      cout << hexapod.legs[0][0].localTipPosition[2] << " " << hexapod.legs[0][1].localTipPosition[2] << " " << hexapod.legs[1][0].localTipPosition[2] << " " << hexapod.legs[1][1].localTipPosition[2] << " " << hexapod.legs[2][0].localTipPosition[2] << " " << hexapod.legs[2][1].localTipPosition[2] << " ";  
-      cout << walker->legSteppers[0][0].currentTipPosition[2] << " " << walker->legSteppers[0][1].currentTipPosition[2] << " " << walker->legSteppers[1][0].currentTipPosition[2] << " " << walker->legSteppers[1][1].currentTipPosition[2] << " " << walker->legSteppers[2][0].currentTipPosition[2] << " " << walker->legSteppers[2][1].currentTipPosition[2] << " ";
-      cout << tipForce[0][0] << " " << tipForce[0][1] << " " << tipForce[1][0] << " " << tipForce[1][1] << " " << tipForce[2][0] << " " << tipForce[2][1] << endl;      
+      //cout << hexapod.legs[0][0].localTipPosition[2] << " " << hexapod.legs[0][1].localTipPosition[2] << " " << hexapod.legs[1][0].localTipPosition[2] << " " << hexapod.legs[1][1].localTipPosition[2] << " " << hexapod.legs[2][0].localTipPosition[2] << " " << hexapod.legs[2][1].localTipPosition[2] << " ";  
+      //cout << walker->legSteppers[0][0].currentTipPosition[2] << " " << walker->legSteppers[0][1].currentTipPosition[2] << " " << walker->legSteppers[1][0].currentTipPosition[2] << " " << walker->legSteppers[1][1].currentTipPosition[2] << " " << walker->legSteppers[2][0].currentTipPosition[2] << " " << walker->legSteppers[2][1].currentTipPosition[2] << " ";
+      //cout << tipForce[0][0] << " " << tipForce[0][1] << " " << tipForce[1][0] << " " << tipForce[1][1] << " " << tipForce[2][0] << " " << tipForce[2][1] << endl;      
     }   
     
     //Hexapod state machine
@@ -538,6 +544,18 @@ int main(int argc, char* argv[])
         break;
       }
     } 
+    
+    //DEBUG
+    for (int s = 0; s<2; s++)
+    {
+      for (int l = 0; l<3; l++)
+      {
+        std_msgs::Float32 msg;
+        msg.data = hexapod.legs[l][s].localTipPosition[2];
+        tipPositions[l][s].publish(msg);
+      }
+    }
+    //DEBUG
     
     //RVIZ
     if (params.debug_rviz)

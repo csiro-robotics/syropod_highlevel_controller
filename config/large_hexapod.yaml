@@ -128,7 +128,7 @@ hexapod:
       impedance_control: true
       virtual_mass: 100.0
       integrator_step_time: 0.03
-      virtual_stiffness: 500.0
+      virtual_stiffness: 350.0
       virtual_damping_ratio: 0.7
       force_gain: 0.1
         
