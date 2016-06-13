@@ -328,7 +328,7 @@ int main(int argc, char* argv[])
             else if (tipForce[l][s] < minForce) {tipForce[l][s] = minForce;}
           }
         }
-      }  
+      } 
       */
       
       vector<vector<double> > dZ(3, vector<double >(2));
