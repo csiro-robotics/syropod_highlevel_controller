@@ -320,7 +320,7 @@ int main(int argc, char* argv[])
       //USE TIP FORCES     
       if (false)
       {        
-        double offset = 1225.0;
+        double offset = 1255.0;
         for (int l = 0; l<3; l++)
         {
           for (int s = 0; s<2; s++)
@@ -328,7 +328,7 @@ int main(int argc, char* argv[])
             if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
             {
               tipForce[l][s] = tipForces[2*l+s] - offset;
-              double maxForce = 500.0;
+              double maxForce = 1000.0;
               double minForce = 0.0;
               if (tipForce[l][s] > maxForce) 
               {

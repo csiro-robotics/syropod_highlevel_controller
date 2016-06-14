@@ -39,9 +39,9 @@ hexapod:
       knee_offset_CL: [0.8, 0.0, 0.0] #Back Left Leg
       knee_offset_CR: [0.8, 0.0, 0.0] #Back Right Leg
 
-      tip_offset_AL: [1.5, 0.0, 0.0] #Front Left Leg
+      tip_offset_AL: [1.52, 0.0, 0.0] #Front Left Leg
       tip_offset_AR: [1.5, 0.0, 0.0] #Front Right Leg
-      tip_offset_BL: [1.5, 0.0, 0.0] #Middle Left Leg
+      tip_offset_BL: [1.48, 0.0, 0.0] #Middle Left Leg
       tip_offset_BR: [1.5, 0.0, 0.0] #Middle Right Leg
       tip_offset_CL: [1.5, 0.0, 0.0] #Back Left Leg
       tip_offset_CR: [1.5, 0.0, 0.0] #Back Right Leg
@@ -128,9 +128,9 @@ hexapod:
       impedance_control: true
       virtual_mass: 100.0
       integrator_step_time: 0.03
-      virtual_stiffness: 300
+      virtual_stiffness: 200
       virtual_damping_ratio: 1.2
-      force_gain: 0.2
+      force_gain: 0.1
         
 ######################################################################
 ######################################################################
