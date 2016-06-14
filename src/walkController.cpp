@@ -471,7 +471,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
       
-      if (leg.state == WALKING/* && state != STOPPED*/)
+      if (leg.state == WALKING)
       {
         //Revise default and current tip positions from stanceTipPosition due to change in pose
         Vector3d tipOffset = legStepper.defaultTipPosition - legStepper.currentTipPosition;

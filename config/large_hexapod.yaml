@@ -10,7 +10,7 @@ hexapod:
 
   #Compensation
     imu_compensation: false
-    auto_compensation: false
+    auto_compensation: true
     manual_compensation: true
 
     gait_type: wave_gait
@@ -64,7 +64,7 @@ hexapod:
 
     walk_controller:
       step_frequency: 0.125
-      step_clearance: 0.06
+      step_clearance: 0.1
       body_clearance: 0.4
       leg_span_scale: 0.6
 
@@ -128,9 +128,9 @@ hexapod:
       impedance_control: true
       virtual_mass: 100.0
       integrator_step_time: 0.03
-      virtual_stiffness: 350.0
-      virtual_damping_ratio: 0.7
-      force_gain: 0.1
+      virtual_stiffness: 300
+      virtual_damping_ratio: 1.2
+      force_gain: 0.2
         
 ######################################################################
 ######################################################################

@@ -272,6 +272,8 @@ int main(int argc, char* argv[])
   packedJointPositions[2][0] = params.packedJointPositionsCL;
   packedJointPositions[2][1] = params.packedJointPositionsCR; 
   
+  vector<vector<double> > tipForce(3, vector<double>(2)); // this contains the force measurement of every leg of length (3, vector<double >(2)
+  
   //Position update loop
   while (ros::ok())
   {
@@ -301,21 +303,42 @@ int main(int argc, char* argv[])
     }      
     
     if (params.impedanceControl && state == RUNNING)
-    {
-      vector<vector<double> > tipForce(3, vector<double>(2)); // this contains the force measurement of every leg of length (3, vector<double >(2))
-      //USE TIP FORCES
-      if (true)
+    {    
+      //If all legs are in stance state then update forces on tips
+      int legsInStance = 0;
+      for (int l = 0; l<3; l++)
       {
+        for (int s = 0; s<2; s++)
+        {
+          if (walker->legSteppers[l][s].state != SWING)
+          {
+            legsInStance++;
+          }
+        }
+      }          
+      
+      //USE TIP FORCES     
+      if (false)
+      {        
         double offset = 1225.0;
         for (int l = 0; l<3; l++)
         {
           for (int s = 0; s<2; s++)
           {
-            tipForce[l][s] = tipForces[2*l+s] - offset;
-            double maxForce = 500.0;
-            double minForce = 0.0;
-            if (tipForce[l][s] > maxForce) {tipForce[l][s] = maxForce;}
-            else if (tipForce[l][s] < minForce) {tipForce[l][s] = minForce;}
+            if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
+            {
+              tipForce[l][s] = tipForces[2*l+s] - offset;
+              double maxForce = 500.0;
+              double minForce = 0.0;
+              if (tipForce[l][s] > maxForce) 
+              {
+                tipForce[l][s] = maxForce;
+              }
+              else if (tipForce[l][s] < minForce) 
+              {
+                tipForce[l][s] = minForce;
+              }  
+            }
           }
         }        
       }
@@ -326,13 +349,22 @@ int main(int argc, char* argv[])
         {
           for (int s = 0; s<2; s++)
           {
-            int index = 6*l+3*s+1;
-            int dir = (s==0) ? -1:1;    
-            double maxForce = 1e9;
-            double minForce = -1e9;
-            tipForce[l][s] = dir*jointEfforts[index];
-            if (tipForce[l][s] > maxForce) {tipForce[l][s] = maxForce;}
-            else if (tipForce[l][s] < minForce) {tipForce[l][s] = minForce;}
+            if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
+            {
+              int index = 6*l+3*s+1;
+              int dir = (s==0) ? -1:1;    
+              double maxForce = 1e9;
+              double minForce = -1e9;
+              tipForce[l][s] = dir*jointEfforts[index];
+              if (tipForce[l][s] > maxForce) 
+              {
+                tipForce[l][s] = maxForce;
+              }
+              else if (tipForce[l][s] < minForce) 
+              {
+                tipForce[l][s] = minForce;
+              }
+            }
           }
         }
       } 
