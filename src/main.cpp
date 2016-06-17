@@ -12,7 +12,7 @@
 #include <iostream>
 #include "std_msgs/Bool.h"
 #include "std_msgs/Int8.h"
-#include "std_msgs/Float32.h"
+#include "std_msgs/Float32MultiArray.h"
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/Vector3.h"
@@ -77,12 +77,12 @@ int main(int argc, char* argv[])
   
   ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
   ros::Publisher tipPositions[3][2];
-  tipPositions[0][0] = n.advertise<std_msgs::Float32>("/hexapod/front_left_tip_position_z", 1000);
-  tipPositions[0][1] = n.advertise<std_msgs::Float32>("/hexapod/front_right_tip_position_z", 1000);
-  tipPositions[1][0] = n.advertise<std_msgs::Float32>("/hexapod/middle_left_tip_position_z", 1000);
-  tipPositions[1][1] = n.advertise<std_msgs::Float32>("/hexapod/middle_right_tip_position_z", 1000);
-  tipPositions[2][0] = n.advertise<std_msgs::Float32>("/hexapod/rear_left_tip_position_z", 1000);
-  tipPositions[2][1] = n.advertise<std_msgs::Float32>("/hexapod/rear_right_tip_position_z", 1000);
+  tipPositions[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions", 1000);
+  tipPositions[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions", 1000);
+  tipPositions[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions", 1000);
+  tipPositions[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_positions", 1000);
+  tipPositions[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions", 1000);
+  tipPositions[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions", 1000);
   
   ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, joypadVelocityCallback);
   ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, joypadPoseCallback);
@@ -93,9 +93,9 @@ int main(int argc, char* argv[])
   
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, startCallback);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, gaitSelectionCallback);
-  ros::Subscriber jointStatesSubscriber1;
-  ros::Subscriber jointStatesSubscriber2; 
-  ros::Subscriber tipForceSubscriber;
+  ros::Subscriber tipForceSubscriber = n.subscribe("/motor_encoders", 1, tipForceCallback);
+  ros::Subscriber jointStatesSubscriber;
+  
     
   //Get parameters from rosparam via loaded config file
   Parameters params;
@@ -163,11 +163,11 @@ int main(int argc, char* argv[])
   }
   
   //Get current joint positions
-  jointStatesSubscriber1 = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
-  jointStatesSubscriber2 = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback);
-  tipForceSubscriber = n.subscribe("/motor_encoders", 1, tipForceCallback);
+  jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, jointStatesCallback);
+  if (!jointStatesSubscriber)
+    jointStatesSubscriber = n.subscribe("/hexapod_joint_state", 1, jointStatesCallback);
   
-  if(!jointStatesSubscriber1 && !jointStatesSubscriber2)
+  if(!jointStatesSubscriber)
   {
     cout << "WARNING: Failed to subscribe to joint_states topic! - check to see if topic is being published.\n" << endl;
     params.startUpSequence = false;
@@ -180,7 +180,7 @@ int main(int argc, char* argv[])
     }
   
     //Wait for joint positions via callback
-    int spin = 1/params.timeDelta; //Max ros spin cycles to find joint positions
+    int spin = 2.0/params.timeDelta; //Max ros spin cycles to find joint positions
     while(spin--)
     {
       ros::spinOnce();
@@ -188,48 +188,44 @@ int main(int argc, char* argv[])
     }
   }     
   
-  if (jointStatesSubscriber1 || jointStatesSubscriber2)
+  if (!jointPosFlag)
   {
-    if (!jointPosFlag)
+    cout << "WARNING: Failed to acquire ALL joint position values!" << endl;
+    cout << "Press B Button if you wish to continue with all unknown joint positions set to defaults . . .\n" << endl;
+    
+    //Loop waiting for start button press
+    while(!toggleLegState) //using toggleLegState for convenience only
     {
-      cout << "WARNING: Failed to acquire ALL joint position values!" << endl;
-      cout << "Press B Button if you wish to continue with all unknown joint positions set to defaults . . .\n" << endl;
-      
-      //Loop waiting for start button press
-      while(!toggleLegState) //using toggleLegState for convenience only
+      ros::spinOnce();
+      r.sleep();
+    }      
+    toggleLegState = false;
+    
+    for (int leg = 0; leg<3; leg++)
+    {
+      for (int side = 0; side<2; side++)
       {
-        ros::spinOnce();
-        r.sleep();
-      }      
-      toggleLegState = false;
-      
-      for (int leg = 0; leg<3; leg++)
-      {
-        for (int side = 0; side<2; side++)
+        int index = leg*6+(side == 0 ? 0 : 3);
+        double dir = side==0 ? -1 : 1;
+        if (jointPositions[index] == 1e10)
         {
-          int index = leg*6+(side == 0 ? 0 : 3);
-          double dir = side==0 ? -1 : 1;
-          if (jointPositions[index] == 1e10)
-          {
-            jointPositions[index] = 0.0;
-            cout << "Leg: " << leg << ":" << side << " body-coxa joint set to: " << jointPositions[index] << endl;
-          }
-          if (jointPositions[index+1] == 1e10)
-          {
-            jointPositions[index+1] = dir*max(0.0,hexapod.minMaxHipLift[0]);
-            cout << "Leg: " << leg << ":" << side << " coxa-femour joint set to: " << jointPositions[index+1] << endl;
-          }
-          if (jointPositions[index+2] == 1e10)
-          {
-            
-            jointPositions[index+2] = dir*max(0.0,hexapod.minMaxKneeBend[0]);
-            cout << "Leg: " << leg << ":" << side << " femour-tibia joint set to: " << jointPositions[index+2] << endl;
-          }
+          jointPositions[index] = 0.0;
+          cout << "Leg: " << leg << ":" << side << " body-coxa joint set to: " << jointPositions[index] << endl;
+        }
+        if (jointPositions[index+1] == 1e10)
+        {
+          jointPositions[index+1] = dir*max(0.0,hexapod.minMaxHipLift[0]);
+          cout << "Leg: " << leg << ":" << side << " coxa-femour joint set to: " << jointPositions[index+1] << endl;
+        }
+        if (jointPositions[index+2] == 1e10)
+        {
+          
+          jointPositions[index+2] = dir*max(0.0,hexapod.minMaxKneeBend[0]);
+          cout << "Leg: " << leg << ":" << side << " femour-tibia joint set to: " << jointPositions[index+2] << endl;
         }
       }
-      cout << "" << endl;
-      params.startUpSequence = false;
-    } 
+    }
+    params.startUpSequence = false;
     
     // set initial leg angles
     for (int leg = 0; leg<3; leg++)
@@ -251,7 +247,8 @@ int main(int argc, char* argv[])
   ImpedanceControl *impedance = new ImpedanceControl(params);
   
   double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
-    
+  vector<vector<double> > tipForce(3, vector<double>(2)); // this contains the force measurement of every leg of length (3, vector<double >(2)
+      
   DebugOutput debug;
   setCompensationDebug(debug);
 
@@ -270,9 +267,7 @@ int main(int argc, char* argv[])
   packedJointPositions[1][0] = params.packedJointPositionsBL;
   packedJointPositions[1][1] = params.packedJointPositionsBR;
   packedJointPositions[2][0] = params.packedJointPositionsCL;
-  packedJointPositions[2][1] = params.packedJointPositionsCR; 
-  
-  vector<vector<double> > tipForce(3, vector<double>(2)); // this contains the force measurement of every leg of length (3, vector<double >(2)
+  packedJointPositions[2][1] = params.packedJointPositionsCR;   
   
   //Position update loop
   while (ros::ok())
@@ -302,6 +297,7 @@ int main(int argc, char* argv[])
       adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
     }      
     
+    //Impedance control
     if (params.impedanceControl && state == RUNNING)
     {    
       //If all legs are in stance state then update forces on tips
@@ -315,59 +311,36 @@ int main(int argc, char* argv[])
             legsInStance++;
           }
         }
-      }          
-      
-      //USE TIP FORCES     
-      if (false)
-      {        
-        double offset = 1255.0;
-        for (int l = 0; l<3; l++)
-        {
-          for (int s = 0; s<2; s++)
-          {
-            if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
-            {
-              tipForce[l][s] = tipForces[2*l+s] - offset;
-              double maxForce = 1000.0;
-              double minForce = 0.0;
-              if (tipForce[l][s] > maxForce) 
-              {
-                tipForce[l][s] = maxForce;
-              }
-              else if (tipForce[l][s] < minForce) 
-              {
-                tipForce[l][s] = minForce;
-              }  
-            }
-          }
-        }        
-      }
-      //USE JOINT EFFORT VALUES
-      else
+      }                   
+      for (int l = 0; l<3; l++)
       {
-        for (int l = 0; l<3; l++)
+        for (int s = 0; s<2; s++)
         {
-          for (int s = 0; s<2; s++)
+          if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
           {
-            if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
+            double maxForce = 0;
+            double minForce = 0;
+            if (tipForceSubscriber)
             {
-              int index = 6*l+3*s+1;
-              int dir = (s==0) ? -1:1;    
-              double maxForce = 1e9;
-              double minForce = -1e9;
-              tipForce[l][s] = dir*jointEfforts[index];
-              if (tipForce[l][s] > maxForce) 
-              {
-                tipForce[l][s] = maxForce;
-              }
-              else if (tipForce[l][s] < minForce) 
-              {
-                tipForce[l][s] = minForce;
-              }
+              double offset = 1255.0;   
+              tipForce[l][s] = tipForces[2*l+s] - offset;
+              maxForce = 1000.0;
+              minForce = 0.0;
             }
+            else if (jointStatesSubscriber)
+            {                
+              int index = 6*l+3*s+1;
+              int dir = (s==0) ? -1:1;
+              tipForce[l][s] = dir*jointEfforts[index];
+              maxForce = 1e9;
+              minForce = -1e9;
+            }  
+            //Ensure force is within limits
+            tipForce[l][s] = min(tipForce[l][s], maxForce);
+            tipForce[l][s] = max(tipForce[l][s], minForce);
           }
         }
-      } 
+      }     
       
       vector<vector<double> > dZ(3, vector<double >(2));
       dZ = impedance->updateImpedance(tipForce);
@@ -378,10 +351,13 @@ int main(int argc, char* argv[])
           deltaZ[l][s] = dZ[l][s]; 
         }
       }
-      //cout << hexapod.legs[0][0].localTipPosition[2] << " " << hexapod.legs[0][1].localTipPosition[2] << " " << hexapod.legs[1][0].localTipPosition[2] << " " << hexapod.legs[1][1].localTipPosition[2] << " " << hexapod.legs[2][0].localTipPosition[2] << " " << hexapod.legs[2][1].localTipPosition[2] << " ";  
-      //cout << walker->legSteppers[0][0].currentTipPosition[2] << " " << walker->legSteppers[0][1].currentTipPosition[2] << " " << walker->legSteppers[1][0].currentTipPosition[2] << " " << walker->legSteppers[1][1].currentTipPosition[2] << " " << walker->legSteppers[2][0].currentTipPosition[2] << " " << walker->legSteppers[2][1].currentTipPosition[2] << " ";
-      //cout << tipForce[0][0] << " " << tipForce[0][1] << " " << tipForce[1][0] << " " << tipForce[1][1] << " " << tipForce[2][0] << " " << tipForce[2][1] << endl;      
-    }   
+      
+      if (tipForceSubscriber || jointStatesSubscriber)
+      {
+        cout << "Failed to subscribe to force data topic/s! Please check that topic is being published.\n" << endl;
+        params.impedanceControl = false; 
+      }
+    } 
     
     //Hexapod state machine
     switch (state)
@@ -578,12 +554,15 @@ int main(int argc, char* argv[])
     } 
     
     //DEBUG
+    //Tip position publisher for debugging
     for (int s = 0; s<2; s++)
     {
       for (int l = 0; l<3; l++)
       {
-        std_msgs::Float32 msg;
-        msg.data = hexapod.legs[l][s].localTipPosition[2];
+        std_msgs::Float32MultiArray msg;
+        msg.data[0] = hexapod.legs[l][s].localTipPosition[0];
+        msg.data[0] = hexapod.legs[l][s].localTipPosition[1];
+        msg.data[0] = hexapod.legs[l][s].localTipPosition[2];
         tipPositions[l][s].publish(msg);
       }
     }
@@ -667,7 +646,7 @@ int main(int argc, char* argv[])
         interface->setTargetAngle(l, s, 1, -lift);
         interface->setTargetAngle(l, s, 2, knee);
                
-        //interface->setVelocity(l, s, 0, yawVel);
+        //interface->setVelocity(l, s, 0, yawVel); //Removed due to issues with Large Hexapod
         interface->setVelocity(l, s, 1, -liftVel);
         interface->setVelocity(l, s, 2, kneeVel);
           
@@ -882,6 +861,17 @@ void legStateCallback(const std_msgs::Bool &input)
 ***********************************************************************************************************************/
 void jointStatesCallback(const sensor_msgs::JointState &jointStates)
 {  
+  bool getEffortValues;
+  if (jointStates.effort.size() != 0)
+  {
+    getEffortValues = false;
+    cout << "Warning! Effort values not being published! Impedance controller may not function.\n" << endl;
+  }
+  else
+  {
+    getEffortValues = true;
+  }
+  
   for (uint i=0; i<jointStates.name.size(); i++)
   {
     const char* jointName = jointStates.name[i].c_str();
@@ -889,109 +879,163 @@ void jointStatesCallback(const sensor_msgs::JointState &jointStates)
         !strcmp(jointName, "AL_coxa_joint"))
     {
       jointPositions[0] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[0] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[0] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "front_left_coxa_femour") ||
               !strcmp(jointName, "AL_femur_joint"))
     {
       jointPositions[1] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[1] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[1] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "front_left_femour_tibia") ||
               !strcmp(jointName, "AL_tibia_joint"))
     {
       jointPositions[2] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[2] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[2] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "front_right_body_coxa") ||
               !strcmp(jointName, "AR_coxa_joint"))
     {
       jointPositions[3] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[3] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[3] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "front_right_coxa_femour") ||
               !strcmp(jointName, "AR_femur_joint"))
     {
       jointPositions[4] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[4] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[4] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "front_right_femour_tibia") ||
               !strcmp(jointName, "AR_tibia_joint"))
     {
       jointPositions[5] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[5] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[5] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "middle_left_body_coxa") ||
               !strcmp(jointName, "BL_coxa_joint"))
     {
       jointPositions[6] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[6] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[6] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "middle_left_coxa_femour") ||
               !strcmp(jointName, "BL_femur_joint"))
     {
       jointPositions[7] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[7] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[7] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "middle_left_femour_tibia") ||
               !strcmp(jointName, "BL_tibia_joint"))
     {
       jointPositions[8] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[8] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[8] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "middle_right_body_coxa") ||
               !strcmp(jointName, "BR_coxa_joint"))
     {
       jointPositions[9] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[9] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[9] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "middle_right_coxa_femour") ||
               !strcmp(jointName, "BR_femur_joint"))
     {
       jointPositions[10] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[10] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[10] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "middle_right_femour_tibia") ||
               !strcmp(jointName, "BR_tibia_joint"))
     {
       jointPositions[11] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[11] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[11] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "rear_left_body_coxa") ||
               !strcmp(jointName, "CL_coxa_joint"))
     {
       jointPositions[12] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[12] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[12] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "rear_left_coxa_femour") ||
               !strcmp(jointName, "CL_femur_joint"))
     {
       jointPositions[13] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[13] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[13] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "rear_left_femour_tibia") ||
               !strcmp(jointName, "CL_tibia_joint"))
     {
       jointPositions[14] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[14] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[14] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "rear_right_body_coxa") ||
               !strcmp(jointName, "CR_coxa_joint"))
     {
       jointPositions[15] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[15] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[15] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "rear_right_coxa_femour") ||
               !strcmp(jointName, "CR_femur_joint"))
     {
       jointPositions[16] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[16] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[16] = jointStates.effort[i];
+      }
     }
     else if (!strcmp(jointName, "rear_right_femour_tibia") ||
               !strcmp(jointName, "CR_tibia_joint"))
     {
       jointPositions[17] = jointStates.position[i];
-      if (jointStates.effort.size()) {jointEfforts[17] = jointStates.effort[i];}
+      if (getEffortValues) 
+      {
+        jointEfforts[17] = jointStates.effort[i];
+      }
     }
     
     //Check if all joint positions have been received from topic

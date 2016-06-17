@@ -17,8 +17,6 @@ enum WalkState
   STANCE,
   SWING_TRANSITION,
   STANCE_TRANSITION,
-  TOUCHDOWN_CORRECTION,
-  LIFTOFF_CORRECTION,
   FORCE_STANCE,
   FORCE_STOP
 };
@@ -74,8 +72,6 @@ struct WalkController
     Vector3d currentTipPosition;
     Vector3d originTipPosition;
     Vector3d defaultTipPosition;
-    
-    bool tipTouchdown = true;
     
     struct WalkController *walker; //So LegStepper can access walkcontroller member variables
     

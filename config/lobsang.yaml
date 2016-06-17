@@ -65,8 +65,8 @@ hexapod:
     walk_controller:
       step_frequency: 1.0
       step_clearance: 0.1
-      body_clearance: 0.75 #<1.0
-      leg_span_scale: 0.75
+      body_clearance: -1.0
+      leg_span_scale: 1.0
 
       leg_state_correction: false #DO NOT USE
 

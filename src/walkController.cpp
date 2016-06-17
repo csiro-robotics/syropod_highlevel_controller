@@ -96,9 +96,13 @@ void WalkController::LegStepper::updatePosition()
     int stanceLength = walker->phaseLength - (walker->swingEnd-walker->swingStart);
     int iteration;
     if (phase >= walker->swingEnd)
+    {
       iteration = phase - walker->swingEnd + 1;
+    }
     else
-      iteration = phase + stanceLength/2 + 1;    
+    {
+      iteration = phase + stanceLength/2 + 1;
+    }
     
     double deltaT = 1.0/stanceLength;
     
@@ -478,10 +482,10 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.defaultTipPosition = leg.stanceTipPosition;
         legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
         
-        legStepper.updatePosition(); //updates current tip position
+        legStepper.updatePosition(); //updates current tip position through step cycle
 
         Vector3d adjustedPos = legStepper.currentTipPosition;
-        adjustedPos[2] -= deltaZ[l][s];
+        adjustedPos[2] -= deltaZ[l][s]; //Impedance controller
         leg.applyLocalIK(adjustedPos); 
       }
     }
