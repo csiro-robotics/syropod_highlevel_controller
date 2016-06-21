@@ -226,18 +226,18 @@ int main(int argc, char* argv[])
       }
     }
     params.startUpSequence = false;
-    
-    // set initial leg angles
-    for (int leg = 0; leg<3; leg++)
+  }
+  
+  // set initial leg angles
+  for (int leg = 0; leg<3; leg++)
+  {
+    for (int side = 0; side<2; side++)
     {
-      for (int side = 0; side<2; side++)
-      {
-        double dir = side==0 ? -1 : 1;
-        int index = leg*6+(side == 0 ? 0 : 3);
-        hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*params.physicalYawOffset[leg],
-                                                          -jointPositions[index+1], 
-                                                          jointPositions[index+2]));
-      }
+      double dir = side==0 ? -1 : 1;
+      int index = leg*6+(side == 0 ? 0 : 3);
+      hexapod.setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*params.physicalYawOffset[leg],
+                                                        -jointPositions[index+1], 
+                                                        jointPositions[index+2]));
     }
   }
   
@@ -272,93 +272,6 @@ int main(int argc, char* argv[])
   //Position update loop
   while (ros::ok())
   {
-    Pose adjust = Pose::identity();
-    
-    //Auto Compensation using IMU feedback
-    if (params.imuCompensation)
-    {      
-      Vector2d acc = walker->localCentreAcceleration;
-      Vector3d deltaAngle = Vector3d(0,0,0);
-      Vector3d deltaPos = Vector3d(0,0,0);
-
-      compensation(Vector3d(acc[0], acc[1], 0),
-                   walker->angularVelocity, 
-                   &deltaAngle, &deltaPos, 
-                   pIncrement, params.timeDelta);
-    }
-    //Automatic (non-feedback) compensation
-    else if (params.autoCompensation)    
-    {   
-      adjust = poser->autoCompensation();             
-    }    
-    //Manual (joystick controlled) body compensation 
-    else if (params.manualCompensation)
-    {          
-      adjust = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
-    }      
-    
-    //Impedance control
-    if (params.impedanceControl && state == RUNNING)
-    {    
-      //If all legs are in stance state then update forces on tips
-      int legsInStance = 0;
-      for (int l = 0; l<3; l++)
-      {
-        for (int s = 0; s<2; s++)
-        {
-          if (walker->legSteppers[l][s].state != SWING)
-          {
-            legsInStance++;
-          }
-        }
-      }                   
-      for (int l = 0; l<3; l++)
-      {
-        for (int s = 0; s<2; s++)
-        {
-          if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
-          {
-            double maxForce = 0;
-            double minForce = 0;
-            if (tipForceSubscriber)
-            {
-              double offset = 1255.0;   
-              tipForce[l][s] = tipForces[2*l+s] - offset;
-              maxForce = 1000.0;
-              minForce = 0.0;
-            }
-            else if (jointStatesSubscriber)
-            {                
-              int index = 6*l+3*s+1;
-              int dir = (s==0) ? -1:1;
-              tipForce[l][s] = dir*jointEfforts[index];
-              maxForce = 1e9;
-              minForce = -1e9;
-            }  
-            //Ensure force is within limits
-            tipForce[l][s] = min(tipForce[l][s], maxForce);
-            tipForce[l][s] = max(tipForce[l][s], minForce);
-          }
-        }
-      }     
-      
-      vector<vector<double> > dZ(3, vector<double >(2));
-      dZ = impedance->updateImpedance(tipForce);
-      for (int l = 0; l<3; l++)
-      {
-        for (int s = 0; s<2; s++)
-        {
-          deltaZ[l][s] = dZ[l][s]; 
-        }
-      }
-      
-      if (tipForceSubscriber || jointStatesSubscriber)
-      {
-        cout << "Failed to subscribe to force data topic/s! Please check that topic is being published.\n" << endl;
-        params.impedanceControl = false; 
-      }
-    } 
-    
     //Hexapod state machine
     switch (state)
     {
@@ -386,53 +299,150 @@ int main(int argc, char* argv[])
       
       //Hexapod is in operational state (walking/posing/actuating etc.)
       case(RUNNING):
-      {
+      {   
+        //Auto Compensation using IMU feedback
+        if (params.imuCompensation)
+        {      
+          Vector2d acc = walker->localCentreAcceleration;
+          Vector3d deltaAngle = Vector3d(0,0,0);
+          Vector3d deltaPos = Vector3d(0,0,0);
+
+          compensation(Vector3d(acc[0], acc[1], 0),
+                      walker->angularVelocity, 
+                      &deltaAngle, &deltaPos, 
+                      pIncrement, params.timeDelta);
+        }        
+        //Automatic & Manual compensation running concurrently
+        else if (params.autoCompensation && params.manualCompensation)
+        {
+          if (walker->state == MOVING)
+          {
+            poser->autoCompensation();
+          }
+          else if (walker->state == STOPPED)
+          {
+            Pose targetPose = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
+            poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency));
+          }
+        }
+        //Automatic (non-feedback) compensation
+        else if (params.autoCompensation)    
+        {   
+          poser->autoCompensation();
+        }    
+        //Manual (joystick controlled) body compensation 
+        else if (params.manualCompensation)
+        {          
+          Pose targetPose = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
+          poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency));
+        }    
+        
+        //Update walking stance based on desired pose
+        poser->updateStance(walker->identityTipPositions, params.autoCompensation);
+        
+        //Impedance control
+        if (params.impedanceControl)
+        {    
+          //If all legs are in stance state then update forces on tips
+          int legsInStance = 0;
+          for (int l = 0; l<3; l++)
+          {
+            for (int s = 0; s<2; s++)
+            {
+              if (walker->legSteppers[l][s].state != SWING)
+              {
+                legsInStance++;
+              }
+            }
+          }                   
+          for (int l = 0; l<3; l++)
+          {
+            for (int s = 0; s<2; s++)
+            {
+              if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
+              {
+                double maxForce = 0;
+                double minForce = 0;
+                if (tipForceSubscriber)
+                {
+                  double offset = 1255.0;   
+                  tipForce[l][s] = tipForces[2*l+s] - offset;
+                  maxForce = 1000.0;
+                  minForce = 0.0;
+                }
+                else if (jointStatesSubscriber)
+                {                
+                  int index = 6*l+3*s+1;
+                  int dir = (s==0) ? -1:1;
+                  tipForce[l][s] = dir*jointEfforts[index];
+                  maxForce = 1e9;
+                  minForce = -1e9;
+                }  
+                //Ensure force is within limits
+                tipForce[l][s] = min(tipForce[l][s], maxForce);
+                tipForce[l][s] = max(tipForce[l][s], minForce);
+              }
+            }
+          }     
+          
+          vector<vector<double> > dZ(3, vector<double >(2));
+          dZ = impedance->updateImpedance(tipForce);
+          for (int l = 0; l<3; l++)
+          {
+            for (int s = 0; s<2; s++)
+            {
+              deltaZ[l][s] = dZ[l][s]; 
+            }
+          }
+          
+          if (!tipForceSubscriber && !jointStatesSubscriber)
+          {
+            cout << "Failed to subscribe to force data topic/s! Please check that topic is being published.\n" << endl;
+            params.impedanceControl = false; 
+          }
+        } 
+        
+        //Check for shutdown cue
         if (!startFlag && params.startUpSequence)
         {
           state = SHUTDOWN;
           cout << "Running shutdown sequence . . .\n" << endl;
-        }
-        else 
-        {  
-          //Update stance
-          double poseTime = (params.autoCompensation || params.imuCompensation) ? 0.0 : poseTimeJoy;
-          poser->updateStance(walker->identityTipPositions, adjust, poseTime, false, params.autoCompensation);
-            
-          //Switch to gait transition state
-          if ((gait == TRIPOD_GAIT && params.gaitType != "tripod_gait") ||
-              (gait == RIPPLE_GAIT && params.gaitType != "ripple_gait") ||
-              (gait == WAVE_GAIT && params.gaitType != "wave_gait"))
+        }        
+          
+        //Switch to gait transition state
+        if ((gait == TRIPOD_GAIT && params.gaitType != "tripod_gait") ||
+            (gait == RIPPLE_GAIT && params.gaitType != "ripple_gait") ||
+            (gait == WAVE_GAIT && params.gaitType != "wave_gait"))
+        {
+          walker->updateWalk(Vector2d(0.0,0.0), 0.0, deltaZ);
+          if (walker->state == STOPPED)
           {
-            walker->updateWalk(Vector2d(0.0,0.0), 0.0, deltaZ);
-            if (walker->state == STOPPED)
-            {
-              state = GAIT_TRANSITION;
-            }
-          } 
-          else
+            state = GAIT_TRANSITION;
+          }
+        } 
+        else
+        {
+          //Update Walker 
+          walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier);
+        }            
+          
+        //Leg Selection for toggling state          
+        if (toggleLegState)
+        {
+          int l = legSelection/2;
+          int s = legSelection%2;
+          if (hexapod.legs[l][s].state == WALKING)
           {
-            //Update Walker 
-            walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier);
-          }            
-            
-          //Leg Selection for toggling state          
-          if (toggleLegState)
+            hexapod.legs[l][s].state = OFF;
+            cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: OFF.\n" << endl; 
+          }
+          else if (hexapod.legs[l][s].state == OFF)
           {
-            int l = legSelection/2;
-            int s = legSelection%2;
-            if (hexapod.legs[l][s].state == WALKING)
-            {
-              hexapod.legs[l][s].state = OFF;
-              cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: OFF.\n" << endl; 
-            }
-            else if (hexapod.legs[l][s].state == OFF)
-            {
-              hexapod.legs[l][s].state = WALKING;
-              cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING.\n" << endl;
-            }
-            toggleLegState = false;
-          } 
-        }
+            hexapod.legs[l][s].state = WALKING;
+            cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING.\n" << endl;
+          }
+          toggleLegState = false;
+        } 
         break;
       } 
       
@@ -555,14 +565,15 @@ int main(int argc, char* argv[])
     
     //DEBUG
     //Tip position publisher for debugging
+    std_msgs::Float32MultiArray msg;
     for (int s = 0; s<2; s++)
     {
       for (int l = 0; l<3; l++)
-      {
-        std_msgs::Float32MultiArray msg;
-        msg.data[0] = hexapod.legs[l][s].localTipPosition[0];
-        msg.data[0] = hexapod.legs[l][s].localTipPosition[1];
-        msg.data[0] = hexapod.legs[l][s].localTipPosition[2];
+      {        
+        msg.data.clear();
+        msg.data.push_back(hexapod.legs[l][s].localTipPosition[0]);
+        msg.data.push_back(hexapod.legs[l][s].localTipPosition[1]);
+        msg.data.push_back(hexapod.legs[l][s].localTipPosition[2]);
         tipPositions[l][s].publish(msg);
       }
     }
@@ -617,7 +628,7 @@ int main(int argc, char* argv[])
           yawVel = (yaw - hexapod.legs[l][s].oldYaw)/params.timeDelta;
           liftVel = (lift - hexapod.legs[l][s].oldLiftAngle)/params.timeDelta;
           kneeVel = (knee - hexapod.legs[l][s].oldKneeAngle)/params.timeDelta;
-                 
+
           if (abs(yawVel) > hexapod.jointMaxAngularSpeeds[0])
           {
             cout << "Leg: " << l << ":" << s << " body_coxa joint velocity (" << yawVel << ") exceeds maximum (" << sign(yawVel)*hexapod.jointMaxAngularSpeeds[0] << ") - CLAMPING TO MAXIMUM!" << endl; 
@@ -862,7 +873,7 @@ void legStateCallback(const std_msgs::Bool &input)
 void jointStatesCallback(const sensor_msgs::JointState &jointStates)
 {  
   bool getEffortValues;
-  if (jointStates.effort.size() != 0)
+  if (jointStates.effort.size() == 0)
   {
     getEffortValues = false;
     cout << "Warning! Effort values not being published! Impedance controller may not function.\n" << endl;

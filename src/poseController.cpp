@@ -9,141 +9,31 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
   walker(walker),
   params(p), 
   timeDelta(p.timeDelta),
-  currentPose(Pose::zero()), 
-  targetPose(Pose::zero())
+  currentPose(Pose::identity()), 
+  targetPose(Pose::identity()),
+  originPose(Pose::identity())
 {   
 } 
 
 /***********************************************************************************************************************
- * Updates default stance tip positions according to desired pose at desired speed
+ * Updates default stance tip positions according to desired pose
  * This is then later used in walk controller where inverse kinematics are applied
 ***********************************************************************************************************************/
-bool PoseController::updateStance(Vector3d targetTipPositions[3][2], 
-                                  Pose requestedTargetPose, 
-                                  double timeToPose, 
-                                  bool moveLegsSequentially,
-                                  bool excludeSwingingLegs
-                                 )
+bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
+                                  bool excludeSwingingLegs)
 {  
-  //Instantaneous change in pose
-  if (timeToPose == 0)
+  for (int l = 0; l<3; l++)
   {
-    for (int l = 0; l<3; l++)
+    for (int s = 0; s<2; s++)
     {
-      for (int s = 0; s<2; s++)
+      if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
       {
-        if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
-        {
-          model->legs[l][s].stanceTipPosition = requestedTargetPose.inverseTransformVector(targetTipPositions[l][s]);
-          model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition;  
-        }
-      }
-    }
-    return true;    
-  }
-  
-  double timeDivisor = moveLegsSequentially ? timeToPose/6.0:timeToPose; //seconds for a leg to move into position
-  double timeLimit = moveLegsSequentially ? 6.0:1.0;
-  
-  //Local pose is already at target pose return immediately 
-  if (currentPose == requestedTargetPose)
-  {
-    return true;
-  }
-    
-  //Check if new target pose is requested
-  if (requestedTargetPose != targetPose)
-  {      
-    targetPose = requestedTargetPose;
-    currentPose = Pose::zero(); //unknown current pose
-    moveToPoseTime = 0;
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        originTipPositions[l][s] = model->legs[l][s].stanceTipPosition; 
+        model->legs[l][s].stanceTipPosition = currentPose.inverseTransformVector(targetTipPositions[l][s]);
+        model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition;  
       }
     }
   }
-  
-  
-  
-  //Increment time
-  ASSERT(timeDivisor != 0);
-  moveToPoseTime += timeDelta/timeDivisor; 
- 
-  //Iterate through legs (sequentially or simultaneously) 
-  if (moveLegsSequentially)
-  {
-    int l = int(moveToPoseTime)/2;
-    int s = int(moveToPoseTime)%2;
-    
-    if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
-    {    
-      Leg &leg = model->legs[l][s]; 
-      
-      if (leg.state == WALKING)
-      {    
-        Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
-        
-        Vector3d nodes[4];
-        nodes[0] = originTipPositions[l][s];
-        nodes[1] = nodes[0];
-        nodes[3] = targetTipPosition;
-        nodes[2] = nodes[3];
-        
-        Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
-        leg.stanceTipPosition += deltaPos;
-        model->stanceTipPositions[l][s] = leg.stanceTipPosition;
-      }
-    }
-  }
-  else
-  {   
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
-        { 
-          Leg &leg = model->legs[l][s]; 
-          
-          if (leg.state == WALKING)
-          {        
-            Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
-            
-            Vector3d nodes[4];
-            nodes[0] = originTipPositions[l][s];
-            nodes[1] = nodes[0];
-            nodes[3] = targetTipPosition;
-            nodes[2] = nodes[3];
-            
-            Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
-            leg.stanceTipPosition += deltaPos;
-            model->stanceTipPositions[l][s] = leg.stanceTipPosition;           
-          }
-        }
-      }
-    }
-  }  
-  
-  //Reset since target posed achieved
-  if (moveToPoseTime >= timeLimit || currentPose == targetPose)
-  {
-    moveToPoseTime = 0;
-    currentPose = targetPose; 
-    targetPose = Pose::zero();
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        originTipPositions[l][s] = model->legs[l][s].stanceTipPosition;
-      }
-    }
-    return true;
-  }
-  
-  return false;    
+  return true;       
 }
 
 /***********************************************************************************************************************
@@ -186,7 +76,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
       break;
   }  
  
-  int numIterations = roundToInt((timeToStep/timeDelta)/(timeLimit*2))*(timeLimit*2); //Ensure compatible number of iterations 
+  int numIterations = max(1,int(roundToInt((timeToStep/timeDelta)/(timeLimit*2))*(timeLimit*2))); //Ensure compatible number of iterations 
   double deltaT = timeLimit/numIterations;
     
   //Check if master count has reached final iteration and iterate if not
@@ -554,35 +444,116 @@ void PoseController::resetSequence(void)
 }
 
 /***********************************************************************************************************************
- * Calculates pitch for auto body compensation
+ * Calculates pitch/roll for smooth auto body compensation
 ***********************************************************************************************************************/
-Pose PoseController::autoCompensation(void)
-{
-  double roll = 0.0;
-  double pitch = 0.0;
-  for (int l=0; l<3; l++)
+void PoseController::autoCompensation(void)
+{  
+  //For first iteration create new pose based off current pose but with zero pitch and roll
+  if (firstIteration)
   {
-    for (int s=0; s<2; s++)
+    basePose = currentPose;
+    basePose.rotation[1] = 0.0;   //zero pitch
+    basePose.rotation[2] = 0.0;   //zero roll
+    if (basePose != currentPose)
     {
-      if (walker->legSteppers[l][s].state == SWING)
-      {
-        double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - model->stanceTipPositions[l][s][2];
-        roll = zDiff*pow(-1.0, s)*params.rollAmplitude;
-        pitch = zDiff*(-(l-1))*params.pitchAmplitude;
-      }
+      correctPose = true;
     }
-  }
-  Pose adjust = Pose::identity();
-  if (walker->params.gaitType == "wave_gait")
-  {
-    adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
-  }
-  else if (walker->params.gaitType == "tripod_gait")
-  {
-    adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
+    firstIteration = false;
   }
   
-  return adjust;
+  //Transistion to corrected pose if required
+  if (correctPose)
+  {
+    if (manualCompensation(basePose, params.maxPoseTime/sqrt(params.stepFrequency)))
+    {
+      correctPose = false;
+    }
+  }
+  else 
+  {       
+    double roll = 0.0;
+    double pitch = 0.0;
+    for (int l=0; l<3; l++)
+    {
+      for (int s=0; s<2; s++)
+      {
+        if (walker->legSteppers[l][s].state == SWING)
+        {
+          double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - model->stanceTipPositions[l][s][2];
+          roll = zDiff*pow(-1.0, s)*params.rollAmplitude;
+          pitch = zDiff*(-(l-1))*params.pitchAmplitude;
+        }
+      }
+    } 
+    
+    if (walker->params.gaitType == "wave_gait")
+    {
+      currentPose.rotation[1] = pitch;
+      currentPose.rotation[2] = roll;
+    }
+    else if (walker->params.gaitType == "tripod_gait")
+    {
+      currentPose.rotation[2] = roll;
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Calculates pitch/roll/yaw/x,y,z for smooth transition to target pose for manual body compensation
+***********************************************************************************************************************/
+bool PoseController::manualCompensation(Pose requestedTargetPose, double timeToPose)
+{      
+  //Reset if target changes
+  if (requestedTargetPose != targetPose)
+  {
+    targetPose = requestedTargetPose;
+    masterIterationCount = 0;
+    originPose = currentPose;
+  }
+  
+  //Check if target met
+  if (targetPose == currentPose)
+  {
+    masterIterationCount = 0;
+    return true;
+  }  
+  
+  int numIterations = max(1,roundToInt(timeToPose/timeDelta));
+  double deltaT = 1.0/numIterations;
+  
+  if (masterIterationCount < numIterations)
+  {
+    masterIterationCount++; 
+  }
+  
+  Vector3d positionNodes[4];
+  positionNodes[0] = originPose.position;
+  positionNodes[1] = originPose.position;
+  positionNodes[3] = targetPose.position;
+  positionNodes[2] = targetPose.position;
+  
+  Quat rotationNodes[4];
+  rotationNodes[0] = originPose.rotation;
+  rotationNodes[1] = originPose.rotation;
+  rotationNodes[3] = targetPose.rotation;
+  rotationNodes[2] = targetPose.rotation;
+            
+  currentPose.position = cubicBezier(positionNodes, masterIterationCount*deltaT);
+  currentPose.rotation = cubicBezier(rotationNodes, masterIterationCount*deltaT);
+  
+  //DEBUGGING
+  /*
+  double time = masterIterationCount*deltaT;
+  cout << "MASTER ITERATION: " << masterIterationCount << 
+  "        TIME: " << time <<
+  "        POS ORIGIN: " << originPose.position[0] << ":" << originPose.position[1] << ":" << originPose.position[2] <<
+  "        POS CURRENT: " << currentPose.position[0] << ":" << currentPose.position[1] << ":" << currentPose.position[2] <<
+  "        POS TARGET: " << targetPose.position[0] << ":" << targetPose.position[1] << ":" << targetPose.position[2] << 
+  "        ROT ORIGIN: " << originPose.rotation[0] << ":" << originPose.rotation[1] << ":" << originPose.rotation[2] << ":" << originPose.rotation[3] <<
+  "        ROT CURRENT: " << currentPose.rotation[0] << ":" << currentPose.rotation[1] << ":" << currentPose.rotation[2] << ":" << currentPose.rotation[3] <<
+  "        ROT TARGET: " << targetPose.rotation[0] << ":" << targetPose.rotation[1] << ":" << targetPose.rotation[2] << ":" << targetPose.rotation[3] << endl;
+  */
+  return false;
 }
 
 /***********************************************************************************************************************

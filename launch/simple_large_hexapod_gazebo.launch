@@ -6,5 +6,5 @@
 	<!--node name="Hexapod" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node" output="screen"/-->
 
         <param name="/hexapod/parameters/dynamixel_interface" value="true"/>
-        <param name="/hexapod/parameters/pose_controller/time_to_start" value="0.0"/>
+        <param name="/hexapod/parameters/pose_controller/time_to_start" value="1.0"/>
 </launch>

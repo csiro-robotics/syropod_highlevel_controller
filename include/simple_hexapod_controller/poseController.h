@@ -41,12 +41,12 @@ struct PoseController
   
   Pose currentPose;
   Pose targetPose;  
+  Pose originPose;
+  Pose basePose;
+  bool correctPose = false; //Flag for correcting pose to a zero roll/pitch pose used for auto compensation
   
   PoseController(Model *model, WalkController *walker, Parameters params);
   bool updateStance(Vector3d targetTipPositions[3][2], 
-                    Pose targetPose, 
-                    double timeToPose, 
-                    bool moveLegsSequentially=false,
                     bool excludeSwingingLegs=false);
   bool stepToPosition(Vector3d targetTipPositions[3][2], 
                       int mode=NO_STEP_MODE, 
@@ -57,5 +57,6 @@ struct PoseController
   bool shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
-  Pose autoCompensation(void);
+  void autoCompensation(void);
+  bool manualCompensation(Pose requestedTargetPose, double timeToPose);
 };
