@@ -1,5 +1,5 @@
-#ifndef IMPEDANCECONTROL_H_
-#define IMPEDANCECONTROL_H_
+#ifndef IMPEDANCECONTROLLER_H_
+#define IMPEDANCECONTROLLER_H_
 
 #include "standardIncludes.h"
 #include <boost/numeric/odeint.hpp>
@@ -8,11 +8,11 @@ using namespace boost::numeric::odeint;
 
 typedef std::vector< double > state_type;
 
-class ImpedanceControl
+class ImpedanceController
 {
 public:
-	ImpedanceControl(const Parameters &p);
-	~ImpedanceControl();
+	ImpedanceController(const Parameters &p);
+	~ImpedanceController();
 	
 	// Calculate and return adapted position of the feet in z-direction
 	std::vector<std::vector<double> > &updateImpedance(const std::vector<std::vector<double> > &effort);
@@ -34,4 +34,4 @@ private:
 	void calculateDeltaZ(int side, int leg);
 };
 
-#endif /* IMPEDANCECONTROL_H_ */
+#endif /* IMPEDANCECONTROLLER_H_ */

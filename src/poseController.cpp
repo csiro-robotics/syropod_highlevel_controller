@@ -132,6 +132,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
         Vector3d controlNodesSecondary[4];
 
         //If tip z position is required to change then set stepHeight to zero
+        /*
         double stepHeight;
         if (abs(originTipPositions[l][s][2] - targetTipPositions[l][s][2]) > 1e-3)
         {
@@ -141,6 +142,8 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
         {
           stepHeight = liftHeight;
         }
+        */
+        double stepHeight = liftHeight;
         
         //Control nodes for dual 3d cubic bezier curves
         controlNodesPrimary[0] = originTipPositions[l][s]; 

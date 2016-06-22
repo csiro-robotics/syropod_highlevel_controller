@@ -1,6 +1,6 @@
-#include "../include/simple_hexapod_controller/impedanceControl.h"
+#include "../include/simple_hexapod_controller/impedanceController.h"
 
-ImpedanceControl::ImpedanceControl(const Parameters &p): PARAMS(p), TIP_FORCE(3, std::vector<double >(2)), IMPEDANCE_STATE(3, std::vector<std::vector<double > >(2, std::vector<double >(2))), DELTA_Z(3, std::vector<double >(2))
+ImpedanceController::ImpedanceController(const Parameters &p): PARAMS(p), TIP_FORCE(3, std::vector<double >(2)), IMPEDANCE_STATE(3, std::vector<std::vector<double > >(2, std::vector<double >(2))), DELTA_Z(3, std::vector<double >(2))
 {
   DELTA_T = PARAMS.integratorStepTime;
   VIRT_MASS = PARAMS.virtualMass;
@@ -9,11 +9,11 @@ ImpedanceControl::ImpedanceControl(const Parameters &p): PARAMS(p), TIP_FORCE(3,
   FORCE_GAIN = PARAMS.forceGain;
 }
 
-ImpedanceControl::~ImpedanceControl()
+ImpedanceController::~ImpedanceController()
 {
 }
 
-std::vector<std::vector<double> > &ImpedanceControl::updateImpedance(const std::vector<std::vector<double> > &effort) 
+std::vector<std::vector<double> > &ImpedanceController::updateImpedance(const std::vector<std::vector<double> > &effort) 
 {
   for (int s = 0; s<2; ++s)
       {
@@ -26,7 +26,7 @@ std::vector<std::vector<double> > &ImpedanceControl::updateImpedance(const std::
     return DELTA_Z;
 }
 
-void ImpedanceControl::calculateDeltaZ(int leg, int side) 
+void ImpedanceController::calculateDeltaZ(int leg, int side) 
 {
   // Solving the ODE
   runge_kutta4< state_type > stepper;
@@ -36,7 +36,7 @@ void ImpedanceControl::calculateDeltaZ(int leg, int side)
   DELTA_Z[leg][side] = IMPEDANCE_STATE[leg][side][0];
 }
 
-std::vector<std::vector<double> > ImpedanceControl::returnZeroLegMatrix(void) const
+std::vector<std::vector<double> > ImpedanceController::returnZeroLegMatrix(void) const
 {
   std::vector<std::vector<double> > zeroLegMatrix(3, std::vector<double >(2));
   zeroLegMatrix[0][0] = 0;
