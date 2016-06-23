@@ -279,7 +279,8 @@ void StateController::directState()
   if (startFlag)
   {
     int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
-    if (poser->stepToPosition(walker->identityTipPositions, mode, 0, params.timeToStart))
+    
+    if (poser->stepToPosition(walker->identityTipPositions, deltaZ, mode, 0, params.timeToStart))
     {
       state = RUNNING;
       cout << "Startup sequence complete. \nReady to walk.\n" << endl;
@@ -344,12 +345,6 @@ void StateController::runningState()
   { 
     impedanceControl();
   }
-
-  //Dynamic Parameter Adjustment
-  if (adjustParam)
-  {
-    paramAdjust();
-  }
     
   //Switch gait
   if (changeGait)
@@ -363,11 +358,19 @@ void StateController::runningState()
     legStateToggle();
   }
   
-  //Update walking stance based on desired pose
-  poser->updateStance(walker->identityTipPositions, params.autoCompensation);
-  
-  //Update Walker 
-  walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier);  
+  //Dynamic Parameter Adjustment
+  if (adjustParam)
+  {
+    paramAdjust();
+  }
+  else
+  {  
+    //Update walking stance based on desired pose
+    poser->updateStance(walker->identityTipPositions, params.autoCompensation);
+    
+    //Update Walker 
+    walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier); 
+  }
   
   //Check for shutdown cue
   if (!startFlag && params.startUpSequence)
@@ -556,7 +559,19 @@ void StateController::paramAdjust()
         paramVal = params.legSpanScale;                  
         break;
       }
-    }
+      default:
+      {
+        cout << "Attempting to adjust unknown parameter.\n" << endl;
+        break;
+      }
+    }              
+    //Update tip Positions for new parameter value
+    double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
+    if (poser->stepToPosition(walker->identityTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/(2.0*walker->stepFrequency)))
+    {    
+      cout << "Parameter '" + paramString + "' set to " << roundToInt(paramScaler*100) << "% of default (" << paramVal << ").\n" << endl;
+      adjustParam = false;
+    } 
   }
 }
 
@@ -686,7 +701,7 @@ void StateController::publishJointValues()
         yawVel = (yaw - hexapod->legs[l][s].oldYaw)/params.timeDelta;
         liftVel = (lift - hexapod->legs[l][s].oldLiftAngle)/params.timeDelta;
         kneeVel = (knee - hexapod->legs[l][s].oldKneeAngle)/params.timeDelta;
-
+        
         if (abs(yawVel) > hexapod->jointMaxAngularSpeeds[0])
         {
           cout << "Leg: " << l << ":" << s << " body_coxa joint velocity (" << yawVel << ") exceeds maximum ("; 
@@ -707,7 +722,7 @@ void StateController::publishJointValues()
           cout << sign(kneeVel)*hexapod->jointMaxAngularSpeeds[2] << ") - CLAMPING TO MAXIMUM!" << endl; 
           kneeVel = sign(kneeVel)*hexapod->jointMaxAngularSpeeds[2];
           knee = hexapod->legs[l][s].oldKneeAngle + kneeVel*params.timeDelta;
-        }  
+        }
       }
       else
       {

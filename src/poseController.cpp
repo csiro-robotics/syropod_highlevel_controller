@@ -39,7 +39,7 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
 /***********************************************************************************************************************
  * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
-bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode, double liftHeight, double timeToStep)
+bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double deltaZ[3][2], int mode, double liftHeight, double timeToStep)
 { 
   if (firstIteration)
   {       
@@ -168,9 +168,8 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
         {
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
         }        
-        
-        //DEBUGGING
         /*
+        //DEBUGGING
         if (l==0 && s==0)
         {
           double time = (swingIterationCount < halfSwingIteration) ? swingIterationCount*deltaT*2.0 : (swingIterationCount-halfSwingIteration)*deltaT*2.0;
@@ -180,13 +179,14 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], int mode,
           "        ORIGIN: " << originTipPositions[0][0][0] << ":" << originTipPositions[0][0][1] << ":" << originTipPositions[0][0][2] <<
           "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
           "        TARGET: " << targetTipPositions[0][0][0] << ":" << targetTipPositions[0][0][1] << ":" << targetTipPositions[0][0][2] << endl;
-        } 
-        */
-       
+        }       
+       */
         //Apply inverse kinematics to localTipPositions and stanceTipPositions
         if (model->legs[l][s].state != OFF)
         {
-          model->legs[l][s].applyLocalIK(pos, true); 
+          Vector3d adjustedPos = pos;
+          adjustedPos[2] -= deltaZ[l][s]; //Impedance controller
+          model->legs[l][s].applyLocalIK(adjustedPos, true); 
         }
       }
     }
@@ -312,19 +312,20 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
   
   bool res = false;
   double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
+  double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
   switch (sequenceStep)
   {
     case 1:
-      res = stepToPosition(phase1TipPositions, mode, stepHeight, stepTime);
+      res = stepToPosition(phase1TipPositions, deltaZ, mode, stepHeight, stepTime);
       break;
     case 2:
-      res = stepToPosition(phase2TipPositions, NO_STEP_MODE, 0.0, stepTime);
+      res = stepToPosition(phase2TipPositions, deltaZ, NO_STEP_MODE, 0.0, stepTime);
       break;
     case 3:
-      res = stepToPosition(phase3TipPositions, mode, stepHeight, stepTime);
+      res = stepToPosition(phase3TipPositions, deltaZ, mode, stepHeight, stepTime);
       break;
     case 4:
-      res = stepToPosition(phase4TipPositions, NO_STEP_MODE, 0.0, stepTime);
+      res = stepToPosition(phase4TipPositions, deltaZ, NO_STEP_MODE, 0.0, stepTime);
       break;
     case 5:
       sequenceStep = 0;
@@ -348,6 +349,7 @@ bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool fo
 {  
   bool res = false;
   double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
+  double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
   switch (sequenceStep)
   {
     case 0:
@@ -355,13 +357,13 @@ bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool fo
       res = true;
       break;
     case 1:
-      res = stepToPosition(phase5TipPositions, NO_STEP_MODE, 0.0, 2.0);
+      res = stepToPosition(phase5TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 2:
-      res = stepToPosition(phase6TipPositions, SEQUENTIAL_MODE, stepHeight, 6.0);
+      res = stepToPosition(phase6TipPositions, deltaZ, SEQUENTIAL_MODE, stepHeight, 6.0);
       break;
     case 3:
-      res = stepToPosition(phase7TipPositions, NO_STEP_MODE, 0.0, 2.0);
+      res = stepToPosition(phase7TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 4:
       sequenceStep = 0;
@@ -517,7 +519,6 @@ bool PoseController::manualCompensation(Pose requestedTargetPose, double timeToP
   //Check if target met
   if (targetPose == currentPose)
   {
-    masterIterationCount = 0;
     return true;
   }  
   

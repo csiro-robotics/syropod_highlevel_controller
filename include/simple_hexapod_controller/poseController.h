@@ -49,7 +49,8 @@ struct PoseController
   bool updateStance(Vector3d targetTipPositions[3][2], 
                     bool excludeSwingingLegs=false);
   bool stepToPosition(Vector3d targetTipPositions[3][2], 
-                      int mode=NO_STEP_MODE, 
+                      double deltaZ[3][2],
+                      int mode=NO_STEP_MODE,                      
                       double stepHeight = 0.0, 
                       double stepSpeed = 2.0);
   bool moveToJointPosition(Vector3d targetJointPositions[3][2], double speed=2.0);
