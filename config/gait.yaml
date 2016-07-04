@@ -40,14 +40,13 @@ hexapod:
   
 ######################################################################
 
-    balance_gait:
-    
-      stance_phase: 14
-      swing_phase: 4
-      transition_period: 1
-      phase_offset: 5  
-
-      offset_multiplier: [1,3,2,0,3,1]
-
-######################################################################
+    experimental_gait:
+      
+      stance_phase: 33
+      swing_phase: 8
+      transition_period: 2
+      phase_offset: 15
+      
+      offset_multiplier: [1,0,2,2,0,1]
+      
 ######################################################################

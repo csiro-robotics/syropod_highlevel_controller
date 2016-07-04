@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
   //Check force data is available for impedanceControl
   if (state.params.impedanceControl)
   {
-    if(tipForceSubscriber)
+    if(tipForceSubscriber && state.params.hexapodType == "large_hexapod")
     {
       state.useTipForce = true;
     }

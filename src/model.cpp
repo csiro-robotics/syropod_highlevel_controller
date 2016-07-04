@@ -166,7 +166,7 @@ void Model::clampToLimits()
     for (int side = 0; side<2; side++)
     {
       Leg &leg = legs[l][side];
-      double messageTolerance = 0.08722; //5 degrees over limit before warning message
+      double messageTolerance = 0.017444; //1 degree over limit before warning message
       if (leg.yaw - stanceLegYaws[l] < -yawLimitAroundStance[l])
       {
         double diff = abs(leg.yaw - (-yawLimitAroundStance[l] + stanceLegYaws[l]));

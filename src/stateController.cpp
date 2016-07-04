@@ -211,7 +211,7 @@ void StateController::loop()
 void StateController::unpackState()
 {
   //Move joints directly to unpacked positions and then transition to next state
-  if (poser->moveToJointPosition(unpackedJointPositions))
+  if (poser->moveToJointPosition(unpackedJointPositions, 2.0/params.stepFrequency))
   {          
     state = STARTUP;
     cout << "Hexapod unpacked. Running startup sequence . . .\n" << endl;
@@ -250,7 +250,7 @@ void StateController::shutDownState()
 void StateController::packState()
 {
   //Move joints directly to packed positions and then transition to next state
-  if (poser->moveToJointPosition(packedJointPositions))
+  if (poser->moveToJointPosition(packedJointPositions, 2.0/params.stepFrequency))
   {
     state = PACKED;
     cout << "Hexapod packing complete.\n" << endl;  
@@ -403,12 +403,13 @@ void StateController::compensation()
   //Automatic & Manual compensation running concurrently
   else if (params.autoCompensation && params.manualCompensation)
   {
-    if (walker->state == MOVING)
+    if (walker->state != STOPPED)
     {
       poser->autoCompensation();
     }
-    else if (walker->state == STOPPED)
+    else
     {
+      poser->compFirstIteration = true;
       Pose targetPose = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
       poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency));
     }
@@ -443,6 +444,13 @@ void StateController::impedanceControl()
       }
     }
   }  
+  double effortOffset[3][2];
+  effortOffset[0][0] = 0;
+  effortOffset[0][1] = 0;
+  effortOffset[1][0] = 0;
+  effortOffset[1][1] = 0;
+  effortOffset[2][0] = 0;
+  effortOffset[2][1] = 0;
   
   for (int l = 0; l<3; l++)
   {
@@ -454,8 +462,8 @@ void StateController::impedanceControl()
         double minForce = 0;
         if (useTipForce)
         {
-          double offset = 1255.0;   
-          tipForce[l][s] = tipForces[2*l+s] - offset;
+          double forceOffset = 1255.0;   
+          tipForce[l][s] = tipForces[2*l+s] - forceOffset;
           maxForce = 1000.0;
           minForce = 0.0;
         }
@@ -463,9 +471,9 @@ void StateController::impedanceControl()
         {                
           int index = 6*l+3*s+1;
           int dir = (s==0) ? -1:1;
-          tipForce[l][s] = dir*jointEfforts[index];
+          tipForce[l][s] = dir*jointEfforts[index] - effortOffset[l][s];
           maxForce = 1e9;
-          minForce = -1e9;
+          minForce = 0.0;
         }  
         //Ensure force is within limits
         tipForce[l][s] = min(tipForce[l][s], maxForce);
@@ -559,6 +567,54 @@ void StateController::paramAdjust()
         paramVal = params.legSpanScale;                  
         break;
       }
+      case(VIRTUAL_MASS):
+      {
+	if (paramScaler == -1)
+        {
+          paramScaler = params.virtualMass/defaultParams.virtualMass;
+        }                  
+        params.virtualMass = minMax(defaultParams.virtualMass*paramScaler, 0, 500);                     
+        impedance->init(params);
+        paramString = "virtual_mass";
+        paramVal = params.virtualMass;                  
+        break;
+      }
+      case(VIRTUAL_STIFFNESS):
+      {
+	if (paramScaler == -1)
+	{
+          paramScaler = params.virtualStiffness/defaultParams.virtualStiffness;
+        }                  
+        params.virtualStiffness = minMax(defaultParams.virtualStiffness*paramScaler, 0, 500);                     
+        impedance->init(params);
+        paramString = "virtual_stiffness";
+        paramVal = params.virtualStiffness;                  
+        break;
+      }
+      case(VIRTUAL_DAMPING):
+      {
+	if (paramScaler == -1)
+	{
+          paramScaler = params.virtualDampingRatio/defaultParams.virtualDampingRatio;
+        }                  
+        params.virtualDampingRatio = minMax(defaultParams.virtualDampingRatio*paramScaler, 0, 2.0);                     
+        impedance->init(params);
+        paramString = "virtual_damping_ratio";
+        paramVal = params.virtualDampingRatio;                  
+        break;
+      }
+      case(FORCE_GAIN):
+      {
+	if (paramScaler == -1)
+	{
+          paramScaler = params.forceGain/defaultParams.forceGain;
+        }                  
+        params.forceGain = minMax(defaultParams.forceGain*paramScaler, 0, 2.0);                     
+        impedance->init(params);
+        paramString = "force_gain";
+        paramVal = params.forceGain;                  
+        break;
+      }
       default:
       {
         cout << "Attempting to adjust unknown parameter.\n" << endl;
@@ -567,7 +623,7 @@ void StateController::paramAdjust()
     }              
     //Update tip Positions for new parameter value
     double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
-    if (poser->stepToPosition(walker->identityTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/(2.0*walker->stepFrequency)))
+    if (poser->stepToPosition(walker->identityTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
     {    
       cout << "Parameter '" + paramString + "' set to " << roundToInt(paramScaler*100) << "% of default (" << paramVal << ").\n" << endl;
       adjustParam = false;
@@ -733,7 +789,10 @@ void StateController::publishJointValues()
       interface->setTargetAngle(l, s, 1, -lift);
       interface->setTargetAngle(l, s, 2, knee);
               
-      //interface->setVelocity(l, s, 0, yawVel); //Removed due to issues with Large Hexapod
+      if (params.dynamixelInterface)
+      {
+	interface->setVelocity(l, s, 0, yawVel); //Doesn't cooperate with with Large Hexapod Dynamixel Pro drivers
+      }
       interface->setVelocity(l, s, 1, -liftVel);
       interface->setVelocity(l, s, 2, kneeVel);
         
@@ -783,6 +842,30 @@ void StateController::paramSelectionCallback(const std_msgs::Int8 &input)
       {
         paramSelection = LEG_SPAN_SCALE;
         cout << "leg_span_scale parameter selected.\n" << endl;
+        break;
+      }
+      case(VIRTUAL_MASS):
+      {
+        paramSelection = VIRTUAL_MASS;
+        cout << "virtual_mass impedance parameter selected.\n" << endl;
+        break;
+      }
+      case(VIRTUAL_STIFFNESS):
+      {
+        paramSelection = VIRTUAL_STIFFNESS;
+        cout << "virtual_stiffness impedance parameter selected.\n" << endl;
+        break;
+      }      
+      case(VIRTUAL_DAMPING):
+      {
+        paramSelection = VIRTUAL_DAMPING;
+        cout << "virtual_damping impedance parameter selected.\n" << endl;
+        break;
+      }
+      case(FORCE_GAIN):
+      {
+        paramSelection = FORCE_GAIN;
+        cout << "force_gain impedance parameter selected.\n" << endl;
         break;
       }
       default:

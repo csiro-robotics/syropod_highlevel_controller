@@ -1,5 +1,5 @@
 <launch>
-        <include file="$(find flexipod_short)/launch/simple_felxipod_short_gazebo.launch" />
+        <include file="$(find flexipod_short)/launch/simple_flexipod_short_gazebo.launch" />
 	<include file="$(find hexapod_remote)/launch/hexapod_remote.launch" />
 	<rosparam file="$(find simple_hexapod_controller)/config/lobsang.yaml" command="load"/>
 	<rosparam file="$(find simple_hexapod_controller)/config/gait.yaml" command="load"/>

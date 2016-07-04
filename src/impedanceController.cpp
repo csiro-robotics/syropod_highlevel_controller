@@ -1,16 +1,25 @@
 #include "../include/simple_hexapod_controller/impedanceController.h"
 
-ImpedanceController::ImpedanceController(const Parameters &p): PARAMS(p), TIP_FORCE(3, std::vector<double >(2)), IMPEDANCE_STATE(3, std::vector<std::vector<double > >(2, std::vector<double >(2))), DELTA_Z(3, std::vector<double >(2))
+ImpedanceController::ImpedanceController(const Parameters &p): 
+  TIP_FORCE(3, std::vector<double >(2)), 
+  IMPEDANCE_STATE(3, std::vector<std::vector<double > >(2, std::vector<double >(2))), 
+  DELTA_Z(3, std::vector<double >(2))
 {
+  init(p);
+}
+
+ImpedanceController::~ImpedanceController()
+{
+}
+
+void ImpedanceController::init(Parameters p)
+{
+  PARAMS = p;
   DELTA_T = PARAMS.integratorStepTime;
   VIRT_MASS = PARAMS.virtualMass;
   VIRT_STIFF = PARAMS.virtualStiffness;
   VIRT_DAMP = PARAMS.virtualDampingRatio*2*sqrt(VIRT_MASS*VIRT_STIFF);
   FORCE_GAIN = PARAMS.forceGain;
-}
-
-ImpedanceController::~ImpedanceController()
-{
 }
 
 std::vector<std::vector<double> > &ImpedanceController::updateImpedance(const std::vector<std::vector<double> > &effort) 

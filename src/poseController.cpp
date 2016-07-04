@@ -168,8 +168,9 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double de
         {
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
         }        
-        /*
+        
         //DEBUGGING
+        /*
         if (l==0 && s==0)
         {
           double time = (swingIterationCount < halfSwingIteration) ? swingIterationCount*deltaT*2.0 : (swingIterationCount-halfSwingIteration)*deltaT*2.0;
@@ -454,7 +455,7 @@ void PoseController::resetSequence(void)
 void PoseController::autoCompensation(void)
 {  
   //For first iteration create new pose based off current pose but with zero pitch and roll
-  if (firstIteration)
+  if (compFirstIteration)
   {
     basePose = currentPose;
     basePose.rotation[1] = 0.0;   //zero pitch
@@ -463,7 +464,7 @@ void PoseController::autoCompensation(void)
     {
       correctPose = true;
     }
-    firstIteration = false;
+    compFirstIteration = false;
   }
   
   //Transistion to corrected pose if required
@@ -482,14 +483,11 @@ void PoseController::autoCompensation(void)
     {
       for (int s=0; s<2; s++)
       {
-        if (walker->legSteppers[l][s].state == SWING)
-        {
-          double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - model->stanceTipPositions[l][s][2];
-          roll = zDiff*pow(-1.0, s)*params.rollAmplitude;
-          pitch = zDiff*(-(l-1))*params.pitchAmplitude;
-        }
+	double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - model->stanceTipPositions[l][s][2];	  
+	roll += zDiff*pow(-1.0, s)*params.rollAmplitude;
+	pitch += zDiff*(-(l-1))*params.pitchAmplitude;
       }
-    } 
+    }
     
     if (walker->params.gaitType == "wave_gait")
     {

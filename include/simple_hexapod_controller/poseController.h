@@ -18,6 +18,7 @@ struct PoseController
   
   double timeDelta;
   bool firstIteration = true;
+  bool compFirstIteration = true;
   int masterIterationCount = 0;
   
   double moveToPoseTime = 0.0;

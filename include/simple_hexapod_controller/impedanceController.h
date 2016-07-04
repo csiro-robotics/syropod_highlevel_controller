@@ -14,6 +14,8 @@ public:
 	ImpedanceController(const Parameters &p);
 	~ImpedanceController();
 	
+	void init(Parameters p);
+	
 	// Calculate and return adapted position of the feet in z-direction
 	std::vector<std::vector<double> > &updateImpedance(const std::vector<std::vector<double> > &effort);
 	
