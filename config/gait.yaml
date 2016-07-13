@@ -40,7 +40,7 @@ hexapod:
   
 ######################################################################
 
-    experimental_gait:
+    amble_gait:
       
       stance_phase: 33
       swing_phase: 8

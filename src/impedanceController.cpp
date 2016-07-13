@@ -25,14 +25,14 @@ void ImpedanceController::init(Parameters p)
 std::vector<std::vector<double> > &ImpedanceController::updateImpedance(const std::vector<std::vector<double> > &effort) 
 {
   for (int s = 0; s<2; ++s)
-      {
-        for (int l = 0; l<3; ++l)
-        {
-          TIP_FORCE[l][s] = effort[l][s] ;
-          calculateDeltaZ(l,s);
-         }
+  {
+    for (int l = 0; l<3; ++l)
+    {
+      TIP_FORCE[l][s] = effort[l][s] ;
+      calculateDeltaZ(l,s);
     }
-    return DELTA_Z;
+  }
+  return DELTA_Z;
 }
 
 void ImpedanceController::calculateDeltaZ(int leg, int side) 

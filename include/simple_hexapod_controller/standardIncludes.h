@@ -48,7 +48,7 @@ enum Gait
   TRIPOD_GAIT,
   RIPPLE_GAIT,
   WAVE_GAIT,
-  BALANCE_GAIT,
+  AMBLE_GAIT,
   DEFAULT,
 };
 

@@ -61,9 +61,9 @@ void StateController::init()
   {
     gait = WAVE_GAIT;
   }
-  else if (params.gaitType == "balance_gait")
+  else if (params.gaitType == "amble_gait")
   {
-    gait = BALANCE_GAIT;
+    gait = AMBLE_GAIT;
   }
   
   // Create controller objects
@@ -653,6 +653,9 @@ void StateController::gaitChange()
       case(WAVE_GAIT):
         getGaitParameters("wave_gait");
         break;
+      case(AMBLE_GAIT):
+	getGaitParameters("amble_gait");
+        break;
       default:
         cout << "Attempting to change to unknown gait." << endl;
         break;
@@ -966,6 +969,10 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
       case(WAVE_GAIT):
         cout << "Transitioning to wave_gait mode . . .\n" << endl;
         gait = WAVE_GAIT;
+        break;
+      case (AMBLE_GAIT):
+	cout << "Transitioning to amble_gait mode . . .\n" << endl;
+        gait = AMBLE_GAIT;
         break;
       default:
         cout << "Unknown gait requested from control input.\n" << endl;
