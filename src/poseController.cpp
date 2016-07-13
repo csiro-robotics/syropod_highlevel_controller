@@ -181,7 +181,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double de
           "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
           "        TARGET: " << targetTipPositions[0][0][0] << ":" << targetTipPositions[0][0][1] << ":" << targetTipPositions[0][0][2] << endl;
         }       
-       */
+	*/
         //Apply inverse kinematics to localTipPositions and stanceTipPositions
         if (model->legs[l][s].state != OFF)
         {

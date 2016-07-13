@@ -23,14 +23,12 @@ int main(int argc, char* argv[])
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, &StateController::startCallback, &state);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, &StateController::gaitSelectionCallback, &state);
   ros::Subscriber tipForceSubscriber = n.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, &state);
-  ros::Subscriber jointStatesSubscriber;
+  ros::Subscriber jointStatesSubscriber1;
+  ros::Subscriber jointStatesSubscriber2;
   
   //Attempt to subscribe to one of two possible joint state topics
-  jointStatesSubscriber = n.subscribe("/hexapod/joint_states", 1, &StateController::jointStatesCallback, &state);
-  if (!jointStatesSubscriber)
-  {
-    jointStatesSubscriber = n.subscribe("/hexapod_joint_state", 1, &StateController::jointStatesCallback, &state); 
-  }
+  jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1, &StateController::jointStatesCallback, &state);
+  jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1, &StateController::jointStatesCallback, &state); 
   
   //ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
   state.tipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions", 1000);
@@ -39,6 +37,9 @@ int main(int argc, char* argv[])
   state.tipPositionPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_positions", 1000);
   state.tipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions", 1000);
   state.tipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions", 1000);
+  
+  state.tipForcePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/tip_forces", 1000);
+  
   
   //Set ros rate from params
   ros::Rate r(roundToInt(1.0/state.params.timeDelta));
@@ -74,7 +75,7 @@ int main(int argc, char* argv[])
   cout << "Controller started.\n" << endl;
   
   //Wait specified time to aquire all published joint positions via callback
-  if(!jointStatesSubscriber)
+  if(!jointStatesSubscriber1 && !jointStatesSubscriber2)
   {
     cout << "WARNING: Failed to subscribe to joint_states topic! - check to see if topic is being published.\n" << endl;
     state.params.startUpSequence = false;
@@ -112,11 +113,11 @@ int main(int argc, char* argv[])
   //Check force data is available for impedanceControl
   if (state.params.impedanceControl)
   {
-    if(tipForceSubscriber && state.params.hexapodType == "large_hexapod")
+    if(tipForceSubscriber && state.params.impedanceInput == "tip_force")
     {
       state.useTipForce = true;
     }
-    else if (jointStatesSubscriber)
+    else if ((jointStatesSubscriber1 || jointStatesSubscriber2) && state.params.impedanceInput == "joint_effort")
     {
       state.useJointEffort = true;
     }
@@ -137,7 +138,8 @@ int main(int argc, char* argv[])
     state.loop();
     
     //Tip position publisher for debugging
-    state.publishTipPositions();    
+    state.publishTipPositions();  
+    state.publishTipForces();
     
     //Debug using RVIZ
     if (state.params.debug_rviz)

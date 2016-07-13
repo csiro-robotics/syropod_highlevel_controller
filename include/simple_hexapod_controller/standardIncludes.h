@@ -132,6 +132,7 @@ struct Parameters
   double virtualStiffness;
   double virtualDampingRatio;
   double forceGain;
+  std::string impedanceInput;
     
   //Gait Parameters
   double stancePhase;

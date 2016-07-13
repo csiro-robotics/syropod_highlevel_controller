@@ -46,7 +46,7 @@ hexapod:
       tip_offset_CL: [1.5, 0.0, 0.0] #Back Left Leg
       tip_offset_CR: [1.5, 0.0, 0.0] #Back Right Leg
 
-    stance_leg_yaws: [0.785, 0, -0.785] #[0.5233, 0, -0.5233]
+    stance_leg_yaws: [0.5233, 0, -0.5233]
     physical_yaw_offset: [0.0, 0.0, 0.0]
 
     joint_limits:
@@ -63,7 +63,7 @@ hexapod:
 ######################################################################
 
     walk_controller:
-      step_frequency: 0.125 #0.25
+      step_frequency: 0.25
       step_clearance: 0.05
       body_clearance: 0.4 #-1.0
       leg_span_scale: 0.6
@@ -126,11 +126,12 @@ hexapod:
 
     impedance_controller:
       impedance_control: true
+      impedance_input: tip_force #joint_effort
       virtual_mass: 100.0
       integrator_step_time: 0.03
-      virtual_stiffness: 200
+      virtual_stiffness: 200.0
       virtual_damping_ratio: 1.2
-      force_gain: 0.1
+      force_gain: 0.1      
         
 ######################################################################
 ######################################################################

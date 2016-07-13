@@ -471,7 +471,7 @@ void StateController::impedanceControl()
         {                
           int index = 6*l+3*s+1;
           int dir = (s==0) ? -1:1;
-          tipForce[l][s] = dir*jointEfforts[index] - effortOffset[l][s];
+          tipForce[l][s] = dir*(jointEfforts[index] - effortOffset[l][s]);
           maxForce = 1e9;
           minForce = 0.0;
         }  
@@ -669,31 +669,58 @@ void StateController::gaitChange()
 ***********************************************************************************************************************/
 void StateController::legStateToggle()
 { 
-  int l = legSelection/2;
-  int s = legSelection%2;
-  if (hexapod->legs[l][s].state == WALKING)
+  //Force hexapod to stop walking
+  localVelocity = Vector2d(0.0,0.0);
+  turnRate = 0.0;
+  
+  if (walker->state == STOPPED)
   {
-    hexapod->legs[l][s].state = OFF;
-    cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: OFF.\n" << endl; 
+    int l = legSelection/2;
+    int s = legSelection%2;
+    if (hexapod->legs[l][s].state == WALKING)
+    {        
+      hexapod->legs[l][s].state = WALKING_TO_OFF;
+    }
+    else if (hexapod->legs[l][s].state == OFF)
+    {
+      hexapod->legs[l][s].state = OFF_TO_WALKING;
+    }
+    else if (hexapod->legs[l][s].state == WALKING_TO_OFF)
+    {
+      Vector3d targetTipPositions[3][2] = hexapod->localTipPositions;
+      double stepHeight = walker->stepClearance*walker->maximumBodyHeight;
+      targetTipPositions[l][s][2] = hexapod->stanceTipPositions[l][s][2] + stepHeight;
+      if (poser->stepToPosition(targetTipPositions, deltaZ, NO_STEP_MODE, 0.0, 1.0/params.stepFrequency))
+      {
+	toggleLegState = false;
+	hexapod->legs[l][s].state = OFF;
+	cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: OFF.\n" << endl;
+      }
+    }
+    else if (hexapod->legs[l][s].state == OFF_TO_WALKING)
+    {
+      Vector3d targetTipPositions[3][2] = hexapod->localTipPositions;
+      targetTipPositions[l][s][2] = hexapod->stanceTipPositions[l][s][2];
+      if (poser->stepToPosition(targetTipPositions, deltaZ, NO_STEP_MODE, 0.0, 1.0/params.stepFrequency))
+      {
+	toggleLegState = false;
+	hexapod->legs[l][s].state = WALKING;
+	cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING.\n" << endl;
+      }    
+    }
   }
-  else if (hexapod->legs[l][s].state == OFF)
-  {
-    hexapod->legs[l][s].state = WALKING;
-    cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING.\n" << endl;
-  }
-  toggleLegState = false;
 }
 
 /***********************************************************************************************************************
- * Publisheds tip positions for debugging
+ * Publishes tip positions for debugging
 ***********************************************************************************************************************/
 void StateController::publishTipPositions()
 {
   std_msgs::Float32MultiArray msg;
-  for (int s = 0; s<2; s++)
+  for (int l = 0; l<3; l++)
   {
-    for (int l = 0; l<3; l++)
-    {        
+    for (int s = 0; s<2; s++)
+    {            
       msg.data.clear();
       msg.data.push_back(hexapod->legs[l][s].localTipPosition[0]);
       msg.data.push_back(hexapod->legs[l][s].localTipPosition[1]);
@@ -701,6 +728,23 @@ void StateController::publishTipPositions()
       tipPositionPublishers[l][s].publish(msg);
     }
   }
+}
+
+/***********************************************************************************************************************
+ * Publishes tip forces for debugging
+***********************************************************************************************************************/
+void StateController::publishTipForces()
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  for (int l = 0; l<3; l++)
+  { 
+    for (int s = 0; s<2; s++)
+    {         
+      msg.data.push_back(tipForce[l][s]);      
+    }
+  }
+  tipForcePublisher.publish(msg);
 }
 
 /***********************************************************************************************************************
@@ -938,7 +982,7 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (state == RUNNING)
+  if (state == RUNNING && !toggleLegState)
   {
     switch (input.data)
     {
@@ -1088,7 +1132,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
   if (jointStates.effort.size() == 0)
   {
     getEffortValues = false;
-    cout << "Warning! Effort values not being published! Impedance controller may not function.\n" << endl;
+    //cout << "Warning! Effort values not being published! Impedance controller may not function.\n" << endl;
   }
   else
   {
@@ -1994,6 +2038,12 @@ void StateController::getParameters()
   if (!n.getParam(paramString+"force_gain", params.forceGain))
   {
     cout << "Error reading parameter/s (force_gain) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  if (!n.getParam(paramString+"impedance_input", params.impedanceInput))
+  {
+    cout << "Error reading parameter/s (impedance_input) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
   }
    

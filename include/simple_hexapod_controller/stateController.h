@@ -46,6 +46,7 @@ struct StateController
   DebugOutput debug;
   
   ros::Publisher tipPositionPublishers[3][2];
+  ros::Publisher tipForcePublisher;
   
   //Trigger Flags
   bool changeGait = false;
@@ -108,6 +109,7 @@ struct StateController
   //Debugging functions
   void RVIZDebugging();
   void publishTipPositions();
+  void publishTipForces();
   
   //Loop and state functions
   void loop();
