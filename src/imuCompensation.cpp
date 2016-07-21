@@ -6,7 +6,7 @@
 #include <boost/circular_buffer.hpp> 
 #include "../include/simple_hexapod_controller/debugOutput.h"
 
-sensor_msgs::Imu imu;
+sensor_msgs::Imu imuData;
 // target rather than measured data
 static Vector3d offsetPos(0.0,0.0,0.0);
 static Vector3d offsetVel(0,0,0);
@@ -18,10 +18,11 @@ void setCompensationDebug(DebugOutput &debug)
   debugDraw = &debug;
 }
 
-void imuCallback(const sensor_msgs::Imu &imudata)
+void imuCallback(const sensor_msgs::Imu &inputData)
 {  
-  imu = imudata;
+  imuData = inputData;
 }
+
 static const int numAccs = 500;
 static vector<Vector3d> accs(numAccs);
 static vector<double> times(numAccs);
@@ -50,7 +51,7 @@ Vector3d gaussianMean(double time, double timeStandardDeviation, double omega)
 
 //static double t = 0;
 static double inputPhase = 0;
-void compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos, double pIncrement, double timeDelta)
+void imuCompensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos, double pIncrement, double timeDelta)
 {
 //#define PHASE_ANALYSIS
 #if defined(PHASE_ANALYSIS)
@@ -75,18 +76,18 @@ void compensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d
   static Vector3d IMUPos(0,0,0);
   static Vector3d IMUVel(0,0,0);
   
-  orient.w = imu.orientation.w;
-  orient.x = imu.orientation.x;
-  orient.y = imu.orientation.y;
-  orient.z = imu.orientation.z;
+  orient.w = imuData.orientation.w;
+  orient.x = imuData.orientation.x;
+  orient.y = imuData.orientation.y;
+  orient.z = imuData.orientation.z;
   
-  accel(0) = imu.linear_acceleration.x;
-  accel(1) = imu.linear_acceleration.y;
-  accel(2) = imu.linear_acceleration.z;
+  accel(0) = imuData.linear_acceleration.x;
+  accel(1) = imuData.linear_acceleration.y;
+  accel(2) = imuData.linear_acceleration.z;
   
-  angVel(0) = imu.angular_velocity.x;
-  angVel(1) = imu.angular_velocity.y;
-  angVel(2) = imu.angular_velocity.z;
+  angVel(0) = imuData.angular_velocity.x;
+  angVel(1) = imuData.angular_velocity.y;
+  angVel(2) = imuData.angular_velocity.z;
   
 // #define GENERIC_FEEDBACK_CONTROL  
 #if defined(GENERIC_FEEDBACK_CONTROL)
@@ -247,7 +248,7 @@ void calculatePassiveAngularFrequency(double timeDelta)
   static vector<Vector3d> accs(numAccs);
   static int accIndex = 0;
   
-  accs[accIndex] = Vector3d(imu.linear_acceleration.y, imu.linear_acceleration.x, imu.linear_acceleration.z);
+  accs[accIndex] = Vector3d(imuData.linear_acceleration.y, imuData.linear_acceleration.x, imuData.linear_acceleration.z);
   accIndex = (accIndex + 1)%numAccs;
   Vector3d averageAcc = mean(accs);
   

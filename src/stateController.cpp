@@ -388,16 +388,16 @@ void StateController::compensation()
   if (params.imuCompensation)
   {  
     //NEEDS REFACTORING
-    /*
     Vector2d acc = walker->localCentreAcceleration;
     Vector3d deltaAngle = Vector3d(0,0,0);
     Vector3d deltaPos = Vector3d(0,0,0);
 
-    compensation(Vector3d(acc[0], acc[1], 0),
+    imuCompensation(Vector3d(acc[0], acc[1], 0),
                 walker->angularVelocity, 
                 &deltaAngle, &deltaPos, 
-                pIncrement, params.timeDelta);
-    */
+                0.0, params.timeDelta);
+    poser->currentPose.position = deltaPos;
+    poser->currentPose.rotation = Quat(1.0, deltaAngle[0], deltaAngle[1], deltaAngle[2]);
   }        
   //Automatic & Manual compensation running concurrently
   else if (params.autoCompensation && params.manualCompensation)
