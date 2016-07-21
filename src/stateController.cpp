@@ -88,7 +88,6 @@ void StateController::init()
   packedJointPositions[2][1] = params.packedJointPositionsCR; 
   
   localVelocity = Vector2d(0.0,0.0);
-  tipForce = vector<vector<double> > (3, vector<double>(2));
 }
 
 /***********************************************************************************************************************
@@ -433,7 +432,8 @@ void StateController::compensation()
 void StateController::impedanceControl()
 {     
   //If all legs are in stance state then update forces on tips
-  int legsInStance = 0;  
+  int legsInStance = 0; 
+  int legsOn = 0;
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -441,6 +441,10 @@ void StateController::impedanceControl()
       if (walker->legSteppers[l][s].state != SWING)
       {
         legsInStance++;
+      }
+      if (hexapod->legs[l][s].state != OFF)
+      {
+	legsOn++;
       }
     }
   }  
@@ -450,14 +454,82 @@ void StateController::impedanceControl()
   effortOffset[1][0] = 0;
   effortOffset[1][1] = 0;
   effortOffset[2][0] = 0;
-  effortOffset[2][1] = 0;
+  effortOffset[2][1] = 0;  
   
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {
-      if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
+      if (gait == WAVE_GAIT)
       {
+	if (legsInStance == 6 && legsOn == 6)
+	{
+	  loadShareMode = EQUAL;
+	}
+	else if (walker->legSteppers[l][s].state == SWING || hexapod->legs[l][s].state == OFF)
+	{
+	  if (l != 1)
+	  {
+	    loadShareMode = SINGLE_CORNER_LIFTED;
+	  }
+	  else
+	  {
+	    loadShareMode = SINGLE_CENTRE_LIFTED;
+	  }
+	}
+      }        
+
+      switch(loadShareMode)
+      {
+	case (EQUAL):
+	{
+	  double stiffnessArray[3][2] = {{1.0,1.0},{1.0,1.0},{1.0,1.0}};
+	  impedance->adjustStiffness(stiffnessArray);      
+	}
+	case (SINGLE_CORNER_LIFTED):
+	{
+	  if (walker->legSteppers[l][s].state == SWING || hexapod->legs[l][s].state == OFF)
+	  {
+	    double stiffnessArray[3][2];
+	    double oppositeCorner = 1.0;
+	    double adjacentSide = 3.0;
+	    double adjacentLeg = 4.5;
+	    double tripodSide = 1.0;
+	    double tripodLeg = 1.0;
+	    double liftedLeg = 0.25;
+	    stiffnessArray[l][s] = liftedLeg;
+	    stiffnessArray[(l+2)%4][!s] = oppositeCorner;
+	    stiffnessArray[l][!s] = adjacentSide;
+	    stiffnessArray[(l+1)%2][s] = adjacentLeg;
+	    stiffnessArray[(l+2)%4][s] = tripodSide;
+	    stiffnessArray[(l+1)%2][!s] = tripodLeg;      
+	    impedance->adjustStiffness(stiffnessArray);
+	  }
+	  break;
+	}
+	case (SINGLE_CENTRE_LIFTED):
+	{
+	  if (walker->legSteppers[l][s].state == SWING || hexapod->legs[l][s].state == OFF)
+	  {
+	    double stiffnessArray[3][2];
+	    double oppositeSide = 1.0;
+	    double adjacentSide = 2.5;
+	    double tripod = 1.0;
+	    double liftedLeg = 1.0;
+	    stiffnessArray[l][s] = liftedLeg;
+	    stiffnessArray[l][!s] = oppositeSide;
+	    stiffnessArray[l+1][s] = adjacentSide;
+	    stiffnessArray[l-1][s] = adjacentSide;	    
+	    stiffnessArray[l+1][!s] = tripod;   
+	    stiffnessArray[l-1][!s] = tripod;
+	    impedance->adjustStiffness(stiffnessArray);
+	  }
+	  break;    
+	}
+      }      
+      
+      //if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
+      //{
         double maxForce = 0;
         double minForce = 0;
         if (useTipForce)
@@ -478,20 +550,15 @@ void StateController::impedanceControl()
         //Ensure force is within limits
         tipForce[l][s] = min(tipForce[l][s], maxForce);
         tipForce[l][s] = max(tipForce[l][s], minForce);
+      //}
+      
+      if (hexapod->legs[l][s].state == WALKING)
+      {
+	impedance->updateImpedance(l, s, tipForce, deltaZ);
       }
     }
-  }     
-  
-  vector<vector<double> > dZ(3, vector<double >(2));
-  dZ = impedance->updateImpedance(tipForce);
-  //Transform to Vector3d
-  for (int l = 0; l<3; l++)
-  {
-    for (int s = 0; s<2; s++)
-    {
-      deltaZ[l][s] = dZ[l][s]; 
-    }
   }
+  //cout << "MODE: " << loadShareMode << " - " << impedance->virtualStiffness[0][0] << " : " << impedance->virtualStiffness[0][1] << " : " << impedance->virtualStiffness[1][0] << " : " << impedance->virtualStiffness[1][1] << " : " << impedance->virtualStiffness[2][0] << " : " << impedance->virtualStiffness[2][1] << endl;	  
 }
 
 /***********************************************************************************************************************
@@ -623,7 +690,7 @@ void StateController::paramAdjust()
     }              
     //Update tip Positions for new parameter value
     double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
-    if (poser->stepToPosition(walker->identityTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
+    if (poser->stepToPosition(hexapod->stanceTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
     {    
       cout << "Parameter '" + paramString + "' set to " << roundToInt(paramScaler*100) << "% of default (" << paramVal << ").\n" << endl;
       adjustParam = false;
@@ -748,6 +815,23 @@ void StateController::publishTipForces()
     }
   }
   tipForcePublisher.publish(msg);
+}
+
+/***********************************************************************************************************************
+ * Publishes deltaZ for debugging
+***********************************************************************************************************************/
+void StateController::publishDeltaZ()
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  for (int l = 0; l<3; l++)
+  { 
+    for (int s = 0; s<2; s++)
+    {         
+      msg.data.push_back(deltaZ[l][s]);      
+    }
+  }
+  deltaZPublisher.publish(msg);
 }
 
 /***********************************************************************************************************************

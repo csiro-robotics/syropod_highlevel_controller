@@ -5,5 +5,5 @@
 	<rosparam file="$(find simple_hexapod_controller)/config/gait.yaml" command="load"/>
 	<!--node name="Hexapod" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node"/-->
 	
-	<param name="/hexapod/parameters/impedance_controller/impedance_control" value="false"/>
+	<!--param name="/hexapod/parameters/impedance_controller/impedance_control" value="false"/-->
 </launch>

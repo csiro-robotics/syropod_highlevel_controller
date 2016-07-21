@@ -31,6 +31,7 @@ struct StateController
   Gait gait = DEFAULT;
   LegSelection legSelection = NO_LEG_SELECTION;
   ParamSelection paramSelection = NO_PARAM_SELECTION;
+  LoadShareMode loadShareMode = EQUAL;
 
   Parameters params;
   Parameters defaultParams;
@@ -47,6 +48,7 @@ struct StateController
   
   ros::Publisher tipPositionPublishers[3][2];
   ros::Publisher tipForcePublisher;
+  ros::Publisher deltaZPublisher;
   
   //Trigger Flags
   bool changeGait = false;
@@ -83,7 +85,7 @@ struct StateController
   
   //Impedance control variables
   double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
-  vector<vector<double> > tipForce;
+  double tipForce[3][2] = {{0,0},{0,0},{0,0}};
   bool useTipForce = false;
   bool useJointEffort = false;
   
@@ -110,6 +112,7 @@ struct StateController
   void RVIZDebugging();
   void publishTipPositions();
   void publishTipForces();
+  void publishDeltaZ();
   
   //Loop and state functions
   void loop();

@@ -49,7 +49,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double de
     {
       for (int s = 0; s<2; s++)
       {
-        originTipPositions[l][s] = model->legs[l][s].localTipPosition;
+        originTipPositions[l][s] = model->stanceTipPositions[l][s];
         midTipPositions[l][s] = 0.5*(targetTipPositions[l][s] + originTipPositions[l][s]);
       } 
     }  
@@ -95,6 +95,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double de
   //swingIteration:  1,2,3,1,2,3,1,2,3, 1, 2, 3, 1, 2, 3, 1, 2, 3
   //following code gives this pattern for any provided value of numIterations
   int swingIterationCount = (masterIterationCount+(numIterations/int(timeLimit)-1))%(numIterations/int(timeLimit))+1;
+  Vector3d pos;
   
   //Iterate through legs (sequentially or simultaneously)   
   for (int l = 0; l<3; l++)
@@ -125,9 +126,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double de
      
       //Update leg tip position
       if (currentLegInSequence == l && currentSideInSequence == s)
-      {         
-        Vector3d pos;
-        
+      {                
         Vector3d controlNodesPrimary[4];
         Vector3d controlNodesSecondary[4];
 
@@ -167,28 +166,28 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double de
         else
         {
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
-        }        
-        
-        //DEBUGGING
-        /*
-        if (l==0 && s==0)
-        {
-          double time = (swingIterationCount < halfSwingIteration) ? swingIterationCount*deltaT*2.0 : (swingIterationCount-halfSwingIteration)*deltaT*2.0;
-          cout << "MASTER ITERATION: " << masterIterationCount << 
-          "        SWING ITERATION: " << swingIterationCount <<
-          "        TIME: " << time <<
-          "        ORIGIN: " << originTipPositions[0][0][0] << ":" << originTipPositions[0][0][1] << ":" << originTipPositions[0][0][2] <<
-          "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
-          "        TARGET: " << targetTipPositions[0][0][0] << ":" << targetTipPositions[0][0][1] << ":" << targetTipPositions[0][0][2] << endl;
-        }       
-	*/
-        //Apply inverse kinematics to localTipPositions and stanceTipPositions
-        if (model->legs[l][s].state != OFF)
-        {
-          Vector3d adjustedPos = pos;
-          adjustedPos[2] -= deltaZ[l][s]; //Impedance controller
-          model->legs[l][s].applyLocalIK(adjustedPos, true); 
-        }
+        }           
+      }
+      else
+      {
+	pos = model->stanceTipPositions[l][s];
+      }
+      
+      //DEBUGGING
+      /*
+      cout << "LEG: " << l << ":" << s <<
+      "\t\tMASTER ITERATION: " << masterIterationCount << 
+      "\t\tORIGIN: " << originTipPositions[l][s][0] << ":" << originTipPositions[l][s][1] << ":" << originTipPositions[l][s][2] <<
+      "\t\tCURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
+      "\t\tTARGET: " << targetTipPositions[l][s][0] << ":" << targetTipPositions[l][s][1] << ":" << targetTipPositions[l][s][2] << endl;   
+      */
+      
+      //Apply inverse kinematics to localTipPositions and stanceTipPositions
+      if (model->legs[l][s].state != OFF)
+      {
+	Vector3d adjustedPos = pos;
+	adjustedPos[2] -= deltaZ[l][s]; //Impedance controller
+	model->legs[l][s].applyLocalIK(adjustedPos); 
       }
     }
   }  

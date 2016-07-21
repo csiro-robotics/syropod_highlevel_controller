@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
   state.tipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions", 1000);
   
   state.tipForcePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/tip_forces", 1000);
-  
+  state.deltaZPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/delta_z", 1000);
   
   //Set ros rate from params
   ros::Rate r(roundToInt(1.0/state.params.timeDelta));
@@ -140,6 +140,7 @@ int main(int argc, char* argv[])
     //Tip position publisher for debugging
     state.publishTipPositions();  
     state.publishTipForces();
+    state.publishDeltaZ();
     
     //Debug using RVIZ
     if (state.params.debug_rviz)

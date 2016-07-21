@@ -17,23 +17,27 @@ public:
 	void init(Parameters p);
 	
 	// Calculate and return adapted position of the feet in z-direction
-	std::vector<std::vector<double> > &updateImpedance(const std::vector<std::vector<double> > &effort);
+	void updateImpedance(int l, int s, double effort[3][2], double deltaZ[3][2]);
 	
-	// Get zero leg position for inititialzing
-	std::vector<std::vector<double> > returnZeroLegMatrix(void) const;
+	// Zero leg position for inititialzing
+	void zeroLegMatrix(double inputMatrix[3][2]);
+	
+	void adjustStiffness(double stiffnessMultiplierArray[3][2]);
+	
 private:
-	Parameters PARAMS;
-	std::vector<std::vector<double> > TIP_FORCE;
-	std::vector<std::vector<state_type> > IMPEDANCE_STATE;
-	std::vector<std::vector<double> > DELTA_Z;
-	double DELTA_T;
-	double VIRT_MASS;
-	double VIRT_STIFF;
-	double VIRT_DAMP;
-	double FORCE_GAIN;
+	Parameters params;
+	
+	std::vector<std::vector<double> > tipForces;
+	std::vector<std::vector<state_type> > impedanceState;
+	
+	double deltaT;
+	double virtualMass[3][2];
+	double virtualStiffness[3][2];
+	double virtualDampingRatio[3][2];
+	double forceGain;
 	
 	// Solve ODE of the impedance controller
-	void calculateDeltaZ(int side, int leg);
+	double calculateDeltaZ(int side, int leg);
 };
 
 #endif /* IMPEDANCECONTROLLER_H_ */
