@@ -49,7 +49,8 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double de
     {
       for (int s = 0; s<2; s++)
       {
-        originTipPositions[l][s] = model->stanceTipPositions[l][s];
+        originTipPositions[l][s] = model->legs[l][s].localTipPosition;
+	originTipPositions[l][s][2] += deltaZ[l][s];
         midTipPositions[l][s] = 0.5*(targetTipPositions[l][s] + originTipPositions[l][s]);
       } 
     }  

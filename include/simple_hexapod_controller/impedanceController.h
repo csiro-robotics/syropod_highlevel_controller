@@ -3,6 +3,7 @@
 
 #include "standardIncludes.h"
 #include <boost/numeric/odeint.hpp>
+#include "walkController.h"
 
 using namespace boost::numeric::odeint;
 
@@ -14,6 +15,8 @@ public:
 	ImpedanceController(const Parameters &p);
 	~ImpedanceController();
 	
+	Parameters params;
+	
 	void init(Parameters p);
 	
 	// Calculate and return adapted position of the feet in z-direction
@@ -22,19 +25,24 @@ public:
 	// Zero leg position for inititialzing
 	void zeroLegMatrix(double inputMatrix[3][2]);
 	
-	void adjustStiffness(double stiffnessMultiplierArray[3][2]);
+	void updateStiffness(WalkController *walker);
+	
+	double virtualStiffness[3][2];	
 	
 private:
-	Parameters params;
-	
 	std::vector<std::vector<double> > tipForces;
 	std::vector<std::vector<state_type> > impedanceState;
 	
+	int loadPhaseStart;
+	int loadPhaseEnd;
+	
 	double deltaT;
 	double virtualMass[3][2];
-	double virtualStiffness[3][2];
+	
 	double virtualDampingRatio[3][2];
 	double forceGain;
+	
+	int phase[3][2];
 	
 	// Solve ODE of the impedance controller
 	double calculateDeltaZ(int side, int leg);

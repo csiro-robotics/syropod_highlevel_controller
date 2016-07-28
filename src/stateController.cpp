@@ -11,6 +11,7 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
     
   //Initiate model
   hexapod = new Model(params);  
+  imu = new Imu();
   
   //Populate joint position array with excessive value
   for (int i=0; i<18; i++)
@@ -71,7 +72,7 @@ void StateController::init()
   poser = new PoseController(hexapod, walker, params);
   impedance = new ImpedanceController(params);
         
-  setCompensationDebug(debug);
+  //setCompensationDebug(debug);
   
   //Get unpacked/packed joint positions from params
   unpackedJointPositions[0][0] = params.unpackedJointPositionsAL;
@@ -391,13 +392,14 @@ void StateController::compensation()
     Vector2d acc = walker->localCentreAcceleration;
     Vector3d deltaAngle = Vector3d(0,0,0);
     Vector3d deltaPos = Vector3d(0,0,0);
-
-    imuCompensation(Vector3d(acc[0], acc[1], 0),
+    
+    imu->imuCompensation(Vector3d(acc[0], acc[1], 0),
                 walker->angularVelocity, 
                 &deltaAngle, &deltaPos, 
                 0.0, params.timeDelta);
+    
     poser->currentPose.position = deltaPos;
-    poser->currentPose.rotation = Quat(1.0, deltaAngle[0], deltaAngle[1], deltaAngle[2]);
+    //poser->currentPose.rotation = Quat(1.0, deltaAngle[0], deltaAngle[1], deltaAngle[2]);
   }        
   //Automatic & Manual compensation running concurrently
   else if (params.autoCompensation && params.manualCompensation)
@@ -456,10 +458,14 @@ void StateController::impedanceControl()
   effortOffset[2][0] = 0;
   effortOffset[2][1] = 0;  
   
+  loadShareMode = EQUAL;
+  
+  impedance->updateStiffness(walker);
+  
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
-    {
+    {/*
       if (gait == WAVE_GAIT)
       {
 	if (legsInStance == 6 && legsOn == 6)
@@ -477,7 +483,7 @@ void StateController::impedanceControl()
 	    loadShareMode = SINGLE_CENTRE_LIFTED;
 	  }
 	}
-      }        
+      }   
 
       switch(loadShareMode)
       {
@@ -527,6 +533,7 @@ void StateController::impedanceControl()
 	  break;    
 	}
       }      
+      */
       
       //if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
       //{
@@ -728,7 +735,8 @@ void StateController::gaitChange()
         break;
     }   
     walker->setGaitParams(params);
-    poser->params = params;                 
+    poser->params = params;
+    impedance->params = params;
     cout << "Now using " << params.gaitType << " mode.\n" << endl;
     changeGait = false;
   }
@@ -832,6 +840,38 @@ void StateController::publishDeltaZ()
     }
   }
   deltaZPublisher.publish(msg);
+}
+
+/***********************************************************************************************************************
+ * Publishes current pose (roll, pitch, yaw, x, y, z) for debugging
+***********************************************************************************************************************/
+void StateController::publishPose()
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  msg.data.push_back(poser->currentPose.rotation[1]);  
+  msg.data.push_back(poser->currentPose.rotation[2]); 
+  msg.data.push_back(poser->currentPose.rotation[3]); 
+  msg.data.push_back(poser->currentPose.position[0]); 
+  msg.data.push_back(poser->currentPose.position[1]); 
+  msg.data.push_back(poser->currentPose.position[2]); 
+  posePublisher.publish(msg);
+}
+
+/***********************************************************************************************************************
+ * Publishes stiffness for debugging
+***********************************************************************************************************************/
+void StateController::publishStiffness()
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  msg.data.push_back(impedance->virtualStiffness[0][0]);  
+  msg.data.push_back(impedance->virtualStiffness[0][1]); 
+  msg.data.push_back(impedance->virtualStiffness[1][0]); 
+  msg.data.push_back(impedance->virtualStiffness[1][1]); 
+  msg.data.push_back(impedance->virtualStiffness[2][0]); 
+  msg.data.push_back(impedance->virtualStiffness[2][1]); 
+  stiffnessPublisher.publish(msg);
 }
 
 /***********************************************************************************************************************
@@ -1212,6 +1252,14 @@ void StateController::legStateCallback(const std_msgs::Bool &input)
   {
     debounce = true;
   }
+}
+
+/***********************************************************************************************************************
+ * IMU data callback
+***********************************************************************************************************************/
+void StateController::imuCallback(const sensor_msgs::Imu &imuData)
+{
+  imu->data = imuData;
 }
 
 /***********************************************************************************************************************
@@ -2215,6 +2263,45 @@ void StateController::getGaitParameters(std::string forceGait)
     cout << "Error reading parameter/s (transition_period) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
   }
+  
+  /********************************************************************************************************************/
+  
+  baseParamString = "/hexapod/dynamic_stiffness_parameters/";
+  
+  paramString = baseParamString+params.gaitType+"/loaded_phase";
+  if (!n.getParam(paramString, params.loadedPhase))
+  {
+    cout << "Error reading parameter/s (loaded_phase) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  paramString = baseParamString+params.gaitType+"/unloaded_phase";
+  if (!n.getParam(paramString, params.unloadedPhase))
+  {
+    cout << "Error reading parameter/s (unloaded_phase) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  paramString = baseParamString+params.gaitType+"/stiffness_phase_offset";
+  if (!n.getParam(paramString, params.stiffnessPhaseOffset))
+  {
+    cout << "Error reading parameter/s (stiffness_phase_offset) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  paramString = baseParamString+params.gaitType+"/stiffness_offset_multiplier";
+  if (!n.getParam(paramString, params.stiffnessOffsetMultiplier))
+  {
+    cout << "Error reading parameter/s (stiffness_offset_multiplier) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+  
+  paramString = baseParamString+params.gaitType+"/stiffness_multiplier";
+  if (!n.getParam(paramString, params.stiffnessMultiplier))
+  {
+    cout << "Error reading parameter/s (stiffness_multiplier) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }  
 }
 
 /***********************************************************************************************************************

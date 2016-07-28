@@ -44,11 +44,15 @@ struct StateController
   PoseController *poser;
   ImpedanceController *impedance;
   
+  Imu *imu;
+  
   DebugOutput debug;
   
   ros::Publisher tipPositionPublishers[3][2];
   ros::Publisher tipForcePublisher;
   ros::Publisher deltaZPublisher;
+  ros::Publisher posePublisher;
+  ros::Publisher stiffnessPublisher;
   
   //Trigger Flags
   bool changeGait = false;
@@ -113,6 +117,8 @@ struct StateController
   void publishTipPositions();
   void publishTipForces();
   void publishDeltaZ();
+  void publishPose();
+  void publishStiffness();
   
   //Loop and state functions
   void loop();
@@ -134,6 +140,7 @@ struct StateController
   
   //Callbacks
   void jointStatesCallback(const sensor_msgs::JointState &jointStates);
+  void imuCallback(const sensor_msgs::Imu &imuData);
   void tipForceCallback(const sensor_msgs::JointState &jointStates);
   void joypadVelocityCallback(const geometry_msgs::Twist &twist);
   void joypadPoseCallback(const geometry_msgs::Twist &twist);

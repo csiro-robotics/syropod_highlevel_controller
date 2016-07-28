@@ -148,6 +148,13 @@ struct Parameters
   std::vector<int> offsetMultiplier;
   double transitionPeriod;
   
+  //Dynamic Stiffness Parameters
+  double loadedPhase;
+  double unloadedPhase;
+  double stiffnessPhaseOffset;
+  std::vector<int> stiffnessOffsetMultiplier;
+  double stiffnessMultiplier;
+  
   //Debug Parameters
   bool debug_rviz;
 };

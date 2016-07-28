@@ -57,13 +57,32 @@ void ImpedanceController::zeroLegMatrix(double inputMatrix[3][2])
   inputMatrix[2][1] = 0;
 }
 
-void ImpedanceController::adjustStiffness(double stiffnessMultiplierArray[3][2])
-{
+void ImpedanceController::updateStiffness(WalkController *walker)
+{  
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {
-      virtualStiffness[l][s] = params.virtualStiffness*stiffnessMultiplierArray[l][s];
+      //For more future control of stiffness - use bezier curves with leg specific control points
+      int basePhaselength = params.unloadedPhase + params.loadedPhase;
+      int normaliser = walker->phaseLength/basePhaselength;
+      int index = 2*l+s;
+      int offset = params.stiffnessPhaseOffset*params.stiffnessOffsetMultiplier[index];
+      
+      int loadPhaseStart = (params.unloadedPhase*0.5 + offset)*normaliser;
+      int loadPhaseEnd = (loadPhaseStart + params.loadedPhase + offset)*normaliser;
+      
+      if (params.stiffnessOffsetMultiplier[index] >= 0)
+      {	
+	if (walker->legSteppers[l][s].phase > loadPhaseStart && walker->legSteppers[l][s].phase < loadPhaseEnd)
+	{
+	  virtualStiffness[l][s] = params.virtualStiffness * params.stiffnessMultiplier;
+	}
+	else
+	{
+	  virtualStiffness[l][s] = params.virtualStiffness;
+	}
+      }
     }
-  }  
+  }
 }
