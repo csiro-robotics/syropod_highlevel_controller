@@ -69,12 +69,20 @@ void ImpedanceController::updateStiffness(WalkController *walker)
       int index = 2*l+s;
       int offset = params.stiffnessPhaseOffset*params.stiffnessOffsetMultiplier[index];
       
-      int loadPhaseStart = (params.unloadedPhase*0.5 + offset)*normaliser;
-      int loadPhaseEnd = (loadPhaseStart + params.loadedPhase + offset)*normaliser;
+      int loadPhaseStart = params.unloadedPhase*0.5*normaliser;
+      int loadPhaseEnd = loadPhaseStart + params.loadedPhase*normaliser;
       
-      if (params.stiffnessOffsetMultiplier[index] >= 0)
+      int phase = (walker->legSteppers[0][0].phase + offset*normaliser)%walker->phaseLength;
+      /*
+      if (s==1 && l==1)
+	cout << "\t11: " << walker->legSteppers[0][0].phase << " - " << phase;
+      
+      if (s==0 && l==1)
+	cout << " \t10: " << walker->legSteppers[0][0].phase << " - " << phase;
+      */
+      if (walker->state != STOPPED && params.stiffnessOffsetMultiplier[index] >= 0)
       {	
-	if (walker->legSteppers[l][s].phase > loadPhaseStart && walker->legSteppers[l][s].phase < loadPhaseEnd)
+	if (phase > loadPhaseStart && phase < loadPhaseEnd)
 	{
 	  virtualStiffness[l][s] = params.virtualStiffness * params.stiffnessMultiplier;
 	}
@@ -82,6 +90,10 @@ void ImpedanceController::updateStiffness(WalkController *walker)
 	{
 	  virtualStiffness[l][s] = params.virtualStiffness;
 	}
+      }
+      else
+      {
+	virtualStiffness[l][s] = params.virtualStiffness;
       }
     }
   }

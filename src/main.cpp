@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
   
   ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, &StateController::joypadVelocityCallback, &state);
   ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, &StateController::joypadPoseCallback, &state);
-  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, &StateController::imuCallback, &state);
+  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, &StateController::imuCallback, &state);
   //ros::Subscriber imuControlSubscriber = n.subscribe("/joy", 1, &StateController::imuControllerCallback);
   ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, &StateController::legSelectionCallback, &state);
   ros::Subscriber legStateSubscriber = n.subscribe("hexapod_remote/leg_state_toggle", 1, &StateController::legStateCallback, &state);

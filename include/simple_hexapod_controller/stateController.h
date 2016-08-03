@@ -58,6 +58,7 @@ struct StateController
   bool changeGait = false;
   bool toggleLegState = false;
   bool adjustParam = false;
+  bool unstable = false;
   
   //Joint states callback variables
   //sensor_msgs::JointState jointStates;

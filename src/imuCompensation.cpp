@@ -87,6 +87,7 @@ void Imu::imuCompensation(const Vector3d &targetAccel, double targetAngularVel, 
   
   static Vector3d angularVel(0,0,0);
   adjust.rotation=Quat(Vector3d(0,0,0));
+  static Vector3d IMUAbs(0,0,0);
   static Vector3d IMUPos(0,0,0);
   static Vector3d IMUVel(0,0,0);
   
@@ -177,19 +178,31 @@ void Imu::imuCompensation(const Vector3d &targetAccel, double targetAngularVel, 
   offsetPos = IMUPos + controlPositionDelta;
   
 #elif defined(IMUINTEGRATION_FIRST_ORDER)
-  double imuStrength = 0.0;
+  double kD = 0.00;
   double decayRate = 2.3; 
-  double stiffness = 0.35; 
+  double kP = 0.25; 
+  double kI = 0.0;
   //double stiffness = 0; 
-  IMUVel += (accel - targetAccel - Vector3d(0, 0, 9.76))*timeDelta - decayRate*timeDelta*IMUVel;
+  Vector3d dynamicLinearAcc = removeGravity(orient, accel);
+  
+  IMUVel += (dynamicLinearAcc - targetAccel)*timeDelta - decayRate*timeDelta*IMUVel;
   IMUPos += IMUVel*timeDelta - decayRate*timeDelta*IMUPos;
+  IMUAbs += IMUPos*timeDelta;
+  
+  //cout << targetAccel[0] << "\t" << targetAccel[1] << "\t" << targetAccel[2] << endl;
+  //cout << "ABS: " << IMUAbs[2] << "\tPOS: " << IMUPos[2] << "\tVEL: " << IMUVel[2] << "\tACC: " << dynamicLinearAcc[2] << endl;
+  //cout << "X: " << dynamicLinearAcc[0] << "\tY: " << dynamicLinearAcc[1] << "\tZ: " << dynamicLinearAcc[2] << endl;
   //IMUVel = (IMUVel + (targetAccel+accel-Vector3d(0, 0, 9.8))*timeDelta)/(1.0 + decayRate*timeDelta);  
   //Vector3d offsetAcc = -imuStrength*(IMUVel + (accel-Vector3d(0,0,9.8))*0.06);
   
-  Vector3d offsetPos = -imuStrength*IMUVel - (stiffness + pIncrement)*IMUPos;
+  Vector3d offsetPos = kD*IMUVel + (kP + pIncrement)*IMUPos + kI*IMUAbs;
+  offsetPos[0] *= -1; //???
+  Vector3d offsetAng = dynamicLinearAcc;
+  
+  cout << "IMUVel: " << IMUVel[0] << "\t" << IMUVel[1];
 
 #if defined(ANGULAR_COMPENSATION)
-  double angularD = 1.00;
+  double angularD = 0.00;
   double angularP = 1.00;
 
   Quat targetOrient(1,0,0,0);
@@ -207,7 +220,7 @@ void Imu::imuCompensation(const Vector3d &targetAccel, double targetAngularVel, 
   diffVec[2] = 0.0;    
   angVel[2] = 0.0;  
   
-  Vector3d offsetAng = angularD*angVel + angularP*diffVec;
+  //Vector3d offsetAng = angularD*angVel + angularP*diffVec;
 #endif
   
 #elif defined(FILTERED_DELAY_RESPONSE)
@@ -227,9 +240,21 @@ Vector3d desiredPosition(0.0, 0.0, 0.0);
 #endif  
   //adjust.rotation*= Quat(rotation);    
   *deltaAngle = offsetAng;
-  *deltaPos = -offsetPos; //Negative to work
+  *deltaPos = offsetPos; //Negative to work
  
   
+}
+
+/***********************************************************************************************************************
+ * 
+***********************************************************************************************************************/
+Vector3d Imu::removeGravity(Quat orientation, Vector3d linearAcceleration)
+{
+  Vector3d gravity = {0.0,0.0,-9.78575};
+  
+  Vector3d orientedAcc = orientation.rotateVector(linearAcceleration);
+  
+  return orientedAcc - gravity;
 }
 
 /***********************************************************************************************************************

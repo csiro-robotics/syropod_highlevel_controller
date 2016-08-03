@@ -398,8 +398,25 @@ void StateController::compensation()
                 &deltaAngle, &deltaPos, 
                 0.0, params.timeDelta);
     
-    poser->currentPose.position = deltaPos;
-    //poser->currentPose.rotation = Quat(1.0, deltaAngle[0], deltaAngle[1], deltaAngle[2]);
+    
+    if (deltaPos.norm() < 100 && !unstable)
+    {
+      //cout << deltaPos.norm() << endl;
+      cout << "\tVEL: " << walker->localCentreVelocity[0] << "\t" << walker->localCentreVelocity[1] << endl;
+      poser->currentPose.position = deltaPos;
+      poser->currentPose.position[2] = 0;
+      //cout << deltaPos[0] << " : " << deltaPos[1] << " : " << deltaPos[2] << endl;
+      //poser->currentPose.rotation = Quat(1.0, deltaAngle[0], deltaAngle[1], deltaAngle[2]);
+    }
+    else
+    {
+      cout << "KILLED" << endl;
+      unstable = true;
+      poser->currentPose.position = Vector3d(0,0,0);
+      //poser->currentPose.rotation = Quat(1,0,0,0);
+    }
+    //double scaler = -1.0;
+    
   }        
   //Automatic & Manual compensation running concurrently
   else if (params.autoCompensation && params.manualCompensation)
@@ -460,7 +477,7 @@ void StateController::impedanceControl()
   
   loadShareMode = EQUAL;
   
-  impedance->updateStiffness(walker);
+  //impedance->updateStiffness(walker);
   
   for (int l = 0; l<3; l++)
   {
@@ -535,8 +552,8 @@ void StateController::impedanceControl()
       }      
       */
       
-      //if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
-      //{
+      if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
+      {
         double maxForce = 0;
         double minForce = 0;
         if (useTipForce)
@@ -557,7 +574,7 @@ void StateController::impedanceControl()
         //Ensure force is within limits
         tipForce[l][s] = min(tipForce[l][s], maxForce);
         tipForce[l][s] = max(tipForce[l][s], minForce);
-      //}
+      }
       
       if (hexapod->legs[l][s].state == WALKING)
       {

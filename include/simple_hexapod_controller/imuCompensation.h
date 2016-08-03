@@ -17,6 +17,7 @@ public:
   void calculatePassiveAngularFrequency(double timeDelta);
   
   Vector3d gaussianMean(double time, double timeStandardDeviation, double omega);
+  Vector3d removeGravity(Quat orientation, Vector3d linearAcceleration);
   
   vector<Vector2d> queueToVector(const vector<Vector2d> &queue, int head, int tail);
   
