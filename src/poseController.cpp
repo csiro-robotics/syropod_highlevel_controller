@@ -167,21 +167,22 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double de
         else
         {
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
-        }           
+        }    
+        /*
+        //DEBUGGING
+        cout << "LEG: " << l << ":" << s <<
+	"\t\tMASTER ITERATION: " << masterIterationCount << 
+	"\t\tORIGIN: " << originTipPositions[l][s][0] << ":" << originTipPositions[l][s][1] << ":" << originTipPositions[l][s][2] <<
+	"\t\tCURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
+	"\t\tTARGET: " << targetTipPositions[l][s][0] << ":" << targetTipPositions[l][s][1] << ":" << targetTipPositions[l][s][2] << endl;  
+	//DEBUGGING
+	*/
       }
       else
       {
-	pos = model->stanceTipPositions[l][s];
+	//pos = model->stanceTipPositions[l][s];
+	pos = model->localTipPositions[l][s];
       }
-      
-      //DEBUGGING
-      /*
-      cout << "LEG: " << l << ":" << s <<
-      "\t\tMASTER ITERATION: " << masterIterationCount << 
-      "\t\tORIGIN: " << originTipPositions[l][s][0] << ":" << originTipPositions[l][s][1] << ":" << originTipPositions[l][s][2] <<
-      "\t\tCURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
-      "\t\tTARGET: " << targetTipPositions[l][s][0] << ":" << targetTipPositions[l][s][1] << ":" << targetTipPositions[l][s][2] << endl;   
-      */
       
       //Apply inverse kinematics to localTipPositions and stanceTipPositions
       if (model->legs[l][s].state != OFF)
@@ -246,9 +247,8 @@ bool PoseController::moveToJointPosition(Vector3d targetJointPositions[3][2], do
       
       //Calculate change in position using bezier curve
       pos = cubicBezier(controlNodes, masterIterationCount*deltaT); 
-      
-      //DEBUGGING
       /*
+      //DEBUGGING
       if (l==0 && s==0)
       {
         double time = masterIterationCount*deltaT;
@@ -258,8 +258,7 @@ bool PoseController::moveToJointPosition(Vector3d targetJointPositions[3][2], do
         "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
         "        TARGET: " << targetJointPositions[0][0][0] << ":" << targetJointPositions[0][0][1] << ":" << targetJointPositions[0][0][2] << endl;
       }   
-      */
-        
+      */ 
       model->legs[l][s].yaw = pos[0];
       model->legs[l][s].liftAngle = pos[1];
       model->legs[l][s].kneeAngle = pos[2];
@@ -406,7 +405,9 @@ double PoseController::createSequence(Vector3d targetTipPositions[3][2])
   }
   
   double liftAngle = pi/3;
-  double  desKneeAngle = liftAngle+asin(model->legs[0][0].femurLength/(model->legs[0][0].tibiaLength*sqrt(2)));
+  double  desKneeAngle = liftAngle+asin(model->legs[0][0].femurLength*sin(liftAngle)/model->legs[0][0].tibiaLength);
+  double offset = atan2(model->legs[0][0].tipOffset[2],model->legs[0][0].tipOffset[0]);
+  desKneeAngle += offset;
   Vector3d minStartTipPositions = model->legs[0][0].calculateFK(0.77,liftAngle,desKneeAngle);
   double startStanceRatio = minStartTipPositions.squaredNorm()/targetTipPositions[0][0].squaredNorm();
  

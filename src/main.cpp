@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
   
   ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, &StateController::joypadVelocityCallback, &state);
   ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, &StateController::joypadPoseCallback, &state);
-  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data_ned", 1, &StateController::imuCallback, &state);
+  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, &StateController::imuCallback, &state);
   //ros::Subscriber imuControlSubscriber = n.subscribe("/joy", 1, &StateController::imuControllerCallback);
   ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, &StateController::legSelectionCallback, &state);
   ros::Subscriber legStateSubscriber = n.subscribe("hexapod_remote/leg_state_toggle", 1, &StateController::legStateCallback, &state);
@@ -42,6 +42,8 @@ int main(int argc, char* argv[])
   state.deltaZPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/delta_z", 1000);
   state.posePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/pose", 1000);
   state.stiffnessPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/stiffness", 1000);
+  state.rotationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rotation_pose_error", 1000);
+  state.translationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/translation_pose_error", 1000);
   
   //Set ros rate from params
   ros::Rate r(roundToInt(1.0/state.params.timeDelta));
@@ -136,6 +138,14 @@ int main(int argc, char* argv[])
   //Enter ros loop
   while (ros::ok())
   {
+    
+    if (!state.startFlag)
+    {
+      cout << "Received shutdown order - shutting down the controller!\n" << endl;
+      ros::shutdown();
+    }
+    
+    
     //State machine (state updating loop)
     state.loop();
     
@@ -145,6 +155,8 @@ int main(int argc, char* argv[])
     state.publishDeltaZ();
     state.publishPose();
     state.publishStiffness();
+    state.publishRotationPoseError();
+    state.publishTranslationPoseError();
     
     //Debug using RVIZ
     if (state.params.debug_rviz)

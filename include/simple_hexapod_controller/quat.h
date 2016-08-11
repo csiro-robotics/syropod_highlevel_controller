@@ -154,6 +154,17 @@ struct Quat
       return axis * (2 * atan2(mag, w) / mag);
     return Vector3d::Zero();
   }
+  
+  Vector3d toEulerAngles() const
+  {
+    double q[4] = {w, x, y, z};
+    Vector3d eulerAngles;
+    eulerAngles[0] = atan2(2*(q[0]*q[1] + q[2]*q[3]), 1 - 2*(q[1]*q[1] + q[2]*q[2]));
+    eulerAngles[1] = asin(2*(q[0]*q[2] - q[3]*q[1]));
+    eulerAngles[2] = atan2(2*(q[0]*q[3] + q[1]*q[2]), 1 - 2*(q[2]*q[2] + q[3]*q[3]));
+    return eulerAngles;
+  }
+  
   inline Matrix3d toRotationMatrix() const
   {
     Matrix3d result;

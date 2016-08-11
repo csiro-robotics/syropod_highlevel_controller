@@ -31,15 +31,15 @@ Hexapod Parameters:
     
   /hexapod/parameters/physical_leg_offsets/hip_offset_**:       
     3D vector describing the physical offset (in metres) of the hip (second joint) of each leg from
-    the root joint of the same leg.
+    the root joint of the same leg at a root joint value of zero.
     
   /hexapod/parameters/physical_leg_offsets/knee_offset_**:      
     3D vector describing the physical offset (in metres) of the knee (third joint) of each leg from
-    the hip joint of the same leg.
+    the hip joint of the same leg at a hip joint value of zero.
     
   /hexapod/parameters/physical_leg_offsets/tip_offset_**:
     3D vector describing the physical offset (in metres) of the tip of each leg from the knee joint
-    of the same leg.
+    of the same leg at a knee joint value of zero.
   
   /hexapod/parameters/stance_leg_yaws:                  
     Denotes the required default stance offset angle (radians) of the yaw joint 'zero' from the 

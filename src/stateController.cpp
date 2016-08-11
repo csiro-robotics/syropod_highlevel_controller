@@ -9,9 +9,9 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
   getParameters();
   defaultParams = params;
     
-  //Initiate model
-  hexapod = new Model(params);  
-  imu = new Imu();
+  //Initiate model and imu objects
+  hexapod = new Model(params); 
+  imu = new Imu(params);
   
   //Populate joint position array with excessive value
   for (int i=0; i<18; i++)
@@ -71,8 +71,8 @@ void StateController::init()
   walker = new WalkController(hexapod, params);
   poser = new PoseController(hexapod, walker, params);
   impedance = new ImpedanceController(params);
-        
-  //setCompensationDebug(debug);
+  
+  imu->setCompensationDebug(debug);
   
   //Get unpacked/packed joint positions from params
   unpackedJointPositions[0][0] = params.unpackedJointPositionsAL;
@@ -134,7 +134,7 @@ void StateController::setJointPositions(bool useDefaults)
       int index = leg*6+(side == 0 ? 0 : 3);
       hexapod->setLegStartAngles(side, leg, dir*Vector3d(jointPositions[index+0]+dir*params.physicalYawOffset[leg],
                                                         -jointPositions[index+1], 
-                                                        jointPositions[index+2]));
+                                                        jointPositions[index+2]+dir*params.physicalKneeOffset));
     }
   }  
 }
@@ -387,36 +387,43 @@ void StateController::compensation()
 {
   //Auto Compensation using IMU feedback
   if (params.imuCompensation)
-  {  
-    //NEEDS REFACTORING
-    Vector2d acc = walker->localCentreAcceleration;
-    Vector3d deltaAngle = Vector3d(0,0,0);
-    Vector3d deltaPos = Vector3d(0,0,0);
+  {    
+    Quat targetRotation = Quat(1,0,0,0); //TBD define targetRotation according to manual pose pitch/roll input
+    Vector3d targetTranslation = Vector3d(0,0,0); //TBD define targetTranslation according to manual x/y/z pose input
     
-    imu->imuCompensation(Vector3d(acc[0], acc[1], 0),
-                walker->angularVelocity, 
-                &deltaAngle, &deltaPos, 
-                0.0, params.timeDelta);
+    Vector3d rotationCorrection = imu->getRotationCompensation(targetRotation);
+    Vector3d translationCorrection = imu->getTranslationCompensation(targetTranslation);
     
+    double stabilityThreshold = 100;
     
-    if (deltaPos.norm() < 100 && !unstable)
+    if (unstable)
     {
-      //cout << deltaPos.norm() << endl;
-      cout << "\tVEL: " << walker->localCentreVelocity[0] << "\t" << walker->localCentreVelocity[1] << endl;
-      poser->currentPose.position = deltaPos;
-      poser->currentPose.position[2] = 0;
-      //cout << deltaPos[0] << " : " << deltaPos[1] << " : " << deltaPos[2] << endl;
-      //poser->currentPose.rotation = Quat(1.0, deltaAngle[0], deltaAngle[1], deltaAngle[2]);
+      if (poser->manualCompensation(Pose::identity(), poseTimeJoy/sqrt(params.stepFrequency)))
+      {
+	cout << "Returned to default pose. IMU compensation now re-enabled.\n" << endl;
+	unstable = false;
+      }
+    }
+    else if (translationCorrection.norm() > stabilityThreshold && !unstable)
+    {
+      cout << "IMU translation compensation became unstable! Adjust PID Parameters." << endl;
+      cout << "Transitioning to default pose.\n" << endl;
+      unstable = true;
+    }
+    else if (rotationCorrection.norm() > stabilityThreshold && !unstable)
+    {
+      cout << "IMU rotation compensation became unstable! Adjust PID parameters." << endl;
+      cout << "Transitioning to default pose.\n" << endl;
+      unstable = true;      
     }
     else
-    {
-      cout << "KILLED" << endl;
-      unstable = true;
-      poser->currentPose.position = Vector3d(0,0,0);
-      //poser->currentPose.rotation = Quat(1,0,0,0);
-    }
-    //double scaler = -1.0;
-    
+    { 
+      if (walker->state == STOPPED)
+      {
+	poser->currentPose.position = translationCorrection; //Currently does not correctly work whilst walking
+      }
+      poser->currentPose.rotation = Quat(1.0, rotationCorrection[0], rotationCorrection[1], 0);
+    } 
   }        
   //Automatic & Manual compensation running concurrently
   else if (params.autoCompensation && params.manualCompensation)
@@ -892,6 +899,44 @@ void StateController::publishStiffness()
 }
 
 /***********************************************************************************************************************
+ * Publishes pose angle and position error for debugging
+***********************************************************************************************************************/
+void StateController::publishRotationPoseError()
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  msg.data.push_back(imu->rotationPositionError[0]);  
+  msg.data.push_back(imu->rotationPositionError[1]); 
+  msg.data.push_back(imu->rotationPositionError[2]); 
+  msg.data.push_back(imu->rotationVelocityError[0]);
+  msg.data.push_back(imu->rotationVelocityError[1]);
+  msg.data.push_back(imu->rotationVelocityError[2]);
+  msg.data.push_back(imu->rotationAbsementError[0]);
+  msg.data.push_back(imu->rotationAbsementError[1]);
+  msg.data.push_back(imu->rotationAbsementError[2]);  
+  rotationPoseErrorPublisher.publish(msg);
+}
+
+/***********************************************************************************************************************
+ * Publishes pose angle and position error for debugging
+***********************************************************************************************************************/
+void StateController::publishTranslationPoseError()
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  msg.data.push_back(imu->translationPositionError[0]);  
+  msg.data.push_back(imu->translationPositionError[1]); 
+  msg.data.push_back(imu->translationPositionError[2]); 
+  msg.data.push_back(imu->translationVelocityError[0]);
+  msg.data.push_back(imu->translationVelocityError[1]);
+  msg.data.push_back(imu->translationVelocityError[2]);
+  msg.data.push_back(imu->translationAccelerationError[0]);
+  msg.data.push_back(imu->translationAccelerationError[1]);
+  msg.data.push_back(imu->translationAccelerationError[2]);  
+  translationPoseErrorPublisher.publish(msg);
+}
+
+/***********************************************************************************************************************
  * Draws robot in RVIZ for debugging
 ***********************************************************************************************************************/
 void StateController::RVIZDebugging()
@@ -934,7 +979,7 @@ void StateController::publishJointValues()
     {            
       double yaw = dir*(hexapod->legs[l][s].yaw - params.physicalYawOffset[l]);
       double lift = dir*hexapod->legs[l][s].liftAngle;
-      double knee = dir*hexapod->legs[l][s].kneeAngle;
+      double knee = dir*hexapod->legs[l][s].kneeAngle - dir*params.physicalKneeOffset;
       
       double yawVel = 0;
       double liftVel = 0;
@@ -1817,13 +1862,21 @@ void StateController::getParameters()
   std::vector<double> physicalYawOffset(3);
   if(!n.getParam(baseParamString+"physical_yaw_offset", physicalYawOffset))
   {
-    cout << "Error reading parameter/s (stance_leg_yaws) from rosparam" <<endl; 
+    cout << "Error reading parameter/s (physical_yaw_offset) from rosparam" <<endl; 
     cout << "Check config file is loaded and type is correct" << endl;
   }
   else
   {
     params.physicalYawOffset = Map<Vector3d>(&physicalYawOffset[0], 3);
   }
+  
+  //Knee Offset parameter
+  if(!n.getParam(baseParamString+"physical_knee_offset", params.physicalKneeOffset))
+  {
+    cout << "Error reading parameter/s (physical_knee_offset) from rosparam" <<endl; 
+    cout << "Check config file is loaded and type is correct" << endl;
+  }
+
   /********************************************************************************************************************/
   //Joint Limit Parameters  
   paramString = baseParamString+"/joint_limits/";
@@ -1957,6 +2010,47 @@ void StateController::getParameters()
     cout << "Check config file is loaded and type is correct" << endl;  
   }
   
+  //IMU compensation parameters
+  //Translation compensation
+  paramString = baseParamString+"/pose_controller/imu_pose_compensation/translation_compensation/";
+  if(!n.getParam(paramString+"proportional_gain", params.translationCompensationProportionalGain))
+  {
+    cout << "Error reading parameter/s (translation_compensation/proportional_gain) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam(paramString+"integral_gain", params.translationCompensationIntegralGain))
+  {
+    cout << "Error reading parameter/s (translation_compensation/integral_gain) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam(paramString+"derivative_gain", params.translationCompensationDerivativeGain))
+  {
+    cout << "Error reading parameter/s (translation_compensation/derivative_gain) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }  
+  //Rotation Compensation
+  paramString = baseParamString+"/pose_controller/imu_pose_compensation/rotation_compensation/";
+  if(!n.getParam(paramString+"proportional_gain", params.rotationCompensationProportionalGain))
+  {
+    cout << "Error reading parameter/s (rotation_compensation/proportional_gain) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam(paramString+"integral_gain", params.rotationCompensationIntegralGain))
+  {
+    cout << "Error reading parameter/s (rotation_compensation/integral_gain) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }
+  
+  if(!n.getParam(paramString+"derivative_gain", params.rotationCompensationDerivativeGain))
+  {
+    cout << "Error reading parameter/s (rotation_compensation/derivative_gain) from rosparam" << endl;
+    cout << "Check config file is loaded and type is correct" << endl;  
+  }  
+  
+  //Auto compensation parameters
   paramString = baseParamString+"/pose_controller/auto_pose_compensation/";
   if(!n.getParam(paramString+"pitch_amplitude", params.pitchAmplitude))
   {
@@ -1970,6 +2064,7 @@ void StateController::getParameters()
     cout << "Check config file is loaded and type is correct" << endl;  
   }
   
+  //Manual compensation parameters
   paramString = baseParamString+"/pose_controller/manual_pose_compensation/";
   if (!n.getParam(paramString+"max_pose_time", params.maxPoseTime))
   {

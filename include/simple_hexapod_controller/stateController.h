@@ -47,12 +47,15 @@ struct StateController
   Imu *imu;
   
   DebugOutput debug;
+  int count = 0;
   
   ros::Publisher tipPositionPublishers[3][2];
   ros::Publisher tipForcePublisher;
   ros::Publisher deltaZPublisher;
   ros::Publisher posePublisher;
   ros::Publisher stiffnessPublisher;
+  ros::Publisher rotationPoseErrorPublisher;  
+  ros::Publisher translationPoseErrorPublisher; 
   
   //Trigger Flags
   bool changeGait = false;
@@ -120,6 +123,8 @@ struct StateController
   void publishDeltaZ();
   void publishPose();
   void publishStiffness();
+  void publishRotationPoseError();
+  void publishTranslationPoseError();
   
   //Loop and state functions
   void loop();

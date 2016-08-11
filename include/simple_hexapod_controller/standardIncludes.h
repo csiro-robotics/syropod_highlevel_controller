@@ -87,6 +87,7 @@ struct Parameters
   Vector3d tipOffset[3][2];
   Vector3d stanceLegYaws;
   Vector3d physicalYawOffset;
+  double physicalKneeOffset;
   Vector3d yawLimits;
   Vector2d kneeLimits;
   Vector2d hipLimits;
@@ -109,8 +110,17 @@ struct Parameters
   bool startUpSequence;
   bool moveLegsSequentially;
   double timeToStart;
+  
+  double rotationCompensationProportionalGain;
+  double rotationCompensationIntegralGain;
+  double rotationCompensationDerivativeGain;
+  double translationCompensationProportionalGain;
+  double translationCompensationIntegralGain;
+  double translationCompensationDerivativeGain;  
+  
   double pitchAmplitude;
   double rollAmplitude;
+  
   double maxPoseTime;
   double maxRoll;
   double maxPitch;
@@ -119,6 +129,7 @@ struct Parameters
   double maxY;
   double maxZ;
   double minZ;
+  
   Vector3d packedJointPositionsAL;
   Vector3d packedJointPositionsAR;
   Vector3d packedJointPositionsBL;

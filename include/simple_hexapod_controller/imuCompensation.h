@@ -8,10 +8,15 @@
 struct Imu
 {
 public:
-  Imu(void);
+  Imu(Parameters p);
   ~Imu();
   
-  void imuCompensation(const Vector3d &targetAccel, double targetAngularVel, Vector3d *deltaAngle, Vector3d *deltaPos, double pIncrement, double timeDelta);
+  void init(Parameters p);
+  
+  Vector3d getRotationCompensation(Quat targetRotation);
+  Vector3d getTranslationCompensation(Vector3d targetTranslation);
+  
+  void imuCompensation(const Vector3d &targetAccel, double targetAngularVel, double timeDelta);
   void setCompensationDebug(DebugOutput &debug);
   
   void calculatePassiveAngularFrequency(double timeDelta);
@@ -23,9 +28,8 @@ public:
   
   sensor_msgs::Imu data;
   
-  // target rather than measured data
-  Vector3d offsetPos;
-  Vector3d offsetVel;
+  Parameters params;
+  
   DebugOutput *debugDraw = NULL;
   
   const int numAccs = 500;
@@ -50,4 +54,16 @@ public:
   Vector2d totalPhase;
   double totalNumerator = 0;
   double totalDenominator = 0;
+  
+  Vector3d rotationAbsementError;
+  Vector3d rotationPositionError;
+  Vector3d rotationVelocityError;
+  
+  Vector3d translationAbsementError;
+  Vector3d translationPositionError;
+  Vector3d translationVelocityError;
+  Vector3d translationAccelerationError;
+  
+  //Vector3d translationCorrection; //Translation compensation output
+  //Vector3d rotationCorrection;	//Rotation compensation output  
 };
