@@ -48,6 +48,7 @@ hexapod:
 
     stance_leg_yaws: [0.785, 0.0, -0.785] #[0.5233, 0, -0.5233]
     physical_yaw_offset: [0.0, 0.0, 0.0]
+    physical_knee_offset: 0.0
 
     joint_limits:
       yaw_limits: [0.785, 0.785, 0.785]
@@ -85,6 +86,17 @@ hexapod:
       start_up_sequence: false #DO NOT USE
       move_legs_sequentially: false
       time_to_start: 12.0
+      
+    #IMU pose compensation
+      imu_pose_compensation:
+        translation_compensation: #Turn off by setting all gains to zero
+          proportional_gain: 0.0
+          integral_gain: 0.0
+          derivative_gain: 0.0
+        rotation_compensation: #Turn off by setting all gains to zero
+          proportional_gain: 0.0
+          integral_gain: 0.0
+          derivative_gain: 0.0    
 
     #Auto pose compensation
       auto_pose_compensation:

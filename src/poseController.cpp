@@ -39,7 +39,11 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
 /***********************************************************************************************************************
  * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
-bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], double deltaZ[3][2], int mode, double liftHeight, double timeToStep)
+bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], 
+				    double deltaZ[3][2], 
+				    int mode, 
+				    double liftHeight, 
+				    double timeToStep)
 { 
   if (firstIteration)
   {       

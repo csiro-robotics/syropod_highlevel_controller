@@ -53,6 +53,7 @@ struct StateController
   ros::Publisher tipForcePublisher;
   ros::Publisher deltaZPublisher;
   ros::Publisher posePublisher;
+  ros::Publisher IMURotationPublisher;
   ros::Publisher stiffnessPublisher;
   ros::Publisher rotationPoseErrorPublisher;  
   ros::Publisher translationPoseErrorPublisher; 
@@ -122,6 +123,7 @@ struct StateController
   void publishTipForces();
   void publishDeltaZ();
   void publishPose();
+  void publishIMURotation();
   void publishStiffness();
   void publishRotationPoseError();
   void publishTranslationPoseError();

@@ -482,105 +482,47 @@ void StateController::impedanceControl()
   effortOffset[2][0] = 0;
   effortOffset[2][1] = 0;  
   
-  loadShareMode = EQUAL;
-  
-  //impedance->updateStiffness(walker);
+  bool dynamicStiffness = false; 
+  if (dynamicStiffness)
+  {
+    bool imuFeedback = false; // NOT READY YET
+    if (imuFeedback)
+    {
+      Vector3d identityTipPositions[3][2] = walker->identityTipPositions;
+      impedance->updateStiffness(imu, identityTipPositions);      
+    } 
+    else
+    {
+      impedance->updateStiffness(walker);
+    }
+  }
   
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
-    {/*
-      if (gait == WAVE_GAIT)
+    {  
+      if ((dynamicStiffness && walker->legSteppers[l][s].state != SWING) || legsInStance == 6)
       {
-	if (legsInStance == 6 && legsOn == 6)
+	double maxForce = 0;
+	double minForce = 0;
+	if (useTipForce)
 	{
-	  loadShareMode = EQUAL;
+	  double forceOffset = 1255.0;   
+	  tipForce[l][s] = tipForces[2*l+s] - forceOffset;
+	  maxForce = 1000.0;
+	  minForce = 0.0;
 	}
-	else if (walker->legSteppers[l][s].state == SWING || hexapod->legs[l][s].state == OFF)
-	{
-	  if (l != 1)
-	  {
-	    loadShareMode = SINGLE_CORNER_LIFTED;
-	  }
-	  else
-	  {
-	    loadShareMode = SINGLE_CENTRE_LIFTED;
-	  }
-	}
-      }   
-
-      switch(loadShareMode)
-      {
-	case (EQUAL):
-	{
-	  double stiffnessArray[3][2] = {{1.0,1.0},{1.0,1.0},{1.0,1.0}};
-	  impedance->adjustStiffness(stiffnessArray);      
-	}
-	case (SINGLE_CORNER_LIFTED):
-	{
-	  if (walker->legSteppers[l][s].state == SWING || hexapod->legs[l][s].state == OFF)
-	  {
-	    double stiffnessArray[3][2];
-	    double oppositeCorner = 1.0;
-	    double adjacentSide = 3.0;
-	    double adjacentLeg = 4.5;
-	    double tripodSide = 1.0;
-	    double tripodLeg = 1.0;
-	    double liftedLeg = 0.25;
-	    stiffnessArray[l][s] = liftedLeg;
-	    stiffnessArray[(l+2)%4][!s] = oppositeCorner;
-	    stiffnessArray[l][!s] = adjacentSide;
-	    stiffnessArray[(l+1)%2][s] = adjacentLeg;
-	    stiffnessArray[(l+2)%4][s] = tripodSide;
-	    stiffnessArray[(l+1)%2][!s] = tripodLeg;      
-	    impedance->adjustStiffness(stiffnessArray);
-	  }
-	  break;
-	}
-	case (SINGLE_CENTRE_LIFTED):
-	{
-	  if (walker->legSteppers[l][s].state == SWING || hexapod->legs[l][s].state == OFF)
-	  {
-	    double stiffnessArray[3][2];
-	    double oppositeSide = 1.0;
-	    double adjacentSide = 2.5;
-	    double tripod = 1.0;
-	    double liftedLeg = 1.0;
-	    stiffnessArray[l][s] = liftedLeg;
-	    stiffnessArray[l][!s] = oppositeSide;
-	    stiffnessArray[l+1][s] = adjacentSide;
-	    stiffnessArray[l-1][s] = adjacentSide;	    
-	    stiffnessArray[l+1][!s] = tripod;   
-	    stiffnessArray[l-1][!s] = tripod;
-	    impedance->adjustStiffness(stiffnessArray);
-	  }
-	  break;    
-	}
-      }      
-      */
-      
-      if (walker->legSteppers[l][s].state == SWING || legsInStance == 6)
-      {
-        double maxForce = 0;
-        double minForce = 0;
-        if (useTipForce)
-        {
-          double forceOffset = 1255.0;   
-          tipForce[l][s] = tipForces[2*l+s] - forceOffset;
-          maxForce = 1000.0;
-          minForce = 0.0;
-        }
-        else if (useJointEffort)
-        {                
-          int index = 6*l+3*s+1;
-          int dir = (s==0) ? -1:1;
-          tipForce[l][s] = dir*(jointEfforts[index] - effortOffset[l][s]);
-          maxForce = 1e9;
-          minForce = 0.0;
-        }  
-        //Ensure force is within limits
-        tipForce[l][s] = min(tipForce[l][s], maxForce);
-        tipForce[l][s] = max(tipForce[l][s], minForce);
+	else if (useJointEffort)
+	{                
+	  int index = 6*l+3*s+1;
+	  int dir = (s==0) ? -1:1;
+	  tipForce[l][s] = dir*(jointEfforts[index] - effortOffset[l][s]);
+	  maxForce = 1e9;
+	  minForce = 0.0;
+	}  
+	//Ensure force is within limits
+	tipForce[l][s] = min(tipForce[l][s], maxForce);
+	tipForce[l][s] = max(tipForce[l][s], minForce);
       }
       
       if (hexapod->legs[l][s].state == WALKING)
@@ -589,7 +531,6 @@ void StateController::impedanceControl()
       }
     }
   }
-  //cout << "MODE: " << loadShareMode << " - " << impedance->virtualStiffness[0][0] << " : " << impedance->virtualStiffness[0][1] << " : " << impedance->virtualStiffness[1][0] << " : " << impedance->virtualStiffness[1][1] << " : " << impedance->virtualStiffness[2][0] << " : " << impedance->virtualStiffness[2][1] << endl;	  
 }
 
 /***********************************************************************************************************************
@@ -723,7 +664,8 @@ void StateController::paramAdjust()
     double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
     if (poser->stepToPosition(hexapod->stanceTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
     {    
-      cout << "Parameter '" + paramString + "' set to " << roundToInt(paramScaler*100) << "% of default (" << paramVal << ").\n" << endl;
+      cout << "Parameter '" + paramString + "' set to " << roundToInt(paramScaler*100);
+      cout << "% of default (" << paramVal << ").\n" << endl;
       adjustParam = false;
     } 
   }
@@ -880,6 +822,19 @@ void StateController::publishPose()
   msg.data.push_back(poser->currentPose.position[1]); 
   msg.data.push_back(poser->currentPose.position[2]); 
   posePublisher.publish(msg);
+}
+
+/***********************************************************************************************************************
+ * Publishes current rotation as per the IMU (roll, pitch, yaw, x, y, z) for debugging
+***********************************************************************************************************************/
+void StateController::publishIMURotation()
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  msg.data.push_back(imu->getCurrentRotation()[0]);  
+  msg.data.push_back(imu->getCurrentRotation()[1]);
+  msg.data.push_back(imu->getCurrentRotation()[2]); 
+  IMURotationPublisher.publish(msg);
 }
 
 /***********************************************************************************************************************

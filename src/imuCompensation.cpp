@@ -5,15 +5,6 @@
 ***********************************************************************************************************************/
 Imu::Imu(Parameters p)
 { 
-  
-  accs = vector<Vector3d>(numAccs);
-  times = vector<double>(numAccs);
-  
-  states = vector<Vector2d>(maxStates);
-  relativeStates = vector<Vector2d>(maxStates);
-  
-  totalPhase = Vector2d(0,0);
-  
   data = sensor_msgs::Imu();  
   init(p);
 }
@@ -60,6 +51,22 @@ Vector3d Imu::removeGravity(Quat orientation, Vector3d linearAcceleration)
   Vector3d orientedGravity = orientation.rotateVector(gravity);  
   
   return linearAcceleration - orientedGravity;
+}
+
+/***********************************************************************************************************************
+ * Returns current pitch/roll/yaw accoding to IMU
+***********************************************************************************************************************/
+Vector3d Imu::getCurrentRotation(void)
+{
+  Quat orientation; //IMU Orientation
+  
+  //Get orientation data from IMU
+  orientation.w = data.orientation.w;
+  orientation.x = data.orientation.x;
+  orientation.y = data.orientation.y;
+  orientation.z = data.orientation.z;
+  
+  return orientation.toEulerAngles();
 }
 
 /***********************************************************************************************************************
@@ -147,7 +154,7 @@ Vector3d Imu::getTranslationCompensation(Vector3d targetTranslation)
   translationAbsementError += translationPositionError*timeDelta;
   
   Vector3d translationCorrection = kD*translationVelocityError + kP*translationPositionError + kI*translationAbsementError;  
-  translationCorrection[2] = 0; //No compensation in z translation
+  translationCorrection[2] = 0; //No compensation in z translation (competes with impedance controller)
   
   return translationCorrection;
 }

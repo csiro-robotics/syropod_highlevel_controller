@@ -41,6 +41,7 @@ int main(int argc, char* argv[])
   state.tipForcePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/tip_forces", 1000);
   state.deltaZPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/delta_z", 1000);
   state.posePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/pose", 1000);
+  state.IMURotationPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/imu_rotation", 1000);
   state.stiffnessPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/stiffness", 1000);
   state.rotationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rotation_pose_error", 1000);
   state.translationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/translation_pose_error", 1000);
@@ -137,14 +138,12 @@ int main(int argc, char* argv[])
   
   //Enter ros loop
   while (ros::ok())
-  {
-    
+  {    
     if (!state.startFlag)
     {
       cout << "Received shutdown order - shutting down the controller!\n" << endl;
       ros::shutdown();
-    }
-    
+    }    
     
     //State machine (state updating loop)
     state.loop();
@@ -154,6 +153,7 @@ int main(int argc, char* argv[])
     state.publishTipForces();
     state.publishDeltaZ();
     state.publishPose();
+    state.publishIMURotation();
     state.publishStiffness();
     state.publishRotationPoseError();
     state.publishTranslationPoseError();

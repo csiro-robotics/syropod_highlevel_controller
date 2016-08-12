@@ -4,6 +4,7 @@
 #include "standardIncludes.h"
 #include <boost/numeric/odeint.hpp>
 #include "walkController.h"
+#include "imuCompensation.h"
 
 using namespace boost::numeric::odeint;
 
@@ -26,8 +27,13 @@ public:
 	void zeroLegMatrix(double inputMatrix[3][2]);
 	
 	void updateStiffness(WalkController *walker);
+	void updateStiffness(Imu *imu, Vector3d identityTipPositions[3][2]);
 	
 	double virtualStiffness[3][2];	
+	
+	double zTipPositionError[3][2];
+	double zTipVelocityError[3][2];
+	double zTipAbsementError[3][2];
 	
 private:
 	std::vector<std::vector<double> > tipForces;

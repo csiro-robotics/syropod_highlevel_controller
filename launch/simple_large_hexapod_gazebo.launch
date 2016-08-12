@@ -7,5 +7,8 @@
 
         <param name="/hexapod/parameters/dynamixel_interface" value="true"/>
         <param name="/hexapod/parameters/pose_controller/time_to_start" value="1.0"/>
-        <param name="/hexapod/parameters/impedance_controller/impedance_control" value="false"/>
+        <!--param name="/hexapod/parameters/impedance_controller/impedance_control" value="false"/-->
+        <param name="/hexapod/parameters/impedance_controller/impedance_input" value="joint_effort"/>
+        <param name="/hexapod/parameters/impedance_controller/force_gain" value="0.1"/>
+        
 </launch>
