@@ -45,6 +45,7 @@ int main(int argc, char* argv[])
   state.stiffnessPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/stiffness", 1000);
   state.rotationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rotation_pose_error", 1000);
   state.translationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/translation_pose_error", 1000);
+  state.zTipErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/z_tip_error", 1000);
   
   //Set ros rate from params
   ros::Rate r(roundToInt(1.0/state.params.timeDelta));
@@ -157,6 +158,7 @@ int main(int argc, char* argv[])
     state.publishStiffness();
     state.publishRotationPoseError();
     state.publishTranslationPoseError();
+    state.publishZTipError();
     
     //Debug using RVIZ
     if (state.params.debug_rviz)

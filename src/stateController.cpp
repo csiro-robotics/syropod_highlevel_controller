@@ -337,6 +337,8 @@ void StateController::unknownState()
 ***********************************************************************************************************************/
 void StateController::runningState()
 {
+  runningTime += params.timeDelta;
+  
   //Compensation
   compensation();
     
@@ -367,6 +369,24 @@ void StateController::runningState()
   {  
     //Update walking stance based on desired pose
     poser->updateStance(walker->identityTipPositions, params.autoCompensation);
+    
+    //DEBUGGING
+    bool testing = true;
+    double testTimeLength = 60.0;
+    if (testing)
+    {
+      turnRate = 0;
+      if (runningTime < testTimeLength)
+      {
+	localVelocity = Vector2d(0.0,1.0);
+      }
+      else
+      {
+	localVelocity = Vector2d(0.0,0.0);
+      }
+      cout << runningTime << "\t" << localVelocity[0] << "\t" << localVelocity[1] << endl;
+    }
+    //DEBUGGING
     
     //Update Walker 
     walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier); 
@@ -488,8 +508,7 @@ void StateController::impedanceControl()
     bool imuFeedback = false; // NOT READY YET
     if (imuFeedback)
     {
-      Vector3d identityTipPositions[3][2] = walker->identityTipPositions;
-      impedance->updateStiffness(imu, identityTipPositions);      
+      impedance->updateStiffness(imu, walker->identityTipPositions, hexapod->localTipPositions);      
     } 
     else
     {
@@ -863,12 +882,12 @@ void StateController::publishRotationPoseError()
   msg.data.push_back(imu->rotationPositionError[0]);  
   msg.data.push_back(imu->rotationPositionError[1]); 
   msg.data.push_back(imu->rotationPositionError[2]); 
-  msg.data.push_back(imu->rotationVelocityError[0]);
-  msg.data.push_back(imu->rotationVelocityError[1]);
-  msg.data.push_back(imu->rotationVelocityError[2]);
   msg.data.push_back(imu->rotationAbsementError[0]);
   msg.data.push_back(imu->rotationAbsementError[1]);
   msg.data.push_back(imu->rotationAbsementError[2]);  
+  msg.data.push_back(imu->rotationVelocityError[0]);
+  msg.data.push_back(imu->rotationVelocityError[1]);
+  msg.data.push_back(imu->rotationVelocityError[2]);
   rotationPoseErrorPublisher.publish(msg);
 }
 
@@ -882,13 +901,32 @@ void StateController::publishTranslationPoseError()
   msg.data.push_back(imu->translationPositionError[0]);  
   msg.data.push_back(imu->translationPositionError[1]); 
   msg.data.push_back(imu->translationPositionError[2]); 
+  msg.data.push_back(imu->translationAbsementError[0]);
+  msg.data.push_back(imu->translationAbsementError[1]);
+  msg.data.push_back(imu->translationAbsementError[2]);  
   msg.data.push_back(imu->translationVelocityError[0]);
   msg.data.push_back(imu->translationVelocityError[1]);
   msg.data.push_back(imu->translationVelocityError[2]);
-  msg.data.push_back(imu->translationAccelerationError[0]);
-  msg.data.push_back(imu->translationAccelerationError[1]);
-  msg.data.push_back(imu->translationAccelerationError[2]);  
   translationPoseErrorPublisher.publish(msg);
+}
+
+/***********************************************************************************************************************
+ * Publishes pose angle and position error for debugging
+***********************************************************************************************************************/
+void StateController::publishZTipError()
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  for (int l = 0; l<3; l++)
+  { 
+    for (int s = 0; s<2; s++)
+    {         
+      msg.data.push_back(impedance->zTipPositionError[l][s]); 
+      msg.data.push_back(impedance->zTipAbsementError[l][s]); 
+      msg.data.push_back(impedance->zTipVelocityError[l][s]);      
+    }
+  }  
+  zTipErrorPublisher.publish(msg);
 }
 
 /***********************************************************************************************************************

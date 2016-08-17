@@ -44,11 +44,11 @@ enum LegSelection
 };
 
 enum Gait
-{
-  TRIPOD_GAIT,
-  RIPPLE_GAIT,
+{  
   WAVE_GAIT,
   AMBLE_GAIT,
+  RIPPLE_GAIT,
+  TRIPOD_GAIT,
   DEFAULT,
 };
 

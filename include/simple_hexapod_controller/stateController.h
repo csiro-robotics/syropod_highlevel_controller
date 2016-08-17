@@ -36,6 +36,8 @@ struct StateController
   Parameters params;
   Parameters defaultParams;
   
+  double runningTime = 0;
+  
   Model *hexapod;
   
   MotorInterface *interface;
@@ -57,6 +59,7 @@ struct StateController
   ros::Publisher stiffnessPublisher;
   ros::Publisher rotationPoseErrorPublisher;  
   ros::Publisher translationPoseErrorPublisher; 
+  ros::Publisher zTipErrorPublisher;
   
   //Trigger Flags
   bool changeGait = false;
@@ -127,6 +130,7 @@ struct StateController
   void publishStiffness();
   void publishRotationPoseError();
   void publishTranslationPoseError();
+  void publishZTipError();
   
   //Loop and state functions
   void loop();
