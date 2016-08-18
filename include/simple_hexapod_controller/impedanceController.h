@@ -27,7 +27,7 @@ public:
 	void zeroLegMatrix(double inputMatrix[3][2]);
 	
 	void updateStiffness(WalkController *walker);
-	void updateStiffness(Imu *imu, Vector3d identityTipPositions[3][2], Vector3d localTipPositions[3][2]);
+	void updateStiffness(Pose currentPose, Vector3d identityTipPositions[3][2]);
 
 	
 	double virtualStiffness[3][2];	

@@ -121,45 +121,32 @@ void ImpedanceController::updateStiffness(WalkController *walker)
 }
 
 /***********************************************************************************************************************
- * Scales virtual stiffness value according to stiffness cycle defined in gait Parameters
+ * Scales virtual stiffness value according to current pose offset calculated from IMU readings
 ***********************************************************************************************************************/
-void ImpedanceController::updateStiffness(Imu *imu, Vector3d identityTipPositions[3][2], Vector3d localTipPositions[3][2])
+void ImpedanceController::updateStiffness(Pose currentPose, Vector3d identityTipPositions[3][2])
 {  
-  Vector3d orientation = imu->getCurrentRotation();
-  Pose orientationPose = Pose(Vector3d(0,0,0), Quat(1,orientation[0],orientation[1],0));  
-  
   Vector3d posedTipPositions[3][2];
-  double averageZTipPosition = 0.0;
-  for (int l = 0; l<3; l++)
-  {
-    for (int s = 0; s<2; s++)
-    { 
-      averageZTipPosition += localTipPositions[l][s][2];
-    }
-  }
-  double estimatedBodyClearanceError = identityTipPositions[0][0][2] - averageZTipPosition/6.0;
-  
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {  
-      double proportionalGain = 500; //TBD Parameterise
-      double integralGain = -10; //TBD Parameterise
+      double proportionalGain = 1000; //TBD Parameterise
+      double integralGain = 0; //TBD Parameterise
       double derivativeGain = 0; //TBD Parameterise
-      posedTipPositions[l][s] = orientationPose.inverseTransformVector(identityTipPositions[l][s]);
+      
+      posedTipPositions[l][s] = currentPose.inverseTransformVector(identityTipPositions[l][s]);
       
       double oldTipPositionError = zTipPositionError[l][s];
-      zTipPositionError[l][s] = posedTipPositions[l][s][2] - identityTipPositions[l][s][2];
-      zTipVelocityError[l][s] = (zTipPositionError[l][s] - oldTipPositionError)/params.timeDelta;
-      zTipAbsementError[l][s] += estimatedBodyClearanceError*params.timeDelta;//zTipPositionError[l][s]*params.timeDelta;
+      zTipPositionError[l][s] = identityTipPositions[l][s][2] - posedTipPositions[l][s][2];
+      zTipAbsementError[l][s] += zTipPositionError[l][s]*params.timeDelta;
       
       //Low pass filter of IMU angular velocity data
-      //double smoothingFactor = 0.75;
-      //zTipVelocityError[l][s] = smoothingFactor*zTipVelocityError[l][s] + (1-smoothingFactor)*zTipVelocityError[l][s];
+      double smoothingFactor = 0.15;
+      zTipVelocityError[l][s] = smoothingFactor*(zTipPositionError[l][s] - oldTipPositionError)/params.timeDelta + (1-smoothingFactor)*zTipVelocityError[l][s];
       
       double minStiffness = params.virtualStiffness; 
-      double maxStiffness = params.virtualStiffness*100;
-      virtualStiffness[l][s] = minMax(zTipPositionError[l][s]*proportionalGain + zTipAbsementError[l][s]*integralGain + zTipVelocityError[l][s]*derivativeGain, minStiffness, maxStiffness);
+      
+      virtualStiffness[l][s] = max(zTipPositionError[l][s]*proportionalGain + zTipAbsementError[l][s]*integralGain + zTipVelocityError[l][s]*derivativeGain, minStiffness);
     }
   }
 }

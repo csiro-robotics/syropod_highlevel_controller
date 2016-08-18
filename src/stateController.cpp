@@ -371,7 +371,7 @@ void StateController::runningState()
     poser->updateStance(walker->identityTipPositions, params.autoCompensation);
     
     //DEBUGGING
-    bool testing = true;
+    bool testing = false;
     double testTimeLength = 60.0;
     if (testing)
     {
@@ -384,7 +384,6 @@ void StateController::runningState()
       {
 	localVelocity = Vector2d(0.0,0.0);
       }
-      cout << runningTime << "\t" << localVelocity[0] << "\t" << localVelocity[1] << endl;
     }
     //DEBUGGING
     
@@ -503,12 +502,12 @@ void StateController::impedanceControl()
   effortOffset[2][1] = 0;  
   
   bool dynamicStiffness = false; 
+  bool useIMUForStiffness = false;
   if (dynamicStiffness)
   {
-    bool imuFeedback = false; // NOT READY YET
-    if (imuFeedback)
+    if (params.imuCompensation && useIMUForStiffness)
     {
-      impedance->updateStiffness(imu, walker->identityTipPositions, hexapod->localTipPositions);      
+      impedance->updateStiffness(poser->currentPose, walker->identityTipPositions);      
     } 
     else
     {
@@ -547,6 +546,10 @@ void StateController::impedanceControl()
       if (hexapod->legs[l][s].state == WALKING)
       {
 	impedance->updateImpedance(l, s, tipForce, deltaZ);
+      }
+      else
+      {
+	impedance->virtualStiffness[l][s] = 0; //No effect - just for debugging
       }
     }
   }
