@@ -371,12 +371,12 @@ void StateController::runningState()
     poser->updateStance(walker->identityTipPositions, params.autoCompensation);
     
     //DEBUGGING
-    bool testing = false;
+    bool testing = true;
     double testTimeLength = 60.0;
     if (testing)
     {
       turnRate = 0;
-      if (runningTime < testTimeLength)
+      if (toggleLegState && (runningTime < testTimeLength))
       {
 	localVelocity = Vector2d(0.0,1.0);
       }
