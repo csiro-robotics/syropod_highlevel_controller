@@ -50,13 +50,14 @@ Vector3d Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
   ASSERT(abs(kneeAngle) < 7.0); 
   
   Vector3d resultTipPosition = applyFK(updateStance);
-  
-  /*
+ 
   //Debugging Error Check: Any error occurs due to an imperfect vector rotation algorithm 
   Vector3d diffVec = resultTipPosition - tipTarget;  
-  if (diffVec[0] > 1e-3 || diffVec[1] > 1e-3 || diffVec[2] > 1e-3)
-    cout << "FORWARD KINEMATICS ERROR: " << diffVec[0] << ":" << diffVec[1] << ":" << diffVec[2] << endl;
-  */
+  double errorThreshold = 1e-3;
+  if (diffVec[0] > errorThreshold || diffVec[1] > errorThreshold || diffVec[2] > errorThreshold)
+  {
+    ROS_WARN("FORWARD KINEMATICS ERROR: %f:%f:%f\n", diffVec[0], diffVec[1], diffVec[2]);  
+  }
   
   Vector3d jointPositions = {yaw, liftAngle, kneeAngle};
   return jointPositions;
@@ -163,16 +164,16 @@ void Model::clampToLimits()
   // clamp angles and alert if a limit has been hit
   for (int l = 0; l<3; l++)
   {
-    for (int side = 0; side<2; side++)
+    for (int s = 0; s<2; s++)
     {
-      Leg &leg = legs[l][side];
+      Leg &leg = legs[l][s];
       double messageTolerance = 0.017444; //1 degree over limit before warning message
       if (leg.yaw - stanceLegYaws[l] < -yawLimitAroundStance[l])
       {
         double diff = abs(leg.yaw - (-yawLimitAroundStance[l] + stanceLegYaws[l]));
         if (diff > messageTolerance)
         {
-          cout << "leg " << l << " side " << side << " exceeded yaw limit: " << -yawLimitAroundStance[l] + stanceLegYaws[l] << " by: " << diff << endl;
+	  ROS_WARN("LEG: %d:%d has tried to exceed yaw limit: %f by %f. Clamping yaw to limit.\n", l, s, -yawLimitAroundStance[l] + stanceLegYaws[l], diff);
         }
         leg.yaw = -yawLimitAroundStance[l] + stanceLegYaws[l];
       }
@@ -181,8 +182,8 @@ void Model::clampToLimits()
         double diff = abs(leg.yaw - (yawLimitAroundStance[l] + stanceLegYaws[l]));
         if (diff > messageTolerance)
         {
-          cout << "leg " << l << " side " << side << " exceeded yaw limit: " << yawLimitAroundStance[l] + stanceLegYaws[l] << " by: " << diff << endl;
-        }
+	  ROS_WARN("LEG: %d:%d has tried to exceed yaw limit: %f by %f. Clamping yaw to limit.\n", l, s, yawLimitAroundStance[l] + stanceLegYaws[l], diff);	  
+	}
         leg.yaw = yawLimitAroundStance[l] + stanceLegYaws[l];        
       }
       if (leg.liftAngle < minMaxHipLift[0])
@@ -190,7 +191,7 @@ void Model::clampToLimits()
         double diff = abs(leg.liftAngle - minMaxHipLift[0]);
         if (diff > messageTolerance)
         {
-          cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[0] << " by: " << diff << endl;
+	  ROS_WARN("LEG: %d:%d has tried to exceed hip lift limit: %f by %f. Clamping yaw to limit.\n", l, s, minMaxHipLift[0], diff);
         }
         leg.liftAngle = minMaxHipLift[0];
       }
@@ -199,7 +200,7 @@ void Model::clampToLimits()
         double diff = abs(leg.liftAngle - minMaxHipLift[1]);
         if (diff > messageTolerance)
         {
-          cout << "leg " << l << " side " << side << " exceeded hip lift limit: " << minMaxHipLift[1] << " by: " << diff << endl;
+	  ROS_WARN("LEG: %d:%d has tried to exceed hip lift limit: %f by %f. Clamping yaw to limit.\n", l, s, minMaxHipLift[1], diff);
         }
         leg.liftAngle = minMaxHipLift[1];
       }
@@ -208,7 +209,7 @@ void Model::clampToLimits()
         double diff = abs(leg.kneeAngle - minMaxKneeBend[0]);
         if (diff > messageTolerance)
         {
-          cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[0] << " by: " << diff << endl;
+	  ROS_WARN("LEG: %d:%d has tried to exceed knee limit: %f by %f. Clamping yaw to limit.\n", l, s, minMaxKneeBend[0], diff);
         }
         leg.kneeAngle = minMaxKneeBend[0];
       }
@@ -217,8 +218,8 @@ void Model::clampToLimits()
         double diff = abs(leg.kneeAngle - minMaxKneeBend[1]);
         if (diff > messageTolerance)
         {
-          cout << "leg " << l << " side " << side << " exceeded knee limit: " << minMaxKneeBend[1] << " by: " << diff << endl;
-        }
+	  ROS_WARN("LEG: %d:%d has tried to exceed knee limit: %f by %f. Clamping yaw to limit.\n", l, s, minMaxKneeBend[1], diff);
+	}
         leg.kneeAngle = minMaxKneeBend[1];
       }
     }

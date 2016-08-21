@@ -146,4 +146,22 @@ hexapod:
       force_gain: 0.1      
         
 ######################################################################
+# Debugging Parameters
+######################################################################
+
+  debug_parameters:
+    testing: true
+    test_time_length: 60.0
+    console_verbosity: debug
+    
+    debug_move_to_joint_position: false
+    debug_step_to_position: false
+    debug_update_swing_position: false
+    debug_update_position: false
+    debug_manual_compensation_translation: false
+    debug_manual_compensation_rotation: false
+    
+    debug_rviz: false
+      
+######################################################################
 ######################################################################

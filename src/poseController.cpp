@@ -172,15 +172,13 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
         {
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
         }    
-        /*
-        //DEBUGGING
-        cout << "LEG: " << l << ":" << s <<
-	"\t\tMASTER ITERATION: " << masterIterationCount << 
-	"\t\tORIGIN: " << originTipPositions[l][s][0] << ":" << originTipPositions[l][s][1] << ":" << originTipPositions[l][s][2] <<
-	"\t\tCURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
-	"\t\tTARGET: " << targetTipPositions[l][s][0] << ":" << targetTipPositions[l][s][1] << ":" << targetTipPositions[l][s][2] << endl;  
-	//DEBUGGING
-	*/
+        
+        ROS_DEBUG_COND(params.debugStepToPosition, "STEP_TO_POSITION DEBUG - LEG: %d:%d\t\tMASTER ITERATION: %d\t\tORIGIN: %f:%f:%f\t\tCURRENT: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
+		  l, s, masterIterationCount, 
+		  originTipPositions[l][s][0], originTipPositions[l][s][1], originTipPositions[l][s][2], 
+		  pos[0], pos[1], pos[2],
+		  targetTipPositions[l][s][0], targetTipPositions[l][s][1], targetTipPositions[l][s][2]);  
+	
       }
       else
       {
@@ -251,18 +249,17 @@ bool PoseController::moveToJointPosition(Vector3d targetJointPositions[3][2], do
       
       //Calculate change in position using bezier curve
       pos = cubicBezier(controlNodes, masterIterationCount*deltaT); 
-      /*
-      //DEBUGGING
+
       if (l==0 && s==0)
       {
-        double time = masterIterationCount*deltaT;
-        cout << "MASTER ITERATION: " << masterIterationCount << 
-        "        TIME: " << time <<
-        "        ORIGIN: " << originJointPositions[0][0][0] << ":" << originJointPositions[0][0][1] << ":" << originJointPositions[0][0][2] <<
-        "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
-        "        TARGET: " << targetJointPositions[0][0][0] << ":" << targetJointPositions[0][0][1] << ":" << targetJointPositions[0][0][2] << endl;
+	double time = masterIterationCount*deltaT;
+	ROS_DEBUG_COND(params.debugMoveToJointPosition, "MOVE_TO_JOINT_POSITION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tORIGIN: %f:%f:%f\t\tCURRENT: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
+		  masterIterationCount, time,
+		  originJointPositions[l][s][0], originJointPositions[l][s][1], originJointPositions[l][s][2], 
+		  pos[0], pos[1], pos[2],
+		  targetJointPositions[l][s][0], targetJointPositions[l][s][1], targetJointPositions[l][s][2]);
       }   
-      */ 
+
       model->legs[l][s].yaw = pos[0];
       model->legs[l][s].liftAngle = pos[1];
       model->legs[l][s].kneeAngle = pos[2];
@@ -548,18 +545,17 @@ bool PoseController::manualCompensation(Pose requestedTargetPose, double timeToP
   currentPose.position = cubicBezier(positionNodes, masterIterationCount*deltaT);
   currentPose.rotation = cubicBezier(rotationNodes, masterIterationCount*deltaT);
   
-  //DEBUGGING
-  /*
   double time = masterIterationCount*deltaT;
-  cout << "MASTER ITERATION: " << masterIterationCount << 
-  "        TIME: " << time <<
-  "        POS ORIGIN: " << originPose.position[0] << ":" << originPose.position[1] << ":" << originPose.position[2] <<
-  "        POS CURRENT: " << currentPose.position[0] << ":" << currentPose.position[1] << ":" << currentPose.position[2] <<
-  "        POS TARGET: " << targetPose.position[0] << ":" << targetPose.position[1] << ":" << targetPose.position[2] << 
-  "        ROT ORIGIN: " << originPose.rotation[0] << ":" << originPose.rotation[1] << ":" << originPose.rotation[2] << ":" << originPose.rotation[3] <<
-  "        ROT CURRENT: " << currentPose.rotation[0] << ":" << currentPose.rotation[1] << ":" << currentPose.rotation[2] << ":" << currentPose.rotation[3] <<
-  "        ROT TARGET: " << targetPose.rotation[0] << ":" << targetPose.rotation[1] << ":" << targetPose.rotation[2] << ":" << targetPose.rotation[3] << endl;
-  */
+  ROS_DEBUG_COND(params.debugManualCompensationTranslation, "MANUAL_COMPENSATION_TRANSLATION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tPOS ORIGIN: %f:%f:%f\t\tPOS CURRENT: %f:%f:%f\t\tPOS TARGET: %f:%f:%f\n", 
+		  masterIterationCount, time,
+		  originPose.position[0], originPose.position[1], originPose.position[2], 
+		  currentPose.position[0], currentPose.position[1], currentPose.position[2],
+		  targetPose.position[0], targetPose.position[1], targetPose.position[2]);
+  ROS_DEBUG_COND(params.debugManualCompensationRotation, "MANUAL_COMPENSATION_ROTATION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tROT ORIGIN: %f:%f:%f\t\tROT CURRENT: %f:%f:%f\t\tROT TARGET: %f:%f:%f\n", 
+		  masterIterationCount, time,
+		  originPose.rotation[0], originPose.rotation[1], originPose.rotation[2], 
+		  currentPose.rotation[0], currentPose.rotation[1], currentPose.rotation[2],
+		  targetPose.rotation[0], targetPose.rotation[1], targetPose.rotation[2]);
   return false;
 }
 

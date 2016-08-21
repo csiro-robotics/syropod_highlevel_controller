@@ -5,11 +5,34 @@
 ***********************************************************************************************************************/
 int main(int argc, char* argv[])
 {
-  ros::init(argc, argv, "Hexapod");
+  ros::init(argc, argv, "simple_hexapod_controller");
   ros::NodeHandle n;
-  ros::NodeHandle n_priv("~");  
+  ros::NodeHandle n_priv("~"); 
   
   StateController state(n);
+  
+  bool setLoggerLevelResult = false;
+  if (state.params.consoleVerbosity == "debug")
+  {
+    setLoggerLevelResult = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
+  }
+  else if (state.params.consoleVerbosity == "info")
+  {
+    setLoggerLevelResult = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
+  }
+  else if (state.params.consoleVerbosity == "warnings")
+  {
+    setLoggerLevelResult = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Warn);
+  }
+  else if (state.params.consoleVerbosity == "errors")
+  {
+    setLoggerLevelResult = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Error);
+  }
+    
+  if(setLoggerLevelResult) 
+  {
+   ros::console::notifyLoggerLevelsChanged();
+  }
   
   ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, &StateController::joypadVelocityCallback, &state);
   ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, &StateController::joypadPoseCallback, &state);
@@ -19,6 +42,8 @@ int main(int argc, char* argv[])
   ros::Subscriber legStateSubscriber = n.subscribe("hexapod_remote/leg_state_toggle", 1, &StateController::legStateCallback, &state);
   ros::Subscriber paramSelectionSubscriber = n.subscribe("hexapod_remote/param_selection", 1, &StateController::paramSelectionCallback, &state);
   ros::Subscriber paramAdjustmentSubscriber = n.subscribe("hexapod_remote/param_adjust", 1, &StateController::paramAdjustCallback, &state);
+  ros::Subscriber startTestSubscriber = n.subscribe("hexapod_remote/test_state_toggle", 1, &StateController::startTestCallback, &state);
+  
   
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, &StateController::startCallback, &state);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, &StateController::gaitSelectionCallback, &state);
@@ -55,35 +80,34 @@ int main(int argc, char* argv[])
   {
     if (state.params.hexapodType == "large_hexapod")
     {
-      cout << "WARNING: Using dynamixel motor interface - will not work with Large Hexapod (simulations only)." << endl; 
-      cout << "Set dynamixel_interface to false in config file if using Large Hexapod.\n" << endl;
+      ROS_WARN("Using dynamixel motor interface - will not work with Large Hexapod (simulations only).\nSet dynamixel_interface to false in config file if using Large Hexapod.\n");
     }
   }
   else
   {
-    cout << "WARNING: Using dynamixel PRO motor interface - will only work with Large Hexapod Robot (not simulations or small hexapod platforms)." << endl;
-    cout << "Set dynamixel_interface to true in config file if not using Large Hexapod.\n" << endl;
+    ROS_WARN("Using dynamixel PRO motor interface - will only work with Large Hexapod Robot (not simulations or small hexapod platforms).\nSet dynamixel_interface to true in config file if not using Large Hexapod.\n");
   }
   
   //RVIZ simulation warning message
   if (state.params.debug_rviz)
   {
-    cout << "WARNING: DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE." << endl;
+    ROS_WARN("DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE.\n");
   }
   
   //Loop waiting for start button press
-  cout << "Press 'Start' to run controller . . ." << endl;  
+  ROS_INFO("Press 'Start' to run controller . . .\n");  
   while(!state.startFlag)
   {
     ros::spinOnce();
     r.sleep();
   }
-  cout << "Controller started.\n" << endl;
+  ROS_INFO("Controller started.\n");
+  
   
   //Wait specified time to aquire all published joint positions via callback
   if(!jointStatesSubscriber1 && !jointStatesSubscriber2)
   {
-    cout << "WARNING: Failed to subscribe to joint_states topic! - check to see if topic is being published.\n" << endl;
+    ROS_WARN("Failed to subscribe to joint_states topic! - check to see if topic is being published.\n");
     state.params.startUpSequence = false;
   }
   else
@@ -99,8 +123,7 @@ int main(int argc, char* argv[])
   //Set joint position values and if needed wait for approval to use default joint position values 
   if (!state.jointPosFlag)
   {
-    cout << "WARNING: Failed to acquire ALL joint position values!" << endl;
-    cout << "Press B Button if you wish to continue with all unknown joint positions set to defaults . . .\n" << endl;
+    ROS_WARN("Failed to acquire ALL joint position values!\nPress B Button if you wish to continue with all unknown joint positions set to defaults . . .\n");
     
     //Wait for command to proceed using default joint position values
     while(!state.toggleLegState) //using toggleLegState for convenience only
@@ -129,7 +152,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-      cout << "Failed to subscribe to force data topic/s! Please check that topic is being published.\n" << endl;
+      ROS_WARN("Failed to subscribe to force data topic/s! Please check that topic is being published.\n");
       state.params.impedanceControl = false; 
     }
   }
@@ -142,7 +165,7 @@ int main(int argc, char* argv[])
   {    
     if (!state.startFlag)
     {
-      cout << "Received shutdown order - shutting down the controller!\n" << endl;
+      ROS_INFO("Received shutdown order - shutting down the controller!\n");
       ros::shutdown();
     }    
     

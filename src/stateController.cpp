@@ -26,7 +26,6 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
 StateController::~StateController()
 {
   delete hexapod;
-  delete interface;
   delete walker;
   delete poser;
   delete impedance;
@@ -107,18 +106,18 @@ void StateController::setJointPositions(bool useDefaults)
         if (jointPositions[index] == 1e10)
         {
           jointPositions[index] = 0.0;
-          cout << "Leg: " << leg << ":" << side << " body-coxa joint set to: " << jointPositions[index] << endl;
+          ROS_INFO("Leg: %d:%d body-coxa joint set to: %f", leg, side, jointPositions[index]);
         }
         if (jointPositions[index+1] == 1e10)
         {
           jointPositions[index+1] = dir*max(0.0,hexapod->minMaxHipLift[0]);
-          cout << "Leg: " << leg << ":" << side << " coxa-femour joint set to: " << jointPositions[index+1] << endl;
+	  ROS_INFO("Leg: %d:%d coxa-femour joint set to: %f", leg, side, jointPositions[index+1]);
         }
         if (jointPositions[index+2] == 1e10)
         {
           
           jointPositions[index+2] = dir*max(0.0,hexapod->minMaxKneeBend[0]);
-          cout << "Leg: " << leg << ":" << side << " femour-tibia joint set to: " << jointPositions[index+2] << endl;
+	  ROS_INFO("Leg: %d:%d femour-tibia joint set to: %f", leg, side, jointPositions[index+2]);
         }
       }
       params.startUpSequence = false;
@@ -214,7 +213,7 @@ void StateController::unpackState()
   if (poser->moveToJointPosition(unpackedJointPositions, 2.0/params.stepFrequency))
   {          
     state = STARTUP;
-    cout << "Hexapod unpacked. Running startup sequence . . .\n" << endl;
+    ROS_INFO("Hexapod unpacked. Running startup sequence . . .\n");
   }  
 }
 
@@ -227,7 +226,7 @@ void StateController::startUpState()
   if (poser->startUpSequence(walker->identityTipPositions, params.moveLegsSequentially))
   {    
     state = RUNNING;
-    cout << "Startup sequence complete.\nReady to walk.\n" << endl;
+    ROS_INFO("Startup sequence complete. Ready to walk.\n");
   }
 }
 
@@ -240,7 +239,7 @@ void StateController::shutDownState()
   if (poser->shutDownSequence(walker->identityTipPositions, params.moveLegsSequentially))
   {
     state = PACK;
-    cout << "Shutdown sequence complete. Packing hexapod . . .\n" << endl;
+    ROS_INFO("Shutdown sequence complete. Packing hexapod . . .\n");
   } 
 }
 
@@ -253,7 +252,7 @@ void StateController::packState()
   if (poser->moveToJointPosition(packedJointPositions, 2.0/params.stepFrequency))
   {
     state = PACKED;
-    cout << "Hexapod packing complete.\n" << endl;  
+    ROS_INFO("Hexapod packing complete.\n");  
   }
 }
 
@@ -266,7 +265,7 @@ void StateController::packedState()
   if (startFlag)
   {
     state = UNPACK;
-    cout << "Unpacking hexapod . . .\n" << endl;
+    ROS_INFO("Unpacking hexapod . . .\n");
   }
 }
 
@@ -283,7 +282,7 @@ void StateController::directState()
     if (poser->stepToPosition(walker->identityTipPositions, deltaZ, mode, 0, params.timeToStart))
     {
       state = RUNNING;
-      cout << "Startup sequence complete. \nReady to walk.\n" << endl;
+      ROS_INFO("Startup sequence complete. Ready to walk.\n");
     }
   }
 }
@@ -309,26 +308,25 @@ void StateController::unknownState()
   {
     if (!params.startUpSequence)
     {
-      cout << "WARNING! Hexapod currently in packed state and cannot run direct startup sequence." << endl;
-      cout << "Either manually unpack hexapod or set start_up_sequence to true in config file\n" << endl;
-      ASSERT(false);
+      ROS_ERROR("Hexapod currently in packed state and cannot run direct startup sequence.\nEither manually unpack hexapod or set start_up_sequence to true in config file\n");
+      ROS_ASSERT(false);
     }
     else
     {
       state = PACKED;
-      cout << "Hexapod currently packed.\n" << endl;  
+      ROS_INFO("Hexapod currently packed.\n");  
     }
   }
   else if (!params.startUpSequence)
   {    
     state = DIRECT;
-    cout << "WARNING! Running direct startup sequence - assuming hexapod is not on the ground" << endl;
-    cout << "Running startup sequence (Complete in " << params.timeToStart << " seconds) . . .\n" << endl;       
+    ROS_WARN("WARNING! Running direct startup sequence - assuming hexapod is not on the ground\n");
+    ROS_INFO("Running startup sequence (Complete in %f seconds) . . .\n", params.timeToStart);       
   }
   else if (startFlag)
   {
     state = STARTUP;
-    cout << "Hexapod unpacked. Running startup sequence . . .\n" << endl;
+    ROS_INFO("Hexapod unpacked. Running startup sequence . . .\n");
   } 
 }
 
@@ -336,9 +334,7 @@ void StateController::unknownState()
  * Running state
 ***********************************************************************************************************************/
 void StateController::runningState()
-{
-  runningTime += params.timeDelta;
-  
+{  
   //Compensation
   compensation();
     
@@ -370,22 +366,22 @@ void StateController::runningState()
     //Update walking stance based on desired pose
     poser->updateStance(walker->identityTipPositions, params.autoCompensation);
     
-    //DEBUGGING
-    bool testing = true;
-    double testTimeLength = 60.0;
-    if (testing)
+    if (params.testing)
     {
-      turnRate = 0;
-      if (toggleLegState && (runningTime < testTimeLength))
+      turnRate = 0;      
+      if (testState == TEST_RUNNING && (runningTime < params.testTimeLength))
       {
+	ROS_DEBUG_COND(runningTime == 0, "Test Started. Will finish in %f seconds.\n", params.testTimeLength);
+	runningTime += params.timeDelta;
 	localVelocity = Vector2d(0.0,1.0);
       }
       else
       {
-	localVelocity = Vector2d(0.0,0.0);
+	ROS_DEBUG_COND(testState == TEST_RUNNING, "Test Ended.\n");
+	runningTime = 0.0;
+	testState = TEST_ENDED;
       }
     }
-    //DEBUGGING
     
     //Update Walker 
     walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier); 
@@ -395,7 +391,7 @@ void StateController::runningState()
   if (!startFlag && params.startUpSequence)
   {
     state = SHUTDOWN;
-    cout << "Running shutdown sequence . . .\n" << endl;
+    ROS_INFO("Running shutdown sequence . . .\n");
   }
 }
 
@@ -419,20 +415,18 @@ void StateController::compensation()
     {
       if (poser->manualCompensation(Pose::identity(), poseTimeJoy/sqrt(params.stepFrequency)))
       {
-	cout << "Returned to default pose. IMU compensation now re-enabled.\n" << endl;
+	ROS_INFO("Returned to default pose. IMU compensation now re-enabled.\n");
 	unstable = false;
       }
     }
     else if (translationCorrection.norm() > stabilityThreshold && !unstable)
     {
-      cout << "IMU translation compensation became unstable! Adjust PID Parameters." << endl;
-      cout << "Transitioning to default pose.\n" << endl;
+      ROS_WARN("IMU translation compensation became unstable! Adjust PID Parameters.\nTransitioning to default pose.\n");
       unstable = true;
     }
     else if (rotationCorrection.norm() > stabilityThreshold && !unstable)
     {
-      cout << "IMU rotation compensation became unstable! Adjust PID parameters." << endl;
-      cout << "Transitioning to default pose.\n" << endl;
+      ROS_WARN("IMU rotation compensation became unstable! Adjust PID parameters.\nTransitioning to default pose.\n");
       unstable = true;      
     }
     else
@@ -678,7 +672,7 @@ void StateController::paramAdjust()
       }
       default:
       {
-        cout << "Attempting to adjust unknown parameter.\n" << endl;
+        ROS_WARN("Attempting to adjust unknown parameter.\n");
         break;
       }
     }              
@@ -686,8 +680,7 @@ void StateController::paramAdjust()
     double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
     if (poser->stepToPosition(hexapod->stanceTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
     {    
-      cout << "Parameter '" + paramString + "' set to " << roundToInt(paramScaler*100);
-      cout << "% of default (" << paramVal << ").\n" << endl;
+      ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
       adjustParam = false;
     } 
   }
@@ -719,13 +712,13 @@ void StateController::gaitChange()
 	getGaitParameters("amble_gait");
         break;
       default:
-        cout << "Attempting to change to unknown gait." << endl;
+        ROS_WARN("Attempting to change to unknown gait.\n");
         break;
     }   
     walker->setGaitParams(params);
     poser->params = params;
     impedance->params = params;
-    cout << "Now using " << params.gaitType << " mode.\n" << endl;
+    ROS_INFO("Now using %s mode.\n", params.gaitType.c_str());
     changeGait = false;
   }
 }
@@ -760,7 +753,7 @@ void StateController::legStateToggle()
       {
 	toggleLegState = false;
 	hexapod->legs[l][s].state = OFF;
-	cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: OFF.\n" << endl;
+	ROS_INFO("Leg: %d:%d set to state: OFF.\n", legSelection/2, legSelection%2);
       }
     }
     else if (hexapod->legs[l][s].state == OFF_TO_WALKING)
@@ -771,7 +764,7 @@ void StateController::legStateToggle()
       {
 	toggleLegState = false;
 	hexapod->legs[l][s].state = WALKING;
-	cout << "Leg: " << legSelection/2 << ":" << legSelection%2 << " set to state: WALKING.\n" << endl;
+	ROS_INFO("Leg: %d:%d set to state: WALKING.\n", legSelection/2, legSelection%2);
       }    
     }
   }
@@ -950,9 +943,6 @@ void StateController::RVIZDebugging()
   debug.drawPoints(debug.tipPositions, Vector4d(1,0,0,1)); //Actual Tip Trajectory Paths
   //debug.drawPoints(debug.staticTipPositions, Vector4d(1,0,0,1)); //Static Single Tip Trajectory command
   
-  //cout << "Tip Positions Array Size: " << debug.tipPositions.size() << endl;
-  //cout << "Static Tip Positions Array Size: " << debug.staticTipPositions.size() << endl;
-  
   if (debug.tipPositions.size() > 2000)
   {
     debug.tipPositions.erase(debug.tipPositions.end()-6,debug.tipPositions.end());
@@ -989,22 +979,25 @@ void StateController::publishJointValues()
         
         if (abs(yawVel) > hexapod->jointMaxAngularSpeeds[0])
         {
-          cout << "Leg: " << l << ":" << s << " body_coxa joint velocity (" << yawVel << ") exceeds maximum ("; 
-          cout << sign(yawVel)*hexapod->jointMaxAngularSpeeds[0] << ") - CLAMPING TO MAXIMUM!" << endl; 
+          ROS_WARN("Leg: %d:%d body_coxa joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n", 
+		   l, s, yawVel, sign(yawVel)*hexapod->jointMaxAngularSpeeds[0]);
+	  
           yawVel = sign(yawVel)*hexapod->jointMaxAngularSpeeds[0];
           yaw = hexapod->legs[l][s].oldYaw + yawVel*params.timeDelta;
         }
         if (abs(liftVel) > hexapod->jointMaxAngularSpeeds[1])
         {
-          cout << "Leg: " << l << ":" << s << " coxa_femour joint velocity (" << liftVel << ") exceeds maximum (";
-          cout << sign(liftVel)*hexapod->jointMaxAngularSpeeds[1] << ") - CLAMPING TO MAXIMUM!" << endl;                 
+	  ROS_WARN("Leg: %d:%d coxa_femour joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n", 
+		   l, s, liftVel, sign(liftVel)*hexapod->jointMaxAngularSpeeds[1]);  
+	  
           liftVel = sign(liftVel)*hexapod->jointMaxAngularSpeeds[1];
           lift = hexapod->legs[l][s].oldLiftAngle + liftVel*params.timeDelta;
         }
         if (abs(kneeVel) > hexapod->jointMaxAngularSpeeds[2])
         {
-          cout << "Leg: " << l << ":" << s << " femour_tibia joint velocity (" << kneeVel << ") exceeds maximum (";
-          cout << sign(kneeVel)*hexapod->jointMaxAngularSpeeds[2] << ") - CLAMPING TO MAXIMUM!" << endl; 
+	  ROS_WARN("Leg: %d:%d femour_tibia joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n", 
+		   l, s, kneeVel, sign(kneeVel)*hexapod->jointMaxAngularSpeeds[2]);
+	  
           kneeVel = sign(kneeVel)*hexapod->jointMaxAngularSpeeds[2];
           knee = hexapod->legs[l][s].oldKneeAngle + kneeVel*params.timeDelta;
         }
@@ -1046,61 +1039,61 @@ void StateController::paramSelectionCallback(const std_msgs::Int8 &input)
       case(NO_PARAM_SELECTION):
       {
         paramSelection = NO_PARAM_SELECTION;
-        cout << "No parameters currently selected.\n" << endl;
+        ROS_INFO("No parameters currently selected.\n");
         break;
       }
       case(STEP_FREQUENCY):
       {
         paramSelection = STEP_FREQUENCY;
-        cout << "step_frequency parameter selected.\n" << endl;
+        ROS_INFO("step_frequency parameter selected.\n");
         break;
       }
       case(STEP_CLEARANCE):
       {
         paramSelection = STEP_CLEARANCE;
-        cout << "step_clearance parameter selected.\n" << endl;
+        ROS_INFO("step_clearance parameter selected.\n");
         break;
       }
       case(BODY_CLEARANCE):
       {
         paramSelection = BODY_CLEARANCE;
-        cout << "body_clearance parameter selected.\n" << endl;
+        ROS_INFO("body_clearance parameter selected.\n");
         break;
       }      
       case(LEG_SPAN_SCALE):
       {
         paramSelection = LEG_SPAN_SCALE;
-        cout << "leg_span_scale parameter selected.\n" << endl;
+        ROS_INFO("leg_span_scale parameter selected.\n");
         break;
       }
       case(VIRTUAL_MASS):
       {
         paramSelection = VIRTUAL_MASS;
-        cout << "virtual_mass impedance parameter selected.\n" << endl;
+        ROS_INFO("virtual_mass impedance parameter selected.\n");
         break;
       }
       case(VIRTUAL_STIFFNESS):
       {
         paramSelection = VIRTUAL_STIFFNESS;
-        cout << "virtual_stiffness impedance parameter selected.\n" << endl;
+        ROS_INFO("virtual_stiffness impedance parameter selected.\n");
         break;
       }      
       case(VIRTUAL_DAMPING):
       {
         paramSelection = VIRTUAL_DAMPING;
-        cout << "virtual_damping impedance parameter selected.\n" << endl;
+        ROS_INFO("virtual_damping impedance parameter selected.\n");
         break;
       }
       case(FORCE_GAIN):
       {
         paramSelection = FORCE_GAIN;
-        cout << "force_gain impedance parameter selected.\n" << endl;
+        ROS_INFO("force_gain impedance parameter selected.\n");
         break;
       }
       default:
       {
         paramSelection = NO_PARAM_SELECTION;
-        cout << "Unknown parameter selection requested from control input. No parameters currently selected.\n" << endl;
+        ROS_INFO("Unknown parameter selection requested from control input. No parameters currently selected.\n");
         break;
       }
     }
@@ -1119,11 +1112,11 @@ void StateController::paramAdjustCallback(const std_msgs::Int8 &input)
       paramScaler += input.data/paramAdjustSensitivity;
       paramScaler = minMax(paramScaler, 0.1, 3.0);      //Parameter scaler ranges from 10%->300%
       
-      cout << "Adjusting selected parameter . . . (WARNING: Changing parameters may crash controller)\n" << endl;
+      ROS_INFO("Adjusting selected parameter . . . (WARNING: Changing parameters may crash controller)\n");
     }
     else
     {
-      cout << "Checking selected parameter value . . .\n" << endl;
+      ROS_INFO("Checking selected parameter value . . .\n");
     }
     adjustParam = true;
   }
@@ -1141,23 +1134,23 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
       case(-1):
         break;
       case(TRIPOD_GAIT):
-        cout << "Transitioning to tripod_gait mode . . .\n" << endl;
+        ROS_INFO("Transitioning to tripod_gait mode . . .\n");
         gait = TRIPOD_GAIT;
         break;
       case(RIPPLE_GAIT):
-        cout << "Transitioning to ripple_gait mode . . .\n" << endl;
+        ROS_INFO("Transitioning to ripple_gait mode . . .\n");
         gait = RIPPLE_GAIT;
         break;
       case(WAVE_GAIT):
-        cout << "Transitioning to wave_gait mode . . .\n" << endl;
+        ROS_INFO("Transitioning to wave_gait mode . . .\n");
         gait = WAVE_GAIT;
         break;
       case (AMBLE_GAIT):
-	cout << "Transitioning to amble_gait mode . . .\n" << endl;
+	ROS_INFO("Transitioning to amble_gait mode . . .\n");
         gait = AMBLE_GAIT;
         break;
       default:
-        cout << "Unknown gait requested from control input.\n" << endl;
+        ROS_WARN("Unknown gait requested from control input.\n");
     }
     if (gait == input.data)
     {
@@ -1181,46 +1174,46 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
         if (legSelection != FRONT_LEFT)
         {
           legSelection = FRONT_LEFT;
-          cout << "Front left leg selected.\n" << endl;
+          ROS_INFO("Front left leg selected.\n");
         }
         break;
       case(1):
         if (legSelection != FRONT_RIGHT)
         {
           legSelection = FRONT_RIGHT;
-          cout << "Front right leg selected.\n" << endl;
+          ROS_INFO("Front right leg selected.\n");
         }
         break;
       case(2):
         if (legSelection != MIDDLE_LEFT)
         {
           legSelection = MIDDLE_LEFT;
-          cout << "Middle left leg selected.\n" << endl;
+          ROS_INFO("Middle left leg selected.\n");
         }
         break;
       case(3):
         if (legSelection != MIDDLE_RIGHT)
         {
           legSelection = MIDDLE_RIGHT;
-          cout << "Middle right leg selected.\n" << endl;
+          ROS_INFO("Middle right leg selected.\n");
         }
         break;
       case(4):
         if (legSelection != REAR_LEFT)
         {
           legSelection = REAR_LEFT;
-          cout << "Rear left leg selected.\n" << endl;
+          ROS_INFO("Rear left leg selected.\n");
         }
         break;
       case(5):
         if (legSelection != REAR_RIGHT)
         {
           legSelection = REAR_RIGHT;
-          cout << "Rear right leg selected.\n" << endl;
+          ROS_INFO("Rear right leg selected.\n");
         }
         break;
       default:
-        cout << "Unknown leg selection requested from control input.\n" << endl;
+        ROS_WARN("Unknown leg selection requested from control input.\n");
     }
   }
 }
@@ -1301,14 +1294,30 @@ void StateController::startCallback(const std_msgs::Bool &input)
 ***********************************************************************************************************************/
 void StateController::legStateCallback(const std_msgs::Bool &input)
 {
-  if (input.data && debounce)
+  if (input.data && legStateDebounce)
   {
     toggleLegState = true;
-    debounce = false;
+    legStateDebounce = false;
   }
   else if (!input.data && !toggleLegState)
   {
-    debounce = true;
+    legStateDebounce = true;
+  }
+}
+
+/***********************************************************************************************************************
+ * Test Start Callback
+***********************************************************************************************************************/
+void StateController::startTestCallback(const std_msgs::Bool &input)
+{
+  if (input.data && startTestDebounce)
+  {
+    testState = TEST_RUNNING;
+    startTestDebounce = false;
+  }
+  else if (!input.data && testState == TEST_ENDED)
+  {
+    startTestDebounce = true;
   }
 }
 
@@ -1329,7 +1338,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
   if (jointStates.effort.size() == 0)
   {
     getEffortValues = false;
-    //cout << "Warning! Effort values not being published! Impedance controller may not function.\n" << endl;
+    //ROS_WARN("Warning! Effort values not being published! Impedance controller may not function.\n");
   }
   else
   {
@@ -1540,32 +1549,27 @@ void StateController::getParameters()
   // Hexapod Parameters
   if(!n.getParam(baseParamString+"hexapod_type", params.hexapodType))
   {
-    cout << "Error reading parameter/s (hexapod_type) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (hexapod_type) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if(!n.getParam(baseParamString+"time_delta", params.timeDelta))
   {
-    cout << "Error reading parameter/s (time_delta) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (time_delta) from rosparam. Check config file is loaded and type is correct\n");
   }
     
   if(!n.getParam(baseParamString+"imu_compensation", params.imuCompensation))
   {
-    cout << "Error reading parameter/s (imu_compensation) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (imu_compensation) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if(!n.getParam(baseParamString+"auto_compensation", params.autoCompensation))
   {
-    cout << "Error reading parameter/s (auto_compensation) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (auto_compensation) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if(!n.getParam(baseParamString+"manual_compensation", params.manualCompensation))
   {
-    cout << "Error reading parameter/s (manual_compensation) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (manual_compensation) from rosparam. Check config file is loaded and type is correct\n");  
   }
    
   /********************************************************************************************************************/
@@ -1575,8 +1579,7 @@ void StateController::getParameters()
   paramString=baseParamString+"/physical_leg_offsets/";
   if(!n.getParam(paramString+"root_offset_AL", rootOffsetAL))
   {
-    cout << "Error reading parameter/s (root_offset_AL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (root_offset_AL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1586,8 +1589,7 @@ void StateController::getParameters()
   std::vector<double> rootOffsetAR(3);
   if(!n.getParam(paramString+"root_offset_AR", rootOffsetAR))
   {
-    cout << "Error reading parameter/s (root_offset_AR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (root_offset_AR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1597,8 +1599,7 @@ void StateController::getParameters()
   std::vector<double> rootOffsetBL(3);
   if(!n.getParam(paramString+"root_offset_BL", rootOffsetBL))
   {
-    cout << "Error reading parameter/s (root_offset_BL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (root_offset_BL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1608,8 +1609,7 @@ void StateController::getParameters()
   std::vector<double> rootOffsetBR(3);
   if(!n.getParam(paramString+"root_offset_BR", rootOffsetBR))
   {
-    cout << "Error reading parameter/s (root_offset_BR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (root_offset_BR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1619,8 +1619,7 @@ void StateController::getParameters()
     std::vector<double> rootOffsetCL(3);
   if(!n.getParam(paramString+"root_offset_CL", rootOffsetCL))
   {
-    cout << "Error reading parameter/s (root_offset_CL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (root_offset_CL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1630,8 +1629,7 @@ void StateController::getParameters()
   std::vector<double> rootOffsetCR(3);
   if(!n.getParam(paramString+"root_offset_CR", rootOffsetCR))
   {
-    cout << "Error reading parameter/s (root_offset_CR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (root_offset_CR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1643,8 +1641,7 @@ void StateController::getParameters()
   std::vector<double> hipOffsetAL(3);
   if(!n.getParam(paramString+"hip_offset_AL", hipOffsetAL))
   {
-    cout << "Error reading parameter/s (hip_offset_AL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (hip_offset_AL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1654,8 +1651,7 @@ void StateController::getParameters()
   std::vector<double> hipOffsetAR(3);
   if(!n.getParam(paramString+"hip_offset_AR", hipOffsetAR))
   {
-    cout << "Error reading parameter/s (hip_offset_AR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (hip_offset_AR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1665,8 +1661,7 @@ void StateController::getParameters()
   std::vector<double> hipOffsetBL(3);
   if(!n.getParam(paramString+"hip_offset_BL", hipOffsetBL))
   {
-    cout << "Error reading parameter/s (hip_offset_BL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (hip_offset_BL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1676,8 +1671,7 @@ void StateController::getParameters()
   std::vector<double> hipOffsetBR(3);
   if(!n.getParam(paramString+"hip_offset_BR", hipOffsetBR))
   {
-    cout << "Error reading parameter/s (hip_offset_BR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (hip_offset_BR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1687,8 +1681,7 @@ void StateController::getParameters()
     std::vector<double> hipOffsetCL(3);
   if(!n.getParam(paramString+"hip_offset_CL", hipOffsetCL))
   {
-    cout << "Error reading parameter/s (hip_offset_CL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (hip_offset_CL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1698,8 +1691,7 @@ void StateController::getParameters()
   std::vector<double> hipOffsetCR(3);
   if(!n.getParam(paramString+"hip_offset_CR", hipOffsetCR))
   {
-    cout << "Error reading parameter/s (hip_offset_CR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (hip_offset_CR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1711,8 +1703,7 @@ void StateController::getParameters()
   std::vector<double> kneeOffsetAL(3);
   if(!n.getParam(paramString+"knee_offset_AL", kneeOffsetAL))
   {
-    cout << "Error reading parameter/s (knee_offset_AL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (knee_offset_AL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1722,8 +1713,7 @@ void StateController::getParameters()
   std::vector<double> kneeOffsetAR(3);
   if(!n.getParam(paramString+"knee_offset_AR", kneeOffsetAR))
   {
-    cout << "Error reading parameter/s (knee_offset_AR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (knee_offset_AR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1733,8 +1723,7 @@ void StateController::getParameters()
   std::vector<double> kneeOffsetBL(3);
   if(!n.getParam(paramString+"knee_offset_BL", kneeOffsetBL))
   {
-    cout << "Error reading parameter/s (knee_offset_BL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (knee_offset_BL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1744,8 +1733,7 @@ void StateController::getParameters()
   std::vector<double> kneeOffsetBR(3);
   if(!n.getParam(paramString+"knee_offset_BR", kneeOffsetBR))
   {
-    cout << "Error reading parameter/s (knee_offset_BR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (knee_offset_BR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1755,8 +1743,7 @@ void StateController::getParameters()
     std::vector<double> kneeOffsetCL(3);
   if(!n.getParam(paramString+"knee_offset_CL", kneeOffsetCL))
   {
-    cout << "Error reading parameter/s (knee_offset_CL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (knee_offset_CL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1766,8 +1753,7 @@ void StateController::getParameters()
   std::vector<double> kneeOffsetCR(3);
   if(!n.getParam(paramString+"knee_offset_CR", kneeOffsetCR))
   {
-    cout << "Error reading parameter/s (knee_offset_CR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (knee_offset_CR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1779,8 +1765,7 @@ void StateController::getParameters()
   std::vector<double> tipOffsetAL(3);
   if(!n.getParam(paramString+"tip_offset_AL", tipOffsetAL))
   {
-    cout << "Error reading parameter/s (tip_offset_AL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (tip_offset_AL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1790,8 +1775,7 @@ void StateController::getParameters()
   std::vector<double> tipOffsetAR(3);
   if(!n.getParam(paramString+"tip_offset_AR", tipOffsetAR))
   {
-    cout << "Error reading parameter/s (tip_offset_AR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (tip_offset_AR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1801,8 +1785,7 @@ void StateController::getParameters()
   std::vector<double> tipOffsetBL(3);
   if(!n.getParam(paramString+"tip_offset_BL", tipOffsetBL))
   {
-    cout << "Error reading parameter/s (tip_offset_BL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (tip_offset_BL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1812,8 +1795,7 @@ void StateController::getParameters()
   std::vector<double> tipOffsetBR(3);
   if(!n.getParam(paramString+"tip_offset_BR", tipOffsetBR))
   {
-    cout << "Error reading parameter/s (tip_offset_BR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (tip_offset_BR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1823,8 +1805,7 @@ void StateController::getParameters()
     std::vector<double> tipOffsetCL(3);
   if(!n.getParam(paramString+"tip_offset_CL", tipOffsetCL))
   {
-    cout << "Error reading parameter/s (tip_offset_CL) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (tip_offset_CL) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1834,8 +1815,7 @@ void StateController::getParameters()
   std::vector<double> tipOffsetCR(3);
   if(!n.getParam(paramString+"tip_offset_CR", tipOffsetCR))
   {
-    cout << "Error reading parameter/s (tip_offset_CR) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (tip_offset_CR) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1847,8 +1827,7 @@ void StateController::getParameters()
   std::vector<double> stanceLegYaws(3);
   if(!n.getParam(baseParamString+"stance_leg_yaws", stanceLegYaws))
   {
-    cout << "Error reading parameter/s (stance_leg_yaws) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (stance_leg_yaws) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1858,8 +1837,7 @@ void StateController::getParameters()
   std::vector<double> physicalYawOffset(3);
   if(!n.getParam(baseParamString+"physical_yaw_offset", physicalYawOffset))
   {
-    cout << "Error reading parameter/s (physical_yaw_offset) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (physical_yaw_offset) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1869,8 +1847,7 @@ void StateController::getParameters()
   //Knee Offset parameter
   if(!n.getParam(baseParamString+"physical_knee_offset", params.physicalKneeOffset))
   {
-    cout << "Error reading parameter/s (physical_knee_offset) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (physical_knee_offset) from rosparam. Check config file is loaded and type is correct\n");
   }
 
   /********************************************************************************************************************/
@@ -1879,8 +1856,7 @@ void StateController::getParameters()
   std::vector<double> yawLimits(3);
   if(!n.getParam(paramString+"yaw_limits", yawLimits))
   {
-    cout << "Error reading parameter/s (yaw_limits) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (yaw_limits) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1890,8 +1866,7 @@ void StateController::getParameters()
   std::vector<double> kneeLimits(2);
   if(!n.getParam(paramString+"knee_limits", kneeLimits))
   {
-    cout << "Error reading parameter/s (knee_limits) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (knee_limits) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1901,8 +1876,7 @@ void StateController::getParameters()
   std::vector<double> hipLimits(2);    
   if(!n.getParam(paramString+"hip_limits", hipLimits))
   {
-    cout << "Error reading parameter/s (hip_limits) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (hip_limits) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1912,8 +1886,7 @@ void StateController::getParameters()
   std::vector<double> jointMaxAngularSpeeds(2); 
   if(!n.getParam(baseParamString+"joint_max_angular_speeds", jointMaxAngularSpeeds))
   {
-    cout << "Error reading parameter/s (joint_max_angular_speed) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (joint_max_angular_speed) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -1922,8 +1895,7 @@ void StateController::getParameters()
   
   if(!n.getParam(baseParamString+"dynamixel_interface", params.dynamixelInterface))
   {
-    cout << "Error reading parameter/s (dynamixel_interface) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (dynamixel_interface) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   /********************************************************************************************************************/
@@ -1932,56 +1904,47 @@ void StateController::getParameters()
   
   if (!n.getParam(paramString+"step_frequency", params.stepFrequency))
   {
-    cout << "Error reading parameter/s (step_frequency) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (step_frequency) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"step_clearance", params.stepClearance))
   {
-    cout << "Error reading parameter/s (step_clearance) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (step_clearance) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"body_clearance", params.bodyClearance))
   {
-    cout << "Error reading parameter/s (body_clearance) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (body_clearance) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"leg_span_scale", params.legSpanScale))
   {
-    cout << "Error reading parameter/s (leg_span_scale) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (leg_span_scale) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if(!n.getParam(paramString+"leg_state_correction", params.legStateCorrection))
   {
-    cout << "Error reading parameter/s (leg_state_correction) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (leg_state_correction) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if (!n.getParam(paramString+"max_acceleration", params.maxAcceleration))
   {
-    cout << "Error reading parameter/s (max_acceleration) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (max_acceleration) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"max_curvature_speed", params.maxCurvatureSpeed))
   {
-    cout << "Error reading parameter/s (max_curvature_speed) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (max_curvature_speed) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"step_curvature_allowance", params.stepCurvatureAllowance))
   {
-    cout << "Error reading parameter/s (step_curvature_allowance) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (step_curvature_allowance) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"interface_setup_speed", params.interfaceSetupSpeed))
   {
-    cout << "Error reading parameter/s (interface_setup_speed) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (interface_setup_speed) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   /********************************************************************************************************************/
@@ -1990,20 +1953,17 @@ void StateController::getParameters()
   
   if(!n.getParam(paramString+"start_up_sequence", params.startUpSequence))
   {
-    cout << "Error reading parameter/s (start_up_sequence) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (start_up_sequence) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if(!n.getParam(paramString+"move_legs_sequentially", params.moveLegsSequentially))
   {
-    cout << "Error reading parameter/s (move_legs_sequentially) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (move_legs_sequentially) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if(!n.getParam(paramString+"time_to_start", params.timeToStart))
   {
-    cout << "Error reading parameter/s (time_to_start) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (time_to_start) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   //IMU compensation parameters
@@ -2011,103 +1971,87 @@ void StateController::getParameters()
   paramString = baseParamString+"/pose_controller/imu_pose_compensation/translation_compensation/";
   if(!n.getParam(paramString+"proportional_gain", params.translationCompensationProportionalGain))
   {
-    cout << "Error reading parameter/s (translation_compensation/proportional_gain) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (translation_compensation/proportional_gain) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if(!n.getParam(paramString+"integral_gain", params.translationCompensationIntegralGain))
   {
-    cout << "Error reading parameter/s (translation_compensation/integral_gain) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (translation_compensation/integral_gain) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if(!n.getParam(paramString+"derivative_gain", params.translationCompensationDerivativeGain))
   {
-    cout << "Error reading parameter/s (translation_compensation/derivative_gain) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (translation_compensation/derivative_gain) from rosparam. Check config file is loaded and type is correct\n");  
   }  
   //Rotation Compensation
   paramString = baseParamString+"/pose_controller/imu_pose_compensation/rotation_compensation/";
   if(!n.getParam(paramString+"proportional_gain", params.rotationCompensationProportionalGain))
   {
-    cout << "Error reading parameter/s (rotation_compensation/proportional_gain) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (rotation_compensation/proportional_gain) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if(!n.getParam(paramString+"integral_gain", params.rotationCompensationIntegralGain))
   {
-    cout << "Error reading parameter/s (rotation_compensation/integral_gain) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (rotation_compensation/integral_gain) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if(!n.getParam(paramString+"derivative_gain", params.rotationCompensationDerivativeGain))
   {
-    cout << "Error reading parameter/s (rotation_compensation/derivative_gain) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (rotation_compensation/derivative_gain) from rosparam. Check config file is loaded and type is correct\n");  
   }  
   
   //Auto compensation parameters
   paramString = baseParamString+"/pose_controller/auto_pose_compensation/";
   if(!n.getParam(paramString+"pitch_amplitude", params.pitchAmplitude))
   {
-    cout << "Error reading parameter/s (pitch_amplitude) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (pitch_amplitude) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if(!n.getParam(paramString+"roll_amplitude", params.rollAmplitude))
   {
-    cout << "Error reading parameter/s (roll_amplitude) from rosparam" << endl;
-    cout << "Check config file is loaded and type is correct" << endl;  
+    ROS_ERROR("Error reading parameter/s (roll_amplitude) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   //Manual compensation parameters
   paramString = baseParamString+"/pose_controller/manual_pose_compensation/";
   if (!n.getParam(paramString+"max_pose_time", params.maxPoseTime))
   {
-    cout << "Error reading parameter/s (max_pose_time) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (max_pose_time) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"max_roll", params.maxRoll))
   {
-    cout << "Error reading parameter/s (max_roll) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (max_roll) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"max_pitch", params.maxPitch))
   {
-    cout << "Error reading parameter/s (max_pitch) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (max_pitch) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"max_yaw", params.maxYaw))
   {
-    cout << "Error reading parameter/s (max_yaw) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (max_yaw) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"max_x", params.maxX))
   {
-    cout << "Error reading parameter/s (max_x) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (max_x) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"max_y", params.maxY))
   {
-    cout << "Error reading parameter/s (max_y) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (max_y) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"max_z", params.maxZ))
   {
-    cout << "Error reading parameter/s (max_z) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (max_z) from rosparam. Check config file is loaded and type is correct\n");
   } 
   
   if (!n.getParam(paramString+"min_z", params.minZ))
   {
-    cout << "Error reading parameter/s (min_z) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (min_z) from rosparam. Check config file is loaded and type is correct\n");
   } 
   
   /********************************************************************************************************************/
@@ -2116,8 +2060,7 @@ void StateController::getParameters()
   std::vector<double> packedJointPositionsAL(3);
   if (!n.getParam(paramString+"AL_packed_joint_positions", packedJointPositionsAL))
   {
-    cout << "Error reading parameter/s (AL_packed_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (AL_packed_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2127,8 +2070,7 @@ void StateController::getParameters()
   std::vector<double> packedJointPositionsAR(3);
   if (!n.getParam(paramString+"AR_packed_joint_positions", packedJointPositionsAR))
   {
-    cout << "Error reading parameter/s (AR_packed_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (AR_packed_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2138,8 +2080,7 @@ void StateController::getParameters()
   std::vector<double> packedJointPositionsBL(3);
   if (!n.getParam(paramString+"BL_packed_joint_positions", packedJointPositionsBL))
   {
-    cout << "Error reading parameter/s (BL_packed_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (BL_packed_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2149,8 +2090,7 @@ void StateController::getParameters()
   std::vector<double> packedJointPositionsBR(3);
   if (!n.getParam(paramString+"BR_packed_joint_positions", packedJointPositionsBR))
   {
-    cout << "Error reading parameter/s (BR_packed_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (BR_packed_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2160,8 +2100,7 @@ void StateController::getParameters()
   std::vector<double> packedJointPositionsCL(3);
   if (!n.getParam(paramString+"CL_packed_joint_positions", packedJointPositionsCL))
   {
-    cout << "Error reading parameter/s (CL_packed_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (CL_packed_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2171,8 +2110,7 @@ void StateController::getParameters()
   std::vector<double> packedJointPositionsCR(3);
   if (!n.getParam(paramString+"CR_packed_joint_positions", packedJointPositionsCR))
   {
-    cout << "Error reading parameter/s (CR_packed_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (CR_packed_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2184,8 +2122,7 @@ void StateController::getParameters()
   std::vector<double> unpackedJointPositionsAL(3);
   if (!n.getParam(paramString+"AL_unpacked_joint_positions", unpackedJointPositionsAL))
   {
-    cout << "Error reading parameter/s (AL_unpacked_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (AL_unpacked_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2195,8 +2132,7 @@ void StateController::getParameters()
   std::vector<double> unpackedJointPositionsAR(3);
   if (!n.getParam(paramString+"AR_unpacked_joint_positions", unpackedJointPositionsAR))
   {
-    cout << "Error reading parameter/s (AR_unpacked_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (AR_unpacked_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2206,8 +2142,7 @@ void StateController::getParameters()
   std::vector<double> unpackedJointPositionsBL(3);
   if (!n.getParam(paramString+"BL_unpacked_joint_positions", unpackedJointPositionsBL))
   {
-    cout << "Error reading parameter/s (BL_unpacked_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (BL_unpacked_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2217,8 +2152,7 @@ void StateController::getParameters()
   std::vector<double> unpackedJointPositionsBR(3);
   if (!n.getParam(paramString+"BR_unpacked_joint_positions", unpackedJointPositionsBR))
   {
-    cout << "Error reading parameter/s (BR_unpacked_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (BR_unpacked_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2228,8 +2162,7 @@ void StateController::getParameters()
   std::vector<double> unpackedJointPositionsCL(3);
   if (!n.getParam(paramString+"CL_unpacked_joint_positions", unpackedJointPositionsCL))
   {
-    cout << "Error reading parameter/s (CL_unpacked_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (CL_unpacked_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2239,8 +2172,7 @@ void StateController::getParameters()
   std::vector<double> unpackedJointPositionsCR(3);
   if (!n.getParam(paramString+"CR_unpacked_joint_positions", unpackedJointPositionsCR))
   {
-    cout << "Error reading parameter/s (CR_unpacked_joint_positions) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (CR_unpacked_joint_positions) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
@@ -2254,53 +2186,92 @@ void StateController::getParameters()
 
   if (!n.getParam(paramString+"impedance_control", params.impedanceControl))
   {
-    cout << "Error reading parameter/s (impedance_control) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (impedance_control) from rosparam. Check config file is loaded and type is correct\n");
   }
 
   if (!n.getParam(paramString+"integrator_step_time", params.integratorStepTime))
   {
-    cout << "Error reading parameter/s (integrator_step_time) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (integrator_step_time) from rosparam. Check config file is loaded and type is correct\n");
   }
 
   if (!n.getParam(paramString+"virtual_mass", params.virtualMass))
   {
-    cout << "Error reading parameter/s (virtual_mass) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (virtual_mass) from rosparam. Check config file is loaded and type is correct\n");
   }
 
   if (!n.getParam(paramString+"virtual_stiffness", params.virtualStiffness))
   {
-    cout << "Error reading parameter/s (virtual_stiffness) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (virtual_stiffness) from rosparam. Check config file is loaded and type is correct\n");
   }
 
   if (!n.getParam(paramString+"virtual_damping_ratio", params.virtualDampingRatio))
   {
-    cout << "Error reading parameter/s (virtual_damping_ratio) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (virtual_damping_ratio) from rosparam. Check config file is loaded and type is correct\n");
   }
 
   if (!n.getParam(paramString+"force_gain", params.forceGain))
   {
-    cout << "Error reading parameter/s (force_gain) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (force_gain) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"impedance_input", params.impedanceInput))
   {
-    cout << "Error reading parameter/s (impedance_input) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (impedance_input) from rosparam. Check config file is loaded and type is correct\n");
   }
-   
-  /********************************************************************************************************************/
-  //Debug Parameters (set via launch file instead of by config files)
   
-  paramString = "/hexapod/debug_parameters/rviz";
-  if (!n.getParam(paramString, params.debug_rviz))
+  /********************************************************************************************************************/
+  // Debug Parameters 
+  
+  paramString="/hexapod/debug_parameters/";
+  
+  if (!n.getParam(paramString + "testing", params.testing))
   {
-    params.debug_rviz = false;
+    ROS_ERROR("Error reading debug parameter/s (testing) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString + "test_time_length", params.testTimeLength))
+  {
+    ROS_ERROR("Error reading debug parameter/s (test_time_length) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString + "console_verbosity", params.consoleVerbosity))
+  {
+    ROS_ERROR("Error reading debug parameter/s (console_verbosity) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString + "debug_move_to_joint_position", params.debugMoveToJointPosition))
+  {
+    ROS_ERROR("Error reading debug parameter/s (debug_move_to_joint_position) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString + "debug_step_to_position", params.debugStepToPosition))
+  {
+    ROS_ERROR("Error reading debug parameter/s (debug_step_to_position) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString + "debug_update_swing_position", params.debugUpdateSwingPosition))
+  {
+    ROS_ERROR("Error reading debug parameter/s (debug_update_swing_position) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString + "debug_update_position", params.debugUpdatePosition))
+  {
+    ROS_ERROR("Error reading debug parameter/s (debug_update_position) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString + "debug_manual_compensation_rotation", params.debugManualCompensationRotation))
+  {
+    ROS_ERROR("Error reading debug parameter/s (debug_manual_compensation_rotation) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString + "debug_manual_compensation_translation", params.debugManualCompensationTranslation))
+  {
+    ROS_ERROR("Error reading debug parameter/s (debug_manual_compensation_translation) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString + "debug_rviz", params.debug_rviz))
+  {
+    ROS_ERROR("Error reading debug parameter/s (rviz) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   /********************************************************************************************************************/
@@ -2308,8 +2279,7 @@ void StateController::getParameters()
   paramString = "/hexapod_remote/param_adjust_sensitivity";
   if (!n.getParam(paramString, paramAdjustSensitivity))
   {
-    cout << "Error reading parameter/s (param_adjust_sensitivity) from rosparam" <<endl; 
-    cout << "Check hexapod_remote is running and launch file properly set param" << endl;
+    ROS_ERROR("Error reading parameter/s (param_adjust_sensitivity) from rosparam. Check hexapod_remote is running and launch file properly set param\n");
     paramAdjustSensitivity = 10.0; //Default to 10.0 (as per default in hexapod_remote)
   }
 }
@@ -2326,8 +2296,7 @@ void StateController::getGaitParameters(std::string forceGait)
   {
     if (!n.getParam(baseParamString+"gait_type", params.gaitType))
     {
-      cout << "Error reading parameter/s (gaitType) from rosparam" <<endl; 
-      cout << "Check config file is loaded and type is correct" << endl;
+      ROS_ERROR("Error reading parameter/s (gaitType) from rosparam. Check config file is loaded and type is correct\n");
     }
   }
   else
@@ -2340,36 +2309,31 @@ void StateController::getGaitParameters(std::string forceGait)
   paramString = baseParamString+params.gaitType+"/stance_phase";
   if (!n.getParam(paramString, params.stancePhase))
   {
-    cout << "Error reading parameter/s (stance_phase) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (stance_phase) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   paramString = baseParamString+params.gaitType+"/swing_phase";
   if (!n.getParam(paramString, params.swingPhase))
   {
-    cout << "Error reading parameter/s (swing_phase) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (swing_phase) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   paramString = baseParamString+params.gaitType+"/phase_offset";
   if (!n.getParam(paramString, params.phaseOffset))
   {
-    cout << "Error reading parameter/s (phase_offset) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (phase_offset) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   paramString = baseParamString+params.gaitType+"/offset_multiplier";
   if (!n.getParam(paramString, params.offsetMultiplier))
   {
-    cout << "Error reading parameter/s (offset_multiplier) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (offset_multiplier) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   paramString = baseParamString+params.gaitType+"/transition_period";
   if (!n.getParam(paramString, params.transitionPeriod))
   {
-    cout << "Error reading parameter/s (transition_period) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (transition_period) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   /********************************************************************************************************************/
@@ -2379,36 +2343,31 @@ void StateController::getGaitParameters(std::string forceGait)
   paramString = baseParamString+params.gaitType+"/loaded_phase";
   if (!n.getParam(paramString, params.loadedPhase))
   {
-    cout << "Error reading parameter/s (loaded_phase) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (loaded_phase) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   paramString = baseParamString+params.gaitType+"/unloaded_phase";
   if (!n.getParam(paramString, params.unloadedPhase))
   {
-    cout << "Error reading parameter/s (unloaded_phase) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (unloaded_phase) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   paramString = baseParamString+params.gaitType+"/stiffness_phase_offset";
   if (!n.getParam(paramString, params.stiffnessPhaseOffset))
   {
-    cout << "Error reading parameter/s (stiffness_phase_offset) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (stiffness_phase_offset) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   paramString = baseParamString+params.gaitType+"/stiffness_offset_multiplier";
   if (!n.getParam(paramString, params.stiffnessOffsetMultiplier))
   {
-    cout << "Error reading parameter/s (stiffness_offset_multiplier) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (stiffness_offset_multiplier) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   paramString = baseParamString+params.gaitType+"/stiffness_multiplier";
   if (!n.getParam(paramString, params.stiffnessMultiplier))
   {
-    cout << "Error reading parameter/s (stiffness_multiplier) from rosparam" <<endl; 
-    cout << "Check config file is loaded and type is correct" << endl;
+    ROS_ERROR("Error reading parameter/s (stiffness_multiplier) from rosparam. Check config file is loaded and type is correct\n");
   }  
 }
 

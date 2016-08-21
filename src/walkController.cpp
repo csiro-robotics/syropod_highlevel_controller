@@ -63,11 +63,15 @@ void WalkController::LegStepper::updateSwingPos(Vector3d *pos)
   
   *pos += deltaPos;
   
-  //DEBUGGING
-  //if (t1 < deltaT) {t1=0.0;}
-  //if (t2 < deltaT) {t2=0.0;}
-  //cout << "ITERATION: " << iteration << "\tTIME: " << t1 << ":" << t2 << "\tORIGIN: " << originTipPosition[0] << ":" << originTipPosition[1] << ":" << originTipPosition[2] << "\tPOS: " << (*pos)[0] << ":" << (*pos)[1] << ":" << (*pos)[2] << "\tTARGET: " << controlNodesSecondary[3][0] << ":" << controlNodesSecondary[3][1] << ":" << controlNodesSecondary[3][2] << endl; 
-  //DEBUGGING
+  
+  if (t1 < deltaT) {t1=0.0;}
+  if (t2 < deltaT) {t2=0.0;}
+  ROS_DEBUG_COND(params->debugUpdateSwingPosition, "UPDATE_SWING_POS DEBUG - ITERATION: %d\tTIME: %f:%f\tORIGIN: %f:%f:%f\tPOS: %f:%f:%f\tTARGET: %f:%f:%f\n", 
+		 iteration, t1, t2,
+		 originTipPosition[0], originTipPosition[1], originTipPosition[2],
+		 (*pos)[0], (*pos)[1], (*pos)[2],
+		 controlNodesSecondary[3][0], controlNodesSecondary[3][1], controlNodesSecondary[3][2]); 
+  
 }
 
 void WalkController::LegStepper::updatePosition()
@@ -117,10 +121,10 @@ void WalkController::LegStepper::updatePosition()
     double deltaZ = (deltaT*cubicBezierDot(controlNodes, deltaT*iteration))[2];
     
     currentTipPosition[2] += deltaZ;
+
+    ROS_DEBUG_COND(params.debugUpdatePosition, "UPDATE_POSITION DEBUG - ITERATION: %d\tTIME: %f\tORIGIN: %f\tPOS: %f\tTARGET: %f\n",
+		  iteration, deltaT*iteration, defaultTipPosition[2], pos[2], controlNodes[2][2]); 
     */
-    //DEBUGGING
-    //cout << "ITERATION: " << iteration << "\tTIME: " <<  deltaT*iteration << "\tORIGIN: " << defaultTipPosition[2] << "\tPOS: " << pos[2] << "\tTARGET: " << controlNodes[2][2] << endl; 
-    //DEBUGGING  
   }  
 }
 
@@ -226,6 +230,7 @@ void WalkController::init(Model *m, Parameters p)
       legSteppers[l][s].phase = 0; // Ensures that feet start stepping naturally and don't pop to up position
       legSteppers[l][s].strideVector = Vector2d(0,0);
       legSteppers[l][s].walker = this;
+      legSteppers[l][s].params = &params;
     }
   }
   // check for overlapping radii

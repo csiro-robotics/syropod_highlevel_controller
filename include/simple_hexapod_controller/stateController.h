@@ -32,6 +32,8 @@ struct StateController
   LegSelection legSelection = NO_LEG_SELECTION;
   ParamSelection paramSelection = NO_PARAM_SELECTION;
   LoadShareMode loadShareMode = EQUAL;
+  
+  TestState testState = TEST_ENDED;
 
   Parameters params;
   Parameters defaultParams;
@@ -106,7 +108,8 @@ struct StateController
   Vector3d unpackedJointPositions[3][2];
   
   //Misc variables
-  bool debounce = false;
+  bool legStateDebounce = false;
+  bool startTestDebounce = false;
   int firstIteration = 0;
   
   //Initialisation functions
@@ -163,4 +166,5 @@ struct StateController
   void startCallback(const std_msgs::Bool &input);
   void paramSelectionCallback(const std_msgs::Int8 &input);
   void paramAdjustCallback(const std_msgs::Int8 &input);
+  void startTestCallback(const std_msgs::Bool &input);
 };

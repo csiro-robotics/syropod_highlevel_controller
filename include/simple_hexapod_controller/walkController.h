@@ -74,6 +74,7 @@ struct WalkController
     Vector3d defaultTipPosition;
     
     struct WalkController *walker; //So LegStepper can access walkcontroller member variables
+    struct Parameters *params;
     
     void updateSwingPos(Vector3d *pos);
     void updatePosition();

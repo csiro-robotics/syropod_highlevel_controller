@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <vector>
 #include <boost/iterator/iterator_concepts.hpp>
+#include <ros/console.h>
 using namespace Eigen;
 using namespace std;
 
@@ -30,6 +31,12 @@ enum State
   PACKED,
   DIRECT,
   UNKNOWN,  
+};
+
+enum TestState
+{
+  TEST_RUNNING,
+  TEST_ENDED,
 };
 
 enum LegSelection
@@ -168,6 +175,16 @@ struct Parameters
   
   //Debug Parameters
   bool debug_rviz;
+  
+  bool testing;
+  double testTimeLength;
+  std::string consoleVerbosity;
+  bool debugMoveToJointPosition;
+  bool debugStepToPosition;
+  bool debugUpdateSwingPosition;
+  bool debugUpdatePosition;
+  bool debugManualCompensationRotation;
+  bool debugManualCompensationTranslation;  
 };
 
 template<class T>
