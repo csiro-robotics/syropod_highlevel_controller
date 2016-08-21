@@ -13,7 +13,7 @@ hexapod:
     auto_compensation: true
     manual_compensation: true
 
-    gait_type: amble_gait
+    gait_type: wave_gait
 
 ######################################################################
 
