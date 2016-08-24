@@ -152,6 +152,7 @@ struct Parameters
   
   //Impedance Controller Parameters
   bool impedanceControl;
+  bool dynamicStiffness;
   double integratorStepTime;
   double virtualMass;
   double virtualStiffness;

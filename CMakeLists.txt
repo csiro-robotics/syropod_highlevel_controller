@@ -112,14 +112,14 @@ include_directories(
 
 ## Declare a cpp executable
 add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/walkController.cpp src/poseController.cpp src/debugOutput.cpp src/dynamixelMotorInterface.cpp src/dynamixelProMotorInterface.cpp src/imuCompensation.cpp src/impedanceController.cpp src/stateController.cpp)#${simple_hexapod_controller_sources})
+add_executable(simple_diagnostics_node src/simpleDiagnostics.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 
 ## Specify libraries to link a library or executable target against
- target_link_libraries(simple_hexapod_controller_node
-   ${catkin_LIBRARIES}
- )
+ target_link_libraries(simple_hexapod_controller_node ${catkin_LIBRARIES})
+ target_link_libraries(simple_diagnostics_node ${catkin_LIBRARIES})
 
 
 #############

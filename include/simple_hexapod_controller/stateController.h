@@ -72,6 +72,7 @@ struct StateController
   //Joint states callback variables
   //sensor_msgs::JointState jointStates;
   double jointPositions[18];
+  double jointVelocities[18];
   double jointEfforts[18];
   double tipForces[6];
   bool jointPosFlag = false;

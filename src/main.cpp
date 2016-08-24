@@ -52,8 +52,8 @@ int main(int argc, char* argv[])
   ros::Subscriber jointStatesSubscriber2;
   
   //Attempt to subscribe to one of two possible joint state topics
-  jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1, &StateController::jointStatesCallback, &state);
-  jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1, &StateController::jointStatesCallback, &state); 
+  jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1000, &StateController::jointStatesCallback, &state);
+  jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, &state); 
   
   //ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
   state.tipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions", 1000);

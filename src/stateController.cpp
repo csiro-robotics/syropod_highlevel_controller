@@ -1352,6 +1352,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
         !strcmp(jointName, "AL_coxa_joint"))
     {
       jointPositions[0] = jointStates.position[i];
+      jointVelocities[0] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[0] = jointStates.effort[i];
@@ -1361,6 +1362,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "AL_femur_joint"))
     {
       jointPositions[1] = jointStates.position[i];
+      jointVelocities[1] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[1] = jointStates.effort[i];
@@ -1370,6 +1372,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "AL_tibia_joint"))
     {
       jointPositions[2] = jointStates.position[i];
+      jointVelocities[2] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[2] = jointStates.effort[i];
@@ -1379,6 +1382,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "AR_coxa_joint"))
     {
       jointPositions[3] = jointStates.position[i];
+      jointVelocities[3] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[3] = jointStates.effort[i];
@@ -1388,6 +1392,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "AR_femur_joint"))
     {
       jointPositions[4] = jointStates.position[i];
+      jointVelocities[4] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[4] = jointStates.effort[i];
@@ -1397,6 +1402,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "AR_tibia_joint"))
     {
       jointPositions[5] = jointStates.position[i];
+      jointVelocities[5] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[5] = jointStates.effort[i];
@@ -1406,6 +1412,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "BL_coxa_joint"))
     {
       jointPositions[6] = jointStates.position[i];
+      jointVelocities[6] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[6] = jointStates.effort[i];
@@ -1415,6 +1422,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "BL_femur_joint"))
     {
       jointPositions[7] = jointStates.position[i];
+      jointVelocities[7] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[7] = jointStates.effort[i];
@@ -1424,6 +1432,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "BL_tibia_joint"))
     {
       jointPositions[8] = jointStates.position[i];
+      jointVelocities[8] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[8] = jointStates.effort[i];
@@ -1433,6 +1442,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "BR_coxa_joint"))
     {
       jointPositions[9] = jointStates.position[i];
+      jointVelocities[9] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[9] = jointStates.effort[i];
@@ -1442,6 +1452,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "BR_femur_joint"))
     {
       jointPositions[10] = jointStates.position[i];
+      jointVelocities[10] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[10] = jointStates.effort[i];
@@ -1451,6 +1462,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "BR_tibia_joint"))
     {
       jointPositions[11] = jointStates.position[i];
+      jointVelocities[11] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[11] = jointStates.effort[i];
@@ -1460,6 +1472,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "CL_coxa_joint"))
     {
       jointPositions[12] = jointStates.position[i];
+      jointVelocities[12] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[12] = jointStates.effort[i];
@@ -1469,6 +1482,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "CL_femur_joint"))
     {
       jointPositions[13] = jointStates.position[i];
+      jointVelocities[13] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[13] = jointStates.effort[i];
@@ -1478,6 +1492,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "CL_tibia_joint"))
     {
       jointPositions[14] = jointStates.position[i];
+      jointVelocities[14] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[14] = jointStates.effort[i];
@@ -1487,6 +1502,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "CR_coxa_joint"))
     {
       jointPositions[15] = jointStates.position[i];
+      jointVelocities[15] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[15] = jointStates.effort[i];
@@ -1496,6 +1512,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "CR_femur_joint"))
     {
       jointPositions[16] = jointStates.position[i];
+      jointVelocities[16] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[16] = jointStates.effort[i];
@@ -1505,6 +1522,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
               !strcmp(jointName, "CR_tibia_joint"))
     {
       jointPositions[17] = jointStates.position[i];
+      jointVelocities[17] = jointStates.velocity[i];
       if (getEffortValues) 
       {
         jointEfforts[17] = jointStates.effort[i];
