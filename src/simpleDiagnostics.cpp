@@ -58,7 +58,7 @@ void populateJointMap(std::map<std::string, int> *jointMap)
 }
 
 /***********************************************************************************************************************
- * Gets ALL joint positions from joint state messages
+ * Takes joint state data from source message and organises if correctly in destination message format
 ***********************************************************************************************************************/
 void populateJointStates(sensor_msgs::JointState jointStatesSource, sensor_msgs::JointState *jointStatesDestination)
 {  
@@ -67,28 +67,23 @@ void populateJointStates(sensor_msgs::JointState jointStatesSource, sensor_msgs:
     const char* jointName = jointStatesSource.name[i].c_str();
     int index = jointMap[jointName];
     
-    //Header
     jointStatesDestination[index/3].header.stamp = ros::Time::now();
     
-    //Name
     if (jointStatesSource.name.size() != 0)
     {
       jointStatesDestination[index/3].name[index%3] = jointStatesSource.name[i];
     }
     
-    //Position
     if (jointStatesSource.position.size() != 0)
     {
       jointStatesDestination[index/3].position[index%3] = jointStatesSource.position[i];
     }
     
-    //Velocity
     if (jointStatesSource.velocity.size() != 0)
     {
       jointStatesDestination[index/3].velocity[index%3] = jointStatesSource.velocity[i];
     }
 
-    //Effort
     if (jointStatesSource.effort.size() != 0)
     {
       jointStatesDestination[index/3].effort[index%3] = jointStatesSource.effort[i];
@@ -97,7 +92,7 @@ void populateJointStates(sensor_msgs::JointState jointStatesSource, sensor_msgs:
 }
 
 /***********************************************************************************************************************
- * Gets ALL joint positions from joint state messages
+ * Callback for actual joint state messages
 ***********************************************************************************************************************/
 void jointStatesActualCallback(const sensor_msgs::JointState &jointStates)
 {  
@@ -111,7 +106,7 @@ void jointStatesActualCallback(const sensor_msgs::JointState &jointStates)
 }
 
 /***********************************************************************************************************************
- * Gets ALL joint positions from joint state messages
+ * Callback for desired joint state messages
 ***********************************************************************************************************************/
 void jointStatesDesiredCallback(const sensor_msgs::JointState &jointStates)
 {  
@@ -125,7 +120,7 @@ void jointStatesDesiredCallback(const sensor_msgs::JointState &jointStates)
 }
 
 /***********************************************************************************************************************
- * Gets ALL joint positions from joint state messages
+ * Callback for motor joint state messages
 ***********************************************************************************************************************/
 void jointStatesMotorCallback(const sensor_msgs::JointState &jointStates)
 {  
@@ -156,7 +151,7 @@ int main(int argc, char** argv)
 	ros::Subscriber jointStatesMotorSubscriber = n.subscribe("/desired_motor_state", 1000, &jointStatesMotorCallback);
 	
 	populateJointMap(&jointMap);
-	
+
 	for (int i=0; i<6; i++)
 	{
 	  jointStatesActual[i].name.resize(3);
