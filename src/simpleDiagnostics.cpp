@@ -6,13 +6,15 @@
 
 static sensor_msgs::JointState jointStatesActual[6];
 static sensor_msgs::JointState jointStatesDesired[6];
-static sensor_msgs::JointState jointStatesMotor[6];
+static sensor_msgs::JointState jointStatesMotorActual[6];
+static sensor_msgs::JointState jointStatesMotorDesired[6];
 
 static std::map<std::string, int> jointMap;
 
 ros::Publisher jointStatesActualPublishers[6];
 ros::Publisher jointStatesDesiredPublishers[6];
-ros::Publisher jointStatesMotorPublishers[6];
+ros::Publisher jointStatesMotorActualPublishers[6];
+ros::Publisher jointStatesMotorDesiredPublishers[6];
 
 enum DataType
 {
@@ -141,11 +143,19 @@ void jointStatesDesiredCallback(const sensor_msgs::JointState &jointStates)
 }
 
 /***********************************************************************************************************************
- * Callback for motor joint state messages
+ * Callback for desired motor joint state messages
 ***********************************************************************************************************************/
-void jointStatesMotorCallback(const sensor_msgs::JointState &jointStates)
+void jointStatesMotorDesiredCallback(const sensor_msgs::JointState &jointStates)
 {  
-  populateJointStates(jointStates, jointStatesMotor);
+  populateJointStates(jointStates, jointStatesMotorDesired);
+}
+
+/***********************************************************************************************************************
+ * Callback for actual motor joint state messages
+***********************************************************************************************************************/
+void jointStatesMotorActualCallback(const sensor_msgs::JointState &jointStates)
+{  
+  populateJointStates(jointStates, jointStatesMotorActual);
 }
 
 /***********************************************************************************************************************
@@ -227,7 +237,8 @@ int main(int argc, char** argv)
   ros::Subscriber jointVelocityDesiredSubscriber17 = n.subscribe<std_msgs::Float64>("/hexapod/rear_right_coxa_femour/velocity", 1000, boost::bind(jointVelocityDesiredCallback, _1, "rear_right_coxa_femour"));
   ros::Subscriber jointVelocityDesiredSubscriber18 = n.subscribe<std_msgs::Float64>("/hexapod/rear_right_femour_tibia/velocity", 1000, boost::bind(jointVelocityDesiredCallback, _1, "rear_right_femour_tibia"));
 
-  ros::Subscriber jointStatesMotorSubscriber = n.subscribe("/desired_motor_state", 1000, &jointStatesMotorCallback);
+  ros::Subscriber jointStatesMotorDesiredSubscriber = n.subscribe("/desired_motor_state", 1000, &jointStatesMotorDesiredCallback);
+  ros::Subscriber jointStatesMotorActualSubscriber = n.subscribe("/motor_encoders", 1000, &jointStatesMotorActualCallback);
 
   populateJointMap(&jointMap);
 
@@ -241,10 +252,14 @@ int main(int argc, char** argv)
     jointStatesDesired[i].position.resize(3);
     jointStatesDesired[i].velocity.resize(3);
     jointStatesDesired[i].effort.resize(3);
-    jointStatesMotor[i].name.resize(3);
-    jointStatesMotor[i].position.resize(3);
-    jointStatesMotor[i].velocity.resize(3);
-    jointStatesMotor[i].effort.resize(3);
+    jointStatesMotorActual[i].name.resize(3);
+    jointStatesMotorActual[i].position.resize(3);
+    jointStatesMotorActual[i].velocity.resize(3);
+    jointStatesMotorActual[i].effort.resize(3);
+    jointStatesMotorDesired[i].name.resize(3);
+    jointStatesMotorDesired[i].position.resize(3);
+    jointStatesMotorDesired[i].velocity.resize(3);
+    jointStatesMotorDesired[i].effort.resize(3);
   }
 
   jointStatesActualPublishers[0] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/front_left_joint_state/actual", 1000);
@@ -261,12 +276,19 @@ int main(int argc, char** argv)
   jointStatesDesiredPublishers[4] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_left_joint_state/desired", 1000);
   jointStatesDesiredPublishers[5] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_right_joint_state/desired", 1000);
 
-  jointStatesMotorPublishers[0] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/front_left_joint_state/motor", 1000);
-  jointStatesMotorPublishers[1] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/front_right_joint_state/motor", 1000);
-  jointStatesMotorPublishers[2] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/middle_left_joint_state/motor", 1000);
-  jointStatesMotorPublishers[3] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/middle_right_joint_state/motor", 1000);
-  jointStatesMotorPublishers[4] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_left_joint_state/motor", 1000);
-  jointStatesMotorPublishers[5] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_right_joint_state/motor", 1000);
+  jointStatesMotorActualPublishers[0] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/front_left_joint_state/motor_actual", 1000);
+  jointStatesMotorActualPublishers[1] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/front_right_joint_state/motor_actual", 1000);
+  jointStatesMotorActualPublishers[2] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/middle_left_joint_state/motor_actual", 1000);
+  jointStatesMotorActualPublishers[3] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/middle_right_joint_state/motor_actual", 1000);
+  jointStatesMotorActualPublishers[4] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_left_joint_state/motor_actual", 1000);
+  jointStatesMotorActualPublishers[5] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_right_joint_state/motor_actual", 1000);
+  
+  jointStatesMotorDesiredPublishers[0] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/front_left_joint_state/motor_desired", 1000);
+  jointStatesMotorDesiredPublishers[1] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/front_right_joint_state/motor_desired", 1000);
+  jointStatesMotorDesiredPublishers[2] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/middle_left_joint_state/motor_desired", 1000);
+  jointStatesMotorDesiredPublishers[3] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/middle_right_joint_state/motor_desired", 1000);
+  jointStatesMotorDesiredPublishers[4] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_left_joint_state/motor_desired", 1000);
+  jointStatesMotorDesiredPublishers[5] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_right_joint_state/motor_desired", 1000);
 
   while (ros::ok())
   {
@@ -274,7 +296,8 @@ int main(int argc, char** argv)
     {
       jointStatesActualPublishers[i].publish(jointStatesActual[i]);
       jointStatesDesiredPublishers[i].publish(jointStatesDesired[i]);
-      jointStatesMotorPublishers[i].publish(jointStatesMotor[i]);
+      jointStatesMotorActualPublishers[i].publish(jointStatesMotorActual[i]);
+      jointStatesMotorDesiredPublishers[i].publish(jointStatesMotorDesired[i]);
     }
     ros::spinOnce();
     r.sleep();
