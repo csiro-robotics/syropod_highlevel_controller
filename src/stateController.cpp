@@ -17,6 +17,7 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
   for (int i=0; i<18; i++)
   {
     jointPositions[i] = 1e10;
+    jointVelocities[i] = 1e10;
   }
 }
 
