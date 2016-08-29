@@ -17,9 +17,12 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
   for (int i=0; i<18; i++)
   {
     jointPositions[i] = 1e10;
-    jointVelocities[i] = 1e10;
+    jointVelocities[i] = 0.0;
     jointEfforts[i] = 0.0;
-    tipForces[i] = 0.0;
+    if (i < 6)
+    {
+      tipForces[i] = 0;
+    }
   }
 }
 
