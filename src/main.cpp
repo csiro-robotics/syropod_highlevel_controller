@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
   
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, &StateController::startCallback, &state);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, &StateController::gaitSelectionCallback, &state);
-  ros::Subscriber tipForceSubscriber = n.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, &state);
+  //ros::Subscriber tipForceSubscriber = n.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, &state);
   ros::Subscriber jointStatesSubscriber1;
   ros::Subscriber jointStatesSubscriber2;
   
@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
   //Check force data is available for impedanceControl
   if (state.params.impedanceControl)
   {
-    if(tipForceSubscriber && state.params.impedanceInput == "tip_force")
+    if(/*tipForceSubscriber && */state.params.impedanceInput == "tip_force")
     {
       state.useTipForce = true;
     }
