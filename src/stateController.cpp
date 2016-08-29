@@ -19,6 +19,7 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
     jointPositions[i] = 1e10;
     jointVelocities[i] = 1e10;
     jointEfforts[i] = 0.0;
+    tipForces[i] = 0.0;
   }
 }
 

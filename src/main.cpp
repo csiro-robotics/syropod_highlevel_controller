@@ -47,13 +47,13 @@ int main(int argc, char* argv[])
   
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, &StateController::startCallback, &state);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, &StateController::gaitSelectionCallback, &state);
-  //ros::Subscriber tipForceSubscriber = n.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, &state);
+  ros::Subscriber tipForceSubscriber = n.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, &state);
   ros::Subscriber jointStatesSubscriber1;
   ros::Subscriber jointStatesSubscriber2;
   
   //Attempt to subscribe to one of two possible joint state topics
-  //jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1000, &StateController::jointStatesCallback, &state);
-  //jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, &state); 
+  jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1000, &StateController::jointStatesCallback, &state);
+  jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, &state); 
   
   //ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
   state.tipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions", 1000);
@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
   //Check force data is available for impedanceControl
   if (state.params.impedanceControl)
   {
-    if(/*tipForceSubscriber && */state.params.impedanceInput == "tip_force")
+    if(tipForceSubscriber && state.params.impedanceInput == "tip_force")
     {
       state.useTipForce = true;
     }
