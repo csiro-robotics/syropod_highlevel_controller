@@ -152,6 +152,7 @@ hexapod:
   debug_parameters:
     testing: true
     test_time_length: 60.0
+    test_velocity: 1.0
     console_verbosity: debug
     
     debug_move_to_joint_position: false

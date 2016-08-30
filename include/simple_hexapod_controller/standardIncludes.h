@@ -179,6 +179,7 @@ struct Parameters
   
   bool testing;
   double testTimeLength;
+  double testVelocity;
   std::string consoleVerbosity;
   bool debugMoveToJointPosition;
   bool debugStepToPosition;
