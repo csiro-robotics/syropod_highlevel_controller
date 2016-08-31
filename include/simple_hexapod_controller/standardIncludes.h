@@ -107,7 +107,7 @@ struct Parameters
   double stepClearance;
   double bodyClearance;
   double legSpanScale; 
-  bool legStateCorrection;
+  double velocityBoost;
   double maxAcceleration;
   double maxCurvatureSpeed;
   double stepCurvatureAllowance;

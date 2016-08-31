@@ -373,18 +373,19 @@ void StateController::runningState()
     poser->updateStance(walker->identityTipPositions, params.autoCompensation);
     
     if (params.testing)
-    {
-      turnRate = 0;      
-      if (testState == TEST_RUNNING && (runningTime < params.testTimeLength))
+    {    
+      if (testState == TEST_RUNNING && (runningTime < params.testTimeLength || params.testTimeLength == 0.0))
       {
-	ROS_DEBUG_COND(runningTime == 0, "Test Started. Will finish in %f seconds.\n", params.testTimeLength);
+	ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength > 0.0, "Test started. Will finish automatically in %f seconds. Press X to stop test early.\n", params.testTimeLength);
+	ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength == 0.0, "Test started. No time limit. Press X to stop test.\n");
 	runningTime += params.timeDelta;
 	ROS_ASSERT(params.testVelocity <= 1.0);
 	localVelocity = Vector2d(0.0,params.testVelocity);
       }
       else
       {
-	ROS_DEBUG_COND(testState == TEST_RUNNING, "Test Ended.\n");
+	ROS_DEBUG_COND(testState == TEST_RUNNING, "Test ended as scheduled.\n");
+	ROS_DEBUG_COND(runningTime > 0.0, "Test ended manually.\n");
 	runningTime = 0.0;
 	testState = TEST_ENDED;
       }
@@ -1230,7 +1231,15 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
-  velocityMultiplier = (-0.5*twist.linear.z+1.5); //Range: 1.0->2.0
+  if (params.velocityBoost == 1.0)
+  {
+    velocityMultiplier = (-0.5*twist.linear.z+1.5); //Range: 1.0->2.0
+  }
+  else
+  {
+    velocityMultiplier = params.velocityBoost;
+  }
+  
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   //localVelocity = clamped(localVelocity, 1.0);
 
@@ -1238,7 +1247,7 @@ void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
   turnRate = turnRate*turnRate*turnRate; // the cube just lets the thumbstick give small turns easier
     
   //Allows rotation without velocity input
-  if (localVelocity.norm() == 0.0)
+  if (localVelocity.norm() == 0.0 && testState != TEST_RUNNING)
   {
     localVelocity = Vector2d(0, twist.angular.x);
     turnRate = sign(twist.angular.x);
@@ -1319,10 +1328,17 @@ void StateController::startTestCallback(const std_msgs::Bool &input)
 {
   if (input.data && startTestDebounce)
   {
-    testState = TEST_RUNNING;
+    if (testState == TEST_RUNNING)
+    {
+      testState = TEST_ENDED;
+    }
+    else if (testState == TEST_ENDED)
+    {
+      testState = TEST_RUNNING;
+    }
     startTestDebounce = false;
   }
-  else if (!input.data && testState == TEST_ENDED)
+  else if (!input.data)// && testState == TEST_ENDED)
   {
     startTestDebounce = true;
   }
@@ -1995,9 +2011,9 @@ void StateController::getParameters()
     ROS_ERROR("Error reading parameter/s (leg_span_scale) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  if(!n.getParam(paramString+"leg_state_correction", params.legStateCorrection))
+  if(!n.getParam(paramString+"velocity_boost", params.velocityBoost))
   {
-    ROS_ERROR("Error reading parameter/s (leg_state_correction) from rosparam. Check config file is loaded and type is correct\n");  
+    ROS_ERROR("Error reading parameter/s (velocity_boost) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
   if (!n.getParam(paramString+"max_acceleration", params.maxAcceleration))
