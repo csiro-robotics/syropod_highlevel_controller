@@ -127,6 +127,7 @@ struct Parameters
   
   double pitchAmplitude;
   double rollAmplitude;
+  double zTransAmplitude;
   
   double maxPoseTime;
   double maxRoll;

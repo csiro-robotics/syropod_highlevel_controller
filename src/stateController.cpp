@@ -2101,6 +2101,11 @@ void StateController::getParameters()
     ROS_ERROR("Error reading parameter/s (roll_amplitude) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
+  if(!n.getParam(paramString+"z_trans_amplitude", params.zTransAmplitude))
+  {
+    ROS_ERROR("Error reading parameter/s (z_trans_amplitude) from rosparam. Check config file is loaded and type is correct\n");  
+  }
+  
   //Manual compensation parameters
   paramString = baseParamString+"/pose_controller/manual_pose_compensation/";
   if (!n.getParam(paramString+"max_pose_time", params.maxPoseTime))

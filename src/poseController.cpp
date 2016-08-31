@@ -481,6 +481,7 @@ void PoseController::autoCompensation(void)
   {       
     double roll = 0.0;
     double pitch = 0.0;
+    double zTrans = 0.0;
     for (int l=0; l<3; l++)
     {
       for (int s=0; s<2; s++)
@@ -488,6 +489,7 @@ void PoseController::autoCompensation(void)
 	double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - model->stanceTipPositions[l][s][2];	  
 	roll += zDiff*pow(-1.0, s)*params.rollAmplitude;
 	pitch += zDiff*(-(l-1))*params.pitchAmplitude;
+	zTrans += zDiff*params.zTransAmplitude;
       }
     }
     
@@ -499,6 +501,7 @@ void PoseController::autoCompensation(void)
     else if (walker->params.gaitType == "tripod_gait")
     {
       currentPose.rotation[2] = roll;
+      currentPose.position[2] = zTrans;
     }
   }
 }

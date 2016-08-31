@@ -102,6 +102,7 @@ hexapod:
       auto_pose_compensation:
         pitch_amplitude: 0.075
         roll_amplitude: 0.05
+        z_trans_amplitude: 0.05
 
     #Manual pose compensation 
       manual_pose_compensation:
