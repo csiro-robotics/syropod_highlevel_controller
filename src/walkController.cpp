@@ -349,9 +349,10 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
     }
   }  
   // State transition: STARTING->MOVING
-  else if (state == STARTING && targetsMet == NUM_LEGS)
+  else if (state == STARTING && legsInCorrectPhase == NUM_LEGS && legsCompletedFirstStep == NUM_LEGS)
   {
-    targetsMet = 0;
+    legsInCorrectPhase = 0;
+    legsCompletedFirstStep = 0;
     state = MOVING;
   }  
   // State transition: MOVING->STOPPING
@@ -360,9 +361,9 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
     state = STOPPING;
   }  
   // State transition: STOPPING->STOPPED
-  else if (state == STOPPING && targetsMet == NUM_LEGS)
+  else if (state == STOPPING && legsInCorrectPhase == NUM_LEGS)
   {
-    targetsMet = 0;
+    legsInCorrectPhase = 0;
     state = STOPPED;
   }      
    
@@ -380,26 +381,40 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       
       if (state == STARTING)
       {   
-        // Force any leg state into STANCE if it starts in a mid-swing state
-        if (legStepper.phaseOffset >= swingStart && legStepper.phaseOffset < swingEnd) //SWING STATE
-        {
-          if (legStepper.phase == swingEnd)
+	//Check if all legs have completed one step
+        if (legsInCorrectPhase == NUM_LEGS)
+	{
+	  if (legStepper.phase == swingEnd && !legStepper.completedFirstStep)
           {
-            targetsMet++;  
-            legStepper.metTarget = true;
-          }
-          else
-          {
-            legStepper.state = FORCE_STANCE;  
-          }
-        }
-        else if (!legStepper.metTarget)
-        {
-          targetsMet++;  
-          legStepper.metTarget = true;
-        }
-        
-        legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
+	    legStepper.completedFirstStep = true;
+	    legsCompletedFirstStep++;
+	  }
+	}
+	
+        // Force any leg state into STANCE if it starts offset in a mid-swing state
+        if (!legStepper.inCorrectPhase)
+	{
+	  if (legStepper.phaseOffset >= swingStart && legStepper.phaseOffset < swingEnd) //SWING STATE
+	  {
+	    if (legStepper.phase == swingEnd)
+	    {
+	      legsInCorrectPhase++;  
+	      legStepper.inCorrectPhase = true;
+	    }
+	    else
+	    {
+	      legStepper.state = FORCE_STANCE;  
+	    }
+	  }
+	  else if (!legStepper.inCorrectPhase)
+	  {
+	    legsInCorrectPhase++;  
+	    legStepper.inCorrectPhase = true;
+	  }      
+	}
+	
+         //Iterate phase
+        legStepper.phase = (legStepper.phase+1)%phaseLength;
       }
       else if (state == STOPPING)
       {  
@@ -409,23 +424,23 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
           legStepper.state = FORCE_STOP;
           if (!(l==0 && s==0))
           {
-            if (!legStepper.metTarget)
+            if (!legStepper.inCorrectPhase)
             {
-              legStepper.metTarget = true;
-              targetsMet++;
+              legStepper.inCorrectPhase = true;
+              legsInCorrectPhase++;
             }
           }
         }          
         
-        if (!legStepper.metTarget)
+        if (!legStepper.inCorrectPhase)
         {
           legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
           
           //Front_left leg only "meets target" after completing extra step AND returning to zero phase
           if (l==0 && s==0 && legStepper.state == FORCE_STOP && legStepper.phase == 0)
           {
-            legStepper.metTarget = true;
-            targetsMet++;
+            legStepper.inCorrectPhase = true;
+            legsInCorrectPhase++;
             legStepper.state = STANCE;
           }
         }
@@ -433,11 +448,12 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       else if (state == MOVING)
       {
         legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
-        legStepper.metTarget = false;
+        legStepper.inCorrectPhase = false;
       }
       else if (state == STOPPED)
       {        
-        legStepper.metTarget = false;
+        legStepper.inCorrectPhase = false;
+	legStepper.completedFirstStep = false;
         legStepper.phase = 0;
         legStepper.state = STANCE;
       } 

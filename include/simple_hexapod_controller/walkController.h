@@ -57,11 +57,13 @@ struct WalkController
   double angularVelocity;
   double maximumBodyHeight;
   
-  int targetsMet = 0;
+  int legsInCorrectPhase = 0;
+  int legsCompletedFirstStep = 0;
     
   struct LegStepper
   {
-    bool metTarget = false;
+    bool inCorrectPhase = false;
+    bool completedFirstStep = false;
     
     int phase;
     int phaseOffset;

@@ -391,6 +391,12 @@ void StateController::runningState()
       }
     }
     
+    //Force velocity boost off while starting to walk
+    if (walker->state == STARTING)
+    {
+      velocityMultiplier = 1.0;
+    }
+    
     //Update Walker 
     walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier); 
   }
@@ -419,15 +425,7 @@ void StateController::compensation()
     
     double stabilityThreshold = 100;
     
-    if (unstable)
-    {
-      if (poser->manualCompensation(Pose::identity(), poseTimeJoy/sqrt(params.stepFrequency)))
-      {
-	ROS_INFO("Returned to default pose. IMU compensation now re-enabled.\n");
-	unstable = false;
-      }
-    }
-    else if (translationCorrection.norm() > stabilityThreshold && !unstable)
+    if (translationCorrection.norm() > stabilityThreshold && !unstable)
     {
       ROS_WARN("IMU translation compensation became unstable! Adjust PID Parameters.\nTransitioning to default pose.\n");
       unstable = true;
@@ -436,6 +434,14 @@ void StateController::compensation()
     {
       ROS_WARN("IMU rotation compensation became unstable! Adjust PID parameters.\nTransitioning to default pose.\n");
       unstable = true;      
+    }
+    else if (unstable)
+    {
+      if (poser->manualCompensation(Pose::identity(), poseTimeJoy/sqrt(params.stepFrequency)))
+      {
+	ROS_INFO("Returned to default pose. IMU compensation now re-enabled.\n");
+	unstable = false;
+      }
     }
     else
     { 
@@ -480,7 +486,6 @@ void StateController::impedanceControl()
 {     
   //If all legs are in stance state then update forces on tips
   int legsInStance = 0; 
-  int legsOn = 0;
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -489,19 +494,8 @@ void StateController::impedanceControl()
       {
         legsInStance++;
       }
-      if (hexapod->legs[l][s].state != OFF)
-      {
-	legsOn++;
-      }
     }
   }  
-  double effortOffset[3][2];
-  effortOffset[0][0] = 0;
-  effortOffset[0][1] = 0;
-  effortOffset[1][0] = 0;
-  effortOffset[1][1] = 0;
-  effortOffset[2][0] = 0;
-  effortOffset[2][1] = 0;  
   
   bool dynamicStiffness = false; 
   bool useIMUForStiffness = false;
@@ -536,7 +530,7 @@ void StateController::impedanceControl()
 	{                
 	  int index = 6*l+3*s+1;
 	  int dir = (s==0) ? -1:1;
-	  tipForce[l][s] = dir*(jointEfforts[index] - effortOffset[l][s]);
+	  tipForce[l][s] = dir*(jointEfforts[index]);
 	  maxForce = 1e9;
 	  minForce = 0.0;
 	}  
@@ -1231,14 +1225,7 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
 {
-  if (params.velocityBoost == 1.0)
-  {
-    velocityMultiplier = (-0.5*twist.linear.z+1.5); //Range: 1.0->2.0
-  }
-  else
-  {
-    velocityMultiplier = params.velocityBoost;
-  }
+  velocityMultiplier = (-0.5*twist.linear.z+1.5); //Range: 1.0->2.0
   
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   //localVelocity = clamped(localVelocity, 1.0);
