@@ -65,11 +65,11 @@ hexapod:
 
     walk_controller:
       step_frequency: 0.125 #0.25
-      step_clearance: 0.05 #0.075
-      body_clearance: 0.4 #-1.0
-      leg_span_scale: 0.6 #0.62
+      step_clearance: 0.075
+      body_clearance: -1.0
+      leg_span_scale: 0.62
 
-      velocity_boost: 1.0 #1.5 #May cause leg collisions and exceed joint velocities 
+      velocity_boost: 1.0 #Warning >1.0 allows tip workspaces to overlap 
 
       max_acceleration: 0.1
       max_curvature_speed: 0.4
@@ -141,7 +141,7 @@ hexapod:
       impedance_control: true
       impedance_input: tip_force #joint_effort
       virtual_mass: 100.0
-      integrator_step_time: 0.03
+      integrator_step_time: 0.25
       virtual_stiffness: 200.0
       virtual_damping_ratio: 1.2
       force_gain: 0.1      
@@ -152,8 +152,8 @@ hexapod:
 
   debug_parameters:
     testing: true
-    test_time_length: 60.0
-    test_velocity: 1.0
+    test_time_length: 0.0
+    test_velocity: 0.00001
     console_verbosity: debug
     
     debug_move_to_joint_position: false

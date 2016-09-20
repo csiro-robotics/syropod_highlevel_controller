@@ -3,11 +3,25 @@
 #include "sensor_msgs/JointState.h"
 #include <map>
 #include "std_msgs/Float64.h"
+#include "geometry_msgs/PoseStamped.h"
+#include <Eigen/Dense>
+#include "microview_ros/PowerStatus.h"
+
+#define ROS_FREQUENCY 25
+#define SAMPLE_TIME 0.25
 
 static sensor_msgs::JointState jointStatesActual[6];
 static sensor_msgs::JointState jointStatesDesired[6];
 static sensor_msgs::JointState jointStatesMotorActual[6];
 static sensor_msgs::JointState jointStatesMotorDesired[6];
+
+static Eigen::Vector3d absolutePosition;
+static Eigen::Vector3d previousAbsolutePosition;
+
+static double elapsedTime;
+static double instantaneousSpeed;
+
+static double powerConsumption;
 
 static std::map<std::string, int> jointMap;
 
@@ -16,12 +30,31 @@ ros::Publisher jointStatesDesiredPublishers[6];
 ros::Publisher jointStatesMotorActualPublishers[6];
 ros::Publisher jointStatesMotorDesiredPublishers[6];
 
+ros::Publisher filteredPowerConsumptionPublisher;
+ros::Publisher bodySpeedPublisher;
+
 enum DataType
 {
   JOINT_POSITION,
   JOINT_VELOCITY,
   JOINT_EFFORT,
 };
+
+/***********************************************************************************************************************
+ * Calculates instantaneous body speed
+***********************************************************************************************************************/
+double calculateSpeed(double deltaT)
+{
+  Eigen::Vector3d instantaneousVelocity = (absolutePosition - previousAbsolutePosition)/deltaT;
+  if (deltaT > 0)
+  {
+    return instantaneousVelocity.norm();
+  }
+  else
+  {
+    return -1;
+  }
+}
 
 /***********************************************************************************************************************
  * Generates map of all joints including name and index number
@@ -183,6 +216,36 @@ void jointEffortDesiredCallback(const std_msgs::Float64::ConstPtr &effort, const
 }
 
 /***********************************************************************************************************************
+ * Callback for absolute position
+***********************************************************************************************************************/
+void absolutePositionCallback(const geometry_msgs::PoseStamped ts_msg)
+{
+  absolutePosition[0] = ts_msg.pose.position.x;
+  absolutePosition[1] = ts_msg.pose.position.y;
+  absolutePosition[2] = 0;//ts_msg.pose.position.z;  
+  
+  if (SAMPLE_TIME < 0)
+  {    
+    //Low pass filter of calculated speed
+    double smoothingFactor = 0.05;
+    instantaneousSpeed = smoothingFactor*calculateSpeed(elapsedTime) + (1-smoothingFactor)*instantaneousSpeed;
+      
+    previousAbsolutePosition = absolutePosition;
+    elapsedTime = 0;
+  }
+}
+
+/***********************************************************************************************************************
+ * Callback for power consumption
+***********************************************************************************************************************/
+void powerConsumptionCallback(const microview_ros::PowerStatus power_msg)
+{
+  //Low pass filter of power data
+  double smoothingFactor = 0.05;
+  powerConsumption = smoothingFactor*power_msg.power + (1-smoothingFactor)*powerConsumption;
+} 
+
+/***********************************************************************************************************************
  * Main
 ***********************************************************************************************************************/
 int main(int argc, char** argv)
@@ -190,8 +253,10 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "simple_diagnostics");
   ros::NodeHandle n;
   ros::NodeHandle n_private("~");
+ 
+  ros::Rate r(ROS_FREQUENCY);
   
-  ros::Rate r(100);
+  elapsedTime = 0;
 
   //Attempt to subscribe to one of two possible joint state topics
   ros::Subscriber jointStatesActualSubscriber1 = n.subscribe("/hexapod_joint_state", 1000, &jointStatesActualCallback);
@@ -240,6 +305,9 @@ int main(int argc, char** argv)
   ros::Subscriber jointStatesMotorDesiredSubscriber = n.subscribe("/desired_motor_state", 1000, &jointStatesMotorDesiredCallback);
   ros::Subscriber jointStatesMotorActualSubscriber = n.subscribe("/motor_encoders", 1000, &jointStatesMotorActualCallback);
 
+  ros::Subscriber absolutePositionSubscriber = n.subscribe("/ts_pose", 1000, &absolutePositionCallback);
+  ros::Subscriber powerConsumptionSubscriber = n.subscribe("/power_status", 1000, &powerConsumptionCallback);
+  
   populateJointMap(&jointMap);
 
   for (int i=0; i<6; i++)
@@ -289,9 +357,36 @@ int main(int argc, char** argv)
   jointStatesMotorDesiredPublishers[3] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/middle_right_joint_state/motor_desired", 1000);
   jointStatesMotorDesiredPublishers[4] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_left_joint_state/motor_desired", 1000);
   jointStatesMotorDesiredPublishers[5] = n.advertise<sensor_msgs::JointState>("/simple_diagnostics/rear_right_joint_state/motor_desired", 1000);
+  
+  filteredPowerConsumptionPublisher = n.advertise<std_msgs::Float64>("/simple_diagnostics/filtered_power_consuption", 1000);
+  bodySpeedPublisher = n.advertise<std_msgs::Float64>("/simple_diagnostics/body_speed", 1000);
 
   while (ros::ok())
-  {
+  {    
+    elapsedTime += 1.0/ROS_FREQUENCY;
+    
+    if (SAMPLE_TIME < 0)
+    {     
+      std_msgs::Float64 instantaneousBodySpeed; 
+      instantaneousBodySpeed.data = instantaneousSpeed;
+      bodySpeedPublisher.publish(instantaneousBodySpeed);
+    }
+    else if (elapsedTime >= SAMPLE_TIME)
+    {
+      //Calculate and publish instantaneous body speed  
+      std_msgs::Float64 averageSpeed;
+      averageSpeed.data = calculateSpeed(elapsedTime);  
+      bodySpeedPublisher.publish(averageSpeed);
+      
+      //Publish low pass filtered power consumption
+      std_msgs::Float64 filteredPowerConsumption;
+      filteredPowerConsumption.data = powerConsumption;
+      filteredPowerConsumptionPublisher.publish(filteredPowerConsumption);  
+      
+      previousAbsolutePosition = absolutePosition;
+      elapsedTime = 0;  
+    }      
+    
     for (int i=0; i<6; i++)
     {
       jointStatesActualPublishers[i].publish(jointStatesActual[i]);
@@ -299,6 +394,8 @@ int main(int argc, char** argv)
       jointStatesMotorActualPublishers[i].publish(jointStatesMotorActual[i]);
       jointStatesMotorDesiredPublishers[i].publish(jointStatesMotorDesired[i]);
     }
+    
+    
     ros::spinOnce();
     r.sleep();
   }
