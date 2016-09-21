@@ -9,6 +9,8 @@ enum LegState
 {
   WALKING,
   OFF,
+  WALKING_TO_OFF,
+  OFF_TO_WALKING,
 };
 
 // hard coded to 3 joints

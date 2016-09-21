@@ -9,147 +9,41 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
   walker(walker),
   params(p), 
   timeDelta(p.timeDelta),
-  currentPose(Pose::zero()), 
-  targetPose(Pose::zero())
+  currentPose(Pose::identity()), 
+  targetPose(Pose::identity()),
+  originPose(Pose::identity())
 {   
 } 
 
 /***********************************************************************************************************************
- * Updates default stance tip positions according to desired pose at desired speed
+ * Updates default stance tip positions according to desired pose
  * This is then later used in walk controller where inverse kinematics are applied
 ***********************************************************************************************************************/
-bool PoseController::updateStance(Vector3d targetTipPositions[3][2], 
-                                  Pose requestedTargetPose, 
-                                  double timeToPose, 
-                                  bool moveLegsSequentially,
-                                  bool excludeSwingingLegs
-                                 )
+bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
+                                  bool excludeSwingingLegs)
 {  
-  //Instantaneous change in pose
-  if (timeToPose == 0)
+  for (int l = 0; l<3; l++)
   {
-    for (int l = 0; l<3; l++)
+    for (int s = 0; s<2; s++)
     {
-      for (int s = 0; s<2; s++)
+      if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
       {
-        if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
-        {
-          model->legs[l][s].stanceTipPosition = requestedTargetPose.inverseTransformVector(targetTipPositions[l][s]);
-          model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition;  
-        }
-      }
-    }
-    return true;    
-  }
-  
-  double timeDivisor = moveLegsSequentially ? timeToPose/6.0:timeToPose; //seconds for a leg to move into position
-  double timeLimit = moveLegsSequentially ? 6.0:1.0;
-  
-  //Local pose is already at target pose return immediately 
-  if (currentPose == requestedTargetPose)
-  {
-    return true;
-  }
-    
-  //Check if new target pose is requested
-  if (requestedTargetPose != targetPose)
-  {      
-    targetPose = requestedTargetPose;
-    currentPose = Pose::zero(); //unknown current pose
-    moveToPoseTime = 0;
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        originTipPositions[l][s] = model->legs[l][s].stanceTipPosition; 
+        model->legs[l][s].stanceTipPosition = currentPose.inverseTransformVector(targetTipPositions[l][s]);
+        model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition;  
       }
     }
   }
-  
-  
-  
-  //Increment time
-  ASSERT(timeDivisor != 0);
-  moveToPoseTime += timeDelta/timeDivisor; 
- 
-  //Iterate through legs (sequentially or simultaneously) 
-  if (moveLegsSequentially)
-  {
-    int l = int(moveToPoseTime)/2;
-    int s = int(moveToPoseTime)%2;
-    
-    if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
-    {    
-      Leg &leg = model->legs[l][s]; 
-      
-      if (leg.state == WALKING)
-      {    
-        Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
-        
-        Vector3d nodes[4];
-        nodes[0] = originTipPositions[l][s];
-        nodes[1] = nodes[0];
-        nodes[3] = targetTipPosition;
-        nodes[2] = nodes[3];
-        
-        Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
-        leg.stanceTipPosition += deltaPos;
-        model->stanceTipPositions[l][s] = leg.stanceTipPosition;
-      }
-    }
-  }
-  else
-  {   
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
-        { 
-          Leg &leg = model->legs[l][s]; 
-          
-          if (leg.state == WALKING)
-          {        
-            Vector3d targetTipPosition = targetPose.inverseTransformVector(targetTipPositions[l][s]);
-            
-            Vector3d nodes[4];
-            nodes[0] = originTipPositions[l][s];
-            nodes[1] = nodes[0];
-            nodes[3] = targetTipPosition;
-            nodes[2] = nodes[3];
-            
-            Vector3d deltaPos = (timeDelta/timeDivisor)*cubicBezierDot(nodes, fmod(moveToPoseTime, 1.0));
-            leg.stanceTipPosition += deltaPos;
-            model->stanceTipPositions[l][s] = leg.stanceTipPosition;           
-          }
-        }
-      }
-    }
-  }  
-  
-  //Reset since target posed achieved
-  if (moveToPoseTime >= timeLimit || currentPose == targetPose)
-  {
-    moveToPoseTime = 0;
-    currentPose = targetPose; 
-    targetPose = Pose::zero();
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-        originTipPositions[l][s] = model->legs[l][s].stanceTipPosition;
-      }
-    }
-    return true;
-  }
-  
-  return false;    
+  return true;       
 }
 
 /***********************************************************************************************************************
  * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
-bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mode, double liftHeight, double timeToStep)
+bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], 
+				    double deltaZ[3][2], 
+				    int mode, 
+				    double liftHeight, 
+				    double timeToStep)
 { 
   if (firstIteration)
   {       
@@ -160,6 +54,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
       for (int s = 0; s<2; s++)
       {
         originTipPositions[l][s] = model->legs[l][s].localTipPosition;
+	originTipPositions[l][s][2] += deltaZ[l][s];
         midTipPositions[l][s] = 0.5*(targetTipPositions[l][s] + originTipPositions[l][s]);
       } 
     }  
@@ -186,7 +81,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
       break;
   }  
  
-  int numIterations = roundToInt((timeToStep/timeDelta)/(timeLimit*2))*(timeLimit*2); //Ensure compatible number of iterations 
+  int numIterations = max(1,int(roundToInt((timeToStep/timeDelta)/(timeLimit*2))*(timeLimit*2))); //Ensure compatible number of iterations 
   double deltaT = timeLimit/numIterations;
     
   //Check if master count has reached final iteration and iterate if not
@@ -205,6 +100,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
   //swingIteration:  1,2,3,1,2,3,1,2,3, 1, 2, 3, 1, 2, 3, 1, 2, 3
   //following code gives this pattern for any provided value of numIterations
   int swingIterationCount = (masterIterationCount+(numIterations/int(timeLimit)-1))%(numIterations/int(timeLimit))+1;
+  Vector3d pos;
   
   //Iterate through legs (sequentially or simultaneously)   
   for (int l = 0; l<3; l++)
@@ -235,13 +131,12 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
      
       //Update leg tip position
       if (currentLegInSequence == l && currentSideInSequence == s)
-      {         
-        Vector3d pos;
-        
+      {                
         Vector3d controlNodesPrimary[4];
         Vector3d controlNodesSecondary[4];
 
         //If tip z position is required to change then set stepHeight to zero
+        /*
         double stepHeight;
         if (abs(originTipPositions[l][s][2] - targetTipPositions[l][s][2]) > 1e-3)
         {
@@ -251,6 +146,8 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
         {
           stepHeight = liftHeight;
         }
+        */
+        double stepHeight = liftHeight;
         
         //Control nodes for dual 3d cubic bezier curves
         controlNodesPrimary[0] = originTipPositions[l][s]; 
@@ -274,24 +171,27 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
         else
         {
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
-        }        
+        }    
         
-        //DEBUGGING
-        /*
-        if (l==0 && s==0)
-        {
-          double time = (swingIterationCount < halfSwingIteration) ? swingIterationCount*deltaT*2.0 : (swingIterationCount-halfSwingIteration)*deltaT*2.0;
-          cout << "MASTER ITERATION: " << masterIterationCount << 
-          "        SWING ITERATION: " << swingIterationCount <<
-          "        TIME: " << time <<
-          "        ORIGIN: " << originTipPositions[0][0][0] << ":" << originTipPositions[0][0][1] << ":" << originTipPositions[0][0][2] <<
-          "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
-          "        TARGET: " << targetTipPositions[0][0][0] << ":" << targetTipPositions[0][0][1] << ":" << targetTipPositions[0][0][2] << endl;
-        } 
-        */
-       
-        //Apply inverse kinematics to localTipPositions and stanceTipPositions
-        model->legs[l][s].applyLocalIK(pos, true); 
+        ROS_DEBUG_COND(params.debugStepToPosition, "STEP_TO_POSITION DEBUG - LEG: %d:%d\t\tMASTER ITERATION: %d\t\tORIGIN: %f:%f:%f\t\tCURRENT: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
+		  l, s, masterIterationCount, 
+		  originTipPositions[l][s][0], originTipPositions[l][s][1], originTipPositions[l][s][2], 
+		  pos[0], pos[1], pos[2],
+		  targetTipPositions[l][s][0], targetTipPositions[l][s][1], targetTipPositions[l][s][2]);  
+	
+      }
+      else
+      {
+	//pos = model->stanceTipPositions[l][s];
+	pos = model->localTipPositions[l][s];
+      }
+      
+      //Apply inverse kinematics to localTipPositions and stanceTipPositions
+      if (model->legs[l][s].state != OFF)
+      {
+	Vector3d adjustedPos = pos;
+	adjustedPos[2] -= deltaZ[l][s]; //Impedance controller
+	model->legs[l][s].applyLocalIK(adjustedPos); 
       }
     }
   }  
@@ -302,7 +202,7 @@ bool PoseController::stepToPosition(Vector3d (&targetTipPositions)[3][2], int mo
 /***********************************************************************************************************************
  * Safely directly set joint angle
 ***********************************************************************************************************************/
-bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double timeToMove)
+bool PoseController::moveToJointPosition(Vector3d targetJointPositions[3][2], double timeToMove)
 {
   //Setup origin and target joint positions for bezier curve
   if (firstIteration)
@@ -349,20 +249,17 @@ bool PoseController::moveToJointPosition(Vector3d (&targetJointPositions)[3][2],
       
       //Calculate change in position using bezier curve
       pos = cubicBezier(controlNodes, masterIterationCount*deltaT); 
-      
-      //DEBUGGING
-      /*
+
       if (l==0 && s==0)
       {
-        double time = masterIterationCount*deltaT;
-        cout << "MASTER ITERATION: " << masterIterationCount << 
-        "        TIME: " << time <<
-        "        ORIGIN: " << originJointPositions[0][0][0] << ":" << originJointPositions[0][0][1] << ":" << originJointPositions[0][0][2] <<
-        "        CURRENT: " << pos[0] << ":" << pos[1] << ":" << pos[2] <<
-        "        TARGET: " << targetJointPositions[0][0][0] << ":" << targetJointPositions[0][0][1] << ":" << targetJointPositions[0][0][2] << endl;
+	double time = masterIterationCount*deltaT;
+	ROS_DEBUG_COND(params.debugMoveToJointPosition, "MOVE_TO_JOINT_POSITION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tORIGIN: %f:%f:%f\t\tCURRENT: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
+		  masterIterationCount, time,
+		  originJointPositions[l][s][0], originJointPositions[l][s][1], originJointPositions[l][s][2], 
+		  pos[0], pos[1], pos[2],
+		  targetJointPositions[l][s][0], targetJointPositions[l][s][1], targetJointPositions[l][s][2]);
       }   
-      */
-        
+
       model->legs[l][s].yaw = pos[0];
       model->legs[l][s].liftAngle = pos[1];
       model->legs[l][s].kneeAngle = pos[2];
@@ -416,19 +313,20 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
   
   bool res = false;
   double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
+  double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
   switch (sequenceStep)
   {
     case 1:
-      res = stepToPosition(phase1TipPositions, mode, stepHeight, stepTime);
+      res = stepToPosition(phase1TipPositions, deltaZ, mode, stepHeight, stepTime);
       break;
     case 2:
-      res = stepToPosition(phase2TipPositions, NO_STEP_MODE, 0.0, stepTime);
+      res = stepToPosition(phase2TipPositions, deltaZ, NO_STEP_MODE, 0.0, stepTime);
       break;
     case 3:
-      res = stepToPosition(phase3TipPositions, mode, stepHeight, stepTime);
+      res = stepToPosition(phase3TipPositions, deltaZ, mode, stepHeight, stepTime);
       break;
     case 4:
-      res = stepToPosition(phase4TipPositions, NO_STEP_MODE, 0.0, stepTime);
+      res = stepToPosition(phase4TipPositions, deltaZ, NO_STEP_MODE, 0.0, stepTime);
       break;
     case 5:
       sequenceStep = 0;
@@ -452,6 +350,7 @@ bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool fo
 {  
   bool res = false;
   double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
+  double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
   switch (sequenceStep)
   {
     case 0:
@@ -459,13 +358,13 @@ bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool fo
       res = true;
       break;
     case 1:
-      res = stepToPosition(phase5TipPositions, NO_STEP_MODE, 0.0, 2.0);
+      res = stepToPosition(phase5TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 2:
-      res = stepToPosition(phase6TipPositions, SEQUENTIAL_MODE, stepHeight, 6.0);
+      res = stepToPosition(phase6TipPositions, deltaZ, SEQUENTIAL_MODE, stepHeight, 6.0);
       break;
     case 3:
-      res = stepToPosition(phase7TipPositions, NO_STEP_MODE, 0.0, 2.0);
+      res = stepToPosition(phase7TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0);
       break;
     case 4:
       sequenceStep = 0;
@@ -507,7 +406,9 @@ double PoseController::createSequence(Vector3d targetTipPositions[3][2])
   }
   
   double liftAngle = pi/3;
-  double  desKneeAngle = liftAngle+asin(model->legs[0][0].femurLength/(model->legs[0][0].tibiaLength*sqrt(2)));
+  double  desKneeAngle = liftAngle+asin(model->legs[0][0].femurLength*sin(liftAngle)/model->legs[0][0].tibiaLength);
+  double offset = atan2(model->legs[0][0].tipOffset[2],model->legs[0][0].tipOffset[0]);
+  desKneeAngle += offset;
   Vector3d minStartTipPositions = model->legs[0][0].calculateFK(0.77,liftAngle,desKneeAngle);
   double startStanceRatio = minStartTipPositions.squaredNorm()/targetTipPositions[0][0].squaredNorm();
  
@@ -551,35 +452,114 @@ void PoseController::resetSequence(void)
 }
 
 /***********************************************************************************************************************
- * Calculates pitch for auto body compensation
+ * Calculates pitch/roll for smooth auto body compensation
 ***********************************************************************************************************************/
-Pose PoseController::autoCompensation(void)
-{
-  double roll = 0.0;
-  double pitch = 0.0;
-  for (int l=0; l<3; l++)
+void PoseController::autoCompensation(void)
+{  
+  //For first iteration create new pose based off current pose but with zero pitch and roll
+  if (compFirstIteration)
   {
-    for (int s=0; s<2; s++)
+    basePose = currentPose;
+    basePose.rotation[1] = 0.0;   //zero pitch
+    basePose.rotation[2] = 0.0;   //zero roll
+    if (basePose != currentPose)
     {
-      if (walker->legSteppers[l][s].state == SWING)
-      {
-        double zDiff = model->localTipPositions[l][s][2] - model->stanceTipPositions[l][s][2];
-        roll = zDiff*pow(-1.0, s)*params.rollAmplitude;
-        pitch = zDiff*(-(l-1))*params.pitchAmplitude;
-      }
+      correctPose = true;
     }
-  }
-  Pose adjust = Pose::identity();
-  if (walker->params.gaitType == "wave_gait")
-  {
-    adjust = Pose(Vector3d(0,0,0), Quat(1,pitch,roll,0));
-  }
-  else if (walker->params.gaitType == "tripod_gait")
-  {
-    adjust = Pose(Vector3d(0,0,0), Quat(1,0,roll,0));
+    compFirstIteration = false;
   }
   
-  return adjust;
+  //Transistion to corrected pose if required
+  if (correctPose)
+  {
+    if (manualCompensation(basePose, params.maxPoseTime/sqrt(params.stepFrequency)))
+    {
+      correctPose = false;
+    }
+  }
+  else 
+  {       
+    double roll = 0.0;
+    double pitch = 0.0;
+    double zTrans = 0.0;
+    for (int l=0; l<3; l++)
+    {
+      for (int s=0; s<2; s++)
+      {
+	double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - model->stanceTipPositions[l][s][2];	  
+	roll += zDiff*pow(-1.0, s)*params.rollAmplitude;
+	pitch += zDiff*(-(l-1))*params.pitchAmplitude;
+	zTrans += zDiff*params.zTransAmplitude;
+      }
+    }
+    
+    if (walker->params.gaitType == "wave_gait")
+    {
+      currentPose.rotation[1] = pitch;
+      currentPose.rotation[2] = roll;
+    }
+    else if (walker->params.gaitType == "tripod_gait")
+    {
+      currentPose.rotation[2] = roll;
+      currentPose.position[2] = zTrans;
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Calculates pitch/roll/yaw/x,y,z for smooth transition to target pose for manual body compensation
+***********************************************************************************************************************/
+bool PoseController::manualCompensation(Pose requestedTargetPose, double timeToPose)
+{      
+  //Reset if target changes
+  if (requestedTargetPose != targetPose)
+  {
+    targetPose = requestedTargetPose;
+    masterIterationCount = 0;
+    originPose = currentPose;
+  }
+  
+  //Check if target met
+  if (targetPose == currentPose)
+  {
+    return true;
+  }  
+  
+  int numIterations = max(1,roundToInt(timeToPose/timeDelta));
+  double deltaT = 1.0/numIterations;
+  
+  if (masterIterationCount < numIterations)
+  {
+    masterIterationCount++; 
+  }
+  
+  Vector3d positionNodes[4];
+  positionNodes[0] = originPose.position;
+  positionNodes[1] = originPose.position;
+  positionNodes[3] = targetPose.position;
+  positionNodes[2] = targetPose.position;
+  
+  Quat rotationNodes[4];
+  rotationNodes[0] = originPose.rotation;
+  rotationNodes[1] = originPose.rotation;
+  rotationNodes[3] = targetPose.rotation;
+  rotationNodes[2] = targetPose.rotation;
+            
+  currentPose.position = cubicBezier(positionNodes, masterIterationCount*deltaT);
+  currentPose.rotation = cubicBezier(rotationNodes, masterIterationCount*deltaT);
+  
+  double time = masterIterationCount*deltaT;
+  ROS_DEBUG_COND(params.debugManualCompensationTranslation, "MANUAL_COMPENSATION_TRANSLATION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tPOS ORIGIN: %f:%f:%f\t\tPOS CURRENT: %f:%f:%f\t\tPOS TARGET: %f:%f:%f\n", 
+		  masterIterationCount, time,
+		  originPose.position[0], originPose.position[1], originPose.position[2], 
+		  currentPose.position[0], currentPose.position[1], currentPose.position[2],
+		  targetPose.position[0], targetPose.position[1], targetPose.position[2]);
+  ROS_DEBUG_COND(params.debugManualCompensationRotation, "MANUAL_COMPENSATION_ROTATION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tROT ORIGIN: %f:%f:%f\t\tROT CURRENT: %f:%f:%f\t\tROT TARGET: %f:%f:%f\n", 
+		  masterIterationCount, time,
+		  originPose.rotation[0], originPose.rotation[1], originPose.rotation[2], 
+		  currentPose.rotation[0], currentPose.rotation[1], currentPose.rotation[2],
+		  targetPose.rotation[0], targetPose.rotation[1], targetPose.rotation[2]);
+  return false;
 }
 
 /***********************************************************************************************************************

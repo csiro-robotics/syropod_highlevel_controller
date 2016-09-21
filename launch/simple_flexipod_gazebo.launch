@@ -1,0 +1,10 @@
+<launch>
+        <include file="$(find flexipod_short)/launch/simple_flexipod_short_gazebo.launch" />
+	<include file="$(find hexapod_remote)/launch/hexapod_remote.launch" />
+	<rosparam file="$(find flexipod_hexapod)/config/flexipod.yaml" command="load"/>
+	<rosparam file="$(find simple_hexapod_controller)/config/gait.yaml" command="load"/>
+	<!--node name="simple_hexapod_controller" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node" output="screen"/-->
+	
+	<param name="/hexapod/parameters/physical_knee_offset" value="0.0"/>
+	<!--param name="/hexapod/parameters/impedance_controller/impedance_control" value="false"/-->
+</launch>

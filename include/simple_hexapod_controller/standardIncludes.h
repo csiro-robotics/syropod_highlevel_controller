@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <vector>
 #include <boost/iterator/iterator_concepts.hpp>
+#include <ros/console.h>
 using namespace Eigen;
 using namespace std;
 
@@ -25,12 +26,17 @@ enum State
   UNPACK,
   STARTUP,
   RUNNING,
-  GAIT_TRANSITION,
   SHUTDOWN,
   PACK,
   PACKED,
   DIRECT,
   UNKNOWN,  
+};
+
+enum TestState
+{
+  TEST_RUNNING,
+  TEST_ENDED,
 };
 
 enum LegSelection
@@ -41,16 +47,36 @@ enum LegSelection
   MIDDLE_RIGHT,
   REAR_LEFT,
   REAR_RIGHT,
-  NO_SELECTION,
+  NO_LEG_SELECTION,
 };
 
 enum Gait
-{
-  TRIPOD_GAIT,
-  RIPPLE_GAIT,
+{  
   WAVE_GAIT,
-  BALANCE_GAIT,
+  AMBLE_GAIT,
+  RIPPLE_GAIT,
+  TRIPOD_GAIT,
   DEFAULT,
+};
+
+enum ParamSelection
+{
+  NO_PARAM_SELECTION,
+  STEP_FREQUENCY,
+  STEP_CLEARANCE,
+  BODY_CLEARANCE,
+  LEG_SPAN_SCALE,
+  VIRTUAL_MASS,
+  VIRTUAL_STIFFNESS,
+  VIRTUAL_DAMPING,
+  FORCE_GAIN,
+};
+
+enum LoadShareMode
+{
+  EQUAL,
+  SINGLE_CORNER_LIFTED,
+  SINGLE_CENTRE_LIFTED,
 };
 
 struct Parameters
@@ -68,6 +94,7 @@ struct Parameters
   Vector3d tipOffset[3][2];
   Vector3d stanceLegYaws;
   Vector3d physicalYawOffset;
+  double physicalKneeOffset;
   Vector3d yawLimits;
   Vector2d kneeLimits;
   Vector2d hipLimits;
@@ -80,7 +107,7 @@ struct Parameters
   double stepClearance;
   double bodyClearance;
   double legSpanScale; 
-  bool legStateCorrection;
+  double velocityBoost;
   double maxAcceleration;
   double maxCurvatureSpeed;
   double stepCurvatureAllowance;
@@ -90,8 +117,18 @@ struct Parameters
   bool startUpSequence;
   bool moveLegsSequentially;
   double timeToStart;
+  
+  double rotationCompensationProportionalGain;
+  double rotationCompensationIntegralGain;
+  double rotationCompensationDerivativeGain;
+  double translationCompensationProportionalGain;
+  double translationCompensationIntegralGain;
+  double translationCompensationDerivativeGain;  
+  
   double pitchAmplitude;
   double rollAmplitude;
+  double zTransAmplitude;
+  
   double maxPoseTime;
   double maxRoll;
   double maxPitch;
@@ -100,6 +137,7 @@ struct Parameters
   double maxY;
   double maxZ;
   double minZ;
+  
   Vector3d packedJointPositionsAL;
   Vector3d packedJointPositionsAR;
   Vector3d packedJointPositionsBL;
@@ -112,6 +150,16 @@ struct Parameters
   Vector3d unpackedJointPositionsBR;
   Vector3d unpackedJointPositionsCL;
   Vector3d unpackedJointPositionsCR;
+  
+  //Impedance Controller Parameters
+  bool impedanceControl;
+  bool dynamicStiffness;
+  double integratorStepTime;
+  double virtualMass;
+  double virtualStiffness;
+  double virtualDampingRatio;
+  double forceGain;
+  std::string impedanceInput;
     
   //Gait Parameters
   double stancePhase;
@@ -120,8 +168,26 @@ struct Parameters
   std::vector<int> offsetMultiplier;
   double transitionPeriod;
   
+  //Dynamic Stiffness Parameters
+  double loadedPhase;
+  double unloadedPhase;
+  double stiffnessPhaseOffset;
+  std::vector<int> stiffnessOffsetMultiplier;
+  double stiffnessMultiplier;
+  
   //Debug Parameters
   bool debug_rviz;
+  
+  bool testing;
+  double testTimeLength;
+  double testVelocity;
+  std::string consoleVerbosity;
+  bool debugMoveToJointPosition;
+  bool debugStepToPosition;
+  bool debugUpdateSwingPosition;
+  bool debugUpdatePosition;
+  bool debugManualCompensationRotation;
+  bool debugManualCompensationTranslation;  
 };
 
 template<class T>
@@ -175,6 +241,11 @@ inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)
 inline Vector3d minVector(const Vector3d &a, const Vector3d &b)
 {
   return Vector3d(min(a[0], b[0]), min(a[1], b[1]), min(a[2], b[2]));
+}
+
+inline double minMax(const double val, const double minimum, const double maximum)
+{
+  return (val > (minimum+maximum)/2) ? min(maximum, val) : max(minimum, val);
 }
 
 /// Past tense avoids confusion, result is passed back

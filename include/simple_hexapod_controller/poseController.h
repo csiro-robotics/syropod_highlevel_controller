@@ -18,6 +18,7 @@ struct PoseController
   
   double timeDelta;
   bool firstIteration = true;
+  bool compFirstIteration = true;
   int masterIterationCount = 0;
   
   double moveToPoseTime = 0.0;
@@ -41,21 +42,23 @@ struct PoseController
   
   Pose currentPose;
   Pose targetPose;  
+  Pose originPose;
+  Pose basePose;
+  bool correctPose = false; //Flag for correcting pose to a zero roll/pitch pose used for auto compensation
   
   PoseController(Model *model, WalkController *walker, Parameters params);
   bool updateStance(Vector3d targetTipPositions[3][2], 
-                    Pose targetPose, 
-                    double timeToPose, 
-                    bool moveLegsSequentially=false,
                     bool excludeSwingingLegs=false);
-  bool stepToPosition(Vector3d (&targetTipPositions)[3][2], 
-                      int mode=NO_STEP_MODE, 
+  bool stepToPosition(Vector3d targetTipPositions[3][2], 
+                      double deltaZ[3][2],
+                      int mode=NO_STEP_MODE,                      
                       double stepHeight = 0.0, 
                       double stepSpeed = 2.0);
-  bool moveToJointPosition(Vector3d (&targetJointPositions)[3][2], double speed=2.0);
+  bool moveToJointPosition(Vector3d targetJointPositions[3][2], double speed=2.0);
   bool startUpSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
   bool shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
-  Pose autoCompensation(void);
+  void autoCompensation(void);
+  bool manualCompensation(Pose requestedTargetPose, double timeToPose);
 };

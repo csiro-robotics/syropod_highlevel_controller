@@ -17,8 +17,6 @@ enum WalkState
   STANCE,
   SWING_TRANSITION,
   STANCE_TRANSITION,
-  TOUCHDOWN_CORRECTION,
-  LIFTOFF_CORRECTION,
   FORCE_STANCE,
   FORCE_STOP
 };
@@ -59,11 +57,13 @@ struct WalkController
   double angularVelocity;
   double maximumBodyHeight;
   
-  int targetsMet = 0;
+  int legsInCorrectPhase = 0;
+  int legsCompletedFirstStep = 0;
     
   struct LegStepper
   {
-    bool metTarget = false;
+    bool inCorrectPhase = false;
+    bool completedFirstStep = false;
     
     int phase;
     int phaseOffset;
@@ -75,9 +75,8 @@ struct WalkController
     Vector3d originTipPosition;
     Vector3d defaultTipPosition;
     
-    bool tipTouchdown;
-    
     struct WalkController *walker; //So LegStepper can access walkcontroller member variables
+    struct Parameters *params;
     
     void updateSwingPos(Vector3d *pos);
     void updatePosition();
@@ -91,12 +90,13 @@ struct WalkController
   //    stanceLegYaws- natural yaw pose per leg
   //    minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
 
-  WalkController(Model *model, Parameters params);
+  WalkController(Model *model, Parameters p);
   
+  void init(Model *model, Parameters p);
   // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
   // bodyOffset is body pose relative to the basic stance pose, 
   // note that large offsets may prevent achievable leg positions
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
-  void updateWalk(Vector2d newLocalVelocity, double newCurvature, double velocityMultiplier = 1.0);
+  void updateWalk(Vector2d newLocalVelocity, double newCurvature, double deltaZ[3][2], double velocityMultiplier = 1.0);
   void setGaitParams(Parameters p);
 };

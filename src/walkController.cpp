@@ -63,83 +63,69 @@ void WalkController::LegStepper::updateSwingPos(Vector3d *pos)
   
   *pos += deltaPos;
   
-  //DEBUGGING
-  //if (t1 < deltaT) {t1=0.0;}
-  //if (t2 < deltaT) {t2=0.0;}
-  //cout << "ITERATION: " << iteration << "\tTIME: " << t1 << ":" << t2 << "\tORIGIN: " << originTipPosition[0] << ":" << originTipPosition[1] << ":" << originTipPosition[2] << "\tPOS: " << (*pos)[0] << ":" << (*pos)[1] << ":" << (*pos)[2] << "\tTARGET: " << controlNodesSecondary[3][0] << ":" << controlNodesSecondary[3][1] << ":" << controlNodesSecondary[3][2] << endl; 
-  //DEBUGGING
+  
+  if (t1 < deltaT) {t1=0.0;}
+  if (t2 < deltaT) {t2=0.0;}
+  ROS_DEBUG_COND(params->debugUpdateSwingPosition, "UPDATE_SWING_POS DEBUG - ITERATION: %d\tTIME: %f:%f\tORIGIN: %f:%f:%f\tPOS: %f:%f:%f\tTARGET: %f:%f:%f\n", 
+		 iteration, t1, t2,
+		 originTipPosition[0], originTipPosition[1], originTipPosition[2],
+		 (*pos)[0], (*pos)[1], (*pos)[2],
+		 controlNodesSecondary[3][0], controlNodesSecondary[3][1], controlNodesSecondary[3][2]); 
+  
 }
 
 void WalkController::LegStepper::updatePosition()
 {  
-  Vector3d pos = currentTipPosition;
   Vector2d localCentreVelocity = walker->localCentreVelocity;
   double angularVelocity = walker->angularVelocity;
   
   // Swing Phase
   if (state == SWING)
   {
-    updateSwingPos(&pos);
+    updateSwingPos(&currentTipPosition);
   }  
   // Stance phase
-  else if (state == STANCE)
+  else if (state == STANCE ||
+           state == STANCE_TRANSITION ||
+           state == SWING_TRANSITION)
   {    
     // X & Y Components of Trajectory
     Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;      
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
+      Vector2d(currentTipPosition[1], -currentTipPosition[0]))*walker->timeDelta;      
+    currentTipPosition[0] += deltaPos[0];
+    currentTipPosition[1] += deltaPos[1];
     
     // Z component of trajectory  
-    // No Z component change during Stance phase
-  }
-  else if (state == SWING_TRANSITION)
-  {   
-    // X & Y Components of Trajectory
-    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
+    /*
+    int stanceLength = walker->phaseLength - (walker->swingEnd-walker->swingStart);
+    int iteration;
+    if (phase >= walker->swingEnd)
+    {
+      iteration = phase - walker->swingEnd + 1;
+    }
+    else
+    {
+      iteration = phase + stanceLength/2 + 1;
+    }
     
-    // Z component of trajectory  
-    //TBD
+    double deltaT = 1.0/stanceLength;
+    
+    Vector3d controlNodes[4];
+    double stanceDepth = walker->stepClearance*walker->maximumBodyHeight*0.5;
+    
+    controlNodes[0] = Vector3d(0.0,0.0,defaultTipPosition[2]);
+    controlNodes[1] = Vector3d(0.0,0.0,defaultTipPosition[2]-stanceDepth);
+    controlNodes[2] = Vector3d(0.0,0.0,defaultTipPosition[2]-stanceDepth);
+    controlNodes[3] = Vector3d(0.0,0.0,defaultTipPosition[2]);
+    
+    double deltaZ = (deltaT*cubicBezierDot(controlNodes, deltaT*iteration))[2];
+    
+    currentTipPosition[2] += deltaZ;
+
+    ROS_DEBUG_COND(params.debugUpdatePosition, "UPDATE_POSITION DEBUG - ITERATION: %d\tTIME: %f\tORIGIN: %f\tPOS: %f\tTARGET: %f\n",
+		  iteration, deltaT*iteration, defaultTipPosition[2], pos[2], controlNodes[2][2]); 
+    */
   }  
-  else if (state == STANCE_TRANSITION)
-  {    
-    // X & Y Components of Trajectory
-    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
-    
-    // Z component of trajectory  
-    //TBD
-  }  
-  else if (state == TOUCHDOWN_CORRECTION)
-  {    
-    // X & Y Components of Trajectory
-    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
-    
-    //Z Component of Trajectory
-    //Early touchdown requires no height correction
-  }
-  else if (state == LIFTOFF_CORRECTION)
-  {
-    // X & Y Components of Trajectory
-    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(pos[1], -pos[0]))*walker->timeDelta;
-    pos[0] += deltaPos[0];
-    pos[1] += deltaPos[1];
-    
-    // Z Component of Trajectory
-    pos[2] -= 0.001;    //TBD REFINEMENT
-  }
-  
-  ASSERT(pos.squaredNorm() < 1000.0);
-  currentTipPosition = pos;
 }
 
 /***********************************************************************************************************************
@@ -147,8 +133,16 @@ void WalkController::LegStepper::updatePosition()
  * finding the largest footprint radius that each leg can achieve for the 
  * specified level of clearance.
 ***********************************************************************************************************************/
-WalkController::WalkController(Model *model, Parameters p): model(model), params(p)
+WalkController::WalkController(Model *model, Parameters p)
 { 
+  init(model, p);
+}
+
+void WalkController::init(Model *m, Parameters p)
+{
+  model = m;
+  params = p;
+  
   stepClearance = params.stepClearance;
   bodyClearance = params.bodyClearance;
   timeDelta = params.timeDelta;
@@ -236,6 +230,7 @@ WalkController::WalkController(Model *model, Parameters p): model(model), params
       legSteppers[l][s].phase = 0; // Ensures that feet start stepping naturally and don't pop to up position
       legSteppers[l][s].strideVector = Vector2d(0,0);
       legSteppers[l][s].walker = this;
+      legSteppers[l][s].params = &params;
     }
   }
   // check for overlapping radii
@@ -302,7 +297,7 @@ void WalkController::setGaitParams(Parameters p)
  * Calculates body and stride velocities and uses velocities in body and leg state machines 
  * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature, double velocityMultiplier)
+void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature, double deltaZ[3][2], double velocityMultiplier)
 {
   double onGroundRatio = double(phaseLength-(swingEnd-swingStart))/double(phaseLength);
   
@@ -354,9 +349,10 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
     }
   }  
   // State transition: STARTING->MOVING
-  else if (state == STARTING && targetsMet == NUM_LEGS)
+  else if (state == STARTING && legsInCorrectPhase == NUM_LEGS && legsCompletedFirstStep == NUM_LEGS)
   {
-    targetsMet = 0;
+    legsInCorrectPhase = 0;
+    legsCompletedFirstStep = 0;
     state = MOVING;
   }  
   // State transition: MOVING->STOPPING
@@ -365,9 +361,9 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
     state = STOPPING;
   }  
   // State transition: STOPPING->STOPPED
-  else if (state == STOPPING && targetsMet == NUM_LEGS)
+  else if (state == STOPPING && legsInCorrectPhase == NUM_LEGS)
   {
-    targetsMet = 0;
+    legsInCorrectPhase = 0;
     state = STOPPED;
   }      
    
@@ -385,26 +381,40 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       
       if (state == STARTING)
       {   
-        // Force any leg state into STANCE if it starts in a mid-swing state
-        if (legStepper.phaseOffset >= swingStart && legStepper.phaseOffset < swingEnd) //SWING STATE
-        {
-          if (legStepper.phase == swingEnd)
+	//Check if all legs have completed one step
+        if (legsInCorrectPhase == NUM_LEGS)
+	{
+	  if (legStepper.phase == swingEnd && !legStepper.completedFirstStep)
           {
-            targetsMet++;  
-            legStepper.metTarget = true;
-          }
-          else
-          {
-            legStepper.state = FORCE_STANCE;  
-          }
-        }
-        else if (!legStepper.metTarget)
-        {
-          targetsMet++;  
-          legStepper.metTarget = true;
-        }
-        
-        legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
+	    legStepper.completedFirstStep = true;
+	    legsCompletedFirstStep++;
+	  }
+	}
+	
+        // Force any leg state into STANCE if it starts offset in a mid-swing state
+        if (!legStepper.inCorrectPhase)
+	{
+	  if (legStepper.phaseOffset >= swingStart && legStepper.phaseOffset < swingEnd) //SWING STATE
+	  {
+	    if (legStepper.phase == swingEnd)
+	    {
+	      legsInCorrectPhase++;  
+	      legStepper.inCorrectPhase = true;
+	    }
+	    else
+	    {
+	      legStepper.state = FORCE_STANCE;  
+	    }
+	  }
+	  else if (!legStepper.inCorrectPhase)
+	  {
+	    legsInCorrectPhase++;  
+	    legStepper.inCorrectPhase = true;
+	  }      
+	}
+	
+         //Iterate phase
+        legStepper.phase = (legStepper.phase+1)%phaseLength;
       }
       else if (state == STOPPING)
       {  
@@ -414,23 +424,23 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
           legStepper.state = FORCE_STOP;
           if (!(l==0 && s==0))
           {
-            if (!legStepper.metTarget)
+            if (!legStepper.inCorrectPhase)
             {
-              legStepper.metTarget = true;
-              targetsMet++;
+              legStepper.inCorrectPhase = true;
+              legsInCorrectPhase++;
             }
           }
         }          
         
-        if (!legStepper.metTarget)
+        if (!legStepper.inCorrectPhase)
         {
           legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
           
           //Front_left leg only "meets target" after completing extra step AND returning to zero phase
           if (l==0 && s==0 && legStepper.state == FORCE_STOP && legStepper.phase == 0)
           {
-            legStepper.metTarget = true;
-            targetsMet++;
+            legStepper.inCorrectPhase = true;
+            legsInCorrectPhase++;
             legStepper.state = STANCE;
           }
         }
@@ -438,11 +448,12 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       else if (state == MOVING)
       {
         legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
-        legStepper.metTarget = false;
+        legStepper.inCorrectPhase = false;
       }
       else if (state == STOPPED)
       {        
-        legStepper.metTarget = false;
+        legStepper.inCorrectPhase = false;
+	legStepper.completedFirstStep = false;
         legStepper.phase = 0;
         legStepper.state = STANCE;
       } 
@@ -473,14 +484,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       else if (legStepper.phase >= swingStart && legStepper.phase < swingEnd)
       {
         legStepper.state = SWING;
-
-        if (params.legStateCorrection)
-        {
-          if (legStepper.tipTouchdown)
-          {
-            legStepper.state = TOUCHDOWN_CORRECTION;
-          }
-        }          
       }
       else if (legStepper.phase >= swingEnd && legStepper.phase < stanceStart)
       {
@@ -489,13 +492,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       else if (legStepper.phase < stanceEnd || legStepper.phase >= stanceStart)
       {        
         legStepper.state = STANCE; 
-        if (params.legStateCorrection)
-        {
-          if (!legStepper.tipTouchdown)
-          {
-            legStepper.state = LIFTOFF_CORRECTION;   
-          }
-        }        
       }       
     }
   }
@@ -515,8 +511,11 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.defaultTipPosition = leg.stanceTipPosition;
         legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
         
-        legStepper.updatePosition(); //updates current tip position
-        leg.applyLocalIK(legStepper.currentTipPosition); 
+        legStepper.updatePosition(); //updates current tip position through step cycle
+
+        Vector3d adjustedPos = legStepper.currentTipPosition;
+        adjustedPos[2] -= deltaZ[l][s]; //Impedance controller
+        leg.applyLocalIK(adjustedPos); 
       }
     }
   }  

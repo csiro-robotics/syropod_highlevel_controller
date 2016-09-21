@@ -40,14 +40,68 @@ hexapod:
   
 ######################################################################
 
-    balance_gait:
+    amble_gait:
+      
+      stance_phase: 33
+      swing_phase: 8
+      transition_period: 2
+      phase_offset: 15
+      
+      offset_multiplier: [1,0,2,2,0,1]
+      
+######################################################################
+######################################################################
+
+  dynamic_stiffness_parameters:
+  
+######################################################################
     
-      stance_phase: 14
-      swing_phase: 4
-      transition_period: 1
-      phase_offset: 5  
+    wave_gait:
+    
+      unloaded_phase: 80
+      loaded_phase: 10
+      stiffness_phase_offset: 15     
 
-      offset_multiplier: [1,3,2,0,3,1]
+      stiffness_offset_multiplier: [ 2, 5, 3, 0, 4, 1]
+      
+      stiffness_multiplier: 10
 
 ######################################################################
+
+    tripod_gait:
+    
+      unloaded_phase: 1
+      loaded_phase: 1
+      
+      stiffness_phase_offset: 1  
+
+      stiffness_offset_multiplier: [-1,-1, 0, 1,-1,-1]
+      
+      stiffness_multiplier: 10
+
 ######################################################################
+
+    ripple_gait:
+    
+      unloaded_phase: 25
+      loaded_phase: 5
+      stiffness_phase_offset: 5 
+
+      stiffness_offset_multiplier: [ 3, 0,-1,-1, 2, 5]
+      
+      stiffness_multiplier: 10
+  
+######################################################################
+
+    amble_gait:
+      
+      unloaded_phase: 35
+      loaded_phase: 10
+      stiffness_phase_offset: 15
+      
+      stiffness_offset_multiplier: [-1,-1,-1,-1,-1,-1]
+      
+      stiffness_multiplier: 10
+      
+######################################################################
+  
