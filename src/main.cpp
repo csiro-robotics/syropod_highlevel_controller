@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
   //Enter ros loop
   while (ros::ok())
   {    
-    if (!state.startFlag)
+    if (!state.params.startUpSequence && !state.startFlag)
     {
       ROS_INFO("Received shutdown order - shutting down the controller!\n");
       ros::shutdown();
