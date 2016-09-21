@@ -497,8 +497,8 @@ void StateController::impedanceControl()
     }
   }  
   
-  bool dynamicStiffness = false; 
-  bool useIMUForStiffness = false;
+  bool dynamicStiffness = false; //Not fully tested
+  bool useIMUForStiffness = false; //Not fully tested
   if (dynamicStiffness)
   {
     if (params.imuCompensation && useIMUForStiffness)
