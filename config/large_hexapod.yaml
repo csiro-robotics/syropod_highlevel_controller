@@ -141,7 +141,7 @@ hexapod:
       impedance_control: true
       impedance_input: tip_force #joint_effort
       virtual_mass: 100.0
-      integrator_step_time: 0.25
+      integrator_step_time: 0.03
       virtual_stiffness: 200.0
       virtual_damping_ratio: 1.2
       force_gain: 0.1      
