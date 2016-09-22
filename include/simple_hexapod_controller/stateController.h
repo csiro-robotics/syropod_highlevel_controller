@@ -87,7 +87,6 @@ struct StateController
   //Joypad velocity callback variables
   Vector2d localVelocity;
   double turnRate = 0; 
-  double velocityMultiplier = 1.0;
   double poseTimeJoy = 2.0;
   
   //Joypad pose callback variables

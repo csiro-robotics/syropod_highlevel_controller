@@ -391,14 +391,15 @@ void StateController::runningState()
       }
     }
     
-    //Force velocity boost off while starting to walk
+    //Force input velocity to half while starting to walk
+    double inputVelocityScaler = 1.0;
     if (walker->state == STARTING)
     {
-      velocityMultiplier = 1.0;
+      inputVelocityScaler = 0.5;
     }
-    
+     
     //Update Walker 
-    walker->updateWalk(localVelocity, turnRate, deltaZ, velocityMultiplier); 
+    walker->updateWalk(localVelocity*inputVelocityScaler, turnRate*inputVelocityScaler, deltaZ); 
   }
   
   //Check for shutdown cue
@@ -1224,9 +1225,7 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
  * Joypad Velocity Topic Callback
 ***********************************************************************************************************************/
 void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
-{
-  velocityMultiplier = (-0.5*twist.linear.z+1.5); //Range: 1.0->2.0
-  
+{ 
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
   //localVelocity = clamped(localVelocity, 1.0);
 

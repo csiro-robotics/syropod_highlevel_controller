@@ -177,7 +177,7 @@ void WalkController::init(Model *m, Parameters p)
     // find biggest circle footprint inside the pie segment defined by the body clearance and the yaw limits
     Leg &leg = model->legs[l][0];
     // downward angle of leg
-    double legDrop = acos((bodyClearance*maximumBodyHeight)/leg.maxLegLength);
+    double legDrop = asin((bodyClearance*maximumBodyHeight)/leg.maxLegLength);
     double horizontalRange = 0;
     double rad = 1e10;
 
@@ -198,6 +198,7 @@ void WalkController::init(Model *m, Parameters p)
     double theta = model->yawLimitAroundStance[l];
     double cotanTheta = tan(0.5*pi - theta);
     rad = min(rad, solveQuadratic(sqr(cotanTheta), 2.0*horizontalRange, -sqr(horizontalRange)));
+    //rad = horizontalRange*sin(theta)/(1+sin(theta)); //ALTERNATIVE ALGORITHM FOR RADIUS OF CIRCLE INSCRIBED BY A SECTOR
     ASSERT(rad > 0.0); // cannot have negative radius
 
     // we should also take into account the stepClearance not getting too high for the leg to reach
@@ -287,8 +288,6 @@ void WalkController::setGaitParams(Parameters p)
       int index = 2*l+s;
       int multiplier = params.offsetMultiplier[index];
       legSteppers[l][s].phaseOffset = (int(params.phaseOffset*normaliser)*multiplier)%phaseLength;
-      legSteppers[l][s].defaultTipPosition = identityTipPositions[l][s];
-      legSteppers[l][s].currentTipPosition = identityTipPositions[l][s];
     }
   }
 }
@@ -297,16 +296,14 @@ void WalkController::setGaitParams(Parameters p)
  * Calculates body and stride velocities and uses velocities in body and leg state machines 
  * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature, double deltaZ[3][2], double velocityMultiplier)
+void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature, double deltaZ[3][2])
 {
   double onGroundRatio = double(phaseLength-(swingEnd-swingStart))/double(phaseLength);
   
   Vector2d localVelocity;
   if (state != STOPPING)
   {
-    localVelocity = localNormalisedVelocity*minFootprintRadius*stepFrequency/onGroundRatio;
-    ASSERT(velocityMultiplier <= 2.0); 
-    localVelocity *= velocityMultiplier;
+    localVelocity = localNormalisedVelocity*2.0*minFootprintRadius*stepFrequency/onGroundRatio;
   }
   else
   {
