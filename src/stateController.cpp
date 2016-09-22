@@ -1997,11 +1997,6 @@ void StateController::getParameters()
     ROS_ERROR("Error reading parameter/s (leg_span_scale) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  if(!n.getParam(paramString+"velocity_boost", params.velocityBoost))
-  {
-    ROS_ERROR("Error reading parameter/s (velocity_boost) from rosparam. Check config file is loaded and type is correct\n");  
-  }
-  
   if (!n.getParam(paramString+"max_acceleration", params.maxAcceleration))
   {
     ROS_ERROR("Error reading parameter/s (max_acceleration) from rosparam. Check config file is loaded and type is correct\n");
