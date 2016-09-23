@@ -233,6 +233,27 @@ inline T cubicBezierDot(T *points, double t)
          3*t*t*(points[3]-points[2]));                
 }
 
+template <class T>
+inline T quarticBezier(T *points, double t)
+{
+  double s = 1.0 - t;
+  return points[0] * (s*s*s*s) +
+         points[1] * (4.0*t*s*s*s) +
+         points[2] * (6.0*t*t*s*s) +
+         points[3] * (4.0*t*t*t*s) +
+	 points[4] * (t*t*t*t);
+}
+
+template <class T>
+inline T quarticBezierDot(T *points, double t)
+{
+  double s = 1.0 - t;
+  return (4.0*s*s*s*(points[1]-points[0]) + 
+         12.0*s*s*t*(points[2]-points[1]) + 
+         12.0*s*t*t*(points[3]-points[2]) + 
+	 4.0*t*t*t*(points[4]-points[3]));                
+}
+
 inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)
 {
   return Vector3d(max(a[0], b[0]), max(a[1], b[1]), max(a[2], b[2]));
