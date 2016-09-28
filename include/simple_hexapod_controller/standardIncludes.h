@@ -191,6 +191,10 @@ struct Parameters
 };
 
 template<class T>
+T mod(const T &a, int &b)
+{ return (a%b+b)%b; }
+
+template<class T>
 T sqr(const T &val){ return val*val; }
 
 template<class T>

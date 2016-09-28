@@ -70,16 +70,29 @@ struct WalkController
     
     WalkState state = STANCE;
     
+    Vector3d swing1ControlNodes[5];	//Primary swing bezier curve
+    Vector3d swing2ControlNodes[5];	//Secondary wing bezier curve
+    Vector3d stanceControlNodes[5];	//Stance bezier curve
+    
+    double swingDeltaT;
+    double stanceDeltaT;
+    
     Vector2d strideVector; // length gives stride length
     Vector3d currentTipPosition;
     Vector3d originTipPosition;
+    Vector3d swingOriginTipPosition;
+    Vector3d stanceOriginTipPosition;
     Vector3d defaultTipPosition;
     
     struct WalkController *walker; //So LegStepper can access walkcontroller member variables
     struct Parameters *params;
     
-    void updateSwingPos(Vector3d *pos);
     void updatePosition();
+
+    void generateSwingControlNodes(Vector3d strideVector);
+    void generateStanceControlNodes(Vector3d strideVector);
+    
+    double calculateDeltaT(WalkState state, int length);
     
   } legSteppers[3][2];
   
