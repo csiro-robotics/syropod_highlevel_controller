@@ -62,16 +62,14 @@ void WalkController::LegStepper::generateStanceControlNodes(Vector3d strideVecto
 /***********************************************************************************************************************
  * Calculates time deltas for use in quartic bezier curve tip trajectory calculations
 ***********************************************************************************************************************/
-double WalkController::LegStepper::calculateDeltaT(WalkState state, int length)
+double WalkController::LegStepper::calculateDeltaT(StepState state, int length)
 {
   int numIterations = roundToInt((double(length)/walker->phaseLength)/(walker->stepFrequency*walker->timeDelta)/2.0)*2.0;  //Ensure compatible number of iterations 
   if (state == SWING)
   {
     return 2.0/numIterations;
   }
-  else if (state == STANCE ||
-           state == STANCE_TRANSITION ||
-           state == SWING_TRANSITION)
+  else
   {
     return 1.0/numIterations;
   }
@@ -138,9 +136,7 @@ void WalkController::LegStepper::updatePosition()
     }
   }  
   // Stance phase
-  else if (state == STANCE ||
-           state == STANCE_TRANSITION ||
-           state == SWING_TRANSITION)
+  else if (state == STANCE)
   {      
     int stanceStart = completedFirstStep ? walker->swingEnd : phaseOffset;
     int stanceEnd = walker->swingStart;
@@ -320,13 +316,13 @@ void WalkController::setGaitParams(Parameters p)
 {
   params = p;
   stanceEnd = params.stancePhase*0.5;      
-  swingStart = stanceEnd + params.transitionPeriod;
+  swingStart = stanceEnd;
   swingEnd = swingStart + params.swingPhase;      
-  stanceStart = swingEnd + params.transitionPeriod;
+  stanceStart = swingEnd;
   
   //Normalises the step phase length to match the total number of iterations over a full step
-  int basePhaseLength = params.stancePhase + params.swingPhase + params.transitionPeriod*2.0;
-  double swingRatio = (params.swingPhase+params.transitionPeriod)/basePhaseLength; //Used to modify stepFreqency based on gait
+  int basePhaseLength = params.stancePhase + params.swingPhase;
+  double swingRatio = (params.swingPhase)/basePhaseLength; //Used to modify stepFreqency based on gait
   phaseLength = (roundToInt((1.0/(2.0*params.stepFrequency*timeDelta))/(basePhaseLength*swingRatio))*(basePhaseLength*swingRatio))/swingRatio;
   stepFrequency = 1/(phaseLength*timeDelta); //adjust stepFrequency to match corrected phaseLength
   ASSERT(phaseLength%basePhaseLength == 0);
@@ -449,7 +445,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         // Force any leg state into STANCE if it starts offset in a mid-swing state
         if (!legStepper.inCorrectPhase)
 	{
-	  if (legStepper.phaseOffset >= swingStart && legStepper.phaseOffset < swingEnd) //SWING STATE
+	  if (legStepper.phaseOffset > swingStart && legStepper.phaseOffset < swingEnd) //SWING STATE
 	  {
 	    if (legStepper.phase == swingEnd)
 	    {
@@ -529,17 +525,9 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       {
         legStepper.state = FORCE_STOP;
       }
-      else if (legStepper.phase >= stanceEnd && legStepper.phase < swingStart)
-      {        
-        legStepper.state = SWING_TRANSITION;
-      }
       else if (legStepper.phase >= swingStart && legStepper.phase < swingEnd)
       {
         legStepper.state = SWING;
-      }
-      else if (legStepper.phase >= swingEnd && legStepper.phase < stanceStart)
-      {
-        legStepper.state = STANCE_TRANSITION;
       }
       else if (legStepper.phase < stanceEnd || legStepper.phase >= stanceStart)
       {        

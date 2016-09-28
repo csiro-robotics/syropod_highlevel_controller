@@ -72,13 +72,6 @@ enum ParamSelection
   FORCE_GAIN,
 };
 
-enum LoadShareMode
-{
-  EQUAL,
-  SINGLE_CORNER_LIFTED,
-  SINGLE_CENTRE_LIFTED,
-};
-
 struct Parameters
 {
   std::string hexapodType;
@@ -166,7 +159,6 @@ struct Parameters
   double swingPhase;
   double phaseOffset;  
   std::vector<int> offsetMultiplier;
-  double transitionPeriod;
   
   //Dynamic Stiffness Parameters
   double loadedPhase;

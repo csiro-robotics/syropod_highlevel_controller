@@ -2410,12 +2410,6 @@ void StateController::getGaitParameters(std::string forceGait)
     ROS_ERROR("Error reading parameter/s (offset_multiplier) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  paramString = baseParamString+params.gaitType+"/transition_period";
-  if (!n.getParam(paramString, params.transitionPeriod))
-  {
-    ROS_ERROR("Error reading parameter/s (transition_period) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
   /********************************************************************************************************************/
   
   baseParamString = "/hexapod/dynamic_stiffness_parameters/";

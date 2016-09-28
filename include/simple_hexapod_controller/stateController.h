@@ -31,7 +31,6 @@ struct StateController
   Gait gait = DEFAULT;
   LegSelection legSelection = NO_LEG_SELECTION;
   ParamSelection paramSelection = NO_PARAM_SELECTION;
-  LoadShareMode loadShareMode = EQUAL;
   
   TestState testState = TEST_ENDED;
 
