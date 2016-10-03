@@ -42,7 +42,7 @@ void WalkController::LegStepper::generateSwingControlNodes(Vector3d strideVector
 ***********************************************************************************************************************/
 void WalkController::LegStepper::generateStanceControlNodes(Vector3d strideVector)
 {
-  double stanceDepth = -0.25*walker->stepClearance*walker->maximumBodyHeight;
+  double stanceDepth = walker->stepDepth*walker->maximumBodyHeight;
   
   //Control nodes for stance quartic bezier curve - horizontal plane
   stanceControlNodes[0] = stanceOriginTipPosition;							//Set as initial horizontal tip position  
@@ -54,7 +54,7 @@ void WalkController::LegStepper::generateStanceControlNodes(Vector3d strideVecto
   //Control nodes for stance quartic bezier curve - vertical plane
   stanceControlNodes[0][2] = stanceOriginTipPosition[2];						//Set as initial vertical tip position
   stanceControlNodes[4][2] = defaultTipPosition[2];							//Set as target vertical tip position 
-  stanceControlNodes[2][2] = stanceControlNodes[0][2] + stanceDepth;					//Set to control depth below ground level of stance trajectory, defined by stanceDepth
+  stanceControlNodes[2][2] = stanceControlNodes[0][2] - stanceDepth;					//Set to control depth below ground level of stance trajectory, defined by stanceDepth
   stanceControlNodes[1][2] = (stanceControlNodes[0][2] + stanceControlNodes[2][2])/2.0;			//Set for vertical acceleration continuity at transition between secondary swing and stance curves (C2 Smoothness)
   stanceControlNodes[3][2] = (stanceControlNodes[4][2] + stanceControlNodes[2][2])/2.0;			//Set for vertical acceleration continuity at transition between stance and primary swing curves (C2 Smoothness)  
 }
@@ -123,6 +123,7 @@ void WalkController::LegStepper::updatePosition()
     }    
     
     currentTipPosition += deltaPos; 
+    tipVelocity = deltaPos/walker->timeDelta;
     
     if (t1 < swingDeltaT) {t1=0.0;}
     if (t2 < swingDeltaT) {t2=0.0;}
@@ -165,6 +166,7 @@ void WalkController::LegStepper::updatePosition()
     deltaPos = stanceDeltaT*quarticBezierDot(stanceControlNodes, t);
     
     currentTipPosition += deltaPos; 
+    tipVelocity = deltaPos/walker->timeDelta;
     
     if (t < stanceDeltaT) {t=0.0;}
     if (&(walker->legSteppers[0][0]) == this) //Front left leg
@@ -174,8 +176,7 @@ void WalkController::LegStepper::updatePosition()
 		    stanceOriginTipPosition[0], stanceOriginTipPosition[1], stanceOriginTipPosition[2],
 		    currentTipPosition[0], currentTipPosition[1], currentTipPosition[2],
 		    stanceControlNodes[4][0], stanceControlNodes[4][1], stanceControlNodes[4][2]); 
-    }	
-    
+    }    
   }  
 }
 
@@ -195,6 +196,7 @@ void WalkController::init(Model *m, Parameters p)
   params = p;
   
   stepClearance = params.stepClearance;
+  stepDepth = params.stepDepth;
   bodyClearance = params.bodyClearance;
   timeDelta = params.timeDelta;
   
@@ -363,7 +365,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
     
   double normalSpeed = localVelocity.norm();
   ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
-  Vector2d oldLocalCentreVelocity = localCentreVelocity;
    
   // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
   double newAngularVelocity = newCurvature * normalSpeed/stanceRadius;
@@ -375,13 +376,19 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   }
 
   Vector2d centralVelocity = localVelocity * (1 - abs(newCurvature));
-  Vector2d diff = centralVelocity - localCentreVelocity;
-  double diffLength = diff.norm();
-
-  if (diffLength > 0.0)
+  Vector2d centralAcceleration = centralVelocity - localCentreVelocity;
+  
+  //Calculate max acceleration if specified by parameter
+  if (params.maxAcceleration == -1.0)
   {
-    localCentreVelocity += diff * min(1.0, params.maxAcceleration*timeDelta/diffLength);
-  }  
+    //Ensures tip of last leg to make first swing does not move further than footprint radius before starting first swing (s=0.5*a*(t^2))
+    params.maxAcceleration = 2.0*minFootprintRadius/sqr(((phaseLength-(swingEnd-swingStart)*0.5)*timeDelta)); 
+  }    
+  
+  if (centralAcceleration.norm() > 0.0)
+  {
+    localCentreVelocity += centralAcceleration*min(1.0, params.maxAcceleration*timeDelta/centralAcceleration.norm());
+  } 
   
   //State transitions for robot state machine.
   // State transition: STOPPED->STARTING
@@ -564,7 +571,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   }  
   
   model->clampToLimits();  
-  localCentreAcceleration = (localCentreVelocity - oldLocalCentreVelocity) / timeDelta;
   
   //RVIZ
   Vector2d push = localCentreVelocity*timeDelta;

@@ -63,6 +63,13 @@ int main(int argc, char* argv[])
   state.tipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions", 1000);
   state.tipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions", 1000);
   
+  state.tipVelocityPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_velocities", 1000);
+  state.tipVelocityPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_velocities", 1000);
+  state.tipVelocityPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_velocities", 1000);
+  state.tipVelocityPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_velocities", 1000);
+  state.tipVelocityPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_velocities", 1000);
+  state.tipVelocityPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_velocities", 1000);
+  
   state.tipForcePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/tip_forces", 1000);
   state.deltaZPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/delta_z", 1000);
   state.posePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/pose", 1000);
@@ -71,6 +78,7 @@ int main(int argc, char* argv[])
   state.rotationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rotation_pose_error", 1000);
   state.translationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/translation_pose_error", 1000);
   state.zTipErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/z_tip_error", 1000);
+  state.bodyVelocityPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/body_velocity", 1000);
   
   //Set ros rate from params
   ros::Rate r(roundToInt(1.0/state.params.timeDelta));
@@ -173,7 +181,8 @@ int main(int argc, char* argv[])
     state.loop();
     
     //Tip position publisher for debugging
-    state.publishTipPositions();  
+    state.publishTipPositions(); 
+    state.publishTipVelocities(); 
     state.publishTipForces();
     state.publishDeltaZ();
     state.publishPose();
@@ -182,6 +191,7 @@ int main(int argc, char* argv[])
     state.publishRotationPoseError();
     state.publishTranslationPoseError();
     state.publishZTipError();
+    state.publishBodyVelocity();
     
     //Debug using RVIZ
     if (state.params.debug_rviz)

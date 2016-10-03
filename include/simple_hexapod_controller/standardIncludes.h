@@ -98,6 +98,7 @@ struct Parameters
   std::string gaitType;  
   double stepFrequency;
   double stepClearance;
+  double stepDepth;
   double bodyClearance;
   double legSpanScale; 
   double velocityBoost;
@@ -172,7 +173,7 @@ struct Parameters
   
   bool testing;
   double testTimeLength;
-  double testVelocity;
+  Vector2d testVelocity;
   std::string consoleVerbosity;
   bool debugMoveToJointPosition;
   bool debugStepToPosition;

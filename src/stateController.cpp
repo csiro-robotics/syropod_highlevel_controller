@@ -379,8 +379,8 @@ void StateController::runningState()
 	ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength > 0.0, "Test started. Will finish automatically in %f seconds. Press X to stop test early.\n", params.testTimeLength);
 	ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength == 0.0, "Test started. No time limit. Press X to stop test.\n");
 	runningTime += params.timeDelta;
-	ROS_ASSERT(params.testVelocity <= 1.0);
-	localVelocity = Vector2d(0.0,params.testVelocity);
+	ROS_ASSERT(params.testVelocity.norm() <= 1.0);
+	localVelocity = params.testVelocity;
       }
       else
       {
@@ -390,16 +390,9 @@ void StateController::runningState()
 	testState = TEST_ENDED;
       }
     }
-    
-    //Force input velocity to half while starting to walk
-    double inputVelocityScaler = 1.0;
-    if (walker->state == STARTING)
-    {
-      inputVelocityScaler = 0.5;
-    }
      
     //Update Walker 
-    walker->updateWalk(localVelocity*inputVelocityScaler, turnRate*inputVelocityScaler, deltaZ); 
+    walker->updateWalk(localVelocity, turnRate, deltaZ); 
   }
   
   //Check for shutdown cue
@@ -793,6 +786,25 @@ void StateController::publishTipPositions()
 }
 
 /***********************************************************************************************************************
+ * Publishes tip velocities (relative to default tip position) for debugging
+***********************************************************************************************************************/
+void StateController::publishTipVelocities()
+{
+  std_msgs::Float32MultiArray msg;
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {            
+      msg.data.clear();
+      msg.data.push_back(walker->legSteppers[l][s].tipVelocity[0]);
+      msg.data.push_back(walker->legSteppers[l][s].tipVelocity[1]);
+      msg.data.push_back(walker->legSteppers[l][s].tipVelocity[2]);
+      tipVelocityPublishers[l][s].publish(msg);
+    }
+  }
+}
+
+/***********************************************************************************************************************
  * Publishes tip forces for debugging
 ***********************************************************************************************************************/
 void StateController::publishTipForces()
@@ -926,6 +938,18 @@ void StateController::publishZTipError()
     }
   }  
   zTipErrorPublisher.publish(msg);
+}
+
+/***********************************************************************************************************************
+ * Publishes body velocity for debugging
+***********************************************************************************************************************/
+void StateController::publishBodyVelocity()
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  msg.data.push_back(walker->localCentreVelocity[0]);
+  msg.data.push_back(walker->localCentreVelocity[1]);
+  bodyVelocityPublisher.publish(msg);
 }
 
 /***********************************************************************************************************************
@@ -1227,7 +1251,7 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
 { 
   localVelocity = Vector2d(twist.linear.x, twist.linear.y);
-  //localVelocity = clamped(localVelocity, 1.0);
+  localVelocity = clamped(localVelocity, 1.0);
 
   turnRate = twist.angular.x;
   turnRate = turnRate*turnRate*turnRate; // the cube just lets the thumbstick give small turns easier
@@ -1987,6 +2011,11 @@ void StateController::getParameters()
     ROS_ERROR("Error reading parameter/s (step_clearance) from rosparam. Check config file is loaded and type is correct\n");
   }
   
+  if (!n.getParam(paramString+"step_depth", params.stepDepth))
+  {
+    ROS_ERROR("Error reading parameter/s (step_depth) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
   if (!n.getParam(paramString+"body_clearance", params.bodyClearance))
   {
     ROS_ERROR("Error reading parameter/s (body_clearance) from rosparam. Check config file is loaded and type is correct\n");
@@ -2309,9 +2338,15 @@ void StateController::getParameters()
     ROS_ERROR("Error reading debug parameter/s (test_time_length) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  if (!n.getParam(paramString + "test_velocity", params.testVelocity))
+  std::vector<double> testVelocity(2);
+  if (!n.getParam(paramString + "test_velocity", testVelocity))
   {
     ROS_ERROR("Error reading debug parameter/s (test_velocity) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  else
+  {
+    params.testVelocity = Map<Vector2d>(&testVelocity[0], 2);
+    params.testVelocity = clamped(params.testVelocity, 1.0);
   }
   
   if (!n.getParam(paramString + "console_verbosity", params.consoleVerbosity))

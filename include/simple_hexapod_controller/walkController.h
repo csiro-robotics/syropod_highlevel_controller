@@ -35,6 +35,7 @@ struct WalkController
   //Walk parameters
   double stepFrequency;  
   double stepClearance;
+  double stepDepth;
   double bodyClearance;
   
   int phaseLength;
@@ -51,7 +52,6 @@ struct WalkController
   double stanceRadius; // affects turning circle
   Vector3d identityTipPositions[3][2];
   Vector2d localCentreVelocity;
-  Vector2d localCentreAcceleration;
   double angularVelocity;
   double maximumBodyHeight;
   
@@ -80,6 +80,7 @@ struct WalkController
     Vector3d defaultTipPosition;
     Vector3d swingOriginTipPosition;
     Vector3d stanceOriginTipPosition;
+    Vector3d tipVelocity;
     
     struct WalkController *walker; //So LegStepper can access walkcontroller member variables
     struct Parameters *params;
