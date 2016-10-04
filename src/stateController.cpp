@@ -2026,19 +2026,19 @@ void StateController::getParameters()
     ROS_ERROR("Error reading parameter/s (leg_span_scale) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  if (!n.getParam(paramString+"max_acceleration", params.maxAcceleration))
+  if (!n.getParam(paramString+"max_linear_acceleration", params.maxLinearAcceleration))
   {
-    ROS_ERROR("Error reading parameter/s (max_acceleration) from rosparam. Check config file is loaded and type is correct\n");
+    ROS_ERROR("Error reading parameter/s (max_linear_acceleration) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  if (!n.getParam(paramString+"max_curvature_speed", params.maxCurvatureSpeed))
+  if (!n.getParam(paramString+"max_angular_acceleration", params.maxAngularAcceleration))
   {
-    ROS_ERROR("Error reading parameter/s (max_curvature_speed) from rosparam. Check config file is loaded and type is correct\n");
+    ROS_ERROR("Error reading parameter/s (max_angular_acceleration) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  if (!n.getParam(paramString+"step_curvature_allowance", params.stepCurvatureAllowance))
+  if (!n.getParam(paramString+"footprint_downscale", params.footprintDownscale))
   {
-    ROS_ERROR("Error reading parameter/s (step_curvature_allowance) from rosparam. Check config file is loaded and type is correct\n");
+    ROS_ERROR("Error reading parameter/s (footprint_downscale) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString+"interface_setup_speed", params.interfaceSetupSpeed))

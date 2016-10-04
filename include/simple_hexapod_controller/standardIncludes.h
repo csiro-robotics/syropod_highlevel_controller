@@ -102,9 +102,9 @@ struct Parameters
   double bodyClearance;
   double legSpanScale; 
   double velocityBoost;
-  double maxAcceleration;
-  double maxCurvatureSpeed;
-  double stepCurvatureAllowance;
+  double maxLinearAcceleration;
+  double maxAngularAcceleration;
+  double footprintDownscale;
   double interfaceSetupSpeed;
   
   //Pose Controller Parameters

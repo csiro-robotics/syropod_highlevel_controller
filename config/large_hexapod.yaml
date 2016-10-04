@@ -64,16 +64,16 @@ hexapod:
 ######################################################################
 
     walk_controller:
-      step_frequency: 0.1 #0.1
+      step_frequency: 0.1
       step_clearance: 0.075
       step_depth: 0.0
       body_clearance: -1.0
-      leg_span_scale: 0.62
+      leg_span_scale: 0.6
 
-      max_acceleration: -1.0
-      max_curvature_speed: 0.4
+      max_linear_acceleration: -1.0
+      max_angular_acceleration: -1.0
 
-      step_curvature_allowance: 0.7
+      footprint_downscale: 0.8
 
       interface_setup_speed: 0.5
 

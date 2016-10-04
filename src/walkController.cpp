@@ -219,7 +219,7 @@ void WalkController::init(Model *m, Parameters p)
   if (bodyClearance == -1) 
   {
     // in this case we assume legs have equal characteristics
-    bodyClearance = model->legs[0][0].minLegLength/maximumBodyHeight + params.stepCurvatureAllowance*stepClearance;
+    bodyClearance = (model->legs[0][0].minLegLength + stepClearance*maximumBodyHeight)/maximumBodyHeight;
   }
   ASSERT(bodyClearance >= 0 && bodyClearance < 1.0);
 
@@ -255,7 +255,7 @@ void WalkController::init(Model *m, Parameters p)
     ASSERT(rad > 0.0); // cannot have negative radius
 
     // we should also take into account the stepClearance not getting too high for the leg to reach
-    double legTipBodyClearance = max(0.0, bodyClearance-params.stepCurvatureAllowance*stepClearance)*maximumBodyHeight; 
+    double legTipBodyClearance = max(0.0, bodyClearance-stepClearance)*maximumBodyHeight; 
     
     // if footprint radius due to lift is smaller due to yaw limits, reduce this minimum radius
     if (legTipBodyClearance < leg.minLegLength)
@@ -266,10 +266,10 @@ void WalkController::init(Model *m, Parameters p)
 
     footSpreadDistances[l] = leg.hipLength + horizontalRange - rad;
     
-    // this is because the step cycle exceeds the ground footprint in order to maintain velocity
-    double footprintDownscale = 0.8; 
     
-    minFootprintRadius = min(minFootprintRadius, rad*footprintDownscale);
+    double footprintDownscale = 0.8; 
+    //FootprintDownscale scales the tip footprint down as the step cycle sometimes exceeds the ground footprint in order to maintain velocity
+    minFootprintRadius = min(minFootprintRadius, rad*params.footprintDownscale);
     
     for (int s = 0; s<2; s++)
     {
@@ -304,7 +304,7 @@ void WalkController::init(Model *m, Parameters p)
     minFootprintRadius += minGap*0.5;
   }
 
-  stanceRadius = abs(identityTipPositions[1][0][0]);
+  stanceRadius = Vector2d(identityTipPositions[0][1][0], identityTipPositions[0][1][1]).norm();
 
   localCentreVelocity = Vector2d(0,0);
   angularVelocity = 0;
@@ -370,31 +370,32 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   double newAngularVelocity = newCurvature * normalSpeed/stanceRadius;
   double angularAcceleration = newAngularVelocity - angularVelocity;
 
-  //Calculate max acceleration if specified by parameter
-  if (params.maxCurvatureSpeed == -1.0)
+  //Calculate max curvature acceleration if specified by parameter
+  if (params.maxAngularAcceleration == -1.0)
   {
     //Ensures tip of last leg to make first swing does not move further than footprint radius before starting first swing (s=0.5*a*(t^2))
-    params.maxCurvatureSpeed = params.maxCurvatureSpeed; //TBD
+    double theta = acos(1 - (sqr(minFootprintRadius)/(2.0*sqr(stanceRadius)))); //Max angular distance within footprint
+    params.maxAngularAcceleration = 2.0*theta/sqr(((phaseLength-(swingEnd-swingStart)*0.5)*timeDelta));
   }  
   
   if (abs(angularAcceleration)>0.0)
   {
-    angularVelocity += angularAcceleration * min(1.0, params.maxCurvatureSpeed*timeDelta/abs(angularAcceleration));
+    angularVelocity += angularAcceleration * min(1.0, params.maxAngularAcceleration*timeDelta/abs(angularAcceleration));
   }
 
   Vector2d centralVelocity = localVelocity * (1 - abs(newCurvature));
   Vector2d centralAcceleration = centralVelocity - localCentreVelocity;
   
   //Calculate max acceleration if specified by parameter
-  if (params.maxAcceleration == -1.0)
+  if (params.maxLinearAcceleration == -1.0)
   {
     //Ensures tip of last leg to make first swing does not move further than footprint radius before starting first swing (s=0.5*a*(t^2))
-    params.maxAcceleration = 2.0*minFootprintRadius/sqr(((phaseLength-(swingEnd-swingStart)*0.5)*timeDelta)); 
+    params.maxLinearAcceleration = 2.0*minFootprintRadius/sqr(((phaseLength-(swingEnd-swingStart)*0.5)*timeDelta)); 
   }    
   
   if (centralAcceleration.norm() > 0.0)
   {
-    localCentreVelocity += centralAcceleration*min(1.0, params.maxAcceleration*timeDelta/centralAcceleration.norm());
+    localCentreVelocity += centralAcceleration*min(1.0, params.maxLinearAcceleration*timeDelta/centralAcceleration.norm());
   } 
   
   //State transitions for robot state machine.
