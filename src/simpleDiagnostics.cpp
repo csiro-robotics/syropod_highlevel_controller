@@ -5,7 +5,7 @@
 #include "std_msgs/Float64.h"
 #include "geometry_msgs/PoseStamped.h"
 #include <Eigen/Dense>
-#include "microview_ros/PowerStatus.h"
+//#include "microview_ros/PowerStatus.h"
 
 #define ROS_FREQUENCY 25
 #define SAMPLE_TIME 0.25
@@ -238,12 +238,14 @@ void absolutePositionCallback(const geometry_msgs::PoseStamped ts_msg)
 /***********************************************************************************************************************
  * Callback for power consumption
 ***********************************************************************************************************************/
+/*
 void powerConsumptionCallback(const microview_ros::PowerStatus power_msg)
 {
   //Low pass filter of power data
   double smoothingFactor = 0.05;
   powerConsumption = smoothingFactor*power_msg.power + (1-smoothingFactor)*powerConsumption;
 } 
+*/
 
 /***********************************************************************************************************************
  * Main
@@ -306,7 +308,7 @@ int main(int argc, char** argv)
   ros::Subscriber jointStatesMotorActualSubscriber = n.subscribe("/motor_encoders", 1000, &jointStatesMotorActualCallback);
 
   ros::Subscriber absolutePositionSubscriber = n.subscribe("/ts_pose", 1000, &absolutePositionCallback);
-  ros::Subscriber powerConsumptionSubscriber = n.subscribe("/power_status", 1000, &powerConsumptionCallback);
+  //ros::Subscriber powerConsumptionSubscriber = n.subscribe("/power_status", 1000, &powerConsumptionCallback);
   
   populateJointMap(&jointMap);
 

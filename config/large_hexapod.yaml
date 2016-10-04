@@ -70,7 +70,7 @@ hexapod:
       body_clearance: -1.0
       leg_span_scale: 0.62
 
-      max_acceleration: 0.005
+      max_acceleration: -1.0
       max_curvature_speed: 0.4
 
       step_curvature_allowance: 0.7

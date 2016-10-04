@@ -368,11 +368,18 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
    
   // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
   double newAngularVelocity = newCurvature * normalSpeed/stanceRadius;
-  double dif = newAngularVelocity - angularVelocity;
+  double angularAcceleration = newAngularVelocity - angularVelocity;
 
-  if (abs(dif)>0.0)
+  //Calculate max acceleration if specified by parameter
+  if (params.maxCurvatureSpeed == -1.0)
   {
-    angularVelocity += dif * min(1.0, params.maxCurvatureSpeed*timeDelta/abs(dif));
+    //Ensures tip of last leg to make first swing does not move further than footprint radius before starting first swing (s=0.5*a*(t^2))
+    params.maxCurvatureSpeed = params.maxCurvatureSpeed; //TBD
+  }  
+  
+  if (abs(angularAcceleration)>0.0)
+  {
+    angularVelocity += angularAcceleration * min(1.0, params.maxCurvatureSpeed*timeDelta/abs(angularAcceleration));
   }
 
   Vector2d centralVelocity = localVelocity * (1 - abs(newCurvature));
