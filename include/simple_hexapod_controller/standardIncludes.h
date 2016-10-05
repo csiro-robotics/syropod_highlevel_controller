@@ -177,8 +177,8 @@ struct Parameters
   std::string consoleVerbosity;
   bool debugMoveToJointPosition;
   bool debugStepToPosition;
-  bool debugUpdateSwingPosition;
-  bool debugUpdatePosition;
+  bool debugSwingTrajectory;
+  bool debugStanceTrajectory;
   bool debugManualCompensationRotation;
   bool debugManualCompensationTranslation;  
 };

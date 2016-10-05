@@ -20,13 +20,17 @@ int main(int argc, char* argv[])
   {
     setLoggerLevelResult = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
   }
-  else if (state.params.consoleVerbosity == "warnings")
+  else if (state.params.consoleVerbosity == "warning")
   {
     setLoggerLevelResult = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Warn);
   }
-  else if (state.params.consoleVerbosity == "errors")
+  else if (state.params.consoleVerbosity == "error")
   {
     setLoggerLevelResult = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Error);
+  }
+  else if (state.params.consoleVerbosity == "fatal")
+  {
+    setLoggerLevelResult = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Fatal);
   }
     
   if(setLoggerLevelResult) 

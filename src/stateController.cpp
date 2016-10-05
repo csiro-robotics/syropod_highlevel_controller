@@ -2364,14 +2364,14 @@ void StateController::getParameters()
     ROS_ERROR("Error reading debug parameter/s (debug_step_to_position) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  if (!n.getParam(paramString + "debug_update_swing_position", params.debugUpdateSwingPosition))
+  if (!n.getParam(paramString + "debug_swing_trajectory", params.debugSwingTrajectory))
   {
-    ROS_ERROR("Error reading debug parameter/s (debug_update_swing_position) from rosparam. Check config file is loaded and type is correct\n");
+    ROS_ERROR("Error reading debug parameter/s (debug_swing_trajectory) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  if (!n.getParam(paramString + "debug_update_position", params.debugUpdatePosition))
+  if (!n.getParam(paramString + "debug_stance_trajectory", params.debugStanceTrajectory))
   {
-    ROS_ERROR("Error reading debug parameter/s (debug_update_position) from rosparam. Check config file is loaded and type is correct\n");
+    ROS_ERROR("Error reading debug parameter/s (debug_stance_trajectory) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString + "debug_manual_compensation_rotation", params.debugManualCompensationRotation))

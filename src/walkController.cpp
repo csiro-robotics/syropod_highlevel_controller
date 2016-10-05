@@ -129,7 +129,7 @@ void WalkController::LegStepper::updatePosition()
     if (t2 < swingDeltaT) {t2=0.0;}
     if (&(walker->legSteppers[0][0]) == this) //Front left leg
     {
-      ROS_DEBUG_COND(params->debugUpdateSwingPosition, "SWING TRAJECTORY_DEBUG - ITERATION: %d\t\tTIME: %f:%f\t\tORIGIN: %f:%f:%f\t\tPOS: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
+      ROS_DEBUG_COND(params->debugSwingTrajectory, "SWING TRAJECTORY_DEBUG - ITERATION: %d\t\tTIME: %f:%f\t\tORIGIN: %f:%f:%f\t\tPOS: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
 		    iteration, t1, t2,
 		    swingOriginTipPosition[0], swingOriginTipPosition[1], swingOriginTipPosition[2],
 		    currentTipPosition[0], currentTipPosition[1], currentTipPosition[2],
@@ -171,7 +171,7 @@ void WalkController::LegStepper::updatePosition()
     if (t < stanceDeltaT) {t=0.0;}
     if (&(walker->legSteppers[0][0]) == this) //Front left leg
     {
-      ROS_DEBUG_COND(params->debugUpdateSwingPosition, "STANCE TRAJECTORY_DEBUG - ITERATION: %d\t\tTIME: %f\t\tORIGIN: %f:%f:%f\t\tPOS: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
+      ROS_DEBUG_COND(params->debugStanceTrajectory, "STANCE TRAJECTORY_DEBUG - ITERATION: %d\t\tTIME: %f\t\tORIGIN: %f:%f:%f\t\tPOS: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
 		    iteration, t,
 		    stanceOriginTipPosition[0], stanceOriginTipPosition[1], stanceOriginTipPosition[2],
 		    currentTipPosition[0], currentTipPosition[1], currentTipPosition[2],

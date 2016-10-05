@@ -11,12 +11,12 @@ Hexapod Parameters:
     Value used in setting ros loop frequency which denotes time period between cycles. (seconds)
   
   /hexapod/parameters/imu_compensation: (default: false)
-    Bool sets whether IMU compensation mode is on/off. IMU compensation mode currently is not 
-    working so do not use.
+    Bool sets whether IMU compensation mode is on/off. IMU compensation mode requires PID tuning 
+    using /hexapod/parameters/pose_controller/imu_pose_compensation parameters.
   
   /hexapod/parameters/auto_compensation: (default: false)
-    Bool sets whether Auto compenation mode is on/off. Auto compensation mode currently is not 
-    working so do not use.
+    Bool sets whether Auto compenation mode is on/off. Auto compensation adjusts pitch/roll of body
+    to compensate for body sag into lifted leg. Only implemented for Wave and Tripod gaits.
     
   /hexapod/parameters/manual_compensation: (default: true)
     Bool sets whether manual compensation mode is on/off. Manual compensation allows for the 
@@ -47,7 +47,7 @@ Hexapod Parameters:
     Eg: [0.785, 0, -0.785] sets the zero yaw position for the front legs to be 45 deg from the
       x-axis (lateral axis), 0 deg for the middle legs and -45 deg for the rear.
 
-  /hexapod/parameters/physical_leg_offsets:             
+  /hexapod/parameters/physical_yaw_offsets:             
     Denotes the phyical yaw joint motor axis offset (radians) from the x-axis (lateral axis). 
     Eg: [0.523, 0.0, -0.523] means the front yaw motors are aligned 60 deg from the x-axis, the 
       middle motors are aligned parallel to the x-axis and the rear are mounted -60 deg from the 
@@ -89,6 +89,10 @@ Walk Controller Parameters:
     Defines the max step clearance height above ground level as a percentage of max body-height. 
     Eg: 0.1 gives 10% of max body height
     
+  /hexapod/parameters/walk_controller/stance_depth: (default: 0.0)
+    Defines the max 'depth' that the stance phase of the each step attains as a percentage of max
+    body height. 
+    
   /hexapod/parameters/walk_controller/body_clearance: (default: -1.0)
     Defines the max body clearance height above ground level as a percentage of max body-height. 
     A value of -1.0 sets the body clearance to be optimally calculated to maximise tip footprint 
@@ -98,21 +102,19 @@ Walk Controller Parameters:
     Modifies the effective horizontal range of each leg in order to force a more narrow (<1.0) or 
     wide (>1.0) stance. The controller will crash if the forced leg span causes the body clearance 
     to no longer be achievable.
-  
-  /hexapod/parameters/walk_controller/leg_state_correction: (default: false)
-    Bool turns on/off future mode (not fully implemented yet) which allows for the correction of 
-    tip position based on early footfall detection or late liftoff detection.
-  
-  /hexapod/parameters/walk_controller/max_acceleration: (default: 0.1)
-    Maximum linear acceleration of the body.
+ 
+  /hexapod/parameters/walk_controller/max_linear_acceleration: (default: -1.0)
+    Maximum linear acceleration of the body. Set to -1.0 to have it auto calculated for conservative
+    operation.
     
-  /hexapod/parameters/walk_controller/max_curvature_speed: (default: 0.4)
-   Maximum angular acceleration of the body.
+  /hexapod/parameters/walk_controller/max_angular_acceleration: (default: -1.0)
+   Maximum angular acceleration of the body. Set to -1.0 to have it auto calculated for conservative
+   operation.
   
-  /hexapod/parameters/walk_controller/step_curvature_allowance: (default: 1.0)
-    Modifies the effective step clearance in calculation of body clearance and restricts step 
-    curvature to within tolerances. Value is a percentage of default. (i.e. 1.0 gives zero change 
-    to step clearance)
+  /hexapod/parameters/walk_controller/footprint_downscale: (default: 0.8)
+    Scales operating tip footprint workspace down from maximum calculated footprint to give the tip a
+    factor of safety for instances where is may need to stray from the operating footprint in order 
+    to maintain body velocity.
   
   /hexapod/parameters/walk_controller/interface_setup_speed: (default: 2.5)
     Sets speed of motors (rad/s).
@@ -132,42 +134,93 @@ Pose Controller Parameters:
   /hexapod/parameters/pose_controller/time_to_start: (default: 12.0)
     Determines the length of time (seconds) in which to complete a DIRECT startup sequence 
     (start_up_sequence == false)
-
-  /hexapod/parameters/pose_controller/auto_pose_compensation/pitch_amplitude: (default: 0.025)
-    Sets amplitude of pitch used in auto_compensation mode
     
-  /hexapod/parameters/pose_controller/auto_pose_compensation/roll_amplitude: (default: 0.025)
-    Sets amplitude of roll used in auto_compensation mode
+  /hexapod/parameters/pose_controller/imu_pose_compensation/**_compensation/**_gain:
+    PID gains for translational/rotational imu pose compensation. WARNING: requires tuning to prevent
+    unstable compensation, check all values before using imu compensation.
+
+  /hexapod/parameters/pose_controller/auto_pose_compensation/**_amplitude: (default: 0.025)
+    Sets amplitude of pitch, roll and vertical translation used in auto_compensation mode
 
   /hexapod/parameters/pose_controller/manual_pose_compensation/max_pose_time: (default: 1.0)
     Sets the maximum (and default) time (seconds) in which to complete manual pose actions.
     
-  /hexapod/parameters/pose_controller/manual_pose_compensation/max_roll: (default: 0.075)
-    Sets the amplitude of the maximum roll variable used in manual roll posing.
+  /hexapod/parameters/pose_controller/manual_pose_compensation/max_**:
+    Sets the amplitude of the maximum roll/pitch/yaw variables used in manual rotation posing.
     
-  /hexapod/parameters/pose_controller/manual_pose_compensation/max_pitch: (default: -0.075)
-    Sets the amplitude of the maximum pitch variable used in manual pitch posing.
+  /hexapod/parameters/pose_controller/manual_pose_compensation/max_**: (default: 0.05)
+    Sets the amplitude of the min/max x/y/z translation variable used in manual translation posing.
     
-  /hexapod/parameters/pose_controller/manual_pose_compensation/max_yaw: (default: 0.2)
-    Sets the amplitude of the maximum yaw variable used in manual yaw posing.
-    
-  /hexapod/parameters/pose_controller/manual_pose_compensation/max_x: (default: 0.05)
-    Sets the amplitude of the maximum x translation variable used in manual x translation posing.
-    
-  /hexapod/parameters/pose_controller/manual_pose_compensation/max_y: (default: 0.05)
-    Sets the amplitude of the maximum y translation variable used in manual y translation posing.
-    
-  /hexapod/parameters/pose_controller/manual_pose_compensation/max_z: (default: 0.05)
-    Sets the amplitude of the maximum z translation variable used in manual z translation posing.
-    
-  /hexapod/parameters/pose_controller/manual_pose_compensation/min_z: (default: 0.05)
-    Sets the amplitude of the minimum z translation variable used in manual z translation posing.
-
   /hexapod/parameters/pose_controller/packed_joint_positions/**_packed_joint_positions:
     Denotes the joint angles for each joint [yaw, hip, knee] in the "packed" state. (radians)
     
   /hexapod/parameters/pose_controller/unpacked_joint_positions/**_unpacked_joint_positions:
     Denotes the joint angles for each joint [yaw, hip, knee] in the "unpacked" state. (radians)
+    
+####################################################################################################  
+
+Impedance Control Parameters:
+
+  /hexapod/parameters/impedance_controller/impedance_control: (default: true)
+    Determines if impedance control is currently turned on/off.
+    
+  /hexapod/parameters/impedance_controller/impedance_input: (default: joint_effort)
+    Determines input method for impedance. Either 'joint_effort' for using effort values from joint
+    motors OR 'tip_force' for using pressure readings from tip sensors (MAX - Large Hexapod)
+    
+  /hexapod/parameters/impedance_controller/virtual_mass:
+    Virtual mass variable used in impedance controller spring-mass-damper virtualisation.
+    
+  /hexapod/parameters/impedance_controller/integrator_step_time:
+    Time step used in impedance controller function.
+    
+  /hexapod/parameters/impedance_controller/virtual_stiffness:
+    Virtual stiffness variable used in impedance controller spring-mass-damper virtualisation.
+    
+  /hexapod/parameters/impedance_controller/virtual_damping_ratio:
+    Virtual damping ratio variable used in impedance controller spring-mass-damper virtualisation.
+    
+  /hexapod/parameters/impedance_controller/force_gain:
+    Gain used to scale impedance values used in impedance controller.
+    
+####################################################################################################  
+
+Debug Parameters:
+
+  /hexapod/debug_parameters/testing: (default: false)
+    Turns on/off ability to perform 'test' runs with constant velocity input over a set time period.
+    Tests start/stop using X Button.
+    
+  /hexapod/debug_parameters/test_time_length: (default: 0.0)
+    Sets time length for test. A zero value sets an infinite test time length which can only be 
+    manually ended.
+    
+  /hexapod/debug_parameters/test_velocity: (default: [0.0, 1.0])
+    Sets constant velocity input used in test. Note default is a full forward velocity input
+    
+  /hexapod/debug_parameters/console_verbosity: (default: info)
+    Sets rosconsole verbosity levels. Options include: 'debug', 'info', 'warning', 'error', 'fatal'
+    
+  /hexapod/debug_parameters/debug_move_to_joint_position: (default: false)
+    Allows debug output from moveToJointPosition function in poseController.
+    
+  /hexapod/debug_parameters/debug_step_to_position: (default: false)
+    Allows debug output from stepToPosition function in poseController.
+    
+  /hexapod/debug_parameters/debug_swing_trajectory: (default: false)
+    Allows debug output from swing part of updatePosition function in walkController.
+    
+  /hexapod/debug_parameters/debug_stance_trajectory: (default: false)
+    Allows debug output from stance part of updatePosition function in walkController.
+    
+  /hexapod/debug_parameters/debug_manual_compensation_translation: (default: false)
+    Allows debug output from translation part of manualCompensation function in poseController.
+    
+  /hexapod/debug_parameters/debug_manual_compensation_rotation: (default: false)
+    Allows debug output from rotation part of manualCompensation function in poseController.
+    
+  /hexapod/debug_parameters/debug_rviz: (default: false)
+    Turns on output for use in simulation in rviz.
     
 ####################################################################################################  
 
@@ -178,9 +231,6 @@ Gait Parameters:
     
   /hexapod/gait_parameters/*gait_name*/swing_phase:       
     Ratio of step phase in the 'swing' state (in air)
-    
-  /hexapod/gait_parameters/*gait_name*/transition_phase:  
-    Ratio of step phase for each 'transition' state (2 transitions: stance->swing, swing->stance)
     
   /hexapod/gait_parameters/*gait_name*/phase_offset:      
     Base ratio of step phase each leg is offset from each other.
@@ -195,41 +245,37 @@ Gait Parameters:
       rear_left (leg = 2, side = 0),
       rear_right (leg = 2, side = 1)
 
-  Eg:     tripod_gait has stance:swing:transition:offset ratio of 4:4:1:5. 
-          Assuming a total phase length of 100: 
-            40 iterations (40%) of the step are stance, 
-            40 iterations (40%) of the step are swing and
-            10 iterations (10%) for each of 2 transition states 
-            ((stance->swing and swing->stance) for a total of 20 iterations) 
-            
-            The base phase offset is 50 iterations (50%).
+  Eg:     tripod_gait has stance:swing:offset ratio of 50:40:45. 
+          Assuming a total phase length of 90: 
+            50 iterations (66.67%) of the step are stance, 
+            40 iterations (33.33%) of the step are swing
+                        
+            The base phase offset is 45 iterations (16.67%).
             With a offset_multiplier of [0,1,1,0,0,1] legs:
               front_left, middle_right and rear_left have an effective offset
-              of 0*50 = 0 iterations (0%)
+              of 0*45 = 0 iterations (0%)
               front_right, middle_left and rear_right have an effective offset
-              of 1*50 = 50 iterations (50%)
+              of 1*45 = 50 iterations (50%)
             
-  Eg:     wave_gait has stance:swing:transition:offset ratio of 78:8:2:15. 
-          Assuming a total phase length of 900: 
-            780 iterations (87%) of the step are stance, 
-            80 iterations (9%) of the step are swing and 
-            20 iterations (2%) for each of 2 transition states 
-            ((stance->swing and swing->stance) for a total of 40 iterations) 
+  Eg:     wave_gait has stance:swing:offset ratio of 80:10:15. 
+          Assuming a total phase length of 90: 
+            80 iterations (88.89%) of the step are stance, 
+            10 iterations (11.11%) of the step are swing 
             
-            The base phase offset is 150 iterations (17%).
-            With a offset_multiplier of [2,1,3,0,4,5] legs:
-              front_left has an offset of 2*150 = 300 iterations (33.33%)
-              front_right has an offset of 1*150 = 150 iterations (16.67%)
-              middle_left has an offset of 3*150 = 450 iterations (50%)
-              middle_right has an offset of 0*150 = 0 iterations (0%)
-              rear_left has an offset of 4*150 = 600 iterations (66.67%)
-              rear_right has an offset of 5*150 = 750 iterations (83.33%)
+            The base phase offset is 15 iterations (16.67%).
+            With a offset_multiplier of [2,5,3,0,4,1] legs:
+              front_left has an offset of 2*15 = 30 iterations (33.33%)
+              front_right has an offset of 5*15 = 75 iterations (16.67%)
+              middle_left has an offset of 3*15 = 45 iterations (50%)
+              middle_right has an offset of 0*15 = 0 iterations (0%)
+              rear_left has an offset of 4*15 = 60 iterations (66.67%)
+              rear_right has an offset of 1*15 = 15 iterations (83.33%)
               
-            Note that for this example the swing state starts at iteration 410*
+            Note that for this example the swing state starts at iteration 40*
             and therefore these offsets give a swing order of:
-              front_left, front_right, middle_right, rear_right, middle_left
+              front_left, rear_right, middle_right, front_right, rear_left, front_left etc.
               
-          *swing_start = (stance_phase(780)/2) + transition_phase(20) = 410
+          *swing_start = stance_phase(80)/2 = 40
           
 ####################################################################################################
 #################################################################################################### 
