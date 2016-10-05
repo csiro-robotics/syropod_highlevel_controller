@@ -157,8 +157,8 @@ hexapod:
     
     debug_move_to_joint_position: false
     debug_step_to_position: false
-    debug_update_swing_position: false
-    debug_update_position: false
+    debug_swing_trajectory: false
+    debug_stance_trajectory: false
     debug_manual_compensation_translation: false
     debug_manual_compensation_rotation: false
     
