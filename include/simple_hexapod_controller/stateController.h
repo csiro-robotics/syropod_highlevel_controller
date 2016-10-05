@@ -31,7 +31,6 @@ struct StateController
   Gait gait = DEFAULT;
   LegSelection legSelection = NO_LEG_SELECTION;
   ParamSelection paramSelection = NO_PARAM_SELECTION;
-  LoadShareMode loadShareMode = EQUAL;
   
   TestState testState = TEST_ENDED;
 
@@ -54,6 +53,7 @@ struct StateController
   int count = 0;
   
   ros::Publisher tipPositionPublishers[3][2];
+  ros::Publisher tipVelocityPublishers[3][2];
   ros::Publisher tipForcePublisher;
   ros::Publisher deltaZPublisher;
   ros::Publisher posePublisher;
@@ -62,6 +62,7 @@ struct StateController
   ros::Publisher rotationPoseErrorPublisher;  
   ros::Publisher translationPoseErrorPublisher; 
   ros::Publisher zTipErrorPublisher;
+  ros::Publisher bodyVelocityPublisher;
   
   //Trigger Flags
   bool changeGait = false;
@@ -126,6 +127,7 @@ struct StateController
   //Debugging functions
   void RVIZDebugging();
   void publishTipPositions();
+  void publishTipVelocities();
   void publishTipForces();
   void publishDeltaZ();
   void publishPose();
@@ -134,6 +136,7 @@ struct StateController
   void publishRotationPoseError();
   void publishTranslationPoseError();
   void publishZTipError();
+  void publishBodyVelocity();
   
   //Loop and state functions
   void loop();

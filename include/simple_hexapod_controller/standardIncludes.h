@@ -72,13 +72,6 @@ enum ParamSelection
   FORCE_GAIN,
 };
 
-enum LoadShareMode
-{
-  EQUAL,
-  SINGLE_CORNER_LIFTED,
-  SINGLE_CENTRE_LIFTED,
-};
-
 struct Parameters
 {
   std::string hexapodType;
@@ -105,12 +98,13 @@ struct Parameters
   std::string gaitType;  
   double stepFrequency;
   double stepClearance;
+  double stepDepth;
   double bodyClearance;
   double legSpanScale; 
   double velocityBoost;
-  double maxAcceleration;
-  double maxCurvatureSpeed;
-  double stepCurvatureAllowance;
+  double maxLinearAcceleration;
+  double maxAngularAcceleration;
+  double footprintDownscale;
   double interfaceSetupSpeed;
   
   //Pose Controller Parameters
@@ -166,7 +160,6 @@ struct Parameters
   double swingPhase;
   double phaseOffset;  
   std::vector<int> offsetMultiplier;
-  double transitionPeriod;
   
   //Dynamic Stiffness Parameters
   double loadedPhase;
@@ -180,15 +173,19 @@ struct Parameters
   
   bool testing;
   double testTimeLength;
-  double testVelocity;
+  Vector2d testVelocity;
   std::string consoleVerbosity;
   bool debugMoveToJointPosition;
   bool debugStepToPosition;
-  bool debugUpdateSwingPosition;
-  bool debugUpdatePosition;
+  bool debugSwingTrajectory;
+  bool debugStanceTrajectory;
   bool debugManualCompensationRotation;
   bool debugManualCompensationTranslation;  
 };
+
+template<class T>
+T mod(const T &a, int &b)
+{ return (a%b+b)%b; }
 
 template<class T>
 T sqr(const T &val){ return val*val; }
@@ -231,6 +228,27 @@ inline T cubicBezierDot(T *points, double t)
   return (3*s*s*(points[1]-points[0]) + 
          6*s*t*(points[2]-points[1]) + 
          3*t*t*(points[3]-points[2]));                
+}
+
+template <class T>
+inline T quarticBezier(T *points, double t)
+{
+  double s = 1.0 - t;
+  return points[0] * (s*s*s*s) +
+         points[1] * (4.0*t*s*s*s) +
+         points[2] * (6.0*t*t*s*s) +
+         points[3] * (4.0*t*t*t*s) +
+	 points[4] * (t*t*t*t);
+}
+
+template <class T>
+inline T quarticBezierDot(T *points, double t)
+{
+  double s = 1.0 - t;
+  return (4.0*s*s*s*(points[1]-points[0]) + 
+         12.0*s*s*t*(points[2]-points[1]) + 
+         12.0*s*t*t*(points[3]-points[2]) + 
+	 4.0*t*t*t*(points[4]-points[3]));                
 }
 
 inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)

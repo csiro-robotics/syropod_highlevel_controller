@@ -11,12 +11,10 @@ enum RobotState
   STOPPED
 };
 
-enum WalkState
+enum StepState
 {
   SWING,
   STANCE,
-  SWING_TRANSITION,
-  STANCE_TRANSITION,
   FORCE_STANCE,
   FORCE_STOP
 };
@@ -37,6 +35,7 @@ struct WalkController
   //Walk parameters
   double stepFrequency;  
   double stepClearance;
+  double stepDepth;
   double bodyClearance;
   
   int phaseLength;
@@ -53,7 +52,6 @@ struct WalkController
   double stanceRadius; // affects turning circle
   Vector3d identityTipPositions[3][2];
   Vector2d localCentreVelocity;
-  Vector2d localCentreAcceleration;
   double angularVelocity;
   double maximumBodyHeight;
   
@@ -68,18 +66,31 @@ struct WalkController
     int phase;
     int phaseOffset;
     
-    WalkState state = STANCE;
+    StepState state = STANCE;
+    
+    Vector3d swing1ControlNodes[5];	//Primary swing bezier curve
+    Vector3d swing2ControlNodes[5];	//Secondary swing bezier curve
+    Vector3d stanceControlNodes[5];	//Stance bezier curve
+    
+    double swingDeltaT;
+    double stanceDeltaT;
     
     Vector2d strideVector; // length gives stride length
     Vector3d currentTipPosition;
-    Vector3d originTipPosition;
     Vector3d defaultTipPosition;
+    Vector3d swingOriginTipPosition;
+    Vector3d stanceOriginTipPosition;
+    Vector3d tipVelocity;
     
     struct WalkController *walker; //So LegStepper can access walkcontroller member variables
     struct Parameters *params;
     
-    void updateSwingPos(Vector3d *pos);
     void updatePosition();
+
+    void generateSwingControlNodes(Vector3d strideVector);
+    void generateStanceControlNodes(Vector3d strideVector);
+    
+    double calculateDeltaT(StepState state, int length);
     
   } legSteppers[3][2];
   

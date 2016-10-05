@@ -1,130 +1,182 @@
 #include "../include/simple_hexapod_controller/walkController.h"
 
 /***********************************************************************************************************************
- * Deccelerates on approaching the ground during a step, allowing a softer landing.
- * as such, the swing phase is made from dual cubic bezier curves and
- * all other phases linear.
+ * Generates control nodes for each quartic bezier curve of swing tip trajectory calculation 
 ***********************************************************************************************************************/
-void WalkController::LegStepper::updateSwingPos(Vector3d *pos)
-{  
-  Vector3d controlNodesPrimary[4];
-  Vector3d controlNodesSecondary[4];
+void WalkController::LegStepper::generateSwingControlNodes(Vector3d strideVector)
+{
+  double swingHeight = walker->stepClearance*walker->maximumBodyHeight;
   
-  double liftHeight = walker->stepClearance*walker->maximumBodyHeight;
-  Vector3d strideVec = Vector3d(strideVector[0], strideVector[1], 0.0);
+  //Used to scale the difference between control nodes for the stance curve which has differing delta time values to swing curves
+  double bezierScaler = stanceDeltaT/swingDeltaT;
   
-  int iteration = phase-walker->swingStart+1;
-  double swingLength = walker->swingEnd - walker->swingStart;
+  //Control nodes for swing quartic bezier curves - horizontal plane
+  swing1ControlNodes[0] = swingOriginTipPosition;         									//Set for horizontal position continuity at transition between stance and primary swing curves (C0 Smoothness)     
+  swing1ControlNodes[1] = swing1ControlNodes[0] + bezierScaler*(stanceControlNodes[4]-stanceControlNodes[3]);			//Set for horizontal velocity continuity at transition between stance and primary swing curves (C1 Smoothness)
+  swing1ControlNodes[2] = swing1ControlNodes[1] + (swing1ControlNodes[1]-swing1ControlNodes[0]);				//Set for horizontal acceleration continuity at transition between stance and primary swing curves (C2 Smoothness)  
+  swing1ControlNodes[4] = defaultTipPosition;											//Set equal to default tip position so that max swing height and transition to 2nd swing curve always occurs at default tip position    
+  swing1ControlNodes[3] = (swing1ControlNodes[2]+swing1ControlNodes[4])/2.0;							//Set for horizontal acceleration continuity at transition between primary and secondary swing curves (C2 Smoothness) (symetrical swing curves only!) 
   
-  //Save initial tip position at beginning of swing
-  if (iteration == 1)
-  {
-    originTipPosition = *pos;
-  }
+  swing2ControlNodes[0] = swing1ControlNodes[4];										//Set for horizontal position continuity at transition between primary and secondary swing curves (C0 Smoothness)
+  swing2ControlNodes[1] = swing2ControlNodes[0] + (swing2ControlNodes[0]-swing1ControlNodes[3]);				//Set for horizontal velocity continuity at transition between primary and secondary swing curves (C1 Smoothness)
+  swing2ControlNodes[3] = stanceControlNodes[0] + bezierScaler*(stanceControlNodes[0]-stanceControlNodes[1]);			//Set for horizontal velocity continuity at transition between secondary swing and stance curves (C1 Smoothness)
+  swing2ControlNodes[2] = swing2ControlNodes[3] + swing2ControlNodes[3]-stanceControlNodes[0];					//Set for horizontal acceleration continuity at transition between secondary swing and stance curves (C2 Smoothness)
+  swing2ControlNodes[4] = stanceControlNodes[0];										//Set for horizontal position continuity at transition between secondary swing and stance curves (C0 Smoothness)
   
-  int numIterations = roundToInt((swingLength/walker->phaseLength)/(walker->stepFrequency*walker->timeDelta)/2.0)*2.0;  //Ensure compatible number of iterations 
-  double deltaT = 1.0/numIterations;
-       
-  //Control nodes for dual cubic bezier curves
-  controlNodesPrimary[0] = originTipPosition;         //Set as initial tip position       
-  controlNodesPrimary[1] = controlNodesPrimary[0];    //Set equal to node 1 gives zero velocity at liftoff   
-  controlNodesPrimary[3] = defaultTipPosition;        //Set equal to default tip position so that max liftheight and transition to 2nd bezier curve occurs at default tip position    
-  controlNodesPrimary[3][2] = defaultTipPosition[2] + liftHeight;            //Set Z component of node to liftheight to make liftheight the max z value
+  //Control nodes for swing quartic bezier curves - vertical plane
+  swing1ControlNodes[0][2] = swingOriginTipPosition[2];										//Set for vertical position continuity at transition between stance and primary swing curves (C0 Smoothness)     
+  swing1ControlNodes[1][2] = swing1ControlNodes[0][2] + bezierScaler*(stanceControlNodes[4][2]-stanceControlNodes[3][2]);	//Set for vertical velocity continuity at transition between stance and primary swing curves (C1 Smoothness)
+  swing1ControlNodes[4][2] = swing1ControlNodes[0][2] + swingHeight;								//Set equal to default tip position plus swing height so that max swing height and transition to 2nd swing curve always occurs at default tip position
+  swing1ControlNodes[2][2] = swing1ControlNodes[0][2] + 2.0*bezierScaler*(stanceControlNodes[4][2]-stanceControlNodes[3][2]);	//Set for vertical acceleration continuity at transition between stance and primary swing curves (C2 Smoothness)
+  swing1ControlNodes[3][2] = swing1ControlNodes[4][2];										//Set for vertical velocity continuity at transition between primary and secondary swing curves (C1 Smoothness)
 
-  controlNodesSecondary[0] = controlNodesPrimary[3];                  //Set for position continuity between curves (C0 Smoothness)
-  controlNodesSecondary[3] = defaultTipPosition + strideVec*0.5;   //Set as target tip position according to stride vector
-  controlNodesSecondary[2] = controlNodesSecondary[3];                //Set equal to secondary node 3 gives zero velocity at touchdown
+  swing2ControlNodes[0][2] = swing1ControlNodes[4][2];										//Set for vertical position continuity at transition between primary and secondary swing curves (C0 Smoothness)
+  swing2ControlNodes[1][2] = swing2ControlNodes[0][2];										//Set for vertical velocity continuity at transition between primary and secondary swing curves (C1 Smoothness)
+  swing2ControlNodes[2][2] = stanceControlNodes[0][2] + 2.0*bezierScaler*(stanceControlNodes[0][2]-stanceControlNodes[1][2]);	//Set for vertical acceleration continuity at transition between secondary swing and stance curves (C2 Smoothness)
+  swing2ControlNodes[3][2] = stanceControlNodes[0][2] + bezierScaler*(stanceControlNodes[0][2]-stanceControlNodes[1][2]);	//Set for vertical velocity continuity at transition between secondary swing and stance curves (C1 Smoothness)					  
+  swing2ControlNodes[4][2] = stanceControlNodes[0][2];										//Set for vertical position continuity at transition between secondary swing and stance curves (C0 Smoothness)
+}
+
+/***********************************************************************************************************************
+ * Generates control nodes for quartic bezier curve of stance tip trajectory calculation 
+***********************************************************************************************************************/
+void WalkController::LegStepper::generateStanceControlNodes(Vector3d strideVector)
+{
+  double stanceDepth = walker->stepDepth*walker->maximumBodyHeight;
   
-  double retrograde = 0.0;                            //Adds retrograde component to tip trajectory (TUNABLE)
-  controlNodesPrimary[2] = controlNodesPrimary[0]-retrograde*(controlNodesSecondary[3] - controlNodesPrimary[0]); //Set for more control of trajectory (only C1 smooth)
-  //ALTERNATIVE OPTION //controlNodesPrimary[2] = controlNodesSecondary[0] + (controlNodesPrimary[1] - controlNodesSecondary[2])/4.0; ///Set for acceleration continuity between curves (C2 Smoothness)   
-  controlNodesPrimary[2][2] = defaultTipPosition[2] + liftHeight; //Set Z component of node to liftheight to make liftheight the max z value
-  
-  controlNodesSecondary[1] = 2*controlNodesSecondary[0] - controlNodesPrimary[2];  //Set for velocity continuity between curves (C1 Smoothness)
-  controlNodesSecondary[1][2] = defaultTipPosition[2] + liftHeight; //Set Z component of node to liftheight to make liftheight the max z value
-  
-  Vector3d deltaPos;
-  
-  //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
-  double t1, t2;
-  int halfSwingIteration = numIterations/2;
-  if (iteration <= halfSwingIteration)
+  //Control nodes for stance quartic bezier curve - horizontal plane
+  stanceControlNodes[0] = stanceOriginTipPosition;							//Set as initial horizontal tip position  
+  stanceControlNodes[4] = stanceOriginTipPosition - strideVector;					//Set as target horizontal tip position 
+  stanceControlNodes[1] = stanceControlNodes[4] + 0.75*(stanceControlNodes[0] - stanceControlNodes[4]);	//Set for constant horizontal velocity in stance phase
+  stanceControlNodes[2] = stanceControlNodes[4] + 0.5*(stanceControlNodes[0] - stanceControlNodes[4]);	//Set for constant horizontal velocity in stance phase
+  stanceControlNodes[3] = stanceControlNodes[4] + 0.25*(stanceControlNodes[0] - stanceControlNodes[4]);	//Set for constant horizontal velocity in stance phase;
+
+  //Control nodes for stance quartic bezier curve - vertical plane
+  stanceControlNodes[0][2] = stanceOriginTipPosition[2];						//Set as initial vertical tip position
+  stanceControlNodes[4][2] = defaultTipPosition[2];							//Set as target vertical tip position 
+  stanceControlNodes[2][2] = stanceControlNodes[0][2] - stanceDepth;					//Set to control depth below ground level of stance trajectory, defined by stanceDepth
+  stanceControlNodes[1][2] = (stanceControlNodes[0][2] + stanceControlNodes[2][2])/2.0;			//Set for vertical acceleration continuity at transition between secondary swing and stance curves (C2 Smoothness)
+  stanceControlNodes[3][2] = (stanceControlNodes[4][2] + stanceControlNodes[2][2])/2.0;			//Set for vertical acceleration continuity at transition between stance and primary swing curves (C2 Smoothness)  
+}
+
+/***********************************************************************************************************************
+ * Calculates time deltas for use in quartic bezier curve tip trajectory calculations
+***********************************************************************************************************************/
+double WalkController::LegStepper::calculateDeltaT(StepState state, int length)
+{
+  int numIterations = roundToInt((double(length)/walker->phaseLength)/(walker->stepFrequency*walker->timeDelta)/2.0)*2.0;  //Ensure compatible number of iterations 
+  if (state == SWING)
   {
-    t1 = iteration*deltaT*2.0;
-    deltaPos = 2.0*deltaT*cubicBezierDot(controlNodesPrimary, t1);
-    //*pos = cubicBezier(controlNodesPrimary, t1);
+    return 2.0/numIterations;
   }
   else
   {
-    t2 = (iteration-halfSwingIteration)*deltaT*2.0;
-    deltaPos = 2.0*deltaT*cubicBezierDot(controlNodesSecondary, t2);
-    //*pos = cubicBezier(controlNodesSecondary, t2);
+    return 1.0/numIterations;
   }
-  
-  *pos += deltaPos;
-  
-  
-  if (t1 < deltaT) {t1=0.0;}
-  if (t2 < deltaT) {t2=0.0;}
-  ROS_DEBUG_COND(params->debugUpdateSwingPosition, "UPDATE_SWING_POS DEBUG - ITERATION: %d\tTIME: %f:%f\tORIGIN: %f:%f:%f\tPOS: %f:%f:%f\tTARGET: %f:%f:%f\n", 
-		 iteration, t1, t2,
-		 originTipPosition[0], originTipPosition[1], originTipPosition[2],
-		 (*pos)[0], (*pos)[1], (*pos)[2],
-		 controlNodesSecondary[3][0], controlNodesSecondary[3][1], controlNodesSecondary[3][2]); 
-  
 }
 
+/***********************************************************************************************************************
+ * Updates position of tip using tri-quartic bezier curve tip trajectory engine. Calculates change in tip position using
+ * the derivatives of three quartic bezier curves, two for swing phase and one for stance phase. Each Bezier curve uses 
+ * 5 control nodes designed specifically to give a C2 smooth trajectory for the entire step cycle.  
+***********************************************************************************************************************/
 void WalkController::LegStepper::updatePosition()
-{  
-  Vector2d localCentreVelocity = walker->localCentreVelocity;
-  double angularVelocity = walker->angularVelocity;
-  
+{      
   // Swing Phase
   if (state == SWING)
   {
-    updateSwingPos(&currentTipPosition);
-  }  
-  // Stance phase
-  else if (state == STANCE ||
-           state == STANCE_TRANSITION ||
-           state == SWING_TRANSITION)
-  {    
-    // X & Y Components of Trajectory
-    Vector2d deltaPos = -(localCentreVelocity+angularVelocity*
-      Vector2d(currentTipPosition[1], -currentTipPosition[0]))*walker->timeDelta;      
-    currentTipPosition[0] += deltaPos[0];
-    currentTipPosition[1] += deltaPos[1];
+    int iteration = phase-walker->swingStart+1;
+    double swingLength = walker->swingEnd - walker->swingStart;
+    swingDeltaT = calculateDeltaT(state, swingLength);
+    int numIterations = 2.0/swingDeltaT;
     
-    // Z component of trajectory  
-    /*
-    int stanceLength = walker->phaseLength - (walker->swingEnd-walker->swingStart);
-    int iteration;
-    if (phase >= walker->swingEnd)
+    //Save initial tip position at beginning of swing
+    if (iteration == 1)
     {
-      iteration = phase - walker->swingEnd + 1;
+      swingOriginTipPosition = currentTipPosition;
+    }
+    
+    //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
+    Vector3d deltaPos;
+    double t1, t2;
+    Vector3d strideVec = Vector3d(strideVector[0], strideVector[1], 0.0);
+    
+    if (iteration <= numIterations/2)
+    {
+      generateSwingControlNodes(strideVec);
+      t1 = iteration*swingDeltaT;
+      deltaPos = swingDeltaT*quarticBezierDot(swing1ControlNodes, t1); //
     }
     else
     {
-      iteration = phase + stanceLength/2 + 1;
+      //Update values of NEXT stance curve for use in calculation of secondary swing control nodes
+      int stanceStart = walker->swingEnd;
+      int stanceEnd = walker->swingStart;
+      int stanceLength = mod(stanceEnd-stanceStart, walker->phaseLength);
+      stanceDeltaT = calculateDeltaT(STANCE, stanceLength); 
+      stanceOriginTipPosition = defaultTipPosition + 0.5*strideVec;
+      generateStanceControlNodes(strideVec);
+      
+      generateSwingControlNodes(strideVec);
+      t2 = (iteration-numIterations/2)*swingDeltaT;
+      deltaPos = swingDeltaT*quarticBezierDot(swing2ControlNodes, t2);
+    }    
+    
+    currentTipPosition += deltaPos; 
+    tipVelocity = deltaPos/walker->timeDelta;
+    
+    if (t1 < swingDeltaT) {t1=0.0;}
+    if (t2 < swingDeltaT) {t2=0.0;}
+    if (&(walker->legSteppers[0][0]) == this) //Front left leg
+    {
+      ROS_DEBUG_COND(params->debugSwingTrajectory, "SWING TRAJECTORY_DEBUG - ITERATION: %d\t\tTIME: %f:%f\t\tORIGIN: %f:%f:%f\t\tPOS: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
+		    iteration, t1, t2,
+		    swingOriginTipPosition[0], swingOriginTipPosition[1], swingOriginTipPosition[2],
+		    currentTipPosition[0], currentTipPosition[1], currentTipPosition[2],
+		    swing2ControlNodes[4][0], swing2ControlNodes[4][1], swing2ControlNodes[4][2]); 
     }
+  }  
+  // Stance phase
+  else if (state == STANCE)
+  {      
+    int stanceStart = completedFirstStep ? walker->swingEnd : phaseOffset;
+    int stanceEnd = walker->swingStart;
+    int stanceLength = mod(stanceEnd-stanceStart, walker->phaseLength);
+    stanceDeltaT = calculateDeltaT(STANCE, stanceLength);
     
-    double deltaT = 1.0/stanceLength;
+    int iteration = mod(phase+(walker->phaseLength-stanceStart), walker->phaseLength)+1;
     
-    Vector3d controlNodes[4];
-    double stanceDepth = walker->stepClearance*walker->maximumBodyHeight*0.5;
+    //Save initial tip position at beginning of swing
+    if (iteration == 1)
+    {
+      stanceOriginTipPosition = currentTipPosition;
+    }    
     
-    controlNodes[0] = Vector3d(0.0,0.0,defaultTipPosition[2]);
-    controlNodes[1] = Vector3d(0.0,0.0,defaultTipPosition[2]-stanceDepth);
-    controlNodes[2] = Vector3d(0.0,0.0,defaultTipPosition[2]-stanceDepth);
-    controlNodes[3] = Vector3d(0.0,0.0,defaultTipPosition[2]);
+    //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
+    Vector3d deltaPos;
+    double t;
     
-    double deltaZ = (deltaT*cubicBezierDot(controlNodes, deltaT*iteration))[2];
     
-    currentTipPosition[2] += deltaZ;
-
-    ROS_DEBUG_COND(params.debugUpdatePosition, "UPDATE_POSITION DEBUG - ITERATION: %d\tTIME: %f\tORIGIN: %f\tPOS: %f\tTARGET: %f\n",
-		  iteration, deltaT*iteration, defaultTipPosition[2], pos[2], controlNodes[2][2]); 
-    */
+    //Scales stride vector according to stance length specifically for STARTING state of walker
+    Vector3d strideVec = Vector3d(strideVector[0], strideVector[1], 0.0);
+    strideVec *= double(stanceLength)/(mod(walker->swingStart-walker->swingEnd,walker->phaseLength));
+    
+    generateStanceControlNodes(strideVec);
+    t = iteration*stanceDeltaT;
+    deltaPos = stanceDeltaT*quarticBezierDot(stanceControlNodes, t);
+    
+    currentTipPosition += deltaPos; 
+    tipVelocity = deltaPos/walker->timeDelta;
+    
+    if (t < stanceDeltaT) {t=0.0;}
+    if (&(walker->legSteppers[0][0]) == this) //Front left leg
+    {
+      ROS_DEBUG_COND(params->debugStanceTrajectory, "STANCE TRAJECTORY_DEBUG - ITERATION: %d\t\tTIME: %f\t\tORIGIN: %f:%f:%f\t\tPOS: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
+		    iteration, t,
+		    stanceOriginTipPosition[0], stanceOriginTipPosition[1], stanceOriginTipPosition[2],
+		    currentTipPosition[0], currentTipPosition[1], currentTipPosition[2],
+		    stanceControlNodes[4][0], stanceControlNodes[4][1], stanceControlNodes[4][2]); 
+    }    
   }  
 }
 
@@ -144,6 +196,7 @@ void WalkController::init(Model *m, Parameters p)
   params = p;
   
   stepClearance = params.stepClearance;
+  stepDepth = params.stepDepth;
   bodyClearance = params.bodyClearance;
   timeDelta = params.timeDelta;
   
@@ -166,7 +219,7 @@ void WalkController::init(Model *m, Parameters p)
   if (bodyClearance == -1) 
   {
     // in this case we assume legs have equal characteristics
-    bodyClearance = model->legs[0][0].minLegLength/maximumBodyHeight + params.stepCurvatureAllowance*stepClearance;
+    bodyClearance = (model->legs[0][0].minLegLength + stepClearance*maximumBodyHeight)/maximumBodyHeight;
   }
   ASSERT(bodyClearance >= 0 && bodyClearance < 1.0);
 
@@ -202,7 +255,7 @@ void WalkController::init(Model *m, Parameters p)
     ASSERT(rad > 0.0); // cannot have negative radius
 
     // we should also take into account the stepClearance not getting too high for the leg to reach
-    double legTipBodyClearance = max(0.0, bodyClearance-params.stepCurvatureAllowance*stepClearance)*maximumBodyHeight; 
+    double legTipBodyClearance = max(0.0, bodyClearance-stepClearance)*maximumBodyHeight; 
     
     // if footprint radius due to lift is smaller due to yaw limits, reduce this minimum radius
     if (legTipBodyClearance < leg.minLegLength)
@@ -213,10 +266,10 @@ void WalkController::init(Model *m, Parameters p)
 
     footSpreadDistances[l] = leg.hipLength + horizontalRange - rad;
     
-    // this is because the step cycle exceeds the ground footprint in order to maintain velocity
-    double footprintDownscale = 0.8; 
     
-    minFootprintRadius = min(minFootprintRadius, rad*footprintDownscale);
+    double footprintDownscale = 0.8; 
+    //FootprintDownscale scales the tip footprint down as the step cycle sometimes exceeds the ground footprint in order to maintain velocity
+    minFootprintRadius = min(minFootprintRadius, rad*params.footprintDownscale);
     
     for (int s = 0; s<2; s++)
     {
@@ -251,7 +304,7 @@ void WalkController::init(Model *m, Parameters p)
     minFootprintRadius += minGap*0.5;
   }
 
-  stanceRadius = abs(identityTipPositions[1][0][0]);
+  stanceRadius = Vector2d(identityTipPositions[0][1][0], identityTipPositions[0][1][1]).norm();
 
   localCentreVelocity = Vector2d(0,0);
   angularVelocity = 0;
@@ -265,13 +318,13 @@ void WalkController::setGaitParams(Parameters p)
 {
   params = p;
   stanceEnd = params.stancePhase*0.5;      
-  swingStart = stanceEnd + params.transitionPeriod;
+  swingStart = stanceEnd;
   swingEnd = swingStart + params.swingPhase;      
-  stanceStart = swingEnd + params.transitionPeriod;
+  stanceStart = swingEnd;
   
   //Normalises the step phase length to match the total number of iterations over a full step
-  int basePhaseLength = params.stancePhase + params.swingPhase + params.transitionPeriod*2.0;
-  double swingRatio = (params.swingPhase+params.transitionPeriod)/basePhaseLength; //Used to modify stepFreqency based on gait
+  int basePhaseLength = params.stancePhase + params.swingPhase;
+  double swingRatio = (params.swingPhase)/basePhaseLength; //Used to modify stepFreqency based on gait
   phaseLength = (roundToInt((1.0/(2.0*params.stepFrequency*timeDelta))/(basePhaseLength*swingRatio))*(basePhaseLength*swingRatio))/swingRatio;
   stepFrequency = 1/(phaseLength*timeDelta); //adjust stepFrequency to match corrected phaseLength
   ASSERT(phaseLength%basePhaseLength == 0);
@@ -312,25 +365,38 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
     
   double normalSpeed = localVelocity.norm();
   ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
-  Vector2d oldLocalCentreVelocity = localCentreVelocity;
    
   // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
   double newAngularVelocity = newCurvature * normalSpeed/stanceRadius;
-  double dif = newAngularVelocity - angularVelocity;
+  double angularAcceleration = newAngularVelocity - angularVelocity;
 
-  if (abs(dif)>0.0)
+  //Calculate max curvature acceleration if specified by parameter
+  if (params.maxAngularAcceleration == -1.0)
   {
-    angularVelocity += dif * min(1.0, params.maxCurvatureSpeed*timeDelta/abs(dif));
+    //Ensures tip of last leg to make first swing does not move further than footprint radius before starting first swing (s=0.5*a*(t^2))
+    double theta = acos(1 - (sqr(minFootprintRadius)/(2.0*sqr(stanceRadius)))); //Max angular distance within footprint
+    params.maxAngularAcceleration = 2.0*theta/sqr(((phaseLength-(swingEnd-swingStart)*0.5)*timeDelta));
+  }  
+  
+  if (abs(angularAcceleration)>0.0)
+  {
+    angularVelocity += angularAcceleration * min(1.0, params.maxAngularAcceleration*timeDelta/abs(angularAcceleration));
   }
 
   Vector2d centralVelocity = localVelocity * (1 - abs(newCurvature));
-  Vector2d diff = centralVelocity - localCentreVelocity;
-  double diffLength = diff.norm();
-
-  if (diffLength > 0.0)
+  Vector2d centralAcceleration = centralVelocity - localCentreVelocity;
+  
+  //Calculate max acceleration if specified by parameter
+  if (params.maxLinearAcceleration == -1.0)
   {
-    localCentreVelocity += diff * min(1.0, params.maxAcceleration*timeDelta/diffLength);
-  }  
+    //Ensures tip of last leg to make first swing does not move further than footprint radius before starting first swing (s=0.5*a*(t^2))
+    params.maxLinearAcceleration = 2.0*minFootprintRadius/sqr(((phaseLength-(swingEnd-swingStart)*0.5)*timeDelta)); 
+  }    
+  
+  if (centralAcceleration.norm() > 0.0)
+  {
+    localCentreVelocity += centralAcceleration*min(1.0, params.maxLinearAcceleration*timeDelta/centralAcceleration.norm());
+  } 
   
   //State transitions for robot state machine.
   // State transition: STOPPED->STARTING
@@ -341,7 +407,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
     {
       for (int s = 0; s<2; s++)
       {
-        legSteppers[l][s].phase = legSteppers[l][s].phaseOffset;
+        legSteppers[l][s].phase = legSteppers[l][s].phaseOffset-1;
       }
     }
   }  
@@ -377,7 +443,10 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
           stepFrequency;
       
       if (state == STARTING)
-      {   
+      {  
+	//Iterate phase
+        legStepper.phase = (legStepper.phase+1)%phaseLength;
+	
 	//Check if all legs have completed one step
         if (legsInCorrectPhase == NUM_LEGS)
 	{
@@ -391,7 +460,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         // Force any leg state into STANCE if it starts offset in a mid-swing state
         if (!legStepper.inCorrectPhase)
 	{
-	  if (legStepper.phaseOffset >= swingStart && legStepper.phaseOffset < swingEnd) //SWING STATE
+	  if (legStepper.phaseOffset > swingStart && legStepper.phaseOffset < swingEnd) //SWING STATE
 	  {
 	    if (legStepper.phase == swingEnd)
 	    {
@@ -403,18 +472,28 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
 	      legStepper.state = FORCE_STANCE;  
 	    }
 	  }
-	  else if (!legStepper.inCorrectPhase)
+	  else
 	  {
 	    legsInCorrectPhase++;  
 	    legStepper.inCorrectPhase = true;
 	  }      
 	}
-	
-         //Iterate phase
-        legStepper.phase = (legStepper.phase+1)%phaseLength;
       }
       else if (state == STOPPING)
       {  
+	if (!legStepper.inCorrectPhase)
+        {
+          legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
+          
+          //Front_left leg only "meets target" after completing extra step AND returning to zero phase
+          if (l==0 && s==0 && legStepper.state == FORCE_STOP && legStepper.phase == 0)
+          {
+            legStepper.inCorrectPhase = true;
+            legsInCorrectPhase++;
+            legStepper.state = STANCE;
+          }
+        }
+	
         //All legs (except front_left) must make one extra step after receiving stopping signal
         if (legStepper.strideVector.norm() == 0 && legStepper.phase == swingEnd)
         {
@@ -427,20 +506,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
               legsInCorrectPhase++;
             }
           }
-        }          
-        
-        if (!legStepper.inCorrectPhase)
-        {
-          legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
-          
-          //Front_left leg only "meets target" after completing extra step AND returning to zero phase
-          if (l==0 && s==0 && legStepper.state == FORCE_STOP && legStepper.phase == 0)
-          {
-            legStepper.inCorrectPhase = true;
-            legsInCorrectPhase++;
-            legStepper.state = STANCE;
-          }
-        }
+        }             
       }
       else if (state == MOVING)
       {
@@ -474,17 +540,9 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       {
         legStepper.state = FORCE_STOP;
       }
-      else if (legStepper.phase >= stanceEnd && legStepper.phase < swingStart)
-      {        
-        legStepper.state = SWING_TRANSITION;
-      }
       else if (legStepper.phase >= swingStart && legStepper.phase < swingEnd)
       {
         legStepper.state = SWING;
-      }
-      else if (legStepper.phase >= swingEnd && legStepper.phase < stanceStart)
-      {
-        legStepper.state = STANCE_TRANSITION;
       }
       else if (legStepper.phase < stanceEnd || legStepper.phase >= stanceStart)
       {        
@@ -508,7 +566,10 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
         legStepper.defaultTipPosition = leg.stanceTipPosition;
         legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
         
-        legStepper.updatePosition(); //updates current tip position through step cycle
+	if (state != STOPPED) 
+	{
+	  legStepper.updatePosition(); //updates current tip position through step cycle
+	}
 
         Vector3d adjustedPos = legStepper.currentTipPosition;
         adjustedPos[2] -= deltaZ[l][s]; //Impedance controller
@@ -518,7 +579,6 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   }  
   
   model->clampToLimits();  
-  localCentreAcceleration = (localCentreVelocity - oldLocalCentreVelocity) / timeDelta;
   
   //RVIZ
   Vector2d push = localCentreVelocity*timeDelta;
