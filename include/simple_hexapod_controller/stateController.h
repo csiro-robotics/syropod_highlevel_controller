@@ -52,8 +52,9 @@ struct StateController
   DebugOutput debug;
   int count = 0;
   
-  ros::Publisher tipPositionPublishers[3][2];
-  ros::Publisher tipVelocityPublishers[3][2];
+  ros::Publisher localTipPositionPublishers[3][2];
+  ros::Publisher walkerTipPositionPublishers[3][2];
+  ros::Publisher walkerTipVelocityPublishers[3][2];
   ros::Publisher tipForcePublisher;
   ros::Publisher deltaZPublisher;
   ros::Publisher posePublisher;
@@ -126,8 +127,9 @@ struct StateController
   
   //Debugging functions
   void RVIZDebugging();
-  void publishTipPositions();
-  void publishTipVelocities();
+  void publishLocalTipPositions();
+  void publishWalkerTipPositions();
+  void publishWalkerTipVelocities();
   void publishTipForces();
   void publishDeltaZ();
   void publishPose();

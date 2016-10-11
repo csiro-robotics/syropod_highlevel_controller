@@ -11,7 +11,8 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
   timeDelta(p.timeDelta),
   currentPose(Pose::identity()), 
   targetPose(Pose::identity()),
-  originPose(Pose::identity())
+  originPose(Pose::identity()),
+  manualPose(Pose::identity())
 {   
 } 
 
@@ -30,6 +31,11 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
       {
         model->legs[l][s].stanceTipPosition = currentPose.inverseTransformVector(targetTipPositions[l][s]);
         model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition;  
+      }
+      else
+      {
+	model->legs[l][s].stanceTipPosition = manualPose.inverseTransformVector(targetTipPositions[l][s]);
+        model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition; 
       }
     }
   }
@@ -452,57 +458,38 @@ void PoseController::resetSequence(void)
 }
 
 /***********************************************************************************************************************
- * Calculates pitch/roll for smooth auto body compensation
+ * Calculates pitch/roll for smooth auto body compensation from offset pose
 ***********************************************************************************************************************/
-void PoseController::autoCompensation(void)
-{  
-  //For first iteration create new pose based off current pose but with zero pitch and roll
-  if (compFirstIteration)
+void PoseController::autoCompensation(Pose offsetPose)
+{    
+  double roll = 0.0;
+  double pitch = 0.0;
+  double zTrans = 0.0;
+  for (int l=0; l<3; l++)
   {
-    basePose = currentPose;
-    basePose.rotation[1] = 0.0;   //zero pitch
-    basePose.rotation[2] = 0.0;   //zero roll
-    if (basePose != currentPose)
+    for (int s=0; s<2; s++)
     {
-      correctPose = true;
-    }
-    compFirstIteration = false;
-  }
-  
-  //Transistion to corrected pose if required
-  if (correctPose)
-  {
-    if (manualCompensation(basePose, params.maxPoseTime/sqrt(params.stepFrequency)))
-    {
-      correctPose = false;
-    }
-  }
-  else 
-  {       
-    double roll = 0.0;
-    double pitch = 0.0;
-    double zTrans = 0.0;
-    for (int l=0; l<3; l++)
-    {
-      for (int s=0; s<2; s++)
+      if (walker->legSteppers[l][s].state == SWING)
       {
-	double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - model->stanceTipPositions[l][s][2];	  
-	roll += zDiff*pow(-1.0, s)*params.rollAmplitude;
-	pitch += zDiff*(-(l-1))*params.pitchAmplitude;
+	double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - walker->legSteppers[l][s].defaultTipPosition[2];	  
+	roll += zDiff*pow(-1.0, s)*params.rollAmplitude; //Inverting as required
+	pitch += zDiff*(-(l-1))*params.pitchAmplitude; //Inverting as required
 	zTrans += zDiff*params.zTransAmplitude;
       }
     }
-    
-    if (walker->params.gaitType == "wave_gait")
-    {
-      currentPose.rotation[1] = pitch;
-      currentPose.rotation[2] = roll;
-    }
-    else if (walker->params.gaitType == "tripod_gait")
-    {
-      currentPose.rotation[2] = roll;
-      currentPose.position[2] = zTrans;
-    }
+  }
+  
+  currentPose = offsetPose;
+  
+  if (walker->params.gaitType == "wave_gait")
+  {
+    currentPose.rotation[1] += pitch;
+    currentPose.rotation[2] += roll;
+  }
+  else if (walker->params.gaitType == "tripod_gait")
+  {
+    currentPose.rotation[2] += roll;
+    currentPose.position[2] += zTrans;
   }
 }
 
@@ -516,11 +503,11 @@ bool PoseController::manualCompensation(Pose requestedTargetPose, double timeToP
   {
     targetPose = requestedTargetPose;
     masterIterationCount = 0;
-    originPose = currentPose;
+    originPose = manualPose;
   }
   
   //Check if target met
-  if (targetPose == currentPose)
+  if (targetPose == manualPose)
   {
     return true;
   }  
@@ -545,8 +532,8 @@ bool PoseController::manualCompensation(Pose requestedTargetPose, double timeToP
   rotationNodes[3] = targetPose.rotation;
   rotationNodes[2] = targetPose.rotation;
             
-  currentPose.position = cubicBezier(positionNodes, masterIterationCount*deltaT);
-  currentPose.rotation = cubicBezier(rotationNodes, masterIterationCount*deltaT);
+  manualPose.position = cubicBezier(positionNodes, masterIterationCount*deltaT);
+  manualPose.rotation = cubicBezier(rotationNodes, masterIterationCount*deltaT);
   
   double time = masterIterationCount*deltaT;
   ROS_DEBUG_COND(params.debugManualCompensationTranslation, "MANUAL_COMPENSATION_TRANSLATION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tPOS ORIGIN: %f:%f:%f\t\tPOS CURRENT: %f:%f:%f\t\tPOS TARGET: %f:%f:%f\n", 

@@ -77,10 +77,11 @@ struct WalkController
     
     Vector2d strideVector; // length gives stride length
     Vector3d currentTipPosition;
+    Vector3d currentTipVelocity;
     Vector3d defaultTipPosition;
     Vector3d swingOriginTipPosition;
     Vector3d stanceOriginTipPosition;
-    Vector3d tipVelocity;
+
     
     struct WalkController *walker; //So LegStepper can access walkcontroller member variables
     struct Parameters *params;

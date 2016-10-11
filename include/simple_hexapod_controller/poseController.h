@@ -18,7 +18,6 @@ struct PoseController
   
   double timeDelta;
   bool firstIteration = true;
-  bool compFirstIteration = true;
   int masterIterationCount = 0;
   
   double moveToPoseTime = 0.0;
@@ -40,10 +39,11 @@ struct PoseController
   Vector3d phase7TipPositions[3][2];
   Vector3d phase8TipPositions[3][2];  
   
-  Pose currentPose;
-  Pose targetPose;  
-  Pose originPose;
-  Pose basePose;
+  Pose currentPose;//Current pose of body including manual and auto compensation posing
+  Pose targetPose; //Target pose of body for use in manual posing bezier curve
+  Pose originPose; //Origin pos of body for use in manual posing bezier curve
+  Pose manualPose; //Current manual pose of body (does not include additions of auto compensation posing)
+  
   bool correctPose = false; //Flag for correcting pose to a zero roll/pitch pose used for auto compensation
   
   PoseController(Model *model, WalkController *walker, Parameters params);
@@ -59,6 +59,6 @@ struct PoseController
   bool shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
-  void autoCompensation(void);
+  void autoCompensation(Pose offsetPose);
   bool manualCompensation(Pose requestedTargetPose, double timeToPose);
 };

@@ -101,8 +101,8 @@ Vector3d Imu::getRotationCompensation(Quat targetRotation)
   {
     targetRotation = -targetRotation;
   }
-  
-  rotationPositionError = orientation.toEulerAngles();// - targetRotation.toEulerAngles();
+
+  rotationPositionError = orientation.toEulerAngles() - targetRotation.toEulerAngles();
   rotationAbsementError += rotationPositionError*timeDelta; //Integration of angle position error (absement)
   
   //Low pass filter of IMU angular velocity data

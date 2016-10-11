@@ -9,9 +9,9 @@ hexapod:
     
     wave_gait:
     
-      stance_phase: 80
-      swing_phase: 10
-      phase_offset: 15
+      stance_phase: 16
+      swing_phase: 2
+      phase_offset: 3
 
       offset_multiplier: [2,5,3,0,4,1]
 
@@ -19,9 +19,9 @@ hexapod:
 
     tripod_gait:
     
-      stance_phase: 50
-      swing_phase: 40
-      phase_offset: 45  
+      stance_phase: 2
+      swing_phase: 2
+      phase_offset: 2
 
       offset_multiplier: [0,1,1,0,0,1]
 
@@ -29,9 +29,9 @@ hexapod:
 
     ripple_gait:
     
-      stance_phase: 60
-      swing_phase: 30
-      phase_offset: 15  
+      stance_phase: 4
+      swing_phase: 2
+      phase_offset: 1  
 
       offset_multiplier: [2,5,4,1,0,3]
   
@@ -39,9 +39,9 @@ hexapod:
 
     amble_gait:
       
-      stance_phase: 70
-      swing_phase: 20
-      phase_offset: 30
+      stance_phase: 7
+      swing_phase: 2
+      phase_offset: 3
       
       offset_multiplier: [1,0,2,2,0,1]
       

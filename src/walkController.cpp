@@ -98,7 +98,8 @@ void WalkController::LegStepper::updatePosition()
     
     //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
     Vector3d deltaPos;
-    double t1, t2;
+    double t1 = 0;
+    double t2 = 0;
     Vector3d strideVec = Vector3d(strideVector[0], strideVector[1], 0.0);
     
     if (iteration <= numIterations/2)
@@ -123,11 +124,11 @@ void WalkController::LegStepper::updatePosition()
     }    
     
     currentTipPosition += deltaPos; 
-    tipVelocity = deltaPos/walker->timeDelta;
+    currentTipVelocity = deltaPos/walker->timeDelta;
     
     if (t1 < swingDeltaT) {t1=0.0;}
     if (t2 < swingDeltaT) {t2=0.0;}
-    if (&(walker->legSteppers[0][0]) == this) //Front left leg
+    if (true)//&(walker->legSteppers[0][0]) == this) //Front left leg
     {
       ROS_DEBUG_COND(params->debugSwingTrajectory, "SWING TRAJECTORY_DEBUG - ITERATION: %d\t\tTIME: %f:%f\t\tORIGIN: %f:%f:%f\t\tPOS: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
 		    iteration, t1, t2,
@@ -166,7 +167,7 @@ void WalkController::LegStepper::updatePosition()
     deltaPos = stanceDeltaT*quarticBezierDot(stanceControlNodes, t);
     
     currentTipPosition += deltaPos; 
-    tipVelocity = deltaPos/walker->timeDelta;
+    currentTipVelocity = deltaPos/walker->timeDelta;
     
     if (t < stanceDeltaT) {t=0.0;}
     if (&(walker->legSteppers[0][0]) == this) //Front left leg
@@ -266,8 +267,6 @@ void WalkController::init(Model *m, Parameters p)
 
     footSpreadDistances[l] = leg.hipLength + horizontalRange - rad;
     
-    
-    double footprintDownscale = 0.8; 
     //FootprintDownscale scales the tip footprint down as the step cycle sometimes exceeds the ground footprint in order to maintain velocity
     minFootprintRadius = min(minFootprintRadius, rad*params.footprintDownscale);
     
@@ -560,20 +559,15 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       Leg &leg = model->legs[l][s];
       
       if (leg.state == WALKING)
-      {
-        //Revise default and current tip positions from stanceTipPosition due to change in pose
-        Vector3d tipOffset = legStepper.defaultTipPosition - legStepper.currentTipPosition;
-        legStepper.defaultTipPosition = leg.stanceTipPosition;
-        legStepper.currentTipPosition = legStepper.defaultTipPosition - tipOffset;
-        
+      {        
 	if (state != STOPPED) 
 	{
 	  legStepper.updatePosition(); //updates current tip position through step cycle
 	}
 
-        Vector3d adjustedPos = legStepper.currentTipPosition;
-        adjustedPos[2] -= deltaZ[l][s]; //Impedance controller
-        leg.applyLocalIK(adjustedPos); 
+        Vector3d adjustedPosition = legStepper.currentTipPosition + (leg.stanceTipPosition - legStepper.defaultTipPosition); //Pose adjustment
+        adjustedPosition[2] -= deltaZ[l][s];	//Impedance controller adjustment
+        leg.applyLocalIK(adjustedPosition); 
       }
     }
   }  

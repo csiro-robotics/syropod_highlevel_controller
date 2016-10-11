@@ -60,19 +60,26 @@ int main(int argc, char* argv[])
   jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, &state); 
   
   //ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
-  state.tipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions", 1000);
-  state.tipPositionPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions", 1000);
-  state.tipPositionPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions", 1000);
-  state.tipPositionPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_positions", 1000);
-  state.tipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions", 1000);
-  state.tipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions", 1000);
+  state.localTipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions/local", 1000);
+  state.localTipPositionPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions/local", 1000);
+  state.localTipPositionPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions/local", 1000);
+  state.localTipPositionPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_positions/local", 1000);
+  state.localTipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions/local", 1000);
+  state.localTipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions/local", 1000);
   
-  state.tipVelocityPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_velocities", 1000);
-  state.tipVelocityPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_velocities", 1000);
-  state.tipVelocityPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_velocities", 1000);
-  state.tipVelocityPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_velocities", 1000);
-  state.tipVelocityPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_velocities", 1000);
-  state.tipVelocityPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_velocities", 1000);
+  state.walkerTipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions/walker", 1000);
+  state.walkerTipPositionPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions/walker", 1000);
+  state.walkerTipPositionPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions/walker", 1000);
+  state.walkerTipPositionPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_positions/walker", 1000);
+  state.walkerTipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions/walker", 1000);
+  state.walkerTipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions/walker", 1000);
+  
+  state.walkerTipVelocityPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_velocities/walker", 1000);
+  state.walkerTipVelocityPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_velocities/walker", 1000);
+  state.walkerTipVelocityPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_velocities/walker", 1000);
+  state.walkerTipVelocityPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_velocities/walker", 1000);
+  state.walkerTipVelocityPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_velocities/walker", 1000);
+  state.walkerTipVelocityPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_velocities/walker", 1000);
   
   state.tipForcePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/tip_forces", 1000);
   state.deltaZPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/delta_z", 1000);
@@ -185,8 +192,9 @@ int main(int argc, char* argv[])
     state.loop();
     
     //Tip position publisher for debugging
-    state.publishTipPositions(); 
-    state.publishTipVelocities(); 
+    state.publishLocalTipPositions(); 
+    state.publishWalkerTipPositions(); 
+    state.publishWalkerTipVelocities(); 
     state.publishTipForces();
     state.publishDeltaZ();
     state.publishPose();
