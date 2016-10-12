@@ -93,7 +93,7 @@ void StateController::init()
   packedJointPositions[2][0] = params.packedJointPositionsCL;
   packedJointPositions[2][1] = params.packedJointPositionsCR; 
   
-  localVelocity = Vector2d(0.0,0.0);
+  linearVelocityInput = Vector2d(0.0,0.0);
 }
 
 /***********************************************************************************************************************
@@ -379,8 +379,8 @@ void StateController::runningState()
 	ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength > 0.0, "Test started. Will finish automatically in %f seconds. Press X to stop test early.\n", params.testTimeLength);
 	ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength == 0.0, "Test started. No time limit. Press X to stop test.\n");
 	runningTime += params.timeDelta;
-	ROS_ASSERT(params.testVelocity.norm() <= 1.0);
-	localVelocity = params.testVelocity;
+	linearVelocityInput = params.testLinearVelocity;
+	angularVelocityInput = params.testAngularVelocity;
       }
       else
       {
@@ -392,7 +392,7 @@ void StateController::runningState()
     }
      
     //Update Walker 
-    walker->updateWalk(localVelocity, turnRate, deltaZ); 
+    walker->updateWalk(linearVelocityInput, angularVelocityInput, deltaZ); 
   }
   
   //Check for shutdown cue
@@ -546,8 +546,8 @@ void StateController::impedanceControl()
 void StateController::paramAdjust()
 { 
   //Force hexapod to stop walking
-  localVelocity = Vector2d(0.0,0.0);
-  turnRate = 0.0;
+  linearVelocityInput = Vector2d(0.0,0.0);
+  angularVelocityInput = 0.0;
   
   if (walker->state == STOPPED)
   {
@@ -683,8 +683,8 @@ void StateController::paramAdjust()
 void StateController::gaitChange()
 { 
   //Force hexapod to stop walking
-  localVelocity = Vector2d(0.0,0.0);
-  turnRate = 0.0;
+  linearVelocityInput = Vector2d(0.0,0.0);
+  angularVelocityInput = 0.0;
   
   if (walker->state == STOPPED)
   {
@@ -720,8 +720,8 @@ void StateController::gaitChange()
 void StateController::legStateToggle()
 { 
   //Force hexapod to stop walking
-  localVelocity = Vector2d(0.0,0.0);
-  turnRate = 0.0;
+  linearVelocityInput = Vector2d(0.0,0.0);
+  angularVelocityInput = 0.0;
   
   if (walker->state == STOPPED)
   {
@@ -967,8 +967,9 @@ void StateController::publishBodyVelocity()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(walker->localCentreVelocity[0]);
-  msg.data.push_back(walker->localCentreVelocity[1]);
+  msg.data.push_back(walker->currentLinearVelocity[0]);
+  msg.data.push_back(walker->currentLinearVelocity[1]);
+  msg.data.push_back(walker->currentAngularVelocity);
   bodyVelocityPublisher.publish(msg);
 }
 
@@ -1270,18 +1271,8 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
 { 
-  localVelocity = Vector2d(twist.linear.x, twist.linear.y);
-  localVelocity = clamped(localVelocity, 1.0);
-
-  turnRate = twist.angular.x;
-  turnRate = turnRate*turnRate*turnRate; // the cube just lets the thumbstick give small turns easier
-    
-  //Allows rotation without velocity input
-  if (localVelocity.norm() == 0.0 && testState != TEST_RUNNING)
-  {
-    localVelocity = Vector2d(0, twist.angular.x);
-    turnRate = sign(twist.angular.x);
-  }
+  linearVelocityInput = Vector2d(twist.linear.x, twist.linear.y);
+  angularVelocityInput = twist.angular.x;
   
   poseTimeJoy = params.maxPoseTime*(0.5*twist.angular.z+0.5); //Range: maxPoseTime->0.0
 }
@@ -2066,6 +2057,11 @@ void StateController::getParameters()
     ROS_ERROR("Error reading parameter/s (interface_setup_speed) from rosparam. Check config file is loaded and type is correct\n");
   }
   
+  if (!n.getParam(paramString+"velocity_input_mode", params.velocityInputMode))
+  {
+    ROS_ERROR("Error reading parameter/s (velocity_input_mode) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
   /********************************************************************************************************************/
   // Pose Controller Parameters 
   paramString = baseParamString+"/pose_controller/";
@@ -2358,15 +2354,19 @@ void StateController::getParameters()
     ROS_ERROR("Error reading debug parameter/s (test_time_length) from rosparam. Check config file is loaded and type is correct\n");
   }
   
-  std::vector<double> testVelocity(2);
-  if (!n.getParam(paramString + "test_velocity", testVelocity))
+  std::vector<double> testLinearVelocity(2);
+  if (!n.getParam(paramString + "test_linear_velocity", testLinearVelocity))
   {
-    ROS_ERROR("Error reading debug parameter/s (test_velocity) from rosparam. Check config file is loaded and type is correct\n");
+    ROS_ERROR("Error reading debug parameter/s (test_linear_velocity) from rosparam. Check config file is loaded and type is correct\n");
   }
   else
   {
-    params.testVelocity = Map<Vector2d>(&testVelocity[0], 2);
-    params.testVelocity = clamped(params.testVelocity, 1.0);
+    params.testLinearVelocity = Map<Vector2d>(&testLinearVelocity[0], 2);
+  }
+  
+  if (!n.getParam(paramString + "test_angular_velocity", params.testAngularVelocity))
+  {
+    ROS_ERROR("Error reading debug parameter/s (test_angular_velocity) from rosparam. Check config file is loaded and type is correct\n");
   }
   
   if (!n.getParam(paramString + "console_verbosity", params.consoleVerbosity))

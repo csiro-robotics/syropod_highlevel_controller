@@ -76,6 +76,8 @@ hexapod:
       footprint_downscale: 0.8
 
       interface_setup_speed: 0.5
+      
+      velocity_input_mode: throttle #real
 
 ######################################################################
 # Pose Controller Parameters
@@ -152,7 +154,8 @@ hexapod:
   debug_parameters:
     testing: true
     test_time_length: 0.0
-    test_velocity: [0.0, 1.0]
+    test_linear_velocity: [0.0, 1.0]
+    test_angular_velocity: 0.0
     console_verbosity: debug
     
     debug_move_to_joint_position: false

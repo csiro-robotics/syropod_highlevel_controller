@@ -101,11 +101,11 @@ struct Parameters
   double stepDepth;
   double bodyClearance;
   double legSpanScale; 
-  double velocityBoost;
   double maxLinearAcceleration;
   double maxAngularAcceleration;
   double footprintDownscale;
   double interfaceSetupSpeed;
+  std::string velocityInputMode;  
   
   //Pose Controller Parameters
   bool startUpSequence;
@@ -173,7 +173,8 @@ struct Parameters
   
   bool testing;
   double testTimeLength;
-  Vector2d testVelocity;
+  Vector2d testLinearVelocity;
+  double testAngularVelocity;
   std::string consoleVerbosity;
   bool debugMoveToJointPosition;
   bool debugStepToPosition;
@@ -277,9 +278,9 @@ T clamped(const T &value, const T &minValue, const T &maxValue)
 template <class T>
 T clamped(const T &value, double magnitude)
 {
-  double magSqr = value.squaredNorm();
-  if (magSqr > sqr(magnitude))
-    return value / sqrt(magSqr);
+  double magSqr = value.norm();
+  if (magSqr > magnitude)
+    return value * (magnitude/magSqr);
   return value;
 }
 

@@ -305,8 +305,8 @@ void WalkController::init(Model *m, Parameters p)
 
   stanceRadius = Vector2d(identityTipPositions[0][1][0], identityTipPositions[0][1][1]).norm();
 
-  localCentreVelocity = Vector2d(0,0);
-  angularVelocity = 0;
+  currentLinearVelocity = Vector2d(0,0);
+  currentAngularVelocity = 0;
 
   pose.rotation = Quat(1,0,0,0);
   pose.position = Vector3d(0, 0, bodyClearance*maximumBodyHeight);
@@ -348,58 +348,82 @@ void WalkController::setGaitParams(Parameters p)
  * Calculates body and stride velocities and uses velocities in body and leg state machines 
  * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurvature, double deltaZ[3][2])
+void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelocityInput, double deltaZ[3][2])
 {
   double onGroundRatio = double(phaseLength-(swingEnd-swingStart))/double(phaseLength);
   
-  Vector2d localVelocity;
+  Vector2d newLinearVelocity;  
+  double newAngularVelocity; 
+  
+  double maxLinearSpeed = 2.0*minFootprintRadius*stepFrequency/onGroundRatio;
+  double maxAngularSpeed = maxLinearSpeed/stanceRadius;
+  
+  //Get new angular/linear velocities according to input mode
   if (state != STOPPING)
   {
-    localVelocity = localNormalisedVelocity*2.0*minFootprintRadius*stepFrequency/onGroundRatio;
+    if (params.velocityInputMode == "throttle")
+    {      
+      newLinearVelocity = clamped(linearVelocityInput, 1.0)*maxLinearSpeed; //Forces input between -1.0 and 1.0
+      newAngularVelocity = clamped(angularVelocityInput, -1.0, 1.0)*maxAngularSpeed;
+      
+      newLinearVelocity *= (1 - abs(angularVelocityInput)); //Scale linear velocity according to angular velocity (% of max) to keep stride velocities within limits
+    }
+    else if (params.velocityInputMode == "real")
+    {
+      newLinearVelocity = clamped(linearVelocityInput, maxLinearSpeed);
+      newAngularVelocity = clamped(angularVelocityInput, -maxAngularSpeed, maxAngularSpeed);
+      
+      newLinearVelocity *= (maxAngularSpeed != 0 ? (1 - abs(newAngularVelocity/maxAngularSpeed)) : 0.0); //Scale linear velocity according to angular velocity (% of max) to keep stride velocities within limits
+      
+      if (linearVelocityInput.norm() > maxLinearSpeed)
+      {
+	ROS_WARN_THROTTLE(10, "Input linear speed (%f) exceeds maximum linear speed (%f) and has been clamped.", linearVelocityInput.norm(), maxLinearSpeed);
+      }
+      if (abs(angularVelocityInput) > maxAngularSpeed)
+      {
+	ROS_WARN_THROTTLE(10, "Input angular velocity (%f) exceeds maximum angular speed (%f) and has been clamped.", abs(angularVelocityInput), maxAngularSpeed);
+      }
+    }
   }
   else
   {
-    localVelocity = Vector2d(0.0,0.0);
+    newLinearVelocity = Vector2d(0.0,0.0);
   }
-    
-  double normalSpeed = localVelocity.norm();
-  ASSERT(normalSpeed < 1.01); // normalised speed should not exceed 1, it can't reach this
    
-  // we make the speed argument refer to the outer leg, so turning on the spot still has a meaningful speed argument
-  double newAngularVelocity = newCurvature * normalSpeed/stanceRadius;
-  double angularAcceleration = newAngularVelocity - angularVelocity;
-
-  //Calculate max curvature acceleration if specified by parameter
+  //Angular Acceleration Control
+  double angularAcceleration = newAngularVelocity - currentAngularVelocity; 
+  //Calculate max angular acceleration if specified by parameter
   if (params.maxAngularAcceleration == -1.0)
   {
     //Ensures tip of last leg to make first swing does not move further than footprint radius before starting first swing (s=0.5*a*(t^2))
     double theta = acos(1 - (sqr(minFootprintRadius)/(2.0*sqr(stanceRadius)))); //Max angular distance within footprint
     params.maxAngularAcceleration = 2.0*theta/sqr(((phaseLength-(swingEnd-swingStart)*0.5)*timeDelta));
-  }  
-  
+  }   
+  //Update angular velocity according to acceleration limits
   if (abs(angularAcceleration)>0.0)
   {
-    angularVelocity += angularAcceleration * min(1.0, params.maxAngularAcceleration*timeDelta/abs(angularAcceleration));
+    currentAngularVelocity += angularAcceleration * min(1.0, params.maxAngularAcceleration*timeDelta/abs(angularAcceleration));
   }
 
-  Vector2d centralVelocity = localVelocity * (1 - abs(newCurvature));
-  Vector2d centralAcceleration = centralVelocity - localCentreVelocity;
-  
+  //Linear Acceleration Control
+  Vector2d linearAcceleration = newLinearVelocity - currentLinearVelocity; 
   //Calculate max acceleration if specified by parameter
-  if (params.maxLinearAcceleration == -1.0)
+  if (params.maxLinearAcceleration == -1.0) 
   {
     //Ensures tip of last leg to make first swing does not move further than footprint radius before starting first swing (s=0.5*a*(t^2))
     params.maxLinearAcceleration = 2.0*minFootprintRadius/sqr(((phaseLength-(swingEnd-swingStart)*0.5)*timeDelta)); 
-  }    
-  
-  if (centralAcceleration.norm() > 0.0)
+  }      
+  //Update linear velocity according to acceleration limits
+  if (linearAcceleration.norm() > 0.0)
   {
-    localCentreVelocity += centralAcceleration*min(1.0, params.maxLinearAcceleration*timeDelta/centralAcceleration.norm());
+    currentLinearVelocity += linearAcceleration*min(1.0, params.maxLinearAcceleration*timeDelta/linearAcceleration.norm());
   } 
+  
+  bool hasVelocityCommand = linearVelocityInput.norm() || angularVelocityInput;
   
   //State transitions for robot state machine.
   // State transition: STOPPED->STARTING
-  if (state == STOPPED && normalSpeed)
+  if (state == STOPPED && hasVelocityCommand)
   {
     state = STARTING;
     for (int l = 0; l<3; l++)
@@ -418,7 +442,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
     state = MOVING;
   }  
   // State transition: MOVING->STOPPING
-  else if (state == MOVING && !normalSpeed)
+  else if (state == MOVING && !hasVelocityCommand)
   {
     state = STOPPING;
   }  
@@ -438,7 +462,7 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
       Leg &leg = model->legs[l][s]; 
       
       legStepper.strideVector = onGroundRatio*
-          (localCentreVelocity + angularVelocity*Vector2d(leg.localTipPosition[1], -leg.localTipPosition[0]))/
+          (currentLinearVelocity + currentAngularVelocity*Vector2d(leg.localTipPosition[1], -leg.localTipPosition[0]))/
           stepFrequency;
       
       if (state == STARTING)
@@ -575,9 +599,9 @@ void WalkController::updateWalk(Vector2d localNormalisedVelocity, double newCurv
   model->clampToLimits();  
   
   //RVIZ
-  Vector2d push = localCentreVelocity*timeDelta;
+  Vector2d push = currentLinearVelocity*timeDelta;
   pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
-  pose.rotation *= Quat(Vector3d(0.0,0.0,-angularVelocity*timeDelta));
+  pose.rotation *= Quat(Vector3d(0.0,0.0,-currentAngularVelocity*timeDelta));
   //RVIZ
 }
 

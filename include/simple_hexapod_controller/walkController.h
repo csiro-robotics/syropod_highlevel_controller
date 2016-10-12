@@ -51,8 +51,10 @@ struct WalkController
   double minFootprintRadius;
   double stanceRadius; // affects turning circle
   Vector3d identityTipPositions[3][2];
-  Vector2d localCentreVelocity;
-  double angularVelocity;
+  
+  Vector2d currentLinearVelocity; //Linear Body Velocity
+  double currentAngularVelocity; //Angular Body Velocity
+  
   double maximumBodyHeight;
   
   int legsInCorrectPhase = 0;

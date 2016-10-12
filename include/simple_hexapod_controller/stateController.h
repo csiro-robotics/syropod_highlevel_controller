@@ -86,9 +86,9 @@ struct StateController
   double paramScaler = 1.0;
   double paramAdjustSensitivity;
   
-  //Joypad velocity callback variables
-  Vector2d localVelocity;
-  double turnRate = 0; 
+  //Velocity callback variables
+  Vector2d linearVelocityInput;
+  double angularVelocityInput = 0; 
   double poseTimeJoy = 2.0;
   
   //Joypad pose callback variables
