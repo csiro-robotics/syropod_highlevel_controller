@@ -479,8 +479,6 @@ void PoseController::autoCompensation(Pose offsetPose)
     }
   }
   
-  currentPose = offsetPose;
-  
   if (walker->params.gaitType == "wave_gait")
   {
     currentPose.rotation[1] += pitch;

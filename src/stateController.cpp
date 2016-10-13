@@ -370,7 +370,7 @@ void StateController::runningState()
   else
   {  
     //Update walking stance based on desired pose
-    poser->updateStance(walker->identityTipPositions, params.autoCompensation);
+    poser->updateStance(walker->identityTipPositions, params.autoCompensation && !params.imuCompensation);
     
     if (params.testing)
     {    
@@ -408,30 +408,15 @@ void StateController::runningState()
 ***********************************************************************************************************************/
 void StateController::compensation()
 {
+  poser->currentPose = Pose::identity(); //Reset pose
+  
   //Manually set (joystick controlled) body compensation 
   if (params.manualCompensation)
   {          
     Pose targetPose = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
-    poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency));
-  }
-  
-  if (false) //params.inclinationCompensation)
-  {
-    Quat orientation;
-    orientation.w = imu->data.orientation.w;
-    orientation.x = imu->data.orientation.x;
-    orientation.y = imu->data.orientation.y;
-    orientation.z = imu->data.orientation.z;
-    
-    Vector3d eulerAngles = orientation.toEulerAngles();
-    
-    double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
-    double lateralCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]);
-  
+    poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency));   
     poser->currentPose = poser->manualPose;
-    poser->currentPose.position[0] = lateralCorrection;
-    poser->currentPose.position[1] = longitudinalCorrection;    
-  }
+  } 
   
   //Auto Compensation using IMU feedback
   if (params.imuCompensation)
@@ -470,7 +455,6 @@ void StateController::compensation()
 	poser->currentPose.position = translationCorrection; //Currently does not correctly work
       }
       
-      poser->currentPose = poser->manualPose;
       poser->currentPose.rotation[1] = rotationCorrection[0]; //Pitch correction
       poser->currentPose.rotation[2] = rotationCorrection[1]; //Roll correction
     } 
@@ -479,11 +463,26 @@ void StateController::compensation()
   else if (params.autoCompensation)    
   {   
     poser->autoCompensation(poser->manualPose);
-  }  
-  else
+  } 
+  
+  if (true) //params.inclinationCompensation)
   {
-    poser->currentPose = poser->manualPose; //No compensation so current pose is set to what was manually set
-  }
+    Quat orientation;
+    orientation.w = imu->data.orientation.w;
+    orientation.x = imu->data.orientation.x;
+    orientation.y = imu->data.orientation.y;
+    orientation.z = imu->data.orientation.z;
+    
+    Vector3d eulerAngles = orientation.toEulerAngles() - poser->currentPose.rotation.toEulerAngles();
+    
+    double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
+    double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
+    
+    longitudinalCorrection = 0.05;
+    
+    poser->currentPose.position[0] += lateralCorrection;
+    poser->currentPose.position[1] += longitudinalCorrection;      
+  } 
 }
 
 /***********************************************************************************************************************
