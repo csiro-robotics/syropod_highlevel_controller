@@ -415,6 +415,24 @@ void StateController::compensation()
     poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency));
   }
   
+  if (false) //params.inclinationCompensation)
+  {
+    Quat orientation;
+    orientation.w = imu->data.orientation.w;
+    orientation.x = imu->data.orientation.x;
+    orientation.y = imu->data.orientation.y;
+    orientation.z = imu->data.orientation.z;
+    
+    Vector3d eulerAngles = orientation.toEulerAngles();
+    
+    double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
+    double lateralCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]);
+  
+    poser->currentPose = poser->manualPose;
+    poser->currentPose.position[0] = lateralCorrection;
+    poser->currentPose.position[1] = longitudinalCorrection;    
+  }
+  
   //Auto Compensation using IMU feedback
   if (params.imuCompensation)
   {    
