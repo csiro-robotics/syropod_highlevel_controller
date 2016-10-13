@@ -113,10 +113,10 @@ int main(int argc, char* argv[])
     ROS_WARN("DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE.\n");
   }
   
-  //Loop waiting for start button press
-  ROS_INFO("Press 'Start' to run controller . . .\n");  
+  //Loop waiting for start button press   
   while(!state.startFlag)
   {
+    ROS_INFO_THROTTLE(5.0, "Press 'Start' to run controller . . .\n"); 
     ros::spinOnce();
     r.sleep();
   }
