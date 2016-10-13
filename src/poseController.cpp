@@ -310,11 +310,11 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
   
   if (mode == SEQUENTIAL_MODE)
   {
-    stepTime = 6.0;
+    stepTime = 6.0/params.stepFrequency;
   }
   else
   {
-    stepTime = 2.0;
+    stepTime = 2.0/params.stepFrequency;
   }
   
   bool res = false;
@@ -364,13 +364,13 @@ bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool fo
       res = true;
       break;
     case 1:
-      res = stepToPosition(phase5TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0);
+      res = stepToPosition(phase5TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0/params.stepFrequency);
       break;
     case 2:
-      res = stepToPosition(phase6TipPositions, deltaZ, SEQUENTIAL_MODE, stepHeight, 6.0);
+      res = stepToPosition(phase6TipPositions, deltaZ, SEQUENTIAL_MODE, stepHeight, 6.0/params.stepFrequency);
       break;
     case 3:
-      res = stepToPosition(phase7TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0);
+      res = stepToPosition(phase7TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0/params.stepFrequency);
       break;
     case 4:
       sequenceStep = 0;
