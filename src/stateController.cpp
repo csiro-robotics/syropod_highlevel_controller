@@ -408,33 +408,41 @@ void StateController::runningState()
 ***********************************************************************************************************************/
 void StateController::compensation()
 {
-  poser->currentPose = Pose::identity(); //Reset pose
-  
   //Manually set (joystick controlled) body compensation 
   if (params.manualCompensation)
   {          
     Pose targetPose = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
-    poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency));   
-    poser->currentPose = poser->manualPose;
+    poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency)); //Updates current pose  
   } 
   
-  //Auto Compensation using IMU feedback
+  //Compensation to align centre of gravity evenly between tip positions on incline
+  if (params.inclinationCompensation)
+  {
+    Quat orientation;
+    orientation.w = imu->data.orientation.w;
+    orientation.x = imu->data.orientation.x;
+    orientation.y = imu->data.orientation.y;
+    orientation.z = imu->data.orientation.z;
+    
+    Vector3d eulerAngles = orientation.toEulerAngles() - poser->manualPose.rotation.toEulerAngles();
+    
+    double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
+    double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
+    
+    poser->inclinationPose = Pose::identity();    
+    poser->inclinationPose.position[0] = lateralCorrection;
+    poser->inclinationPose.position[1] = longitudinalCorrection;      
+  } 
+  
+  //Auto body compensation using IMU feedback
   if (params.imuCompensation)
   {    
-    Quat targetRotation = poser->manualPose.rotation;
-    Vector3d targetTranslation = poser->manualPose.position;
-    
+    Quat targetRotation = poser->manualPose.rotation;    
     Vector3d rotationCorrection = imu->getRotationCompensation(targetRotation);
-    Vector3d translationCorrection = imu->getTranslationCompensation(targetTranslation);
     
     double stabilityThreshold = 100;
     
-    if (translationCorrection.norm() > stabilityThreshold && !unstable)
-    {
-      ROS_WARN("IMU translation compensation became unstable! Adjust PID Parameters.\nTransitioning to default pose.\n");
-      unstable = true;
-    }
-    else if (rotationCorrection.norm() > stabilityThreshold && !unstable)
+    if (rotationCorrection.norm() > stabilityThreshold && !unstable)
     {
       ROS_WARN("IMU rotation compensation became unstable! Adjust PID parameters.\nTransitioning to default pose.\n");
       unstable = true;      
@@ -449,39 +457,37 @@ void StateController::compensation()
     }
     else
     { 
-      bool useTranslationCorrection = false;
-      if (useTranslationCorrection)
-      {
-	poser->currentPose.position = translationCorrection; //Currently does not correctly work
-      }
-      
-      poser->currentPose.rotation[1] = rotationCorrection[0]; //Pitch correction
-      poser->currentPose.rotation[2] = rotationCorrection[1]; //Roll correction
+      poser->imuPose = Pose::identity();
+      poser->imuPose.rotation[1] = rotationCorrection[0]; //Pitch correction
+      poser->imuPose.rotation[2] = rotationCorrection[1]; //Roll correction
     } 
   } 
-  //Automatic (non-feedback) compensation
+  //Automatic (non-feedback) body compensation
   else if (params.autoCompensation)    
   {   
-    poser->autoCompensation(poser->manualPose);
+    poser->autoCompensation(); //Updates current pose
   } 
   
-  if (true) //params.inclinationCompensation)
+  //Apply and combine compensation to current pose
+  if (params.manualCompensation)
   {
-    Quat orientation;
-    orientation.w = imu->data.orientation.w;
-    orientation.x = imu->data.orientation.x;
-    orientation.y = imu->data.orientation.y;
-    orientation.z = imu->data.orientation.z;
-    
-    Vector3d eulerAngles = orientation.toEulerAngles() - poser->currentPose.rotation.toEulerAngles();
-    
-    double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
-    double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
-    
-    longitudinalCorrection = 0.05;
-    
-    poser->currentPose.position[0] += lateralCorrection;
-    poser->currentPose.position[1] += longitudinalCorrection;      
+    poser->currentPose = poser->manualPose;
+  }
+  
+  if (params.inclinationCompensation)
+  {
+    poser->currentPose.position += poser->inclinationPose.position;
+  }
+  
+  if (params.imuCompensation)
+  {
+    poser->currentPose.rotation = poser->imuPose.rotation;    
+  }
+  else if (params.autoCompensation)
+  {
+    poser->currentPose.position += poser->autoPose.position;
+    poser->currentPose.rotation[1] += poser->autoPose.rotation[1];
+    poser->currentPose.rotation[2] += poser->autoPose.rotation[2];    
   } 
 }
 
@@ -812,6 +818,25 @@ void StateController::publishWalkerTipPositions()
       msg.data.push_back(walker->legSteppers[l][s].currentTipPosition[1]);
       msg.data.push_back(walker->legSteppers[l][s].currentTipPosition[2]);
       walkerTipPositionPublishers[l][s].publish(msg);
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Publishes tip positions (before any adjustments from pose or impedance control) for debugging
+***********************************************************************************************************************/
+void StateController::publishStanceTipPositions()
+{
+  std_msgs::Float32MultiArray msg;
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {            
+      msg.data.clear();
+      msg.data.push_back(hexapod->legs[l][s].stanceTipPosition[0]);
+      msg.data.push_back(hexapod->legs[l][s].stanceTipPosition[1]);
+      msg.data.push_back(hexapod->legs[l][s].stanceTipPosition[2]);
+      stanceTipPositionPublishers[l][s].publish(msg);
     }
   }
 }
@@ -1697,6 +1722,11 @@ void StateController::getParameters()
   if(!n.getParam(baseParamString+"manual_compensation", params.manualCompensation))
   {
     ROS_ERROR("Error reading parameter/s (manual_compensation) from rosparam. Check config file is loaded and type is correct\n");  
+  }
+  
+  if(!n.getParam(baseParamString+"inclination_compensation", params.inclinationCompensation))
+  {
+    ROS_ERROR("Error reading parameter/s (inclination_compensation) from rosparam. Check config file is loaded and type is correct\n");  
   }
    
   /********************************************************************************************************************/

@@ -12,7 +12,10 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
   currentPose(Pose::identity()), 
   targetPose(Pose::identity()),
   originPose(Pose::identity()),
-  manualPose(Pose::identity())
+  manualPose(Pose::identity()),
+  autoPose(Pose::identity()),
+  imuPose(Pose::identity()),
+  inclinationPose(Pose::identity())
 {   
 } 
 
@@ -34,7 +37,11 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
       }
       else
       {
-	model->legs[l][s].stanceTipPosition = manualPose.inverseTransformVector(targetTipPositions[l][s]);
+	Pose removeAutoComp = currentPose;
+	removeAutoComp.position -= autoPose.position;
+	removeAutoComp.rotation[1] -= autoPose.rotation[1];
+	removeAutoComp.rotation[2] -= autoPose.rotation[2];
+	model->legs[l][s].stanceTipPosition = removeAutoComp.inverseTransformVector(targetTipPositions[l][s]);
         model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition; 
       }
     }
@@ -460,7 +467,7 @@ void PoseController::resetSequence(void)
 /***********************************************************************************************************************
  * Calculates pitch/roll for smooth auto body compensation from offset pose
 ***********************************************************************************************************************/
-void PoseController::autoCompensation(Pose offsetPose)
+void PoseController::autoCompensation()
 {    
   double roll = 0.0;
   double pitch = 0.0;
@@ -479,15 +486,17 @@ void PoseController::autoCompensation(Pose offsetPose)
     }
   }
   
+  autoPose = Pose::identity();
+  
   if (walker->params.gaitType == "wave_gait")
   {
-    currentPose.rotation[1] += pitch;
-    currentPose.rotation[2] += roll;
+    autoPose.rotation[1] += pitch;
+    autoPose.rotation[2] += roll;
   }
   else if (walker->params.gaitType == "tripod_gait")
   {
-    currentPose.rotation[2] += roll;
-    currentPose.position[2] += zTrans;
+    autoPose.rotation[2] += roll;
+    autoPose.position[2] += zTrans;
   }
 }
 
@@ -537,12 +546,12 @@ bool PoseController::manualCompensation(Pose requestedTargetPose, double timeToP
   ROS_DEBUG_COND(params.debugManualCompensationTranslation, "MANUAL_COMPENSATION_TRANSLATION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tPOS ORIGIN: %f:%f:%f\t\tPOS CURRENT: %f:%f:%f\t\tPOS TARGET: %f:%f:%f\n", 
 		  masterIterationCount, time,
 		  originPose.position[0], originPose.position[1], originPose.position[2], 
-		  currentPose.position[0], currentPose.position[1], currentPose.position[2],
+		  manualPose.position[0], manualPose.position[1], manualPose.position[2],
 		  targetPose.position[0], targetPose.position[1], targetPose.position[2]);
   ROS_DEBUG_COND(params.debugManualCompensationRotation, "MANUAL_COMPENSATION_ROTATION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tROT ORIGIN: %f:%f:%f\t\tROT CURRENT: %f:%f:%f\t\tROT TARGET: %f:%f:%f\n", 
 		  masterIterationCount, time,
 		  originPose.rotation[0], originPose.rotation[1], originPose.rotation[2], 
-		  currentPose.rotation[0], currentPose.rotation[1], currentPose.rotation[2],
+		  manualPose.rotation[0], manualPose.rotation[1], manualPose.rotation[2],
 		  targetPose.rotation[0], targetPose.rotation[1], targetPose.rotation[2]);
   return false;
 }

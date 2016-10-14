@@ -39,10 +39,15 @@ struct PoseController
   Vector3d phase7TipPositions[3][2];
   Vector3d phase8TipPositions[3][2];  
   
-  Pose currentPose;//Current pose of body including manual and auto compensation posing
+  Pose currentPose;//Current pose of body including all compensation posing
+  
   Pose targetPose; //Target pose of body for use in manual posing bezier curve
   Pose originPose; //Origin pos of body for use in manual posing bezier curve
-  Pose manualPose; //Current manual pose of body (does not include additions of auto compensation posing)
+  
+  Pose manualPose; //Current pose of body only using manual compensation
+  Pose autoPose; //Current pose of body only using auto compensation
+  Pose imuPose; //Current pose of body only using imu compensation
+  Pose inclinationPose; //Current pose of body only using inclination compensation
   
   bool correctPose = false; //Flag for correcting pose to a zero roll/pitch pose used for auto compensation
   
@@ -59,6 +64,6 @@ struct PoseController
   bool shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
-  void autoCompensation(Pose offsetPose);
+  void autoCompensation(void);
   bool manualCompensation(Pose requestedTargetPose, double timeToPose);
 };

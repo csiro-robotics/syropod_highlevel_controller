@@ -79,6 +79,7 @@ struct Parameters
   bool imuCompensation;
   bool autoCompensation;  
   bool manualCompensation;
+  bool inclinationCompensation;
 
   //Hexapod Parameters
   Vector3d rootOffset[3][2];

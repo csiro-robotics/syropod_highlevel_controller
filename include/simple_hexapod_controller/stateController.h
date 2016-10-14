@@ -54,6 +54,7 @@ struct StateController
   
   ros::Publisher localTipPositionPublishers[3][2];
   ros::Publisher walkerTipPositionPublishers[3][2];
+  ros::Publisher stanceTipPositionPublishers[3][2];
   ros::Publisher walkerTipVelocityPublishers[3][2];
   ros::Publisher tipForcePublisher;
   ros::Publisher deltaZPublisher;
@@ -129,6 +130,7 @@ struct StateController
   void RVIZDebugging();
   void publishLocalTipPositions();
   void publishWalkerTipPositions();
+  void publishStanceTipPositions();
   void publishWalkerTipVelocities();
   void publishTipForces();
   void publishDeltaZ();

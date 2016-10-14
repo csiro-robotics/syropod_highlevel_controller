@@ -9,9 +9,10 @@ hexapod:
     time_delta: 0.02
 
   #Compensation
-    imu_compensation: false
+    imu_compensation: false #requires imu
     auto_compensation: true
     manual_compensation: true
+    inclination_compensation: false #requires imu
 
     gait_type: wave_gait
 
@@ -65,10 +66,10 @@ hexapod:
 
     walk_controller:
       step_frequency: 0.125 #0.1 for tripod
-      step_clearance: 0.075
+      step_clearance: 0.125
       step_depth: 0.0 #0.025
       body_clearance: -1.0
-      leg_span_scale: 0.6
+      leg_span_scale: 0.85
 
       max_linear_acceleration: -1.0
       max_angular_acceleration: -1.0
@@ -154,7 +155,7 @@ hexapod:
   debug_parameters:
     testing: true
     test_time_length: 0.0
-    test_linear_velocity: [0.0, 0.5]
+    test_linear_velocity: [0.0, 1.0]
     test_angular_velocity: 0.0
     console_verbosity: debug
     

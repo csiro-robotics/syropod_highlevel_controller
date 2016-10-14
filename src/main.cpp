@@ -74,6 +74,13 @@ int main(int argc, char* argv[])
   state.walkerTipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions/walker", 1000);
   state.walkerTipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions/walker", 1000);
   
+  state.stanceTipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions/stance", 1000);
+  state.stanceTipPositionPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions/stance", 1000);
+  state.stanceTipPositionPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions/stance", 1000);
+  state.stanceTipPositionPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_positions/stance", 1000);
+  state.stanceTipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions/stance", 1000);
+  state.stanceTipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions/stance", 1000);
+  
   state.walkerTipVelocityPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_velocities/walker", 1000);
   state.walkerTipVelocityPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_velocities/walker", 1000);
   state.walkerTipVelocityPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_velocities/walker", 1000);
@@ -194,6 +201,7 @@ int main(int argc, char* argv[])
     //Tip position publisher for debugging
     state.publishLocalTipPositions(); 
     state.publishWalkerTipPositions(); 
+    state.publishStanceTipPositions();
     state.publishWalkerTipVelocities(); 
     state.publishTipForces();
     state.publishDeltaZ();

@@ -118,6 +118,7 @@ Vector3d Imu::getRotationCompensation(Quat targetRotation)
 /***********************************************************************************************************************
  * Returns x & y translation values to compensate for x/y accelerations of IMU and keep body at target position
 ***********************************************************************************************************************/
+//DOES NOT CURRENTLY WORK FULLY
 Vector3d Imu::getTranslationCompensation(Vector3d targetTranslation)
 {
   double timeDelta = params.timeDelta;
