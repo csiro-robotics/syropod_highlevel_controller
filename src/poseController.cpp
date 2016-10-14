@@ -15,7 +15,8 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
   manualPose(Pose::identity()),
   autoPose(Pose::identity()),
   imuPose(Pose::identity()),
-  inclinationPose(Pose::identity())
+  inclinationPose(Pose::identity()),
+  deltaZPose(Pose::identity())
 {   
 } 
 

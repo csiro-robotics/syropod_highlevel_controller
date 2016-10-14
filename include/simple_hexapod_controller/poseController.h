@@ -48,6 +48,7 @@ struct PoseController
   Pose autoPose; //Current pose of body only using auto compensation
   Pose imuPose; //Current pose of body only using imu compensation
   Pose inclinationPose; //Current pose of body only using inclination compensation
+  Pose deltaZPose; //Current pose of body only using impedance control body height compensation
   
   bool correctPose = false; //Flag for correcting pose to a zero roll/pitch pose used for auto compensation
   

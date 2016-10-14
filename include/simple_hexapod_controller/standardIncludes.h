@@ -152,6 +152,7 @@ struct Parameters
   double integratorStepTime;
   double virtualMass;
   double virtualStiffness;
+  double stiffnessMultiplier;
   double virtualDampingRatio;
   double forceGain;
   std::string impedanceInput;
@@ -161,13 +162,6 @@ struct Parameters
   double swingPhase;
   double phaseOffset;  
   std::vector<int> offsetMultiplier;
-  
-  //Dynamic Stiffness Parameters
-  double loadedPhase;
-  double unloadedPhase;
-  double stiffnessPhaseOffset;
-  std::vector<int> stiffnessOffsetMultiplier;
-  double stiffnessMultiplier;
   
   //Debug Parameters
   bool debug_rviz;

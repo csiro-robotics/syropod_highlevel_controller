@@ -415,25 +415,6 @@ void StateController::compensation()
     poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency)); //Updates current pose  
   } 
   
-  //Compensation to align centre of gravity evenly between tip positions on incline
-  if (params.inclinationCompensation)
-  {
-    Quat orientation;
-    orientation.w = imu->data.orientation.w;
-    orientation.x = imu->data.orientation.x;
-    orientation.y = imu->data.orientation.y;
-    orientation.z = imu->data.orientation.z;
-    
-    Vector3d eulerAngles = orientation.toEulerAngles() - poser->manualPose.rotation.toEulerAngles();
-    
-    double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
-    double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
-    
-    poser->inclinationPose = Pose::identity();    
-    poser->inclinationPose.position[0] = lateralCorrection;
-    poser->inclinationPose.position[1] = longitudinalCorrection;      
-  } 
-  
   //Auto body compensation using IMU feedback
   if (params.imuCompensation)
   {    
@@ -468,6 +449,41 @@ void StateController::compensation()
     poser->autoCompensation(); //Updates current pose
   } 
   
+  //Compensation to align centre of gravity evenly between tip positions on incline
+  if (params.inclinationCompensation)
+  {
+    Quat orientation;
+    orientation.w = imu->data.orientation.w;
+    orientation.x = imu->data.orientation.x;
+    orientation.y = imu->data.orientation.y;
+    orientation.z = imu->data.orientation.z;
+    
+    Vector3d eulerAngles = orientation.toEulerAngles() - poser->manualPose.rotation.toEulerAngles() - poser->autoPose.rotation.toEulerAngles();
+    
+    double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
+    double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
+    
+    poser->inclinationPose = Pose::identity();    
+    poser->inclinationPose.position[0] = lateralCorrection;
+    poser->inclinationPose.position[1] = longitudinalCorrection;      
+  } 
+  
+  //Compensation to offset average deltaZ from impedance controller
+  if (params.impedanceControl)
+  {
+    double bodyHeightEstimate = 0.0;
+    for (int l = 0; l<3; l++)
+    {
+      for (int s = 0; s<2; s++)
+      {
+	 bodyHeightEstimate += -hexapod->legs[l][s].localTipPosition[2];
+      }
+    }
+    bodyHeightEstimate /= 6.0;
+    
+    poser->deltaZPose.position[2] = (walker->bodyClearance*walker->maximumBodyHeight) - bodyHeightEstimate + poser->manualPose.position[2];
+  }
+  
   //Apply and combine compensation to current pose
   if (params.manualCompensation)
   {
@@ -477,6 +493,11 @@ void StateController::compensation()
   if (params.inclinationCompensation)
   {
     poser->currentPose.position += poser->inclinationPose.position;
+  }
+  
+  if (params.impedanceControl)
+  {
+    poser->currentPose.position += poser->deltaZPose.position;
   }
   
   if (params.imuCompensation)
@@ -509,7 +530,7 @@ void StateController::impedanceControl()
     }
   }  
   
-  bool dynamicStiffness = false; //Not fully tested
+  bool dynamicStiffness = true; //Not fully tested
   bool useIMUForStiffness = false; //Not fully tested
   if (dynamicStiffness)
   {
@@ -527,7 +548,7 @@ void StateController::impedanceControl()
   {
     for (int s = 0; s<2; s++)
     {  
-      if ((dynamicStiffness && walker->legSteppers[l][s].state != SWING) || legsInStance == 6)
+      if (dynamicStiffness || legsInStance == 6)
       {
 	double maxForce = 0;
 	double minForce = 0;
@@ -2370,6 +2391,11 @@ void StateController::getParameters()
   {
     ROS_ERROR("Error reading parameter/s (virtual_stiffness) from rosparam. Check config file is loaded and type is correct\n");
   }
+    
+  if (!n.getParam(paramString+"/stiffness_multiplier", params.stiffnessMultiplier))
+  {
+    ROS_ERROR("Error reading parameter/s (stiffness_multiplier) from rosparam. Check config file is loaded and type is correct\n");
+  } 
 
   if (!n.getParam(paramString+"virtual_damping_ratio", params.virtualDampingRatio))
   {
@@ -2510,41 +2536,7 @@ void StateController::getGaitParameters(std::string forceGait)
   if (!n.getParam(paramString, params.offsetMultiplier))
   {
     ROS_ERROR("Error reading parameter/s (offset_multiplier) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  /********************************************************************************************************************/
-  
-  baseParamString = "/hexapod/dynamic_stiffness_parameters/";
-  
-  paramString = baseParamString+params.gaitType+"/loaded_phase";
-  if (!n.getParam(paramString, params.loadedPhase))
-  {
-    ROS_ERROR("Error reading parameter/s (loaded_phase) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  paramString = baseParamString+params.gaitType+"/unloaded_phase";
-  if (!n.getParam(paramString, params.unloadedPhase))
-  {
-    ROS_ERROR("Error reading parameter/s (unloaded_phase) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  paramString = baseParamString+params.gaitType+"/stiffness_phase_offset";
-  if (!n.getParam(paramString, params.stiffnessPhaseOffset))
-  {
-    ROS_ERROR("Error reading parameter/s (stiffness_phase_offset) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  paramString = baseParamString+params.gaitType+"/stiffness_offset_multiplier";
-  if (!n.getParam(paramString, params.stiffnessOffsetMultiplier))
-  {
-    ROS_ERROR("Error reading parameter/s (stiffness_offset_multiplier) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  paramString = baseParamString+params.gaitType+"/stiffness_multiplier";
-  if (!n.getParam(paramString, params.stiffnessMultiplier))
-  {
-    ROS_ERROR("Error reading parameter/s (stiffness_multiplier) from rosparam. Check config file is loaded and type is correct\n");
-  }  
+  } 
 }
 
 /***********************************************************************************************************************
