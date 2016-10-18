@@ -355,7 +355,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
   Vector2d newLinearVelocity;  
   double newAngularVelocity; 
   
-  double maxLinearSpeed = 2.0*minFootprintRadius*stepFrequency/onGroundRatio;
+  double maxLinearSpeed = 2.0*minFootprintRadius*stepFrequency/onGroundRatio; //Distance = 2.0*minFootprintRadius, time = onGroundratio*(1/stepFrequency) (stepFrequency is FULL step cycles per second)
   double maxAngularSpeed = maxLinearSpeed/stanceRadius;
   
   //Get new angular/linear velocities according to input mode

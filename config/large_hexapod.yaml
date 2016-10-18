@@ -66,10 +66,10 @@ hexapod:
 
     walk_controller:
       step_frequency: 0.125 #0.1 for tripod
-      step_clearance: 0.075
+      step_clearance: 0.125
       step_depth: 0.0 #0.025
       body_clearance: -1.0
-      leg_span_scale: 0.6
+      leg_span_scale: 0.7
 
       max_linear_acceleration: -1.0
       max_angular_acceleration: -1.0
@@ -102,8 +102,8 @@ hexapod:
 
     #Auto pose compensation
       auto_pose_compensation:
-        pitch_amplitude: 0.075
-        roll_amplitude: 0.05
+        pitch_amplitude: 0.02
+        roll_amplitude: 0.015
         z_trans_amplitude: 0.05
 
     #Manual pose compensation 
@@ -144,9 +144,9 @@ hexapod:
       dynamic_stiffness: true
       impedance_input: tip_force #joint_effort
       virtual_mass: 100.0
-      integrator_step_time: 0.1
+      integrator_step_time: 0.075
       virtual_stiffness: 50
-      stiffness_multiplier: 5
+      stiffness_multiplier: 5.0
       virtual_damping_ratio: 4.0
       force_gain: 0.1      
         
