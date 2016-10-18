@@ -8,7 +8,6 @@
 #include "../include/simple_hexapod_controller/motorInterface.h"
 #include "../include/simple_hexapod_controller/dynamixelMotorInterface.h"
 #include "../include/simple_hexapod_controller/dynamixelProMotorInterface.h"
-#include "../include/simple_hexapod_controller/imuCompensation.h"
 #include "../include/simple_hexapod_controller/impedanceController.h"
 #include <boost/concept_check.hpp>
 #include <iostream>
@@ -46,8 +45,6 @@ struct StateController
   WalkController *walker;
   PoseController *poser;
   ImpedanceController *impedance;
-  
-  Imu *imu;
   
   DebugOutput debug;
   int count = 0;

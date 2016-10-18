@@ -4,7 +4,6 @@
 #include "standardIncludes.h"
 #include <boost/numeric/odeint.hpp>
 #include "walkController.h"
-#include "imuCompensation.h"
 
 using namespace boost::numeric::odeint;
 

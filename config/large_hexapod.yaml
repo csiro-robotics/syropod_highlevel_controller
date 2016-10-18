@@ -141,6 +141,7 @@ hexapod:
 
     impedance_controller:
       impedance_control: true
+      dynamic_stiffness: true
       impedance_input: tip_force #joint_effort
       virtual_mass: 100.0
       integrator_step_time: 0.1

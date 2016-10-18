@@ -3,6 +3,7 @@
 #include "model.h"
 #include "debugOutput.h"
 #include "walkController.h"
+#include "sensor_msgs/Imu.h"
 
 //stepToPosition modes
 #define NO_STEP_MODE 0
@@ -15,6 +16,8 @@ struct PoseController
   Model *model;
   WalkController *walker;
   Parameters params;
+  
+  sensor_msgs::Imu imuData;
   
   double timeDelta;
   bool firstIteration = true;
@@ -45,10 +48,23 @@ struct PoseController
   Pose originPose; //Origin pos of body for use in manual posing bezier curve
   
   Pose manualPose; //Current pose of body only using manual compensation
-  Pose autoPose; //Current pose of body only using auto compensation
   Pose imuPose; //Current pose of body only using imu compensation
   Pose inclinationPose; //Current pose of body only using inclination compensation
   Pose deltaZPose; //Current pose of body only using impedance control body height compensation
+  
+  Pose autoPoseDefault; //Current pose of body only using auto compensation
+  Pose autoPose[3][2]; //Leg specific auto compensation - equal to default but with zero pose compensation on leg swing phase
+  
+  //Imu compensation PID error vectors
+  Vector3d rotationAbsementError;
+  Vector3d rotationPositionError;
+  Vector3d rotationVelocityError;
+  
+  Vector3d translationAbsementError;
+  Vector3d translationPositionError;
+  Vector3d translationVelocityError;
+  Vector3d translationAccelerationError;
+  
   
   bool correctPose = false; //Flag for correcting pose to a zero roll/pitch pose used for auto compensation
   
@@ -65,6 +81,11 @@ struct PoseController
   bool shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
+  
+  //Compensation functions
   void autoCompensation(void);
   bool manualCompensation(Pose requestedTargetPose, double timeToPose);
+  void imuCompensation (Quat targetRotation);
+  void inclinationCompensation();
+  void impedanceControllerCompensation(double deltaZ[3][2]);
 };

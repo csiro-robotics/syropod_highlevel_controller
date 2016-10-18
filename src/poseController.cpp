@@ -13,11 +13,20 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
   targetPose(Pose::identity()),
   originPose(Pose::identity()),
   manualPose(Pose::identity()),
-  autoPose(Pose::identity()),
   imuPose(Pose::identity()),
   inclinationPose(Pose::identity()),
   deltaZPose(Pose::identity())
 {   
+  sensor_msgs::Imu imuData;
+  
+  rotationAbsementError = Vector3d(0,0,0);
+  rotationPositionError = Vector3d(0,0,0);
+  rotationVelocityError = Vector3d(0,0,0);
+  
+  translationAbsementError = Vector3d(0,0,0);
+  translationPositionError = Vector3d(0,0,0);
+  translationVelocityError = Vector3d(0,0,0);
+  translationAccelerationError = Vector3d(0,0,0);
 } 
 
 /***********************************************************************************************************************
@@ -38,11 +47,13 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
       }
       else
       {
-	Pose removeAutoComp = currentPose;
-	removeAutoComp.position -= autoPose.position;
-	removeAutoComp.rotation[1] -= autoPose.rotation[1];
-	removeAutoComp.rotation[2] -= autoPose.rotation[2];
-	model->legs[l][s].stanceTipPosition = removeAutoComp.inverseTransformVector(targetTipPositions[l][s]);
+	//Remove default autoCompensation and apply leg specific auto compensation during swing
+	Pose swingAutoComp = currentPose;
+	swingAutoComp.position -= (autoPoseDefault.position - autoPose[l][s].position);
+	swingAutoComp.rotation[1] -= (autoPoseDefault.rotation[1] - autoPose[l][s].rotation[1]);
+	swingAutoComp.rotation[2] -= (autoPoseDefault.rotation[2] - autoPose[l][s].rotation[2]);
+	
+	model->legs[l][s].stanceTipPosition = swingAutoComp.inverseTransformVector(targetTipPositions[l][s]);
         model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition; 
       }
     }
@@ -470,34 +481,70 @@ void PoseController::resetSequence(void)
 ***********************************************************************************************************************/
 void PoseController::autoCompensation()
 {    
-  double roll = 0.0;
-  double pitch = 0.0;
-  double zTrans = 0.0;
+  double swingHeightPercentage = 1.0;
+  double roll[3][2];
+  double pitch[3][2];
+  double zTrans[3][2];
+  
+  //Turn on/off the calculation of roll/pitch/ztrans based on curent gait
+  int calculateRoll = int(walker->params.gaitType != "amble_gait");
+  int calculatePitch = int(walker->params.gaitType != "tripod_gait" && walker->params.gaitType != "amble_gait");
+  int calculateZTrans = int(walker->params.gaitType == "tripod_gait");
+  
   for (int l=0; l<3; l++)
   {
     for (int s=0; s<2; s++)
     {
       if (walker->legSteppers[l][s].state == SWING)
       {
-	double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - walker->legSteppers[l][s].defaultTipPosition[2];	  
-	roll += zDiff*pow(-1.0, s)*params.rollAmplitude; //Inverting as required
-	pitch += zDiff*(-(l-1))*params.pitchAmplitude; //Inverting as required
-	zTrans += zDiff*params.zTransAmplitude;
+	swingHeightPercentage = abs(walker->legSteppers[l][s].currentTipPosition[2] - walker->legSteppers[l][s].defaultTipPosition[2])/(walker->stepClearance*walker->maximumBodyHeight);
+
+	roll[l][s] = swingHeightPercentage*pow(-1.0, s)*params.rollAmplitude*calculateRoll; //Inverting as required
+	pitch[l][s] = swingHeightPercentage*(-(l-1))*params.pitchAmplitude*calculatePitch; //Inverting as required
+	zTrans[l][s] = swingHeightPercentage*params.zTransAmplitude*calculateZTrans;
+      } 
+      else
+      {
+	roll[l][s] = 0.0;
+	pitch[l][s] = 0.0;
+	zTrans[l][s] = 0.0;		
       }
     }
   }
   
-  autoPose = Pose::identity();
+  //Calculates how many legs are perfectly in phase.
+  int legsInPhase = 6/(1+*max_element(walker->params.offsetMultiplier.begin(), walker->params.offsetMultiplier.end()));
   
-  if (walker->params.gaitType == "wave_gait")
+  //Only adds pitch/roll/zTrans values from 'lead' legs (this ensures value from 'in phase' legs is only added once).
+  autoPoseDefault = Pose::identity();
+  for (int i=0; i<(6/legsInPhase); i++)
   {
-    autoPose.rotation[1] += pitch;
-    autoPose.rotation[2] += roll;
+    int leadLegRef = i/2;
+    int leadSideRef = i%2;
+    
+    autoPoseDefault.rotation[2] += roll[leadLegRef][leadSideRef];
+    autoPoseDefault.rotation[1] += pitch[leadLegRef][leadSideRef];
+    autoPoseDefault.position[2] += zTrans[leadLegRef][leadSideRef];    
   }
-  else if (walker->params.gaitType == "tripod_gait")
+  
+  //Reduce pose on each leg to zero during swing by subtracting compensation added by it's lead leg.
+  for (int l=0; l<3; l++)
   {
-    autoPose.rotation[2] += roll;
-    autoPose.position[2] += zTrans;
+    for (int s=0; s<2; s++)
+    {       
+      int index = 2*l+s;
+      int inPhaseLeadIndex = distance(walker->params.offsetMultiplier.begin(), 
+				      find(walker->params.offsetMultiplier.begin(),
+					   walker->params.offsetMultiplier.end(), 
+					   walker->params.offsetMultiplier[index]));
+      int inPhaseLeadLegRef = inPhaseLeadIndex/2;
+      int inPhaseLeadSideRef = inPhaseLeadIndex%2;      
+      
+      autoPose[l][s] = autoPoseDefault;
+      autoPose[l][s].rotation[2] -= roll[inPhaseLeadLegRef][inPhaseLeadSideRef];
+      autoPose[l][s].rotation[1] -= pitch[inPhaseLeadLegRef][inPhaseLeadSideRef];
+      autoPose[l][s].position[2] -= zTrans[inPhaseLeadLegRef][inPhaseLeadSideRef];
+    }
   }
 }
 
@@ -555,6 +602,147 @@ bool PoseController::manualCompensation(Pose requestedTargetPose, double timeToP
 		  manualPose.rotation[0], manualPose.rotation[1], manualPose.rotation[2],
 		  targetPose.rotation[0], targetPose.rotation[1], targetPose.rotation[2]);
   return false;
+}
+
+/***********************************************************************************************************************
+ * Returns roll and pitch rotation values to compensate for roll/pitch of IMU and keep body at target rotation
+***********************************************************************************************************************/
+void PoseController::imuCompensation(Quat targetRotation)
+{
+  //ROTATION COMPENSATION
+  Quat orientation; 		//IMU Orientation
+  Vector3d angularVelocity;	//IMU Angular Velocity
+  
+  //Get orientation data from IMU
+  orientation.w = imuData.orientation.w;
+  orientation.x = imuData.orientation.x;
+  orientation.y = imuData.orientation.y;
+  orientation.z = imuData.orientation.z;
+  
+  //Get angular velocity data from IMU
+  angularVelocity(0) = imuData.angular_velocity.x;
+  angularVelocity(1) = imuData.angular_velocity.y;
+  angularVelocity(2) = imuData.angular_velocity.z;
+  
+  //There are two orientations per quaternion and we want the shorter/smaller difference. 
+  double dot = targetRotation.dot(~orientation);
+  if (dot < 0.0)
+  {
+    targetRotation = -targetRotation;
+  }
+  
+  //PID gains
+  double kD = params.rotationCompensationDerivativeGain;
+  double kP = params.rotationCompensationProportionalGain;
+  double kI = params.rotationCompensationIntegralGain;
+  
+  rotationPositionError = orientation.toEulerAngles() - targetRotation.toEulerAngles();
+  rotationAbsementError += rotationPositionError*params.timeDelta; //Integration of angle position error (absement)
+  
+  //Low pass filter of IMU angular velocity data
+  double smoothingFactor = 0.15;
+  rotationVelocityError = smoothingFactor*angularVelocity + (1-smoothingFactor)*rotationVelocityError;
+  
+  Vector3d rotationCorrection = kD*rotationVelocityError + kP*rotationPositionError + kI*rotationAbsementError;
+  rotationCorrection[2] = 0; //No compensation in yaw rotation
+  
+  double stabilityThreshold = 100;
+    
+  if (rotationCorrection.norm() > stabilityThreshold)
+  {
+    ROS_FATAL("IMU rotation compensation became unstable! Adjust PID parameters.\n");
+    ASSERT(rotationCorrection.norm() < stabilityThreshold);
+  }
+  else
+  { 
+    imuPose = Pose::identity();
+    imuPose.rotation[1] = -rotationCorrection[0]; //Pitch correction
+    imuPose.rotation[2] = -rotationCorrection[1]; //Roll correction
+  } 
+
+  //TRANSLATION COMPENSATION
+  //DOES NOT CURRENTLY WORK FULLY
+  /*
+  Quat orientation;	//IMU Orientation
+  Vector3d linearAcceleration;	//IMU Linear Acceleration
+  
+  //Get orientation data from IMU
+  orientation.w = imuData.orientation.w;
+  orientation.x = imuData.orientation.x;
+  orientation.y = imuData.orientation.y;
+  orientation.z = imuData.orientation.z;
+  
+  //Get linear acceleration data from IMU
+  linearAcceleration(0) = imuData.linear_acceleration.x;
+  linearAcceleration(1) = imuData.linear_acceleration.y;
+  linearAcceleration(2) = imuData.linear_acceleration.z;
+  
+  //PID gains
+  double kD = params.translationCompensationDerivativeGain;
+  double kP = params.translationCompensationProportionalGain;
+  double kI = params.translationCompensationIntegralGain;
+  
+  //Remove gravity
+  Vector3d gravity = {0.0,0.0,9.75};  
+  Vector3d orientedGravity = orientation.rotateVector(gravity);
+  Vector3d dynamicLinearAcceleration = linearAcceleration - orientedGravity);
+  
+  double decayRate = 2.3; 
+  
+  //Low pass filter of IMU linear acceleration data (after removing acceleration due to gravity)   
+  double smoothingFactor = 0.15;
+  translationAccelerationError = smoothingFactor*dynamicLinearAcceleration + (1-smoothingFactor)*translationAccelerationError;
+  
+  //Integrate for velocity and position and absement
+  translationVelocityError += translationAccelerationError*timeDelta - decayRate*timeDelta*translationVelocityError;
+  translationPositionError += translationVelocityError*timeDelta - decayRate*timeDelta*translationPositionError;
+  translationAbsementError += translationPositionError*timeDelta;
+  
+  Vector3d translationCorrection = kD*translationVelocityError + kP*translationPositionError + kI*translationAbsementError;  
+  translationCorrection[2] = 0; //No compensation in z translation (competes with impedance controller)
+  */  
+}
+
+/***********************************************************************************************************************
+ * Returns roll and pitch rotation values to compensate for roll/pitch of IMU and keep body at target rotation
+***********************************************************************************************************************/
+void PoseController::inclinationCompensation()
+{
+  Quat orientation;
+  
+  //Get orientation data from IMU
+  orientation.w = imuData.orientation.w;
+  orientation.x = imuData.orientation.x;
+  orientation.y = imuData.orientation.y;
+  orientation.z = imuData.orientation.z;
+  
+  Vector3d eulerAngles = orientation.toEulerAngles() - manualPose.rotation.toEulerAngles() - autoPoseDefault.rotation.toEulerAngles();
+  
+  double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
+  double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
+  
+  inclinationPose = Pose::identity();    
+  inclinationPose.position[0] = lateralCorrection;
+  inclinationPose.position[1] = longitudinalCorrection;  
+}
+
+/***********************************************************************************************************************
+ * Returns roll and pitch rotation values to compensate for roll/pitch of IMU and keep body at target rotation
+***********************************************************************************************************************/
+void PoseController::impedanceControllerCompensation(double deltaZ[3][2])
+{
+  double averageDeltaZ = 0.0;
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {
+      averageDeltaZ += deltaZ[l][s];
+    }
+  }
+  averageDeltaZ /= 6.0;
+  
+  deltaZPose = Pose::identity();
+  deltaZPose.position[2] = abs(averageDeltaZ) + manualPose.position[2];
 }
 
 /***********************************************************************************************************************

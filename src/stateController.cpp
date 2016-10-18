@@ -11,7 +11,6 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
     
   //Initiate model and imu objects
   hexapod = new Model(params); 
-  imu = new Imu(params);
   
   //Populate joint position array with excessive value
   for (int i=0; i<18; i++)
@@ -76,8 +75,6 @@ void StateController::init()
   walker = new WalkController(hexapod, params);
   poser = new PoseController(hexapod, walker, params);
   impedance = new ImpedanceController(params);
-  
-  imu->setCompensationDebug(debug);
   
   //Get unpacked/packed joint positions from params
   unpackedJointPositions[0][0] = params.unpackedJointPositionsAL;
@@ -413,103 +410,37 @@ void StateController::compensation()
   {          
     Pose targetPose = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
     poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency)); //Updates current pose  
-  } 
-  
-  //Auto body compensation using IMU feedback
-  if (params.imuCompensation)
-  {    
-    Quat targetRotation = poser->manualPose.rotation;    
-    Vector3d rotationCorrection = imu->getRotationCompensation(targetRotation);
-    
-    double stabilityThreshold = 100;
-    
-    if (rotationCorrection.norm() > stabilityThreshold && !unstable)
-    {
-      ROS_WARN("IMU rotation compensation became unstable! Adjust PID parameters.\nTransitioning to default pose.\n");
-      unstable = true;      
-    }
-    else if (unstable)
-    {
-      if (poser->manualCompensation(Pose::identity(), poseTimeJoy/sqrt(params.stepFrequency)))
-      {
-	ROS_INFO("Returned to default pose. IMU compensation now re-enabled.\n");
-	unstable = false;
-      }
-    }
-    else
-    { 
-      poser->imuPose = Pose::identity();
-      poser->imuPose.rotation[1] = rotationCorrection[0]; //Pitch correction
-      poser->imuPose.rotation[2] = rotationCorrection[1]; //Roll correction
-    } 
-  } 
-  //Automatic (non-feedback) body compensation
-  else if (params.autoCompensation)    
-  {   
-    poser->autoCompensation(); //Updates current pose
+    poser->currentPose = poser->manualPose;
   } 
   
   //Compensation to align centre of gravity evenly between tip positions on incline
   if (params.inclinationCompensation)
   {
-    Quat orientation;
-    orientation.w = imu->data.orientation.w;
-    orientation.x = imu->data.orientation.x;
-    orientation.y = imu->data.orientation.y;
-    orientation.z = imu->data.orientation.z;
-    
-    Vector3d eulerAngles = orientation.toEulerAngles() - poser->manualPose.rotation.toEulerAngles() - poser->autoPose.rotation.toEulerAngles();
-    
-    double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
-    double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
-    
-    poser->inclinationPose = Pose::identity();    
-    poser->inclinationPose.position[0] = lateralCorrection;
-    poser->inclinationPose.position[1] = longitudinalCorrection;      
+    poser->inclinationCompensation();    
+    poser->currentPose.position += poser->inclinationPose.position;    
   } 
   
-  //Compensation to offset average deltaZ from impedance controller
+  //Compensation to offset average deltaZ from impedance controller and keep body at specificied height
   if (params.impedanceControl)
   {
-    double bodyHeightEstimate = 0.0;
-    for (int l = 0; l<3; l++)
-    {
-      for (int s = 0; s<2; s++)
-      {
-	 bodyHeightEstimate += -hexapod->legs[l][s].localTipPosition[2];
-      }
-    }
-    bodyHeightEstimate /= 6.0;
-    
-    poser->deltaZPose.position[2] = (walker->bodyClearance*walker->maximumBodyHeight) - bodyHeightEstimate + poser->manualPose.position[2];
-  }
-  
-  //Apply and combine compensation to current pose
-  if (params.manualCompensation)
-  {
-    poser->currentPose = poser->manualPose;
-  }
-  
-  if (params.inclinationCompensation)
-  {
-    poser->currentPose.position += poser->inclinationPose.position;
-  }
-  
-  if (params.impedanceControl)
-  {
+    poser->impedanceControllerCompensation(deltaZ);
     poser->currentPose.position += poser->deltaZPose.position;
   }
   
+  //Auto body compensation using IMU feedback
   if (params.imuCompensation)
-  {
-    poser->currentPose.rotation = poser->imuPose.rotation;    
-  }
-  else if (params.autoCompensation)
-  {
-    poser->currentPose.position += poser->autoPose.position;
-    poser->currentPose.rotation[1] += poser->autoPose.rotation[1];
-    poser->currentPose.rotation[2] += poser->autoPose.rotation[2];    
+  {    
+    poser->imuCompensation(poser->manualPose.rotation); 
+    poser->currentPose.rotation = poser->imuPose.rotation;  
   } 
+  //Automatic (non-feedback) body compensation
+  else if (params.autoCompensation)    
+  {   
+    poser->autoCompensation();
+    poser->currentPose.position += poser->autoPoseDefault.position;
+    poser->currentPose.rotation[1] += poser->autoPoseDefault.rotation[1];
+    poser->currentPose.rotation[2] += poser->autoPoseDefault.rotation[2];    
+  }    
 }
 
 /***********************************************************************************************************************
@@ -517,7 +448,7 @@ void StateController::compensation()
 ***********************************************************************************************************************/
 void StateController::impedanceControl()
 {     
-  //If all legs are in stance state then update forces on tips
+  //Check how many legs are in stance phase
   int legsInStance = 0; 
   for (int l = 0; l<3; l++)
   {
@@ -530,13 +461,13 @@ void StateController::impedanceControl()
     }
   }  
   
-  bool dynamicStiffness = true; //Not fully tested
+  //Calculate new stiffness based on imu orientation or walking cycle
   bool useIMUForStiffness = false; //Not fully tested
-  if (dynamicStiffness)
+  if (params.dynamicStiffness)
   {
     if (params.imuCompensation && useIMUForStiffness)
     {
-      impedance->updateStiffness(poser->currentPose, walker->identityTipPositions);      
+      impedance->updateStiffness(poser->currentPose, walker->identityTipPositions); //TBD CHECK 
     } 
     else
     {
@@ -544,11 +475,12 @@ void StateController::impedanceControl()
     }
   }
   
+  //Get current force value on leg and run impedance calculations to get a vertical tip offset (deltaZ)
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {  
-      if (dynamicStiffness || legsInStance == 6)
+      if (params.dynamicStiffness || legsInStance == 6)
       {
 	double maxForce = 0;
 	double minForce = 0;
@@ -928,12 +860,6 @@ void StateController::publishPose()
   msg.data.push_back(poser->currentPose.position[0]); 
   msg.data.push_back(poser->currentPose.position[1]); 
   msg.data.push_back(poser->currentPose.position[2]); 
-  //msg.data.push_back(poser->manualPose.rotation[1]);  
-  //msg.data.push_back(poser->manualPose.rotation[2]); 
-  //msg.data.push_back(poser->manualPose.rotation[3]); 
-  //msg.data.push_back(poser->manualPose.position[0]); 
-  //msg.data.push_back(poser->manualPose.position[1]); 
-  //msg.data.push_back(poser->manualPose.position[2]);   
   posePublisher.publish(msg);
 }
 
@@ -942,11 +868,19 @@ void StateController::publishPose()
 ***********************************************************************************************************************/
 void StateController::publishIMURotation()
 {
+  Quat orientation;
+  
+  //Get orientation data from IMU
+  orientation.w = poser->imuData.orientation.w;
+  orientation.x = poser->imuData.orientation.x;
+  orientation.y = poser->imuData.orientation.y;
+  orientation.z = poser->imuData.orientation.z;
+  
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(imu->getCurrentRotation()[0]);  
-  msg.data.push_back(imu->getCurrentRotation()[1]);
-  msg.data.push_back(imu->getCurrentRotation()[2]); 
+  msg.data.push_back(orientation.toEulerAngles()[0]);  
+  msg.data.push_back(orientation.toEulerAngles()[1]);
+  msg.data.push_back(orientation.toEulerAngles()[2]); 
   IMURotationPublisher.publish(msg);
 }
 
@@ -973,15 +907,15 @@ void StateController::publishRotationPoseError()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(imu->rotationPositionError[0]);  
-  msg.data.push_back(imu->rotationPositionError[1]); 
-  msg.data.push_back(imu->rotationPositionError[2]); 
-  msg.data.push_back(imu->rotationAbsementError[0]);
-  msg.data.push_back(imu->rotationAbsementError[1]);
-  msg.data.push_back(imu->rotationAbsementError[2]);  
-  msg.data.push_back(imu->rotationVelocityError[0]);
-  msg.data.push_back(imu->rotationVelocityError[1]);
-  msg.data.push_back(imu->rotationVelocityError[2]);
+  msg.data.push_back(poser->rotationPositionError[0]);  
+  msg.data.push_back(poser->rotationPositionError[1]); 
+  msg.data.push_back(poser->rotationPositionError[2]); 
+  msg.data.push_back(poser->rotationAbsementError[0]);
+  msg.data.push_back(poser->rotationAbsementError[1]);
+  msg.data.push_back(poser->rotationAbsementError[2]);  
+  msg.data.push_back(poser->rotationVelocityError[0]);
+  msg.data.push_back(poser->rotationVelocityError[1]);
+  msg.data.push_back(poser->rotationVelocityError[2]);
   rotationPoseErrorPublisher.publish(msg);
 }
 
@@ -992,15 +926,15 @@ void StateController::publishTranslationPoseError()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(imu->translationPositionError[0]);  
-  msg.data.push_back(imu->translationPositionError[1]); 
-  msg.data.push_back(imu->translationPositionError[2]); 
-  msg.data.push_back(imu->translationAbsementError[0]);
-  msg.data.push_back(imu->translationAbsementError[1]);
-  msg.data.push_back(imu->translationAbsementError[2]);  
-  msg.data.push_back(imu->translationVelocityError[0]);
-  msg.data.push_back(imu->translationVelocityError[1]);
-  msg.data.push_back(imu->translationVelocityError[2]);
+  msg.data.push_back(poser->translationPositionError[0]);  
+  msg.data.push_back(poser->translationPositionError[1]); 
+  msg.data.push_back(poser->translationPositionError[2]); 
+  msg.data.push_back(poser->translationAbsementError[0]);
+  msg.data.push_back(poser->translationAbsementError[1]);
+  msg.data.push_back(poser->translationAbsementError[2]);  
+  msg.data.push_back(poser->translationVelocityError[0]);
+  msg.data.push_back(poser->translationVelocityError[1]);
+  msg.data.push_back(poser->translationVelocityError[2]);
   translationPoseErrorPublisher.publish(msg);
 }
 
@@ -1348,7 +1282,7 @@ void StateController::joypadPoseCallback(const geometry_msgs::Twist &twist)
   double deadband = 0.1; //%10 deadband
   
   double newRollJoy = twist.angular.x*params.maxRoll;
-  double newPitchJoy = twist.angular.y*params.maxPitch;
+  double newPitchJoy = twist.angular.y*-params.maxPitch; //??
   double newYawJoy = twist.angular.z*params.maxYaw;
   double newXJoy = twist.linear.x*params.maxX;
   double newYJoy = twist.linear.y*params.maxY;
@@ -1433,7 +1367,7 @@ void StateController::startTestCallback(const std_msgs::Bool &input)
 ***********************************************************************************************************************/
 void StateController::imuCallback(const sensor_msgs::Imu &imuData)
 {
-  imu->data = imuData;
+    poser->imuData = imuData;
 }
 
 /***********************************************************************************************************************
@@ -2375,6 +2309,11 @@ void StateController::getParameters()
   if (!n.getParam(paramString+"impedance_control", params.impedanceControl))
   {
     ROS_ERROR("Error reading parameter/s (impedance_control) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  if (!n.getParam(paramString+"dynamic_stiffness", params.dynamicStiffness))
+  {
+    ROS_ERROR("Error reading parameter/s (dynamic_stiffness) from rosparam. Check config file is loaded and type is correct\n");
   }
 
   if (!n.getParam(paramString+"integrator_step_time", params.integratorStepTime))

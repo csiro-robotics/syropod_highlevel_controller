@@ -40,8 +40,6 @@ int main(int argc, char* argv[])
   
   ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, &StateController::joypadVelocityCallback, &state);
   ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, &StateController::joypadPoseCallback, &state);
-  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, &StateController::imuCallback, &state);
-  //ros::Subscriber imuControlSubscriber = n.subscribe("/joy", 1, &StateController::imuControllerCallback);
   ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, &StateController::legSelectionCallback, &state);
   ros::Subscriber legStateSubscriber = n.subscribe("hexapod_remote/leg_state_toggle", 1, &StateController::legStateCallback, &state);
   ros::Subscriber paramSelectionSubscriber = n.subscribe("hexapod_remote/param_selection", 1, &StateController::paramSelectionCallback, &state);
@@ -59,7 +57,6 @@ int main(int argc, char* argv[])
   jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1000, &StateController::jointStatesCallback, &state);
   jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, &state); 
   
-  //ros::Publisher controlPub = n.advertise<geometry_msgs::Vector3>("controlsignal", 1000);
   state.localTipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions/local", 1000);
   state.localTipPositionPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions/local", 1000);
   state.localTipPositionPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions/local", 1000);
@@ -185,6 +182,8 @@ int main(int argc, char* argv[])
   
   //Initiate state controller
   state.init();  
+  
+  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, &StateController::imuCallback, &state);
   
   //Enter ros loop
   while (ros::ok())
