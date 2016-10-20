@@ -108,14 +108,10 @@ hexapod:
 
     #Manual pose compensation 
       manual_pose_compensation:
-        max_pose_time: 5.0 #2.0
-        max_roll: 0.15
-        max_pitch: -0.075
-        max_yaw: 0.1
-        max_x: 0.35
-        max_y: 0.5
-        max_z: 0.8
-        min_z: 0.2
+        max_translation: [0.35, 0.5, 0.5] #x, y, z
+        max_rotation: [0.15, 0.075, 0.1] #pitch, roll, yaw
+        max_translation_velocity: 0.05
+        max_rotation_velocity: 0.05
         
     #Packed state, joint position parameters
       packed_joint_positions:

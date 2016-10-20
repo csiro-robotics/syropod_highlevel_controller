@@ -5,11 +5,22 @@
 #include "walkController.h"
 #include "sensor_msgs/Imu.h"
 
-//stepToPosition modes
-#define NO_STEP_MODE 0
-#define SIMULTANEOUS_MODE 1
-#define TRIPOD_MODE 2
-#define SEQUENTIAL_MODE 3
+enum StepToPositionModes
+{
+  NO_STEP_MODE,
+  SIMULTANEOUS_MODE,
+  TRIPOD_MODE,
+  SEQUENTIAL_MODE,
+};
+
+enum PoseResetMode
+{
+  NO_RESET,
+  Z_AND_YAW_RESET,
+  X_AND_Y_RESET,
+  PITCH_AND_ROLL_RESET,
+  ALL_RESET,
+};
 
 struct PoseController
 {
@@ -84,7 +95,7 @@ struct PoseController
   
   //Compensation functions
   void autoCompensation(void);
-  bool manualCompensation(Pose requestedTargetPose, double timeToPose);
+  void manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode);
   void imuCompensation (Quat targetRotation);
   void inclinationCompensation();
   void impedanceControllerCompensation(double deltaZ[3][2]);

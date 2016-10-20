@@ -551,57 +551,97 @@ void PoseController::autoCompensation()
 /***********************************************************************************************************************
  * Calculates pitch/roll/yaw/x,y,z for smooth transition to target pose for manual body compensation
 ***********************************************************************************************************************/
-bool PoseController::manualCompensation(Pose requestedTargetPose, double timeToPose)
-{      
-  //Reset if target changes
-  if (requestedTargetPose != targetPose)
+void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode)
+{   
+  Vector3d translationPosition = manualPose.position;
+  Vector3d rotationPosition = Vector3d(manualPose.rotation[1], manualPose.rotation[2], manualPose.rotation[3]); //Quat to Euler
+  
+  Vector3d maxTranslation = params.maxTranslation;
+  Vector3d maxRotation = params.maxRotation;
+  switch (poseResetMode)
   {
-    targetPose = requestedTargetPose;
-    masterIterationCount = 0;
-    originPose = manualPose;
+    case (Z_AND_YAW_RESET):
+      maxTranslation[2] = 0.0;
+      maxRotation[2] = 0.0;
+      break;
+    case (X_AND_Y_RESET):
+      maxTranslation[0] = 0.0;
+      maxTranslation[1] = 0.0;
+      break;
+    case (PITCH_AND_ROLL_RESET):
+      maxRotation[0] = 0.0;
+      maxRotation[1] = 0.0;
+      break;
+    case (ALL_RESET):
+      maxTranslation = Vector3d(0.0,0.0,0.0);
+      maxRotation = Vector3d(0.0,0.0,0.0);
+      break;
+    case (NO_RESET):
+      maxTranslation = params.maxTranslation;
+      maxRotation = params.maxRotation;
+      break;
   }
   
-  //Check if target met
-  if (targetPose == manualPose)
-  {
-    return true;
-  }  
-  
-  int numIterations = max(1,roundToInt(timeToPose/timeDelta));
-  double deltaT = 1.0/numIterations;
-  
-  if (masterIterationCount < numIterations)
-  {
-    masterIterationCount++; 
+  //Override posing velocity commands depending on pose reset mode 
+  for (int i=0; i<3; i++) //For each axis (x,y,z)/(roll,pitch,yaw)
+  {      
+    if (maxTranslation[i] == 0.0)
+    {
+      newPosingVelocity.position[i] = -sign(translationPosition[i])*1.0;
+    }
+    if (maxRotation[i] == 0.0)
+    {
+      newPosingVelocity.rotation[i+1] = -sign(rotationPosition[i])*1.0;
+    }
   }
   
-  Vector3d positionNodes[4];
-  positionNodes[0] = originPose.position;
-  positionNodes[1] = originPose.position;
-  positionNodes[3] = targetPose.position;
-  positionNodes[2] = targetPose.position;
+  Vector3d translationVelocity = clamped(newPosingVelocity.position, 1.0)*params.maxTranslationVelocity;
+  Vector3d eulerRotationVelocity = Vector3d(newPosingVelocity.rotation[1], newPosingVelocity.rotation[2], newPosingVelocity.rotation[3]);
+  Vector3d rotationVelocity = clamped(eulerRotationVelocity, 1.0)*params.maxRotationVelocity;  
   
-  Quat rotationNodes[4];
-  rotationNodes[0] = originPose.rotation;
-  rotationNodes[1] = originPose.rotation;
-  rotationNodes[3] = targetPose.rotation;
-  rotationNodes[2] = targetPose.rotation;
-            
-  manualPose.position = cubicBezier(positionNodes, masterIterationCount*deltaT);
-  manualPose.rotation = cubicBezier(rotationNodes, masterIterationCount*deltaT);
-  
-  double time = masterIterationCount*deltaT;
-  ROS_DEBUG_COND(params.debugManualCompensationTranslation, "MANUAL_COMPENSATION_TRANSLATION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tPOS ORIGIN: %f:%f:%f\t\tPOS CURRENT: %f:%f:%f\t\tPOS TARGET: %f:%f:%f\n", 
-		  masterIterationCount, time,
-		  originPose.position[0], originPose.position[1], originPose.position[2], 
-		  manualPose.position[0], manualPose.position[1], manualPose.position[2],
-		  targetPose.position[0], targetPose.position[1], targetPose.position[2]);
-  ROS_DEBUG_COND(params.debugManualCompensationRotation, "MANUAL_COMPENSATION_ROTATION DEBUG - MASTER ITERATION: %d\t\tTIME: %f\t\tROT ORIGIN: %f:%f:%f\t\tROT CURRENT: %f:%f:%f\t\tROT TARGET: %f:%f:%f\n", 
-		  masterIterationCount, time,
-		  originPose.rotation[0], originPose.rotation[1], originPose.rotation[2], 
-		  manualPose.rotation[0], manualPose.rotation[1], manualPose.rotation[2],
-		  targetPose.rotation[0], targetPose.rotation[1], targetPose.rotation[2]);
-  return false;
+  //Control velocity
+  for (int i=0; i<3; i++) //For each axis (x,y,z)/(roll,pitch,yaw)
+  {     
+    //Zero velocity when translation position reaches limit
+    if (sign(translationVelocity[i]) > 0)
+    {
+      if (translationPosition[i] + translationVelocity[i]*timeDelta > maxTranslation[i])
+      {
+	translationVelocity[i] = 0;
+	translationPosition[i] = maxTranslation[i];
+      }
+    }
+    else
+    {
+      if (translationPosition[i] + translationVelocity[i]*timeDelta < -maxTranslation[i])
+      {
+	translationVelocity[i] = 0;
+	translationPosition[i] = -maxTranslation[i];
+      }
+    }
+    
+    //Zero velocity when rotation position reaches limit
+    if (sign(rotationVelocity[i]) > 0)
+    {
+      if (rotationPosition[i] + rotationVelocity[i]*timeDelta > maxRotation[i])
+      {
+	rotationVelocity[i] = 0;
+	rotationPosition[i] = maxRotation[i];
+      }
+    }
+    else
+    {
+      if (rotationPosition[i] + rotationVelocity[i]*timeDelta < -maxRotation[i])
+      {
+	rotationVelocity[i] = 0;
+	rotationPosition[i] = -maxRotation[i];
+      }
+    }
+    
+    //Update position
+    manualPose.position[i] = translationPosition[i]+translationVelocity[i]*timeDelta;
+    manualPose.rotation[i+1] = rotationPosition[i]+rotationVelocity[i]*timeDelta;
+  }   
 }
 
 /***********************************************************************************************************************
@@ -742,7 +782,7 @@ void PoseController::impedanceControllerCompensation(double deltaZ[3][2])
   averageDeltaZ /= 6.0;
   
   deltaZPose = Pose::identity();
-  deltaZPose.position[2] = abs(averageDeltaZ) + manualPose.position[2];
+  deltaZPose.position[2] = abs(averageDeltaZ);
 }
 
 /***********************************************************************************************************************

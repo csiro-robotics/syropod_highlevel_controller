@@ -7,9 +7,8 @@
 using namespace Eigen;
 using namespace std;
 
-//#define timeDelta (1.0/50)
-#define DEBUGDRAW
 #define NUM_LEGS 6
+#define DEBUGDRAW
 const double pi = M_PI; //< easier to read
 
 // ifdef because assert(x) is nop on NDEBUG defined, not on 'DEBUG not defined'
@@ -31,12 +30,6 @@ enum State
   PACKED,
   DIRECT,
   UNKNOWN,  
-};
-
-enum TestState
-{
-  TEST_RUNNING,
-  TEST_ENDED,
 };
 
 enum LegSelection
@@ -70,6 +63,12 @@ enum ParamSelection
   VIRTUAL_STIFFNESS,
   VIRTUAL_DAMPING,
   FORCE_GAIN,
+};
+
+enum TestState
+{
+  TEST_RUNNING,
+  TEST_ENDED,
 };
 
 struct Parameters
@@ -124,14 +123,11 @@ struct Parameters
   double rollAmplitude;
   double zTransAmplitude;
   
-  double maxPoseTime;
-  double maxRoll;
-  double maxPitch;
-  double maxYaw;
-  double maxX;
-  double maxY;
-  double maxZ;
-  double minZ;
+  Vector3d maxTranslation;
+  double maxTranslationVelocity;
+  
+  Vector3d maxRotation;
+  double maxRotationVelocity;
   
   Vector3d packedJointPositionsAL;
   Vector3d packedJointPositionsAR;
@@ -255,6 +251,11 @@ inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)
 inline Vector3d minVector(const Vector3d &a, const Vector3d &b)
 {
   return Vector3d(min(a[0], b[0]), min(a[1], b[1]), min(a[2], b[2]));
+}
+
+inline Vector3d absVector(const Vector3d &a)
+{
+  return Vector3d(abs(a[0]), abs(a[1]), abs(a[2]));
 }
 
 inline double minMax(const double val, const double minimum, const double maximum)

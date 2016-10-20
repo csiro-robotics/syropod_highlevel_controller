@@ -409,7 +409,7 @@ void StateController::compensation()
   if (params.manualCompensation)
   {          
     Pose targetPose = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
-    poser->manualCompensation(targetPose, poseTimeJoy/sqrt(params.stepFrequency)); //Updates current pose  
+    poser->manualCompensation(targetPose, poseResetMode); //Updates current pose  
     poser->currentPose = poser->manualPose;
   } 
   
@@ -645,6 +645,8 @@ void StateController::paramAdjust()
     }              
     //Update tip Positions for new parameter value
     double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
+    //Update walking stance based on desired pose
+    poser->updateStance(walker->identityTipPositions, params.autoCompensation && !params.imuCompensation);
     if (poser->stepToPosition(hexapod->stanceTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
     {    
       ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
@@ -1211,51 +1213,28 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 {
   if (state == RUNNING && !toggleLegState)
   {
-    switch (input.data)
+    legSelection = static_cast<LegSelection>(input.data);
+    switch (legSelection)
     {
       case(-1):
         break;
-      case(0):
-        if (legSelection != FRONT_LEFT)
-        {
-          legSelection = FRONT_LEFT;
-          ROS_INFO("Front left leg selected.\n");
-        }
+      case(FRONT_LEFT):
+	ROS_INFO("Front left leg selected.\n");
         break;
-      case(1):
-        if (legSelection != FRONT_RIGHT)
-        {
-          legSelection = FRONT_RIGHT;
-          ROS_INFO("Front right leg selected.\n");
-        }
+      case(FRONT_RIGHT):
+	ROS_INFO("Front right leg selected.\n");
         break;
-      case(2):
-        if (legSelection != MIDDLE_LEFT)
-        {
-          legSelection = MIDDLE_LEFT;
-          ROS_INFO("Middle left leg selected.\n");
-        }
+      case(MIDDLE_LEFT):
+	ROS_INFO("Middle left leg selected.\n");
         break;
-      case(3):
-        if (legSelection != MIDDLE_RIGHT)
-        {
-          legSelection = MIDDLE_RIGHT;
-          ROS_INFO("Middle right leg selected.\n");
-        }
+      case(MIDDLE_RIGHT):
+	ROS_INFO("Middle right leg selected.\n");
         break;
-      case(4):
-        if (legSelection != REAR_LEFT)
-        {
-          legSelection = REAR_LEFT;
-          ROS_INFO("Rear left leg selected.\n");
-        }
+      case(REAR_LEFT):
+	ROS_INFO("Rear left leg selected.\n");
         break;
-      case(5):
-        if (legSelection != REAR_RIGHT)
-        {
-          legSelection = REAR_RIGHT;
-          ROS_INFO("Rear right leg selected.\n");
-        }
+      case(REAR_RIGHT):
+	ROS_INFO("Rear right leg selected.\n");
         break;
       default:
         ROS_WARN("Unknown leg selection requested from control input.\n");
@@ -1270,49 +1249,19 @@ void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
 { 
   linearVelocityInput = Vector2d(twist.linear.x, twist.linear.y);
   angularVelocityInput = twist.angular.x;
-  
-  poseTimeJoy = params.maxPoseTime*(0.5*twist.angular.z+0.5); //Range: maxPoseTime->0.0
 }
 
 /***********************************************************************************************************************
  * Joypad Pose Topic Callback
 ***********************************************************************************************************************/
 void StateController::joypadPoseCallback(const geometry_msgs::Twist &twist)
-{
-  double deadband = 0.1; //%10 deadband
-  
-  double newRollJoy = twist.angular.x*params.maxRoll;
-  double newPitchJoy = twist.angular.y*-params.maxPitch; //??
-  double newYawJoy = twist.angular.z*params.maxYaw;
-  double newXJoy = twist.linear.x*params.maxX;
-  double newYJoy = twist.linear.y*params.maxY;
-  double newZJoy = twist.linear.z >= 0 ? twist.linear.z*params.maxZ : twist.linear.z*params.minZ;
-  
-  //Percentage change is above deadband value
-  if (abs(newRollJoy-rollJoy) > deadband*abs(rollJoy))
-  {
-    rollJoy = newRollJoy;
-  }
-  if (abs(newPitchJoy-pitchJoy) > deadband*abs(pitchJoy))
-  {
-    pitchJoy = newPitchJoy;
-  }
-  if (abs(newYawJoy-yawJoy) > deadband*abs(yawJoy))
-  {
-    yawJoy = newYawJoy;
-  }
-  if (abs(newXJoy-xJoy) > deadband*abs(xJoy))
-  {
-    xJoy = newXJoy;
-  }
-  if (abs(newYJoy-yJoy) > deadband*abs(yJoy))
-  {
-    yJoy = newYJoy;
-  }
-  if (abs(newZJoy-zJoy) > deadband*abs(zJoy))
-  {
-    zJoy = newZJoy; 
-  }
+{  
+  rollJoy = twist.angular.x;;
+  pitchJoy = -twist.angular.y; //Invert joystick
+  yawJoy = twist.angular.z;
+  xJoy = twist.linear.x;
+  yJoy = twist.linear.y;
+  zJoy = twist.linear.z;
 }
 
 /***********************************************************************************************************************
@@ -1321,6 +1270,14 @@ void StateController::joypadPoseCallback(const geometry_msgs::Twist &twist)
 void StateController::startCallback(const std_msgs::Bool &input)
 {
   startFlag = input.data;
+}
+
+/***********************************************************************************************************************
+ * Joypad Pose reset mode Topic Callback
+***********************************************************************************************************************/
+void StateController::poseResetCallback(const std_msgs::Int8 &input)
+{
+  poseResetMode = static_cast<PoseResetMode>(input.data);
 }
 
 /***********************************************************************************************************************
@@ -2136,45 +2093,35 @@ void StateController::getParameters()
   
   //Manual compensation parameters
   paramString = baseParamString+"/pose_controller/manual_pose_compensation/";
-  if (!n.getParam(paramString+"max_pose_time", params.maxPoseTime))
+  std::vector<double> maxTranslation(3);
+  if (!n.getParam(paramString+"max_translation", maxTranslation))
   {
-    ROS_ERROR("Error reading parameter/s (max_pose_time) from rosparam. Check config file is loaded and type is correct\n");
+    ROS_ERROR("Error reading parameter/s (max_translation) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  else
+  {
+    params.maxTranslation = Map<Vector3d>(&maxTranslation[0], 3);
   }
   
-  if (!n.getParam(paramString+"max_roll", params.maxRoll))
+  std::vector<double> maxRotation(3);
+  if (!n.getParam(paramString+"max_rotation", maxRotation))
   {
-    ROS_ERROR("Error reading parameter/s (max_roll) from rosparam. Check config file is loaded and type is correct\n");
+    ROS_ERROR("Error reading parameter/s (max_rotation) from rosparam. Check config file is loaded and type is correct\n");
   }
-  
-  if (!n.getParam(paramString+"max_pitch", params.maxPitch))
+  else
   {
-    ROS_ERROR("Error reading parameter/s (max_pitch) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  if (!n.getParam(paramString+"max_yaw", params.maxYaw))
-  {
-    ROS_ERROR("Error reading parameter/s (max_yaw) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  if (!n.getParam(paramString+"max_x", params.maxX))
-  {
-    ROS_ERROR("Error reading parameter/s (max_x) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  if (!n.getParam(paramString+"max_y", params.maxY))
-  {
-    ROS_ERROR("Error reading parameter/s (max_y) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  if (!n.getParam(paramString+"max_z", params.maxZ))
-  {
-    ROS_ERROR("Error reading parameter/s (max_z) from rosparam. Check config file is loaded and type is correct\n");
+    params.maxRotation = Map<Vector3d>(&maxRotation[0], 3);
   } 
   
-  if (!n.getParam(paramString+"min_z", params.minZ))
+  if(!n.getParam(paramString+"max_translation_velocity", params.maxTranslationVelocity))
   {
-    ROS_ERROR("Error reading parameter/s (min_z) from rosparam. Check config file is loaded and type is correct\n");
-  } 
+    ROS_ERROR("Error reading parameter/s (max_translation_velocity) from rosparam. Check config file is loaded and type is correct\n");  
+  }
+  
+  if(!n.getParam(paramString+"max_rotation_velocity", params.maxRotationVelocity))
+  {
+    ROS_ERROR("Error reading parameter/s (max_rotation_velocity) from rosparam. Check config file is loaded and type is correct\n");  
+  }
   
   /********************************************************************************************************************/
   

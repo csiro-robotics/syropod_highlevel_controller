@@ -84,10 +84,9 @@ struct StateController
   double paramScaler = 1.0;
   double paramAdjustSensitivity;
   
-  //Velocity callback variables
+  //Body Velocity callback variables
   Vector2d linearVelocityInput;
   double angularVelocityInput = 0; 
-  double poseTimeJoy = 2.0;
   
   //Joypad pose callback variables
   double pitchJoy = 0;
@@ -96,6 +95,7 @@ struct StateController
   double xJoy = 0;
   double yJoy = 0;
   double zJoy = 0;  
+  PoseResetMode poseResetMode = NO_RESET;
   
   //Impedance control variables
   double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
@@ -171,4 +171,5 @@ struct StateController
   void paramSelectionCallback(const std_msgs::Int8 &input);
   void paramAdjustCallback(const std_msgs::Int8 &input);
   void startTestCallback(const std_msgs::Bool &input);
+  void poseResetCallback(const std_msgs::Int8 &input);
 };
