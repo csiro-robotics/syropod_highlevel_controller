@@ -20,6 +20,7 @@
 #include "sensor_msgs/JointState.h"
 #include <dynamic_reconfigure/server.h>
 #include "sensor_msgs/Joy.h"
+#include "sensor_msgs/Imu.h"
 
 struct StateController
 {
@@ -68,6 +69,8 @@ struct StateController
   bool toggleLegState = false;
   bool adjustParam = false;
   bool unstable = false;
+  
+  sensor_msgs::Imu imuData;
   
   //Joint states callback variables
   //sensor_msgs::JointState jointStates;

@@ -28,8 +28,6 @@ struct PoseController
   WalkController *walker;
   Parameters params;
   
-  sensor_msgs::Imu imuData;
-  
   double timeDelta;
   bool firstIteration = true;
   int masterIterationCount = 0;
@@ -96,7 +94,7 @@ struct PoseController
   //Compensation functions
   void autoCompensation(void);
   void manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode);
-  void imuCompensation (Quat targetRotation);
-  void inclinationCompensation();
+  void imuCompensation (sensor_msgs::Imu imuData, Quat targetRotation);
+  void inclinationCompensation(sensor_msgs::Imu imuData);
   void impedanceControllerCompensation(double deltaZ[3][2]);
 };

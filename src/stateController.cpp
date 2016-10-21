@@ -146,6 +146,15 @@ void StateController::setJointPositions(bool useDefaults)
 ***********************************************************************************************************************/
 void StateController::loop()
 {
+  //Compensation
+  compensation();
+    
+  //Impedance control
+  if (params.impedanceControl)
+  { 
+    impedanceControl();
+  }
+  
   //Hexapod state machine
   switch (state)
   {
@@ -282,7 +291,7 @@ void StateController::directState()
   {
     int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
     
-    if (poser->stepToPosition(walker->identityTipPositions, deltaZ, mode, 0, params.timeToStart))
+    if (poser->stepToPosition(hexapod->stanceTipPositions, deltaZ, mode, 0, params.timeToStart))
     {
       state = RUNNING;
       ROS_INFO("Startup sequence complete. Ready to walk.\n");
@@ -337,16 +346,7 @@ void StateController::unknownState()
  * Running state
 ***********************************************************************************************************************/
 void StateController::runningState()
-{  
-  //Compensation
-  compensation();
-    
-  //Impedance control
-  if (params.impedanceControl)
-  { 
-    impedanceControl();
-  }
-    
+{     
   //Switch gait
   if (changeGait)
   {
@@ -365,10 +365,7 @@ void StateController::runningState()
     paramAdjust();
   }
   else
-  {  
-    //Update walking stance based on desired pose
-    poser->updateStance(walker->identityTipPositions, params.autoCompensation && !params.imuCompensation);
-    
+  {     
     if (params.testing)
     {    
       if (testState == TEST_RUNNING && (runningTime < params.testTimeLength || params.testTimeLength == 0.0))
@@ -404,7 +401,7 @@ void StateController::runningState()
  * Compensation
 ***********************************************************************************************************************/
 void StateController::compensation()
-{
+{  
   //Manually set (joystick controlled) body compensation 
   if (params.manualCompensation)
   {          
@@ -416,7 +413,7 @@ void StateController::compensation()
   //Compensation to align centre of gravity evenly between tip positions on incline
   if (params.inclinationCompensation)
   {
-    poser->inclinationCompensation();    
+    poser->inclinationCompensation(imuData);    
     poser->currentPose.position += poser->inclinationPose.position;    
   } 
   
@@ -430,7 +427,7 @@ void StateController::compensation()
   //Auto body compensation using IMU feedback
   if (params.imuCompensation)
   {    
-    poser->imuCompensation(poser->manualPose.rotation); 
+    poser->imuCompensation(imuData, poser->manualPose.rotation); 
     poser->currentPose.rotation = poser->imuPose.rotation;  
   } 
   //Automatic (non-feedback) body compensation
@@ -441,6 +438,9 @@ void StateController::compensation()
     poser->currentPose.rotation[1] += poser->autoPoseDefault.rotation[1];
     poser->currentPose.rotation[2] += poser->autoPoseDefault.rotation[2];    
   }    
+  
+  //Update walking stance based on desired pose
+  poser->updateStance(walker->identityTipPositions, params.autoCompensation && !params.imuCompensation);
 }
 
 /***********************************************************************************************************************
@@ -645,8 +645,6 @@ void StateController::paramAdjust()
     }              
     //Update tip Positions for new parameter value
     double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
-    //Update walking stance based on desired pose
-    poser->updateStance(walker->identityTipPositions, params.autoCompensation && !params.imuCompensation);
     if (poser->stepToPosition(hexapod->stanceTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
     {    
       ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
@@ -873,10 +871,10 @@ void StateController::publishIMURotation()
   Quat orientation;
   
   //Get orientation data from IMU
-  orientation.w = poser->imuData.orientation.w;
-  orientation.x = poser->imuData.orientation.x;
-  orientation.y = poser->imuData.orientation.y;
-  orientation.z = poser->imuData.orientation.z;
+  orientation.w = imuData.orientation.w;
+  orientation.x = imuData.orientation.x;
+  orientation.y = imuData.orientation.y;
+  orientation.z = imuData.orientation.z;
   
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
@@ -1213,27 +1211,32 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 {
   if (state == RUNNING && !toggleLegState)
   {
-    legSelection = static_cast<LegSelection>(input.data);
-    switch (legSelection)
+    switch (int(input.data))
     {
       case(-1):
         break;
       case(FRONT_LEFT):
+	legSelection = FRONT_LEFT;
 	ROS_INFO("Front left leg selected.\n");
         break;
       case(FRONT_RIGHT):
+	legSelection = FRONT_RIGHT;
 	ROS_INFO("Front right leg selected.\n");
         break;
       case(MIDDLE_LEFT):
+	legSelection = MIDDLE_LEFT;
 	ROS_INFO("Middle left leg selected.\n");
         break;
       case(MIDDLE_RIGHT):
+	legSelection = MIDDLE_RIGHT;
 	ROS_INFO("Middle right leg selected.\n");
         break;
       case(REAR_LEFT):
+	legSelection = REAR_LEFT;
 	ROS_INFO("Rear left leg selected.\n");
         break;
       case(REAR_RIGHT):
+	legSelection = REAR_RIGHT;
 	ROS_INFO("Rear right leg selected.\n");
         break;
       default:
@@ -1322,9 +1325,9 @@ void StateController::startTestCallback(const std_msgs::Bool &input)
 /***********************************************************************************************************************
  * IMU data callback
 ***********************************************************************************************************************/
-void StateController::imuCallback(const sensor_msgs::Imu &imuData)
+void StateController::imuCallback(const sensor_msgs::Imu &data)
 {
-    poser->imuData = imuData;
+  imuData = data;
 }
 
 /***********************************************************************************************************************

@@ -46,6 +46,7 @@ int main(int argc, char* argv[])
   ros::Subscriber paramAdjustmentSubscriber = n.subscribe("hexapod_remote/param_adjust", 1, &StateController::paramAdjustCallback, &state);
   ros::Subscriber startTestSubscriber = n.subscribe("hexapod_remote/test_state_toggle", 1, &StateController::startTestCallback, &state);
   ros::Subscriber poseResetSubscriber = n.subscribe("hexapod_remote/pose_reset_mode", 1, &StateController::poseResetCallback, &state);
+  ros::Subscriber imuDataSubscriber = n.subscribe("ig/imu/data", 1, &StateController::imuCallback, &state);
   
   
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, &StateController::startCallback, &state);
@@ -183,8 +184,6 @@ int main(int argc, char* argv[])
   
   //Initiate state controller
   state.init();  
-  
-  ros::Subscriber imuSubscriber = n.subscribe("/ig/imu/data", 1, &StateController::imuCallback, &state);
   
   //Enter ros loop
   while (ros::ok())

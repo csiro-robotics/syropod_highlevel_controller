@@ -198,11 +198,14 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
         }    
         
-        ROS_DEBUG_COND(params.debugStepToPosition, "STEP_TO_POSITION DEBUG - LEG: %d:%d\t\tMASTER ITERATION: %d\t\tORIGIN: %f:%f:%f\t\tCURRENT: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
+        if (s==0 && l==0)
+	{
+	  ROS_DEBUG_COND(params.debugStepToPosition, "STEP_TO_POSITION DEBUG - LEG: %d:%d\t\tMASTER ITERATION: %d\t\tORIGIN: %f:%f:%f\t\tCURRENT: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
 		  l, s, masterIterationCount, 
 		  originTipPositions[l][s][0], originTipPositions[l][s][1], originTipPositions[l][s][2], 
 		  pos[0], pos[1], pos[2],
 		  targetTipPositions[l][s][0], targetTipPositions[l][s][1], targetTipPositions[l][s][2]);  
+	}
 	
       }
       else
@@ -647,7 +650,7 @@ void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode po
 /***********************************************************************************************************************
  * Returns roll and pitch rotation values to compensate for roll/pitch of IMU and keep body at target rotation
 ***********************************************************************************************************************/
-void PoseController::imuCompensation(Quat targetRotation)
+void PoseController::imuCompensation(sensor_msgs::Imu imuData, Quat targetRotation)
 {
   //ROTATION COMPENSATION
   Quat orientation; 		//IMU Orientation
@@ -746,7 +749,7 @@ void PoseController::imuCompensation(Quat targetRotation)
 /***********************************************************************************************************************
  * Returns roll and pitch rotation values to compensate for roll/pitch of IMU and keep body at target rotation
 ***********************************************************************************************************************/
-void PoseController::inclinationCompensation()
+void PoseController::inclinationCompensation(sensor_msgs::Imu imuData)
 {
   Quat orientation;
   
@@ -761,9 +764,8 @@ void PoseController::inclinationCompensation()
   double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
   double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
   
-  inclinationPose = Pose::identity();    
-  inclinationPose.position[0] = lateralCorrection;
-  inclinationPose.position[1] = longitudinalCorrection;  
+  inclinationPose.position[0] = lateralCorrection*min(1.0, params.maxTranslation[0]/abs(lateralCorrection));
+  inclinationPose.position[1] = longitudinalCorrection*min(1.0, params.maxTranslation[1]/abs(longitudinalCorrection));
 }
 
 /***********************************************************************************************************************
