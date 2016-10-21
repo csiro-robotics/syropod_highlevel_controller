@@ -6,5 +6,7 @@
         <node name="rviz" pkg="rviz" type="rviz" args="-d $(find simple_hexapod_controller)/rviz_cfg/hexapod.rviz"/>
         
         <param name="/hexapod/debug_parameters/debug_rviz" value="true"/>
+        <param name="/hexapod/parameters/imu_compensation" value="false"/>
+        <param name="/hexapod/parameters/inclination_compensation" value="false"/>
 </launch>
 

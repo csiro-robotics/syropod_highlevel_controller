@@ -437,7 +437,14 @@ void StateController::compensation()
     poser->currentPose.position += poser->autoPoseDefault.position;
     poser->currentPose.rotation[1] += poser->autoPoseDefault.rotation[1];
     poser->currentPose.rotation[2] += poser->autoPoseDefault.rotation[2];    
-  }    
+  }
+  
+  //Limit posing to min/max values
+  for (int i=0; i<3; i++)
+  {
+    poser->currentPose.position[i] = clamped(poser->currentPose.position[i], -params.maxTranslation[i], params.maxTranslation[i]);
+    poser->currentPose.rotation[i+1] = clamped(poser->currentPose.rotation[i+1], -params.maxRotation[i], params.maxRotation[i]);    
+  }
   
   //Update walking stance based on desired pose
   poser->updateStance(walker->identityTipPositions, params.autoCompensation && !params.imuCompensation);

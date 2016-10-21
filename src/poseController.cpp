@@ -764,8 +764,9 @@ void PoseController::inclinationCompensation(sensor_msgs::Imu imuData)
   double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
   double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
   
-  inclinationPose.position[0] = lateralCorrection*min(1.0, params.maxTranslation[0]/abs(lateralCorrection));
-  inclinationPose.position[1] = longitudinalCorrection*min(1.0, params.maxTranslation[1]/abs(longitudinalCorrection));
+  inclinationPose = Pose::identity();
+  inclinationPose.position[0] = lateralCorrection;
+  inclinationPose.position[1] = longitudinalCorrection;
 }
 
 /***********************************************************************************************************************
