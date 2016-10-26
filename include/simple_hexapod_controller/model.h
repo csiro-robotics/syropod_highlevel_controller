@@ -32,14 +32,13 @@ struct Leg
   Vector3d tipOffset;
   
   Vector3d localTipPosition; //actual tip position relative to root
-  Vector3d stanceTipPosition;//default tip position at rest relative to root
 
   void init(double startYaw, double startLiftAngle, double startKneeAngle);
   // sets angles to reach local position relative to root
-  Vector3d applyLocalIK(Vector3d tipTarget, bool updateStance = false);
+  Vector3d applyLocalIK(Vector3d tipTarget);
   void applyWorldIK(const Pose &rootPose, const Vector3d &worldTipTarget){ applyLocalIK(rootPose.inverseTransformVector(worldTipTarget)); }
   // works out local tip position from angles
-  Vector3d applyFK(bool updateStance = false);
+  Vector3d applyFK();
   Vector3d calculateFK(double yaw, double liftAngle, double kneeAngle);
   
   double hipLength;
@@ -73,4 +72,5 @@ struct Model
   void setLegStartAngles(int side, int leg, const Vector3d &startAngles);
   vector<Vector3d> getJointPositions(const Pose &pose);
   void clampToLimits();
+  void updateLocal(Vector3d targetTipPositions[3][2], double deltaZ[3][2]);
 };

@@ -7,4 +7,5 @@
 	
 	<param name="/hexapod/parameters/physical_knee_offset" value="0.0"/>
 	<!--param name="/hexapod/parameters/impedance_controller/impedance_control" value="false"/-->
+	<param name="/hexapod/parameters/impedance_controller/force_gain" value="0.1"/>
 </launch>

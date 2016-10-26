@@ -42,8 +42,7 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
     {
       if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
       {
-        model->legs[l][s].stanceTipPosition = currentPose.inverseTransformVector(targetTipPositions[l][s]);
-        model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition;  
+        tipPositions[l][s] = currentPose.inverseTransformVector(targetTipPositions[l][s]);  
       }
       else
       {
@@ -53,8 +52,7 @@ bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
 	swingAutoComp.rotation[1] -= (autoPoseDefault.rotation[1] - autoPose[l][s].rotation[1]);
 	swingAutoComp.rotation[2] -= (autoPoseDefault.rotation[2] - autoPose[l][s].rotation[2]);
 	
-	model->legs[l][s].stanceTipPosition = swingAutoComp.inverseTransformVector(targetTipPositions[l][s]);
-        model->stanceTipPositions[l][s] = model->legs[l][s].stanceTipPosition; 
+	tipPositions[l][s] = swingAutoComp.inverseTransformVector(targetTipPositions[l][s]); 
       }
     }
   }
@@ -79,11 +77,12 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
       for (int s = 0; s<2; s++)
       {
         originTipPositions[l][s] = model->legs[l][s].localTipPosition;
-	originTipPositions[l][s][2] += deltaZ[l][s];
-        midTipPositions[l][s] = 0.5*(targetTipPositions[l][s] + originTipPositions[l][s]);
+	originTipPositions[l][s][2] += deltaZ[l][s]; //Remove deltaZ offset temporarily
+	midTipPositions[l][s] = 0.5*(targetTipPositions[l][s] + originTipPositions[l][s]);
+	hasStepped[l][s] = false;
       } 
     }  
-  } 
+  }   
   
   if (mode == NO_STEP_MODE)
   {
@@ -131,7 +130,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
-    {   
+    {      
       //Determine if leg is to be moved this iteration based on mode      
       int currentLegInSequence = -1;
       int currentSideInSequence = -1;
@@ -153,6 +152,8 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
         currentLegInSequence = (int((double(masterIterationCount-1)/double(numIterations))*3));
         currentSideInSequence = ((masterIterationCount-1)/int(numIterations/timeLimit))%2;
       }
+      
+      int halfSwingIteration = (numIterations/int(timeLimit))/2;
      
       //Update leg tip position
       if (currentLegInSequence == l && currentSideInSequence == s)
@@ -188,7 +189,6 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
         controlNodesSecondary[2] = controlNodesSecondary[3];
         
         //Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
-        int halfSwingIteration = (numIterations/int(timeLimit))/2;
         if (swingIterationCount <= halfSwingIteration)
         {
           pos = cubicBezier(controlNodesPrimary, swingIterationCount*deltaT*2.0);          
@@ -196,9 +196,14 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
         else
         {
           pos = cubicBezier(controlNodesSecondary, (swingIterationCount-halfSwingIteration)*deltaT*2.0);
-        }    
+        } 
         
-        if (s==0 && l==0)
+        if (swingIterationCount == numIterations/int(timeLimit))
+	{
+	  hasStepped[l][s] = true;
+	}
+        
+        if ((s==0 && l==0) || (s==1 && l==0))
 	{
 	  ROS_DEBUG_COND(params.debugStepToPosition, "STEP_TO_POSITION DEBUG - LEG: %d:%d\t\tMASTER ITERATION: %d\t\tORIGIN: %f:%f:%f\t\tCURRENT: %f:%f:%f\t\tTARGET: %f:%f:%f\n", 
 		  l, s, masterIterationCount, 
@@ -210,15 +215,21 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
       }
       else
       {
-	//pos = model->stanceTipPositions[l][s];
-	pos = model->localTipPositions[l][s];
+	if (!hasStepped[l][s])
+	{
+	  pos = originTipPositions[l][s];
+	}
+	else
+	{
+	  pos = targetTipPositions[l][s];
+	}
       }
       
       //Apply inverse kinematics to localTipPositions and stanceTipPositions
       if (model->legs[l][s].state != OFF)
       {
 	Vector3d adjustedPos = pos;
-	adjustedPos[2] -= deltaZ[l][s]; //Impedance controller
+	adjustedPos[2] -= deltaZ[l][s]; //Re-apply deltaZ offset
 	model->legs[l][s].applyLocalIK(adjustedPos); 
       }
     }

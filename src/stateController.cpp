@@ -7,15 +7,15 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
 {  
   //Get parameters from parameter server
   getParameters();
-  defaultParams = params;
+  defaultParams = params; //Store original params as a default
     
   //Initiate model and imu objects
   hexapod = new Model(params); 
   
-  //Populate joint position array with excessive value
+  //Populate joint position arrays
   for (int i=0; i<18; i++)
   {
-    jointPositions[i] = 1e10;
+    jointPositions[i] = 1e10; //Excessive to make obvious when real values are read from subscribed topic
     jointVelocities[i] = 0.0;
     jointEfforts[i] = 0.0;
     if (i < 6)
@@ -146,10 +146,10 @@ void StateController::setJointPositions(bool useDefaults)
 ***********************************************************************************************************************/
 void StateController::loop()
 {
-  //Compensation
+  //Compensation - updates currentPose for body compensation
   compensation();
     
-  //Impedance control
+  //Impedance control - updates deltaZ values
   if (params.impedanceControl)
   { 
     impedanceControl();
@@ -235,7 +235,8 @@ void StateController::unpackState()
 void StateController::startUpState()
 {
   //Run through start up sequence (stepping to defined positions) and then transition to next state
-  if (poser->startUpSequence(walker->identityTipPositions, params.moveLegsSequentially))
+  poser->updateStance(walker->identityTipPositions);
+  if (poser->startUpSequence(poser->tipPositions, params.moveLegsSequentially))
   {    
     state = RUNNING;
     ROS_INFO("Startup sequence complete. Ready to walk.\n");
@@ -248,7 +249,8 @@ void StateController::startUpState()
 void StateController::shutDownState()
 {
   //Run through shut down sequence (stepping to defined positions) and then transition to next state
-  if (poser->shutDownSequence(walker->identityTipPositions, params.moveLegsSequentially))
+  poser->updateStance(walker->identityTipPositions);
+  if (poser->shutDownSequence(poser->tipPositions, params.moveLegsSequentially))
   {
     state = PACK;
     ROS_INFO("Shutdown sequence complete. Packing hexapod . . .\n");
@@ -290,8 +292,8 @@ void StateController::directState()
   if (startFlag)
   {
     int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
-    
-    if (poser->stepToPosition(hexapod->stanceTipPositions, deltaZ, mode, 0, params.timeToStart))
+    poser->updateStance(walker->identityTipPositions);
+    if (poser->stepToPosition(poser->tipPositions, deltaZ, mode, 0, params.timeToStart))
     {
       state = RUNNING;
       ROS_INFO("Startup sequence complete. Ready to walk.\n");
@@ -347,48 +349,55 @@ void StateController::unknownState()
 ***********************************************************************************************************************/
 void StateController::runningState()
 {     
-  //Switch gait
+  //Switch gait and update walker parameters
   if (changeGait)
   {
     gaitChange();
   }        
             
-  //Leg Selection for toggling state          
+  //Toggle state of leg and transition between states        
   if (toggleLegState)
   {
     legStateToggle();
   }
+      
+  //Debugging test control
+  if (params.testing)
+  {    
+    if (testState == TEST_RUNNING && (runningTime < params.testTimeLength || params.testTimeLength == 0.0))
+    {
+      ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength > 0.0, "Test started. Will finish automatically in %f seconds. Press X to stop test early.\n", params.testTimeLength);
+      ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength == 0.0, "Test started. No time limit. Press X to stop test.\n");
+      runningTime += params.timeDelta;
+      linearVelocityInput = params.testLinearVelocity;
+      angularVelocityInput = params.testAngularVelocity;
+    }
+    else
+    {
+      ROS_DEBUG_COND(testState == TEST_RUNNING, "Test ended as scheduled.\n");
+      ROS_DEBUG_COND(runningTime > 0.0, "Test ended manually.\n");
+      runningTime = 0.0;
+      testState = TEST_ENDED;
+    }
+  } 
   
-  //Dynamic Parameter Adjustment
+  //Update tip positions in each controller OR dynamically adjust parameter if requested
   if (adjustParam)
   {
     paramAdjust();
   }
   else
-  {     
-    if (params.testing)
-    {    
-      if (testState == TEST_RUNNING && (runningTime < params.testTimeLength || params.testTimeLength == 0.0))
-      {
-	ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength > 0.0, "Test started. Will finish automatically in %f seconds. Press X to stop test early.\n", params.testTimeLength);
-	ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength == 0.0, "Test started. No time limit. Press X to stop test.\n");
-	runningTime += params.timeDelta;
-	linearVelocityInput = params.testLinearVelocity;
-	angularVelocityInput = params.testAngularVelocity;
-      }
-      else
-      {
-	ROS_DEBUG_COND(testState == TEST_RUNNING, "Test ended as scheduled.\n");
-	ROS_DEBUG_COND(runningTime > 0.0, "Test ended manually.\n");
-	runningTime = 0.0;
-	testState = TEST_ENDED;
-      }
-    }
-     
+  {
     //Update Walker 
-    walker->updateWalk(linearVelocityInput, angularVelocityInput, deltaZ); 
-  }
+    walker->updateWalk(linearVelocityInput, angularVelocityInput, deltaZ);   
+      
+    //Pose controller takes current tip positions from walking cycle and applies pose compensation
+    poser->updateStance(walker->tipPositions, params.autoCompensation && !params.imuCompensation);
   
+    //Model uses stance tip positions and adds deltaZ from impedance controller and applies inverse kinematics on each leg
+    hexapod->updateLocal(poser->tipPositions, deltaZ);
+  }
+    
   //Check for shutdown cue
   if (!startFlag && params.startUpSequence)
   {
@@ -442,12 +451,9 @@ void StateController::compensation()
   //Limit posing to min/max values
   for (int i=0; i<3; i++)
   {
-    poser->currentPose.position[i] = clamped(poser->currentPose.position[i], -params.maxTranslation[i], params.maxTranslation[i]);
+    poser->currentPose.position[i] = clamped(poser->currentPose.position[i]-poser->deltaZPose.position[i], -params.maxTranslation[i], params.maxTranslation[i])+poser->deltaZPose.position[i];
     poser->currentPose.rotation[i+1] = clamped(poser->currentPose.rotation[i+1], -params.maxRotation[i], params.maxRotation[i]);    
   }
-  
-  //Update walking stance based on desired pose
-  poser->updateStance(walker->identityTipPositions, params.autoCompensation && !params.imuCompensation);
 }
 
 /***********************************************************************************************************************
@@ -652,7 +658,8 @@ void StateController::paramAdjust()
     }              
     //Update tip Positions for new parameter value
     double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
-    if (poser->stepToPosition(hexapod->stanceTipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
+    poser->updateStance(walker->identityTipPositions);
+    if (poser->stepToPosition(poser->tipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
     {    
       ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
       adjustParam = false;
@@ -690,8 +697,6 @@ void StateController::gaitChange()
         break;
     }   
     walker->setGaitParams(params);
-    poser->params = params;
-    impedance->params = params;
     ROS_INFO("Now using %s mode.\n", params.gaitType.c_str());
     changeGait = false;
   }
@@ -722,7 +727,7 @@ void StateController::legStateToggle()
     {
       Vector3d targetTipPositions[3][2] = hexapod->localTipPositions;
       double stepHeight = walker->stepClearance*walker->maximumBodyHeight;
-      targetTipPositions[l][s][2] = hexapod->stanceTipPositions[l][s][2] + stepHeight;
+      targetTipPositions[l][s][2] = poser->tipPositions[l][s][2] + stepHeight;
       if (poser->stepToPosition(targetTipPositions, deltaZ, NO_STEP_MODE, 0.0, 1.0/params.stepFrequency))
       {
 	toggleLegState = false;
@@ -733,7 +738,7 @@ void StateController::legStateToggle()
     else if (hexapod->legs[l][s].state == OFF_TO_WALKING)
     {
       Vector3d targetTipPositions[3][2] = hexapod->localTipPositions;
-      targetTipPositions[l][s][2] = hexapod->stanceTipPositions[l][s][2];
+      targetTipPositions[l][s][2] = poser->tipPositions[l][s][2];
       if (poser->stepToPosition(targetTipPositions, deltaZ, NO_STEP_MODE, 0.0, 1.0/params.stepFrequency))
       {
 	toggleLegState = false;
@@ -755,9 +760,9 @@ void StateController::publishLocalTipPositions()
     for (int s = 0; s<2; s++)
     {            
       msg.data.clear();
-      msg.data.push_back(hexapod->legs[l][s].localTipPosition[0]);
-      msg.data.push_back(hexapod->legs[l][s].localTipPosition[1]);
-      msg.data.push_back(hexapod->legs[l][s].localTipPosition[2]);
+      msg.data.push_back(hexapod->localTipPositions[l][s][0]);
+      msg.data.push_back(hexapod->localTipPositions[l][s][1]);
+      msg.data.push_back(hexapod->localTipPositions[l][s][2]);
       localTipPositionPublishers[l][s].publish(msg);
     }
   }
@@ -774,9 +779,9 @@ void StateController::publishWalkerTipPositions()
     for (int s = 0; s<2; s++)
     {            
       msg.data.clear();
-      msg.data.push_back(walker->legSteppers[l][s].currentTipPosition[0]);
-      msg.data.push_back(walker->legSteppers[l][s].currentTipPosition[1]);
-      msg.data.push_back(walker->legSteppers[l][s].currentTipPosition[2]);
+      msg.data.push_back(walker->tipPositions[l][s][0]);
+      msg.data.push_back(walker->tipPositions[l][s][1]);
+      msg.data.push_back(walker->tipPositions[l][s][2]);
       walkerTipPositionPublishers[l][s].publish(msg);
     }
   }
@@ -793,9 +798,9 @@ void StateController::publishStanceTipPositions()
     for (int s = 0; s<2; s++)
     {            
       msg.data.clear();
-      msg.data.push_back(hexapod->legs[l][s].stanceTipPosition[0]);
-      msg.data.push_back(hexapod->legs[l][s].stanceTipPosition[1]);
-      msg.data.push_back(hexapod->legs[l][s].stanceTipPosition[2]);
+      msg.data.push_back(poser->tipPositions[l][s][0]);
+      msg.data.push_back(poser->tipPositions[l][s][1]);
+      msg.data.push_back(poser->tipPositions[l][s][2]);
       stanceTipPositionPublishers[l][s].publish(msg);
     }
   }

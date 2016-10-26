@@ -1,7 +1,7 @@
 #pragma once
-#include <ros/ros.h>
 #include "standardIncludes.h"
 #include "pose.h"
+#include <ros/ros.h>
 
 class DebugOutput 
 {

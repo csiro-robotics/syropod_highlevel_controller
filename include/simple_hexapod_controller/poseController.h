@@ -34,8 +34,11 @@ struct PoseController
   
   double moveToPoseTime = 0.0;
   
+  Vector3d tipPositions[3][2];
+  
   Vector3d originTipPositions[3][2];
   Vector3d midTipPositions[3][2];
+  bool hasStepped[3][2];
   
   Vector3d originJointPositions[3][2];
   

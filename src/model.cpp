@@ -18,13 +18,13 @@ void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
     2.0*femurLength*tibiaLength*cos(max(0.0, pi-model->minMaxKneeBend[1]))); 
   maxLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 
     2.0*femurLength*tibiaLength*cos(pi-max(0.0, model->minMaxKneeBend[0]))); 
-  applyFK(true);
+  applyFK();
 }
 
 /***********************************************************************************************************************
  * Applies inverse kinematics to achieve target tip position
 ***********************************************************************************************************************/
-Vector3d Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
+Vector3d Leg::applyLocalIK(Vector3d tipTarget)
 {
   // application of cosine rule
   Vector3d target = tipTarget;
@@ -49,7 +49,7 @@ Vector3d Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
   ASSERT(abs(liftAngle) < 7.0);
   ASSERT(abs(kneeAngle) < 7.0); 
   
-  Vector3d resultTipPosition = applyFK(updateStance);
+  Vector3d resultTipPosition = applyFK();
  
   //Debugging Error Check: Any error occurs due to an imperfect vector rotation algorithm 
   Vector3d diffVec = resultTipPosition - tipTarget;  
@@ -66,15 +66,10 @@ Vector3d Leg::applyLocalIK(Vector3d tipTarget, bool updateStance)
 /***********************************************************************************************************************
  * Applies forward kinematics
 ***********************************************************************************************************************/
-Vector3d Leg::applyFK(bool updateStance)
+Vector3d Leg::applyFK()
 {
   localTipPosition = calculateFK(yaw, liftAngle, kneeAngle);
   model->localTipPositions[legIndex][sideIndex] = localTipPosition;
-  if (updateStance)
-  {
-    stanceTipPosition = localTipPosition;
-    model->stanceTipPositions[legIndex][sideIndex] = stanceTipPosition;
-  }
   return localTipPosition;
 }
 
@@ -128,6 +123,25 @@ Model::Model(Parameters params) :
 void Model::setLegStartAngles(int side, int leg, const Vector3d &startAngles)
 {
   legs[leg][side].init(startAngles[0], startAngles[1], startAngles[2]);
+}
+
+/***********************************************************************************************************************
+ * Applies inverse kinematics for target tip positions of legs (not in OFF state) along with deltaZ from impedance cont.
+***********************************************************************************************************************/
+void Model::updateLocal(Vector3d targetTipPositions[3][2], double deltaZ[3][2])
+{
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {
+      if (legs[l][s].state != OFF)
+      {
+	Vector3d adjustedPos = targetTipPositions[l][s];
+	adjustedPos[2] = targetTipPositions[l][s][2] - deltaZ[l][s];
+	legs[l][s].applyLocalIK(adjustedPos);
+      }
+    }
+  }  
 }
 
 /***********************************************************************************************************************

@@ -589,9 +589,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
 	  legStepper.updatePosition(); //updates current tip position through step cycle
 	}
 	
-        Vector3d adjustedPosition = legStepper.currentTipPosition + (leg.stanceTipPosition - legStepper.defaultTipPosition); //Pose adjustment
-        adjustedPosition[2] -= deltaZ[l][s];	//Impedance controller adjustment
-        leg.applyLocalIK(adjustedPosition); 
+	tipPositions[l][s] = legStepper.currentTipPosition;
       }
     }
   }  

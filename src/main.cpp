@@ -1,4 +1,5 @@
 #include "../include/simple_hexapod_controller/stateController.h"
+#include <ros/ros.h>
 
 /***********************************************************************************************************************
  * Main
@@ -38,6 +39,7 @@ int main(int argc, char* argv[])
    ros::console::notifyLoggerLevelsChanged();
   }
   
+  //Hexapod Remote topic subscriptions
   ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, &StateController::joypadVelocityCallback, &state);
   ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, &StateController::joypadPoseCallback, &state);
   ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, &StateController::legSelectionCallback, &state);
@@ -45,20 +47,17 @@ int main(int argc, char* argv[])
   ros::Subscriber paramSelectionSubscriber = n.subscribe("hexapod_remote/param_selection", 1, &StateController::paramSelectionCallback, &state);
   ros::Subscriber paramAdjustmentSubscriber = n.subscribe("hexapod_remote/param_adjust", 1, &StateController::paramAdjustCallback, &state);
   ros::Subscriber startTestSubscriber = n.subscribe("hexapod_remote/test_state_toggle", 1, &StateController::startTestCallback, &state);
-  ros::Subscriber poseResetSubscriber = n.subscribe("hexapod_remote/pose_reset_mode", 1, &StateController::poseResetCallback, &state);
-  ros::Subscriber imuDataSubscriber = n.subscribe("ig/imu/data", 1, &StateController::imuCallback, &state);
-  
-  
+  ros::Subscriber poseResetSubscriber = n.subscribe("hexapod_remote/pose_reset_mode", 1, &StateController::poseResetCallback, &state);  
   ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, &StateController::startCallback, &state);
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, &StateController::gaitSelectionCallback, &state);
+  
+  //Motor and other sensor topic subscriptions
+  ros::Subscriber imuDataSubscriber = n.subscribe("ig/imu/data", 1, &StateController::imuCallback, &state);  
   ros::Subscriber tipForceSubscriber = n.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, &state);
-  ros::Subscriber jointStatesSubscriber1;
-  ros::Subscriber jointStatesSubscriber2;
+  ros::Subscriber jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1000, &StateController::jointStatesCallback, &state);;
+  ros::Subscriber jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, &state); ;
   
-  //Attempt to subscribe to one of two possible joint state topics
-  jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1000, &StateController::jointStatesCallback, &state);
-  jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, &state); 
-  
+  //Debugging publishers
   state.localTipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions/local", 1000);
   state.localTipPositionPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions/local", 1000);
   state.localTipPositionPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions/local", 1000);
@@ -157,11 +156,11 @@ int main(int argc, char* argv[])
       r.sleep();
     }      
     state.toggleLegState = false;
-    state.setJointPositions(true);
+    state.setJointPositions(true); //Default joint positions used
   }
   else
   {
-    state.setJointPositions(false);
+    state.setJointPositions(false); //Found joint positions used
   }
   
   //Check force data is available for impedanceControl
@@ -188,6 +187,7 @@ int main(int argc, char* argv[])
   //Enter ros loop
   while (ros::ok())
   {    
+    //Controller shutdown command
     if (!state.params.startUpSequence && !state.startFlag)
     {
       ROS_INFO("Received shutdown order - shutting down the controller!\n");
@@ -225,8 +225,7 @@ int main(int argc, char* argv[])
     r.sleep();
 
     state.debug.reset();
-  }
-  
+  }  
   return 0;
 }
 

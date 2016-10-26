@@ -30,6 +30,8 @@ struct WalkController
   
   RobotState state = STOPPED;
   
+  Vector3d tipPositions[3][2];
+  
   double timeDelta;
   
   //Walk parameters
@@ -43,9 +45,6 @@ struct WalkController
   int swingStart;
   int swingEnd;     
   int stanceStart;
-  
-  std::vector<int> legSelectionPattern;
-  std::vector<int> sideSelectionPattern;
   
   Vector3d footSpreadDistances;
   double minFootprintRadius;
