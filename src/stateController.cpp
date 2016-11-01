@@ -1272,7 +1272,7 @@ void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
 void StateController::joypadPoseCallback(const geometry_msgs::Twist &twist)
 {  
   rollJoy = twist.angular.x;;
-  pitchJoy = -twist.angular.y; //Invert joystick
+  pitchJoy = twist.angular.y;
   yawJoy = twist.angular.z;
   xJoy = twist.linear.x;
   yJoy = twist.linear.y;
