@@ -17,10 +17,12 @@
 #include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/Vector3.h"
+#include "geometry_msgs/Point.h"
 #include "sensor_msgs/JointState.h"
 #include <dynamic_reconfigure/server.h>
 #include "sensor_msgs/Joy.h"
 #include "sensor_msgs/Imu.h"
+#include "simple_hexapod_controller/legState.h"
 
 struct StateController
 {
@@ -50,19 +52,15 @@ struct StateController
   DebugOutput debug;
   int count = 0;
   
-  ros::Publisher localTipPositionPublishers[3][2];
-  ros::Publisher walkerTipPositionPublishers[3][2];
-  ros::Publisher stanceTipPositionPublishers[3][2];
-  ros::Publisher walkerTipVelocityPublishers[3][2];
-  ros::Publisher tipForcePublisher;
-  ros::Publisher deltaZPublisher;
+  ros::Publisher legStatePublishers[3][2];
+
   ros::Publisher posePublisher;
   ros::Publisher IMURotationPublisher;
-  ros::Publisher stiffnessPublisher;
+  ros::Publisher bodyVelocityPublisher;
+
   ros::Publisher rotationPoseErrorPublisher;  
   ros::Publisher translationPoseErrorPublisher; 
-  ros::Publisher zTipErrorPublisher;
-  ros::Publisher bodyVelocityPublisher;
+  ros::Publisher zTipErrorPublisher;  
   
   //Trigger Flags
   bool changeGait = false;
@@ -128,19 +126,16 @@ struct StateController
   
   //Debugging functions
   void RVIZDebugging();
-  void publishLocalTipPositions();
-  void publishWalkerTipPositions();
-  void publishStanceTipPositions();
-  void publishWalkerTipVelocities();
-  void publishTipForces();
-  void publishDeltaZ();
+  void publishLegState();
+
   void publishPose();
   void publishIMURotation();
-  void publishStiffness();
+  void publishBodyVelocity();
+
   void publishRotationPoseError();
   void publishTranslationPoseError();
   void publishZTipError();
-  void publishBodyVelocity();
+  
   
   //Loop and state functions
   void loop();

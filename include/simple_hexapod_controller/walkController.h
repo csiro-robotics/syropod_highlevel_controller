@@ -67,6 +67,9 @@ struct WalkController
     int phase;
     int phaseOffset;
     
+    double swingProgress;
+    double stanceProgress;
+    
     StepState state = STANCE;
     
     Vector3d swing1ControlNodes[5];	//Primary swing bezier curve
@@ -91,6 +94,8 @@ struct WalkController
 
     void generateSwingControlNodes(Vector3d strideVector);
     void generateStanceControlNodes(Vector3d strideVector);
+    
+    void iteratePhase();
     
     double calculateDeltaT(StepState state, int length);
     

@@ -750,113 +750,53 @@ void StateController::legStateToggle()
 }
 
 /***********************************************************************************************************************
- * Publishes local tip positions for debugging
+ * Publishes various state variables for each leg
 ***********************************************************************************************************************/
-void StateController::publishLocalTipPositions()
+void StateController::publishLegState()
 {
-  std_msgs::Float32MultiArray msg;
+  simple_hexapod_controller::legState msg ;
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {            
-      msg.data.clear();
-      msg.data.push_back(hexapod->localTipPositions[l][s][0]);
-      msg.data.push_back(hexapod->localTipPositions[l][s][1]);
-      msg.data.push_back(hexapod->localTipPositions[l][s][2]);
-      localTipPositionPublishers[l][s].publish(msg);
+      msg.leg_name.data = "place_holder";
+      
+      //Tip positions
+      msg.local_tip_position.x = hexapod->localTipPositions[l][s][0];
+      msg.local_tip_position.y = hexapod->localTipPositions[l][s][1];
+      msg.local_tip_position.z = hexapod->localTipPositions[l][s][2];
+      msg.poser_tip_positions.x = poser->tipPositions[l][s][0];
+      msg.poser_tip_positions.y = poser->tipPositions[l][s][1];
+      msg.poser_tip_positions.z = poser->tipPositions[l][s][2];
+      msg.walker_tip_positions.x = walker->tipPositions[l][s][0];
+      msg.walker_tip_positions.y = walker->tipPositions[l][s][1];
+      msg.walker_tip_positions.z = walker->tipPositions[l][s][2];
+      
+      //Step progress
+      msg.swing_progress.data = walker->legSteppers[l][s].swingProgress;
+      msg.stance_progress.data = walker->legSteppers[l][s].stanceProgress;
+      
+      //Impedance controller
+      msg.tip_force.data = tipForce[l][s];
+      msg.delta_z.data = deltaZ[l][s];
+      msg.virtual_stiffness.data = impedance->virtualStiffness[l][s];
+      
+      legStatePublishers[l][s].publish(msg);
     }
   }
 }
 
 /***********************************************************************************************************************
- * Publishes tip positions (before any adjustments from pose or impedance control) for debugging
+ * Publishes body velocity for debugging
 ***********************************************************************************************************************/
-void StateController::publishWalkerTipPositions()
-{
-  std_msgs::Float32MultiArray msg;
-  for (int l = 0; l<3; l++)
-  {
-    for (int s = 0; s<2; s++)
-    {            
-      msg.data.clear();
-      msg.data.push_back(walker->tipPositions[l][s][0]);
-      msg.data.push_back(walker->tipPositions[l][s][1]);
-      msg.data.push_back(walker->tipPositions[l][s][2]);
-      walkerTipPositionPublishers[l][s].publish(msg);
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Publishes tip positions (before any adjustments from pose or impedance control) for debugging
-***********************************************************************************************************************/
-void StateController::publishStanceTipPositions()
-{
-  std_msgs::Float32MultiArray msg;
-  for (int l = 0; l<3; l++)
-  {
-    for (int s = 0; s<2; s++)
-    {            
-      msg.data.clear();
-      msg.data.push_back(poser->tipPositions[l][s][0]);
-      msg.data.push_back(poser->tipPositions[l][s][1]);
-      msg.data.push_back(poser->tipPositions[l][s][2]);
-      stanceTipPositionPublishers[l][s].publish(msg);
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Publishes tip velocities (before any adjustments from pose or impedance control) for debugging
-***********************************************************************************************************************/
-void StateController::publishWalkerTipVelocities()
-{
-  std_msgs::Float32MultiArray msg;
-  for (int l = 0; l<3; l++)
-  {
-    for (int s = 0; s<2; s++)
-    {            
-      msg.data.clear();
-      msg.data.push_back(walker->legSteppers[l][s].currentTipVelocity[0]);
-      msg.data.push_back(walker->legSteppers[l][s].currentTipVelocity[1]);
-      msg.data.push_back(walker->legSteppers[l][s].currentTipVelocity[2]);
-      walkerTipVelocityPublishers[l][s].publish(msg);
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Publishes tip forces for debugging
-***********************************************************************************************************************/
-void StateController::publishTipForces()
+void StateController::publishBodyVelocity()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  for (int l = 0; l<3; l++)
-  { 
-    for (int s = 0; s<2; s++)
-    {         
-      msg.data.push_back(tipForce[l][s]);      
-    }
-  }
-  tipForcePublisher.publish(msg);
-}
-
-/***********************************************************************************************************************
- * Publishes deltaZ for debugging
-***********************************************************************************************************************/
-void StateController::publishDeltaZ()
-{
-  std_msgs::Float32MultiArray msg;
-  msg.data.clear();
-  for (int l = 0; l<3; l++)
-  { 
-    for (int s = 0; s<2; s++)
-    {         
-      msg.data.push_back(deltaZ[l][s]);      
-    }
-  }
-  deltaZPublisher.publish(msg);
+  msg.data.push_back(walker->currentLinearVelocity[0]);
+  msg.data.push_back(walker->currentLinearVelocity[1]);
+  msg.data.push_back(walker->currentAngularVelocity);
+  bodyVelocityPublisher.publish(msg);
 }
 
 /***********************************************************************************************************************
@@ -864,14 +804,13 @@ void StateController::publishDeltaZ()
 ***********************************************************************************************************************/
 void StateController::publishPose()
 {
-  std_msgs::Float32MultiArray msg;
-  msg.data.clear();
-  msg.data.push_back(poser->currentPose.rotation[1]);  
-  msg.data.push_back(poser->currentPose.rotation[2]); 
-  msg.data.push_back(poser->currentPose.rotation[3]); 
-  msg.data.push_back(poser->currentPose.position[0]); 
-  msg.data.push_back(poser->currentPose.position[1]); 
-  msg.data.push_back(poser->currentPose.position[2]); 
+  geometry_msgs::Twist msg;
+  msg.linear.x = poser->currentPose.position[0];
+  msg.linear.y = poser->currentPose.position[1];
+  msg.linear.z = poser->currentPose.position[2];
+  msg.angular.x = poser->currentPose.rotation[0];
+  msg.angular.y = poser->currentPose.rotation[1];
+  msg.angular.z = poser->currentPose.rotation[2];
   posePublisher.publish(msg);
 }
 
@@ -894,22 +833,6 @@ void StateController::publishIMURotation()
   msg.data.push_back(orientation.toEulerAngles()[1]);
   msg.data.push_back(orientation.toEulerAngles()[2]); 
   IMURotationPublisher.publish(msg);
-}
-
-/***********************************************************************************************************************
- * Publishes stiffness for debugging
-***********************************************************************************************************************/
-void StateController::publishStiffness()
-{
-  std_msgs::Float32MultiArray msg;
-  msg.data.clear();
-  msg.data.push_back(impedance->virtualStiffness[0][0]);  
-  msg.data.push_back(impedance->virtualStiffness[0][1]); 
-  msg.data.push_back(impedance->virtualStiffness[1][0]); 
-  msg.data.push_back(impedance->virtualStiffness[1][1]); 
-  msg.data.push_back(impedance->virtualStiffness[2][0]); 
-  msg.data.push_back(impedance->virtualStiffness[2][1]); 
-  stiffnessPublisher.publish(msg);
 }
 
 /***********************************************************************************************************************
@@ -967,19 +890,6 @@ void StateController::publishZTipError()
     }
   }  
   zTipErrorPublisher.publish(msg);
-}
-
-/***********************************************************************************************************************
- * Publishes body velocity for debugging
-***********************************************************************************************************************/
-void StateController::publishBodyVelocity()
-{
-  std_msgs::Float32MultiArray msg;
-  msg.data.clear();
-  msg.data.push_back(walker->currentLinearVelocity[0]);
-  msg.data.push_back(walker->currentLinearVelocity[1]);
-  msg.data.push_back(walker->currentAngularVelocity);
-  bodyVelocityPublisher.publish(msg);
 }
 
 /***********************************************************************************************************************

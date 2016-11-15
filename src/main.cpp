@@ -58,43 +58,21 @@ int main(int argc, char* argv[])
   ros::Subscriber jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, &state); ;
   
   //Debugging publishers
-  state.localTipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions/local", 1000);
-  state.localTipPositionPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions/local", 1000);
-  state.localTipPositionPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions/local", 1000);
-  state.localTipPositionPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_positions/local", 1000);
-  state.localTipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions/local", 1000);
-  state.localTipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions/local", 1000);
+  state.legStatePublishers[0][0] = n.advertise<simple_hexapod_controller::legState>("/hexapod/front_left_leg/state", 1000);
+  state.legStatePublishers[0][1] = n.advertise<simple_hexapod_controller::legState>("/hexapod/front_right_leg/state", 1000);
+  state.legStatePublishers[1][0] = n.advertise<simple_hexapod_controller::legState>("/hexapod/middle_left_leg/state", 1000);
+  state.legStatePublishers[1][1] = n.advertise<simple_hexapod_controller::legState>("/hexapod/middle_right_leg/state", 1000);
+  state.legStatePublishers[2][0] = n.advertise<simple_hexapod_controller::legState>("/hexapod/rear_left_leg/state", 1000);
+  state.legStatePublishers[2][1] = n.advertise<simple_hexapod_controller::legState>("/hexapod/rear_right_leg/state", 1000);
   
-  state.walkerTipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions/walker", 1000);
-  state.walkerTipPositionPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions/walker", 1000);
-  state.walkerTipPositionPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions/walker", 1000);
-  state.walkerTipPositionPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_positions/walker", 1000);
-  state.walkerTipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions/walker", 1000);
-  state.walkerTipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions/walker", 1000);
-  
-  state.stanceTipPositionPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_positions/stance", 1000);
-  state.stanceTipPositionPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_positions/stance", 1000);
-  state.stanceTipPositionPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_positions/stance", 1000);
-  state.stanceTipPositionPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_positions/stance", 1000);
-  state.stanceTipPositionPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_positions/stance", 1000);
-  state.stanceTipPositionPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_positions/stance", 1000);
-  
-  state.walkerTipVelocityPublishers[0][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_left_tip_velocities/walker", 1000);
-  state.walkerTipVelocityPublishers[0][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/front_right_tip_velocities/walker", 1000);
-  state.walkerTipVelocityPublishers[1][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_left_tip_velocities/walker", 1000);
-  state.walkerTipVelocityPublishers[1][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/middle_right_tip_velocities/walker", 1000);
-  state.walkerTipVelocityPublishers[2][0] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_left_tip_velocities/walker", 1000);
-  state.walkerTipVelocityPublishers[2][1] = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rear_right_tip_velocities/walker", 1000);
-  
-  state.tipForcePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/tip_forces", 1000);
-  state.deltaZPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/delta_z", 1000);
   state.posePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/pose", 1000);
   state.IMURotationPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/imu_rotation", 1000);
-  state.stiffnessPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/stiffness", 1000);
+  state.bodyVelocityPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/body_velocity", 1000);
+  
   state.rotationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rotation_pose_error", 1000);
   state.translationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/translation_pose_error", 1000);
   state.zTipErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/z_tip_error", 1000);
-  state.bodyVelocityPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/body_velocity", 1000);
+  
   
   //Set ros rate from params
   ros::Rate r(roundToInt(1.0/state.params.timeDelta));
@@ -197,20 +175,17 @@ int main(int argc, char* argv[])
     //State machine (state updating loop)
     state.loop();
     
-    //Tip position publisher for debugging
-    state.publishLocalTipPositions(); 
-    state.publishWalkerTipPositions(); 
-    state.publishStanceTipPositions();
-    state.publishWalkerTipVelocities(); 
-    state.publishTipForces();
-    state.publishDeltaZ();
+    //Debugging publishers
+    //state.publishLegState(); 
+
     state.publishPose();
     state.publishIMURotation();
-    state.publishStiffness();
+    state.publishBodyVelocity();
+
     state.publishRotationPoseError();
     state.publishTranslationPoseError();
     state.publishZTipError();
-    state.publishBodyVelocity();
+    
     
     //Debug using RVIZ
     if (state.params.debug_rviz)

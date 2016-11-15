@@ -7,10 +7,12 @@ project(simple_hexapod_controller)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
+  message_generation
   std_msgs
   sensor_msgs
+  geometry_msgs
   dynamixel_controllers
-  dynamixel_msgs
+  dynamixel_msgs  
  )
 
 
@@ -48,12 +50,11 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * uncomment the generate_messages entry below
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+#Generate messages in the 'msg' folder
+ add_message_files(
+   FILES
+   legState.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -69,11 +70,12 @@ find_package(catkin REQUIRED COMPONENTS
 #   Action2.action
 # )
 
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+# Generate added messages and services with any dependencies listed here
+ generate_messages(
+   DEPENDENCIES
+   std_msgs
+   geometry_msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -87,7 +89,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES simple_hexapod_controller
-  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs dynamixel_msgs dynamixel_controllers
+  CATKIN_DEPENDS roscpp rospy message_runtime std_msgs sensor_msgs geometry_msgs dynamixel_msgs dynamixel_controllers 
 #  DEPENDS system_lib
 )
 add_definitions(-DEIGEN2_SUPPORT -DDEBUG -std=c++11 -Wall -g -ggdb -O0 -fopenmp -fPIC)
@@ -120,6 +122,8 @@ add_executable(simple_diagnostics_node src/simpleDiagnostics.cpp)
 ## Specify libraries to link a library or executable target against
  target_link_libraries(simple_hexapod_controller_node ${catkin_LIBRARIES})
  target_link_libraries(simple_diagnostics_node ${catkin_LIBRARIES})
+ 
+#add_dependencies(simple_hexapod_controller simple_hexapod_controller_cpp simple_hexapod_controller_generate_messages_cpp)
 
 
 #############

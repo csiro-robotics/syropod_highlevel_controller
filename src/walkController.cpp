@@ -76,6 +76,28 @@ double WalkController::LegStepper::calculateDeltaT(StepState state, int length)
 }
 
 /***********************************************************************************************************************
+ * Iterates the step phase and updates the progress variables
+***********************************************************************************************************************/
+void WalkController::LegStepper::iteratePhase()
+{
+  phase = (phase+1)%(walker->phaseLength);
+  /*
+  if (state == SWING)
+  {
+    swingProgress = double(phase-walker->swingStart+1)/double(walker->swingEnd - walker->swingStart);
+    stanceProgress = -1.0;
+  }
+  else if (state == STANCE)
+  {
+    stanceProgress = double(mod(phase+(walker->phaseLength-walker->stanceStart), walker->phaseLength)+1)/
+		     double(mod(walker->stanceEnd-walker->stanceStart, walker->phaseLength)); 
+    swingProgress = -1.0;    
+  }  
+  */
+}
+
+
+/***********************************************************************************************************************
  * Updates position of tip using tri-quartic bezier curve tip trajectory engine. Calculates change in tip position using
  * the derivatives of three quartic bezier curves, two for swing phase and one for stance phase. Each Bezier curve uses 
  * 5 control nodes designed specifically to give a C2 smooth trajectory for the entire step cycle.  
@@ -467,8 +489,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
       
       if (state == STARTING)
       {  
-	//Iterate phase
-        legStepper.phase = (legStepper.phase+1)%phaseLength;
+	legStepper.iteratePhase();
 	
 	//Check if all legs have completed one step
         if (legsInCorrectPhase == NUM_LEGS)
@@ -506,7 +527,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
       {  
 	if (!legStepper.inCorrectPhase)
         {
-          legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
+          legStepper.iteratePhase();
           
           //Front_left leg only "meets target" after completing extra step AND returning to zero phase
           if (l==0 && s==0 && legStepper.state == FORCE_STOP && legStepper.phase == 0)
@@ -533,7 +554,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
       }
       else if (state == MOVING)
       {
-        legStepper.phase = (legStepper.phase+1)%phaseLength; //Iterate phase
+        legStepper.iteratePhase();
         legStepper.inCorrectPhase = false;
       }
       else if (state == STOPPED)
