@@ -234,7 +234,6 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
       }
     }
   }  
-  model->clampToLimits();
   return false;
 }
 

@@ -52,6 +52,9 @@ struct StateController
   DebugOutput debug;
   int count = 0;
   
+  std::map<std::string, int> legIndexMap;
+  std::map<int, std::string> legNameMap;
+  
   ros::Publisher legStatePublishers[3][2];
 
   ros::Publisher posePublisher;
@@ -120,6 +123,7 @@ struct StateController
   void getParameters();
   void getGaitParameters(std::string forceGait);
   void setJointPositions(bool useDefaults = false);
+  void populateLegMaps();
   
   //Top level functions
   void publishJointValues();

@@ -12,6 +12,8 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
   //Initiate model and imu objects
   hexapod = new Model(params); 
   
+  populateLegMaps();
+  
   //Populate joint position arrays
   for (int i=0; i<18; i++)
   {
@@ -94,6 +96,26 @@ void StateController::init()
 }
 
 /***********************************************************************************************************************
+ * Generates map of all joints including name and index number
+***********************************************************************************************************************/
+void StateController::populateLegMaps()
+{    
+  legIndexMap.insert(std::map<std::string, int>::value_type("front_left", 0));
+  legIndexMap.insert(std::map<std::string, int>::value_type("front_right", 1));
+  legIndexMap.insert(std::map<std::string, int>::value_type("middle_left", 2));
+  legIndexMap.insert(std::map<std::string, int>::value_type("middle_right", 3));
+  legIndexMap.insert(std::map<std::string, int>::value_type("rear_left", 4));
+  legIndexMap.insert(std::map<std::string, int>::value_type("rear_right", 5));
+  
+  legNameMap.insert(std::map<int, std::string>::value_type(0, "front_left"));
+  legNameMap.insert(std::map<int, std::string>::value_type(1, "front_right"));
+  legNameMap.insert(std::map<int, std::string>::value_type(2, "middle_left"));
+  legNameMap.insert(std::map<int, std::string>::value_type(3, "middle_right"));
+  legNameMap.insert(std::map<int, std::string>::value_type(4, "rear_left"));
+  legNameMap.insert(std::map<int, std::string>::value_type(5, "rear_right"));
+}
+
+/***********************************************************************************************************************
  * Sets joint values in model according to aquired joint positions (set to default values if required)
 ***********************************************************************************************************************/
 void StateController::setJointPositions(bool useDefaults)
@@ -109,18 +131,18 @@ void StateController::setJointPositions(bool useDefaults)
         if (jointPositions[index] == 1e10)
         {
           jointPositions[index] = 0.0;
-          ROS_INFO("Leg: %d:%d body-coxa joint set to: %f", leg, side, jointPositions[index]);
+          ROS_INFO("%s_body_coxa joint set to: %f", legNameMap[2*leg+side].c_str(), jointPositions[index]);
         }
         if (jointPositions[index+1] == 1e10)
         {
           jointPositions[index+1] = dir*max(0.0,hexapod->minMaxHipLift[0]);
-	  ROS_INFO("Leg: %d:%d coxa-femour joint set to: %f", leg, side, jointPositions[index+1]);
+	  ROS_INFO("%s_coxa_femour joint set to: %f", legNameMap[2*leg+side].c_str(), jointPositions[index+1]);
         }
         if (jointPositions[index+2] == 1e10)
         {
           
           jointPositions[index+2] = dir*max(0.0,hexapod->minMaxKneeBend[0]);
-	  ROS_INFO("Leg: %d:%d femour-tibia joint set to: %f", leg, side, jointPositions[index+2]);
+	  ROS_INFO("%s_femour_tibia joint set to: %f", legNameMap[2*leg+side].c_str(), jointPositions[index+2]);
         }
       }
       params.startUpSequence = false;
@@ -214,6 +236,8 @@ void StateController::loop()
       break;
     }
   } 
+  
+  hexapod->clampToLimits(legNameMap); 
 }
 
 /***********************************************************************************************************************
@@ -396,7 +420,7 @@ void StateController::runningState()
   
     //Model uses stance tip positions and adds deltaZ from impedance controller and applies inverse kinematics on each leg
     hexapod->updateLocal(poser->tipPositions, deltaZ);
-  }
+  } 
     
   //Check for shutdown cue
   if (!startFlag && params.startUpSequence)
@@ -732,7 +756,7 @@ void StateController::legStateToggle()
       {
 	toggleLegState = false;
 	hexapod->legs[l][s].state = OFF;
-	ROS_INFO("Leg: %d:%d set to state: OFF.\n", legSelection/2, legSelection%2);
+	ROS_INFO("%s leg set to state: OFF.\n", legNameMap[l*2+s].c_str());
       }
     }
     else if (hexapod->legs[l][s].state == OFF_TO_WALKING)
@@ -743,7 +767,7 @@ void StateController::legStateToggle()
       {
 	toggleLegState = false;
 	hexapod->legs[l][s].state = WALKING;
-	ROS_INFO("Leg: %d:%d set to state: WALKING.\n", legSelection/2, legSelection%2);
+	ROS_INFO("%s leg set to state: WALKING.\n", legNameMap[l*2+s].c_str());
       }    
     }
   }
@@ -759,7 +783,9 @@ void StateController::publishLegState()
   {
     for (int s = 0; s<2; s++)
     {            
-      msg.leg_name.data = "place_holder";
+      msg.header.stamp = ros::Time::now();
+      
+      msg.leg_name.data = legNameMap[2*l+s].c_str();
       
       //Tip positions
       msg.local_tip_position.x = hexapod->localTipPositions[l][s][0];
@@ -946,24 +972,24 @@ void StateController::publishJointValues()
         
         if (abs(yawVel) > hexapod->jointMaxAngularSpeeds[0])
         {
-          ROS_WARN("Leg: %d:%d body_coxa joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n", 
-		   l, s, yawVel, sign(yawVel)*hexapod->jointMaxAngularSpeeds[0]);
+          ROS_WARN("%s_body_coxa joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n", 
+		   legNameMap[l*2+s].c_str(), yawVel, sign(yawVel)*hexapod->jointMaxAngularSpeeds[0]);
 	  
           yawVel = sign(yawVel)*hexapod->jointMaxAngularSpeeds[0];
           yaw = hexapod->legs[l][s].oldYaw + yawVel*params.timeDelta;
         }
         if (abs(liftVel) > hexapod->jointMaxAngularSpeeds[1])
         {
-	  ROS_WARN("Leg: %d:%d coxa_femour joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n", 
-		   l, s, liftVel, sign(liftVel)*hexapod->jointMaxAngularSpeeds[1]);  
+	  ROS_WARN("%s_coxa_femour joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n", 
+		   legNameMap[l*2+s].c_str(), liftVel, sign(liftVel)*hexapod->jointMaxAngularSpeeds[1]);  
 	  
           liftVel = sign(liftVel)*hexapod->jointMaxAngularSpeeds[1];
           lift = hexapod->legs[l][s].oldLiftAngle + liftVel*params.timeDelta;
         }
         if (abs(kneeVel) > hexapod->jointMaxAngularSpeeds[2])
         {
-	  ROS_WARN("Leg: %d:%d femour_tibia joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n", 
-		   l, s, kneeVel, sign(kneeVel)*hexapod->jointMaxAngularSpeeds[2]);
+	  ROS_WARN("%s_femour_tibia joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n", 
+		   legNameMap[l*2+s].c_str(), kneeVel, sign(kneeVel)*hexapod->jointMaxAngularSpeeds[2]);
 	  
           kneeVel = sign(kneeVel)*hexapod->jointMaxAngularSpeeds[2];
           knee = hexapod->legs[l][s].oldKneeAngle + kneeVel*params.timeDelta;
@@ -1133,36 +1159,11 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 {
   if (state == RUNNING && !toggleLegState)
   {
-    switch (int(input.data))
+    LegSelection newSelection = static_cast<LegSelection>(input.data);
+    if (newSelection != -1 && legSelection != newSelection)
     {
-      case(-1):
-        break;
-      case(FRONT_LEFT):
-	legSelection = FRONT_LEFT;
-	ROS_INFO("Front left leg selected.\n");
-        break;
-      case(FRONT_RIGHT):
-	legSelection = FRONT_RIGHT;
-	ROS_INFO("Front right leg selected.\n");
-        break;
-      case(MIDDLE_LEFT):
-	legSelection = MIDDLE_LEFT;
-	ROS_INFO("Middle left leg selected.\n");
-        break;
-      case(MIDDLE_RIGHT):
-	legSelection = MIDDLE_RIGHT;
-	ROS_INFO("Middle right leg selected.\n");
-        break;
-      case(REAR_LEFT):
-	legSelection = REAR_LEFT;
-	ROS_INFO("Rear left leg selected.\n");
-        break;
-      case(REAR_RIGHT):
-	legSelection = REAR_RIGHT;
-	ROS_INFO("Rear right leg selected.\n");
-        break;
-      default:
-        ROS_WARN("Unknown leg selection requested from control input.\n");
+      ROS_INFO("%s leg selected.\n", legNameMap[int(input.data)].c_str());
+      legSelection = newSelection;      
     }
   }
 }

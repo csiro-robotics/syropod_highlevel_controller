@@ -71,6 +71,6 @@ struct Model
   Vector3d jointMaxAngularSpeeds;
   void setLegStartAngles(int side, int leg, const Vector3d &startAngles);
   vector<Vector3d> getJointPositions(const Pose &pose);
-  void clampToLimits();
+  void clampToLimits(std::map<int, std::string> legNameMap);
   void updateLocal(Vector3d targetTipPositions[3][2], double deltaZ[3][2]);
 };

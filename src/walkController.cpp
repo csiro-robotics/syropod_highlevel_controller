@@ -81,7 +81,7 @@ double WalkController::LegStepper::calculateDeltaT(StepState state, int length)
 void WalkController::LegStepper::iteratePhase()
 {
   phase = (phase+1)%(walker->phaseLength);
-  /*
+  
   if (state == SWING)
   {
     swingProgress = double(phase-walker->swingStart+1)/double(walker->swingEnd - walker->swingStart);
@@ -92,8 +92,7 @@ void WalkController::LegStepper::iteratePhase()
     stanceProgress = double(mod(phase+(walker->phaseLength-walker->stanceStart), walker->phaseLength)+1)/
 		     double(mod(walker->stanceEnd-walker->stanceStart, walker->phaseLength)); 
     swingProgress = -1.0;    
-  }  
-  */
+  }    
 }
 
 
@@ -614,8 +613,6 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
       }
     }
   }  
-  
-  model->clampToLimits();  
   
   //RVIZ
   Vector2d push = currentLinearVelocity*timeDelta;

@@ -176,7 +176,7 @@ int main(int argc, char* argv[])
     state.loop();
     
     //Debugging publishers
-    //state.publishLegState(); 
+    state.publishLegState(); 
 
     state.publishPose();
     state.publishIMURotation();
