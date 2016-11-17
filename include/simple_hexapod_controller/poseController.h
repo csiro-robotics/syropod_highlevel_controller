@@ -20,6 +20,7 @@ enum PoseResetMode
   X_AND_Y_RESET,
   PITCH_AND_ROLL_RESET,
   ALL_RESET,
+  FORCE_ALL_RESET, //overrides input from user
 };
 
 struct PoseController
@@ -54,7 +55,7 @@ struct PoseController
   Vector3d phase7TipPositions[3][2];
   Vector3d phase8TipPositions[3][2];  
   
-  Pose currentPose;//Current pose of body including all compensation posing
+  Pose currentPose;//Current pose of body including all compensation posing  
   
   Pose targetPose; //Target pose of body for use in manual posing bezier curve
   Pose originPose; //Origin pos of body for use in manual posing bezier curve
@@ -64,8 +65,12 @@ struct PoseController
   Pose inclinationPose; //Current pose of body only using inclination compensation
   Pose deltaZPose; //Current pose of body only using impedance control body height compensation
   
+  Pose defaultPose;
+  
   Pose autoPoseDefault; //Current pose of body only using auto compensation
   Pose autoPose[3][2]; //Leg specific auto compensation - equal to default but with zero pose compensation on leg swing phase
+  
+  bool recalculateOffset = true;
   
   //Imu compensation PID error vectors
   Vector3d rotationAbsementError;
@@ -81,9 +86,9 @@ struct PoseController
   bool correctPose = false; //Flag for correcting pose to a zero roll/pitch pose used for auto compensation
   
   PoseController(Model *model, WalkController *walker, Parameters params);
-  bool updateStance(Vector3d targetTipPositions[3][2], 
+  void updateStance(Vector3d targetTipPositions[3][2], 
                     bool excludeSwingingLegs=false);
-  bool stepToPosition(Vector3d targetTipPositions[3][2], 
+  double stepToPosition(Vector3d targetTipPositions[3][2], 
                       double deltaZ[3][2],
                       int mode=NO_STEP_MODE,                      
                       double stepHeight = 0.0, 
@@ -94,10 +99,17 @@ struct PoseController
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
   
+  double poseForLegManipulation(LegState state, int l, int s, double deltaZ[3][2]);
+  
+  void calculateDefaultPose();
+  
   //Compensation functions
   void autoCompensation(void);
-  void manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode);
+  void manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode, Pose defaultPose = Pose::identity());
   void imuCompensation (sensor_msgs::Imu imuData, Quat targetRotation);
   void inclinationCompensation(sensor_msgs::Imu imuData);
   void impedanceControllerCompensation(double deltaZ[3][2]);
+  
+  double debugTime = 0.0;
+  
 };

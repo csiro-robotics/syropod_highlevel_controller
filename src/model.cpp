@@ -89,6 +89,15 @@ Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
 }
 
 /***********************************************************************************************************************
+ * Sets leg state
+***********************************************************************************************************************/
+void Leg::setState(LegState legState)
+{
+  state = legState;
+  model->legStates[legIndex][sideIndex] = state;
+}
+
+/***********************************************************************************************************************
  * Defines hexapod model
 ***********************************************************************************************************************/
 Model::Model(Parameters params) : 
@@ -112,7 +121,7 @@ Model::Model(Parameters params) :
       leg.tipOffset  = params.tipOffset[l][s];
       leg.mirrorDir = s ? 1 : -1;
       leg.init(0,max(0.0,minMaxHipLift[0]),max(0.0,minMaxKneeBend[0]));
-      leg.state = WALKING;
+      leg.setState(WALKING);
     }
   }
 }
@@ -134,12 +143,12 @@ void Model::updateLocal(Vector3d targetTipPositions[3][2], double deltaZ[3][2])
   {
     for (int s = 0; s<2; s++)
     {
-      if (legs[l][s].state != OFF)
+      Vector3d adjustedPos = targetTipPositions[l][s];
+      if (legs[l][s].state != MANUAL) //Don't apply delta Z to manually manipulated legs
       {
-	Vector3d adjustedPos = targetTipPositions[l][s];
 	adjustedPos[2] = targetTipPositions[l][s][2] - deltaZ[l][s];
-	legs[l][s].applyLocalIK(adjustedPos);
       }
+      legs[l][s].applyLocalIK(adjustedPos);      
     }
   }  
 }
@@ -184,57 +193,57 @@ void Model::clampToLimits(std::map<int, std::string> legNameMap)
       double messageTolerance = 0.017444; //1 degree over limit before warning message
       if (leg.yaw - stanceLegYaws[l] < -yawLimitAroundStance[l])
       {
-        double diff = abs(leg.yaw - (-yawLimitAroundStance[l] + stanceLegYaws[l]));
-        if (diff > messageTolerance)
-        {
-	  ROS_WARN("%s leg has tried to exceed yaw limit: %f by %f. Clamping yaw to limit.\n", legNameMap[l*2+s].c_str(), -yawLimitAroundStance[l] + stanceLegYaws[l], diff);
-        }
-        leg.yaw = -yawLimitAroundStance[l] + stanceLegYaws[l];
+	double diff = abs(leg.yaw - (-yawLimitAroundStance[l] + stanceLegYaws[l]));
+	if (diff > messageTolerance)
+	{
+	  ROS_WARN("%s leg has tried to exceed body_coxa joint limit: %f by %f. Clamping body_coxa joint to limit.\n", legNameMap[l*2+s].c_str(), -yawLimitAroundStance[l] + stanceLegYaws[l], diff);
+	}
+	leg.yaw = -yawLimitAroundStance[l] + stanceLegYaws[l];
       }
       else if (leg.yaw - stanceLegYaws[l] > yawLimitAroundStance[l])
       {
-        double diff = abs(leg.yaw - (yawLimitAroundStance[l] + stanceLegYaws[l]));
-        if (diff > messageTolerance)
-        {
-	  ROS_WARN("%s leg has tried to exceed yaw limit: %f by %f. Clamping yaw to limit.\n", legNameMap[l*2+s].c_str(), yawLimitAroundStance[l] + stanceLegYaws[l], diff);	  
+	double diff = abs(leg.yaw - (yawLimitAroundStance[l] + stanceLegYaws[l]));
+	if (diff > messageTolerance)
+	{
+	  ROS_WARN("%s leg has tried to exceed body_coxa joint limit: %f by %f. Clamping body_coxa joint to limit.\n", legNameMap[l*2+s].c_str(), yawLimitAroundStance[l] + stanceLegYaws[l], diff);	  
 	}
-        leg.yaw = yawLimitAroundStance[l] + stanceLegYaws[l];        
+	leg.yaw = yawLimitAroundStance[l] + stanceLegYaws[l];        
       }
       if (leg.liftAngle < minMaxHipLift[0])
       {
-        double diff = abs(leg.liftAngle - minMaxHipLift[0]);
-        if (diff > messageTolerance)
-        {
-	  ROS_WARN("%s leg has tried to exceed hip lift limit: %f by %f. Clamping yaw to limit.\n", legNameMap[l*2+s].c_str(), minMaxHipLift[0], diff);
-        }
-        leg.liftAngle = minMaxHipLift[0];
+	double diff = abs(leg.liftAngle - minMaxHipLift[0]);
+	if (diff > messageTolerance)
+	{
+	  ROS_WARN("%s leg has tried to exceed coxa_femur joint limit: %f by %f. Clamping coxa_femur joint to limit.\n", legNameMap[l*2+s].c_str(), minMaxHipLift[0], diff);
+	}
+	leg.liftAngle = minMaxHipLift[0];
       }
       else if (leg.liftAngle > minMaxHipLift[1])
       {
-        double diff = abs(leg.liftAngle - minMaxHipLift[1]);
-        if (diff > messageTolerance)
-        {
-	  ROS_WARN("%s leg has tried to exceed hip lift limit: %f by %f. Clamping yaw to limit.\n", legNameMap[l*2+s].c_str(), minMaxHipLift[1], diff);
-        }
-        leg.liftAngle = minMaxHipLift[1];
+	double diff = abs(leg.liftAngle - minMaxHipLift[1]);
+	if (diff > messageTolerance)
+	{
+	  ROS_WARN("%s leg has tried to exceed coxa_femur joint limit: %f by %f. Clamping coxa_femur joint to limit.\n", legNameMap[l*2+s].c_str(), minMaxHipLift[1], diff);
+	}
+	leg.liftAngle = minMaxHipLift[1];
       }
       if (leg.kneeAngle < minMaxKneeBend[0])
       {
-        double diff = abs(leg.kneeAngle - minMaxKneeBend[0]);
-        if (diff > messageTolerance)
-        {
-	  ROS_WARN("%s leg has tried to exceed knee limit: %f by %f. Clamping yaw to limit.\n", legNameMap[l*2+s].c_str(), minMaxKneeBend[0], diff);
-        }
-        leg.kneeAngle = minMaxKneeBend[0];
+	double diff = abs(leg.kneeAngle - minMaxKneeBend[0]);
+	if (diff > messageTolerance)
+	{
+	  ROS_WARN("%s leg has tried to exceed femur_tibia joint limit: %f by %f. Clamping femur_tibia joint to limit.\n", legNameMap[l*2+s].c_str(), minMaxKneeBend[0], diff);
+	}
+	leg.kneeAngle = minMaxKneeBend[0];
       }
       else if (leg.kneeAngle > minMaxKneeBend[1])
       {
-        double diff = abs(leg.kneeAngle - minMaxKneeBend[1]);
-        if (diff > messageTolerance)
-        {
-	  ROS_WARN("%s leg has tried to exceed knee limit: %f by %f. Clamping yaw to limit.\n", legNameMap[l*2+s].c_str(), minMaxKneeBend[1], diff);
+	double diff = abs(leg.kneeAngle - minMaxKneeBend[1]);
+	if (diff > messageTolerance)
+	{
+	  ROS_WARN("%s leg has tried to exceed femur_tibia joint limit: %f by %f. Clamping femur_tibia joint to limit.\n", legNameMap[l*2+s].c_str(), minMaxKneeBend[1], diff);
 	}
-        leg.kneeAngle = minMaxKneeBend[1];
+	leg.kneeAngle = minMaxKneeBend[1];
       }
     }
   }

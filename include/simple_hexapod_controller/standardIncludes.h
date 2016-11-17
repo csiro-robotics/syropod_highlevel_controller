@@ -129,6 +129,8 @@ struct Parameters
   Vector3d maxRotation;
   double maxRotationVelocity;
   
+  std::string legManipulationMode;
+  
   Vector3d packedJointPositionsAL;
   Vector3d packedJointPositionsAR;
   Vector3d packedJointPositionsBL;
@@ -148,7 +150,8 @@ struct Parameters
   double integratorStepTime;
   double virtualMass;
   double virtualStiffness;
-  double stiffnessMultiplier;
+  double loadStiffnessScaler;
+  double swingStiffnessScaler;
   double virtualDampingRatio;
   double forceGain;
   std::string impedanceInput;

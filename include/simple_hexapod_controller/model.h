@@ -8,9 +8,9 @@
 enum LegState
 {
   WALKING,
-  OFF,
-  WALKING_TO_OFF,
-  OFF_TO_WALKING,
+  MANUAL,
+  WALKING_TO_MANUAL,
+  MANUAL_TO_WALKING,
 };
 
 // hard coded to 3 joints
@@ -40,6 +40,7 @@ struct Leg
   // works out local tip position from angles
   Vector3d applyFK();
   Vector3d calculateFK(double yaw, double liftAngle, double kneeAngle);
+  void setState(LegState);
   
   double hipLength;
   double femurLength;
@@ -54,6 +55,8 @@ struct Leg
   double oldLiftAngle;
   double oldKneeAngle;
   
+  
+  
   struct Model *model; // so it can refer to model's joint limits
 };
 
@@ -61,6 +64,7 @@ struct Leg
 struct Model
 {
   Leg legs[3][2]; // front to back, left to right
+  LegState legStates[3][2];
   Vector3d stanceLegYaws;
   Vector3d yawLimitAroundStance;
   Vector2d minMaxKneeBend;

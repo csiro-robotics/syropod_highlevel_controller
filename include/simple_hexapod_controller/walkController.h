@@ -58,9 +58,14 @@ struct WalkController
   
   int legsInCorrectPhase = 0;
   int legsCompletedFirstStep = 0;
+  
+  StepState stepStates[3][2];
     
   struct LegStepper
   {
+    int legIndex;
+    int sideIndex;
+    
     bool inCorrectPhase = false;
     bool completedFirstStep = false;
     
@@ -97,6 +102,8 @@ struct WalkController
     
     void iteratePhase();
     
+    void setState(StepState state);
+    
     double calculateDeltaT(StepState state, int length);
     
   } legSteppers[3][2];
@@ -115,6 +122,6 @@ struct WalkController
   // bodyOffset is body pose relative to the basic stance pose, 
   // note that large offsets may prevent achievable leg positions
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
-  void updateWalk(Vector2d newLocalVelocity, double newCurvature, double deltaZ[3][2]);
+  void updateWalk(Vector2d linearVelocityInput, double angularVelocityInput, Vector3d tipVelocityInput);
   void setGaitParams(Parameters p);
 };

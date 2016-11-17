@@ -82,6 +82,24 @@ void ImpedanceController::zeroLegMatrix(double inputMatrix[3][2])
 }
 
 /***********************************************************************************************************************
+ * Scales virtual stiffness value of given and adjacent legs according to reference
+***********************************************************************************************************************/
+void ImpedanceController::updateStiffness(double stepReference, int l, int s)
+{  
+  //Get adjacent leg references
+  int adjacent1Leg = (l==1) ? (l+1):l;
+  int adjacent1Side = (l==1) ? s:!s;
+  int adjacent2Leg = (l==0) ? (l+1):(l-1);
+  int adjacent2Side = s;
+
+  //(X-1)+1 to change range from 0->1 to 1->multiplier
+  virtualStiffness[l][s] = params.virtualStiffness*(stepReference*(params.swingStiffnessScaler-1)+1);      
+  
+  virtualStiffness[adjacent1Leg][adjacent1Side] = params.virtualStiffness*(stepReference*(params.loadStiffnessScaler-1)+1);
+  virtualStiffness[adjacent2Leg][adjacent2Side] = params.virtualStiffness*(stepReference*(params.loadStiffnessScaler-1)+1); 
+}
+
+/***********************************************************************************************************************
  * Scales virtual stiffness value of legs adjacent to swinging leg according to swing cycle percentage
  * Note: The reseting and addition of stiffness allows overlapping step cycles to JOINTLY add stiffness to 
  * simultaneously adjacent legs
@@ -101,23 +119,24 @@ void ImpedanceController::updateStiffness(WalkController *walker)
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
-    {
+    {  
       if (walker->legSteppers[l][s].state == SWING)
       {
-	double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - walker->legSteppers[l][s].defaultTipPosition[2];
-	double stiffnessMultiplier = 0;
-	stiffnessMultiplier += abs(zDiff/(walker->stepClearance*walker->maximumBodyHeight))*(params.stiffnessMultiplier-1); //Change range from 0->1 to 1->multiplier
-	
 	//Get adjacent leg references
 	int adjacent1Leg = (l==1) ? (l+1):l;
 	int adjacent1Side = (l==1) ? s:!s;
 	int adjacent2Leg = (l==0) ? (l+1):(l-1);
 	int adjacent2Side = s;
+	  
+	double zDiff = walker->legSteppers[l][s].currentTipPosition[2] - walker->legSteppers[l][s].defaultTipPosition[2];
+	double stepReference = 0;
+	stepReference += abs(zDiff/(walker->stepClearance*walker->maximumBodyHeight));
+	  
+	//(X-1)+1 to change range from 0->1 to 1->multiplier
+	virtualStiffness[l][s] = params.virtualStiffness*(stepReference*(params.swingStiffnessScaler-1)+1);
 	
-	virtualStiffness[l][s] = params.virtualStiffness/(stiffnessMultiplier+1);
-	
-	virtualStiffness[adjacent1Leg][adjacent1Side] += params.virtualStiffness*stiffnessMultiplier;
-	virtualStiffness[adjacent2Leg][adjacent2Side] += params.virtualStiffness*stiffnessMultiplier;
+	virtualStiffness[adjacent1Leg][adjacent1Side] += params.virtualStiffness*((params.loadStiffnessScaler-1)*stepReference);
+	virtualStiffness[adjacent2Leg][adjacent2Side] += params.virtualStiffness*((params.loadStiffnessScaler-1)*stepReference);
       }
     }
   }

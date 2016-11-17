@@ -317,7 +317,8 @@ void StateController::directState()
   {
     int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
     poser->updateStance(walker->identityTipPositions);
-    if (poser->stepToPosition(poser->tipPositions, deltaZ, mode, 0, params.timeToStart))
+    double res = poser->stepToPosition(poser->tipPositions, deltaZ, mode, 0, params.timeToStart);
+    if (res == 1.0)
     {
       state = RUNNING;
       ROS_INFO("Startup sequence complete. Ready to walk.\n");
@@ -372,19 +373,7 @@ void StateController::unknownState()
  * Running state
 ***********************************************************************************************************************/
 void StateController::runningState()
-{     
-  //Switch gait and update walker parameters
-  if (changeGait)
-  {
-    gaitChange();
-  }        
-            
-  //Toggle state of leg and transition between states        
-  if (toggleLegState)
-  {
-    legStateToggle();
-  }
-      
+{           
   //Debugging test control
   if (params.testing)
   {    
@@ -405,21 +394,54 @@ void StateController::runningState()
     }
   } 
   
-  //Update tip positions in each controller OR dynamically adjust parameter if requested
-  if (adjustParam)
+  
+  //Switch gait and update walker parameters
+  if (changeGait)
+  {
+    gaitChange();
+  } 
+  //Dynamically adjust parameters and change stance if required
+  else if (adjustParam)
   {
     paramAdjust();
   }
-  else
+  //Toggle state of leg and transition between states        
+  else if (toggleLegState)
   {
+    legStateToggle();
+  }  
+  
+  //Update tip positions unless hexapod is undergoing gait switch, parameter adjustment or leg state transition 
+  //(which all only occur once the hexapod has stopped walking)
+  if (!((changeGait || adjustParam || toggleLegState) && walker->state == STOPPED))
+  {   
     //Update Walker 
-    walker->updateWalk(linearVelocityInput, angularVelocityInput, deltaZ);   
+    walker->updateWalk(linearVelocityInput, angularVelocityInput, manualTipVelocity);   
       
     //Pose controller takes current tip positions from walking cycle and applies pose compensation
     poser->updateStance(walker->tipPositions, params.autoCompensation && !params.imuCompensation);
   
-    //Model uses stance tip positions and adds deltaZ from impedance controller and applies inverse kinematics on each leg
+    //Model uses posed tip positions and adds deltaZ from impedance controller and applies inverse kinematics on each leg
     hexapod->updateLocal(poser->tipPositions, deltaZ);
+    
+    //DEBUG - walker state
+    /*
+    switch(walker->state)
+    {
+      case(MOVING):
+	ROS_DEBUG_THROTTLE(2, "Hexapod state: MOVING.\n");
+	break;
+      case(STARTING):
+	ROS_DEBUG_THROTTLE(2, "Hexapod state: STARTING.\n");
+	break;
+      case(STOPPING):
+	ROS_DEBUG_THROTTLE(2, "Hexapod state: STOPPING.\n");
+	break;
+      case(STOPPED):
+	ROS_DEBUG_THROTTLE(2, "Hexapod state: STOPPED.\n");
+	break;
+    }
+    */
   } 
     
   //Check for shutdown cue
@@ -437,13 +459,14 @@ void StateController::compensation()
 {  
   //Manually set (joystick controlled) body compensation 
   if (params.manualCompensation)
-  {          
-    Pose targetPose = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
-    poser->manualCompensation(targetPose, poseResetMode); //Updates current pose  
+  {     
+    Pose posingVelocity = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
+    poser->manualCompensation(posingVelocity, poseResetMode, poser->defaultPose); //Updates current pose  
     poser->currentPose = poser->manualPose;
   } 
   
   //Compensation to align centre of gravity evenly between tip positions on incline
+  
   if (params.inclinationCompensation)
   {
     poser->inclinationCompensation(imuData);    
@@ -500,7 +523,7 @@ void StateController::impedanceControl()
   
   //Calculate new stiffness based on imu orientation or walking cycle
   bool useIMUForStiffness = false; //Not fully tested
-  if (params.dynamicStiffness)
+  if (params.dynamicStiffness && walker->state != STOPPED)
   {
     if (params.imuCompensation && useIMUForStiffness)
     {
@@ -545,10 +568,6 @@ void StateController::impedanceControl()
       {
 	impedance->updateImpedance(l, s, tipForce, deltaZ);
       }
-      else
-      {
-	impedance->virtualStiffness[l][s] = 0; //No effect - just for debugging
-      }
     }
   }
 }
@@ -558,136 +577,149 @@ void StateController::impedanceControl()
 ***********************************************************************************************************************/
 void StateController::paramAdjust()
 { 
+  ROS_INFO_COND(walker->state == MOVING, "Stopping hexapod to adjust parameters . . .\n"); 
+  
   //Force hexapod to stop walking
   linearVelocityInput = Vector2d(0.0,0.0);
   angularVelocityInput = 0.0;
   
   if (walker->state == STOPPED)
-  {
-    std::string paramString;
-    double paramVal;
-    switch(paramSelection)
+  {    
+    if (!newParamSet)
     {
-      case(NO_PARAM_SELECTION):
+      switch(paramSelection)
       {
-        break;
-      }
-      case(STEP_FREQUENCY):
-      {
-        if (paramScaler == -1)
-        {
-          paramScaler = params.stepFrequency/defaultParams.stepFrequency;
-        }
-        params.stepFrequency = minMax(defaultParams.stepFrequency*paramScaler, 0.1, 3.0);
-        walker->setGaitParams(params);
-        poser->params = params;
-        paramString = "step_frequency";
-        paramVal = params.stepFrequency;
-        break;
-      }
-      case(STEP_CLEARANCE):
-      {
-        if (paramScaler == -1)
-        {
-          paramScaler = params.stepClearance/defaultParams.stepClearance;
-        }
-        params.stepClearance = minMax(defaultParams.stepClearance*paramScaler, 0.01, 0.4); 
-        walker->init(hexapod, params);
-        paramString = "step_clearance";
-        paramVal = params.stepClearance;
-        break;
-      }
-      case(BODY_CLEARANCE):
-      {                  
-        if (defaultParams.bodyClearance == -1)
-        {
-          params.bodyClearance = walker->bodyClearance;
-          defaultParams.bodyClearance = params.bodyClearance;
-        }                   
-        if (paramScaler == -1)
-        {
-          paramScaler = params.bodyClearance/defaultParams.bodyClearance;
-        }                  
-        params.bodyClearance = minMax(defaultParams.bodyClearance*paramScaler, 0.1, 0.99);                     
-        walker->init(hexapod, params);
-        paramString = "body_clearance";
-        paramVal = params.bodyClearance;                  
-        break;
-      }                
-      case(LEG_SPAN_SCALE):
-      {                                  
-        if (paramScaler == -1)
-        {
-          paramScaler = params.legSpanScale/defaultParams.legSpanScale;
-        }                  
-        params.legSpanScale = minMax(defaultParams.legSpanScale*paramScaler, 0.1, 1.5);                     
-        walker->init(hexapod, params);
-        paramString = "leg_span_scale";
-        paramVal = params.legSpanScale;                  
-        break;
-      }
-      case(VIRTUAL_MASS):
-      {
-	if (paramScaler == -1)
-        {
-          paramScaler = params.virtualMass/defaultParams.virtualMass;
-        }                  
-        params.virtualMass = minMax(defaultParams.virtualMass*paramScaler, 0, 500);                     
-        impedance->init(params);
-        paramString = "virtual_mass";
-        paramVal = params.virtualMass;                  
-        break;
-      }
-      case(VIRTUAL_STIFFNESS):
-      {
-	if (paramScaler == -1)
+	case(NO_PARAM_SELECTION):
 	{
-          paramScaler = params.virtualStiffness/defaultParams.virtualStiffness;
-        }                  
-        params.virtualStiffness = minMax(defaultParams.virtualStiffness*paramScaler, 0, 500);                     
-        impedance->init(params);
-        paramString = "virtual_stiffness";
-        paramVal = params.virtualStiffness;                  
-        break;
-      }
-      case(VIRTUAL_DAMPING):
-      {
-	if (paramScaler == -1)
+	  break;
+	}
+	case(STEP_FREQUENCY):
 	{
-          paramScaler = params.virtualDampingRatio/defaultParams.virtualDampingRatio;
-        }                  
-        params.virtualDampingRatio = minMax(defaultParams.virtualDampingRatio*paramScaler, 0, 2.0);                     
-        impedance->init(params);
-        paramString = "virtual_damping_ratio";
-        paramVal = params.virtualDampingRatio;                  
-        break;
-      }
-      case(FORCE_GAIN):
-      {
-	if (paramScaler == -1)
+	  if (paramScaler == -1)
+	  {
+	    paramScaler = params.stepFrequency/defaultParams.stepFrequency;
+	  }
+	  params.stepFrequency = minMax(defaultParams.stepFrequency*paramScaler, 0.1, 3.0);
+	  walker->setGaitParams(params);
+	  poser->params = params;
+	  paramString = "step_frequency";
+	  paramVal = params.stepFrequency;
+	  break;
+	}
+	case(STEP_CLEARANCE):
 	{
-          paramScaler = params.forceGain/defaultParams.forceGain;
-        }                  
-        params.forceGain = minMax(defaultParams.forceGain*paramScaler, 0, 2.0);                     
-        impedance->init(params);
-        paramString = "force_gain";
-        paramVal = params.forceGain;                  
-        break;
-      }
-      default:
-      {
-        ROS_WARN("Attempting to adjust unknown parameter.\n");
-        break;
-      }
-    }              
-    //Update tip Positions for new parameter value
-    double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
-    poser->updateStance(walker->identityTipPositions);
-    if (poser->stepToPosition(poser->tipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency))
-    {    
-      ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
-      adjustParam = false;
-    } 
+	  if (paramScaler == -1)
+	  {
+	    paramScaler = params.stepClearance/defaultParams.stepClearance;
+	  }
+	  params.stepClearance = minMax(defaultParams.stepClearance*paramScaler, 0.01, 0.4); 
+	  walker->init(hexapod, params);
+	  paramString = "step_clearance";
+	  paramVal = params.stepClearance;
+	  break;
+	}
+	case(BODY_CLEARANCE):
+	{                  
+	  if (defaultParams.bodyClearance == -1)
+	  {
+	    params.bodyClearance = walker->bodyClearance;
+	    defaultParams.bodyClearance = params.bodyClearance;
+	  }                   
+	  if (paramScaler == -1)
+	  {
+	    paramScaler = params.bodyClearance/defaultParams.bodyClearance;
+	  }                  
+	  params.bodyClearance = minMax(defaultParams.bodyClearance*paramScaler, 0.1, 0.99);                     
+	  walker->init(hexapod, params);
+	  paramString = "body_clearance";
+	  paramVal = params.bodyClearance;                  
+	  break;
+	}                
+	case(LEG_SPAN_SCALE):
+	{                                  
+	  if (paramScaler == -1)
+	  {
+	    paramScaler = params.legSpanScale/defaultParams.legSpanScale;
+	  }                  
+	  params.legSpanScale = minMax(defaultParams.legSpanScale*paramScaler, 0.1, 1.5);                     
+	  walker->init(hexapod, params);
+	  paramString = "leg_span_scale";
+	  paramVal = params.legSpanScale;                  
+	  break;
+	}
+	case(VIRTUAL_MASS):
+	{
+	  if (paramScaler == -1)
+	  {
+	    paramScaler = params.virtualMass/defaultParams.virtualMass;
+	  }                  
+	  params.virtualMass = minMax(defaultParams.virtualMass*paramScaler, 0, 500);                     
+	  impedance->init(params);
+	  paramString = "virtual_mass";
+	  paramVal = params.virtualMass;                  
+	  break;
+	}
+	case(VIRTUAL_STIFFNESS):
+	{
+	  if (paramScaler == -1)
+	  {
+	    paramScaler = params.virtualStiffness/defaultParams.virtualStiffness;
+	  }                  
+	  params.virtualStiffness = minMax(defaultParams.virtualStiffness*paramScaler, 0, 500);                     
+	  impedance->init(params);
+	  paramString = "virtual_stiffness";
+	  paramVal = params.virtualStiffness;                  
+	  break;
+	}
+	case(VIRTUAL_DAMPING):
+	{
+	  if (paramScaler == -1)
+	  {
+	    paramScaler = params.virtualDampingRatio/defaultParams.virtualDampingRatio;
+	  }                  
+	  params.virtualDampingRatio = minMax(defaultParams.virtualDampingRatio*paramScaler, 0, 2.0);                     
+	  impedance->init(params);
+	  paramString = "virtual_damping_ratio";
+	  paramVal = params.virtualDampingRatio;                  
+	  break;
+	}
+	case(FORCE_GAIN):
+	{
+	  if (paramScaler == -1)
+	  {
+	    paramScaler = params.forceGain/defaultParams.forceGain;
+	  }                  
+	  params.forceGain = minMax(defaultParams.forceGain*paramScaler, 0, 2.0);                     
+	  impedance->init(params);
+	  paramString = "force_gain";
+	  paramVal = params.forceGain;                  
+	  break;
+	}
+	default:
+	{
+	  paramString = "unknown";
+	  paramVal = -1;
+	  paramScaler = -1;
+	  ROS_WARN("Attempting to adjust unknown parameter.\n");
+	  break;
+	}
+      }       
+      newParamSet = true;
+      ROS_INFO("Attempting to adjust '%s' parameter to %d%% of default (%f) . . .\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
+    }
+    else
+    {
+      //Update tip Positions for new parameter value
+      double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
+      poser->updateStance(walker->identityTipPositions);
+      double res = poser->stepToPosition(poser->tipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency);
+      if (res == 1.0)
+      {    
+	ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
+	adjustParam = false;
+	newParamSet = false;
+      } 
+    }
   }
 }
 
@@ -696,6 +728,8 @@ void StateController::paramAdjust()
 ***********************************************************************************************************************/
 void StateController::gaitChange()
 { 
+  ROS_INFO_COND(walker->state == MOVING, "Stopping hexapod to change gait . . .\n"); 
+  
   //Force hexapod to stop walking
   linearVelocityInput = Vector2d(0.0,0.0);
   angularVelocityInput = 0.0;
@@ -731,43 +765,78 @@ void StateController::gaitChange()
 ***********************************************************************************************************************/
 void StateController::legStateToggle()
 { 
+  int l = legSelection/2;
+  int s = legSelection%2;
+  Leg &leg = hexapod->legs[l][s];
+  
+  ROS_INFO_COND(walker->state == MOVING, "Stopping hexapod to transition state of %s leg . . .\n", legNameMap[l*2+s].c_str()); 
+  
   //Force hexapod to stop walking
   linearVelocityInput = Vector2d(0.0,0.0);
-  angularVelocityInput = 0.0;
-  
+  angularVelocityInput = 0.0; 
+
   if (walker->state == STOPPED)
-  {
-    int l = legSelection/2;
-    int s = legSelection%2;
-    if (hexapod->legs[l][s].state == WALKING)
+  {     
+    poser->calculateDefaultPose();  //Calculate default pose for new loading pattern
+    
+    if (leg.state == WALKING)
     {        
-      hexapod->legs[l][s].state = WALKING_TO_OFF;
-    }
-    else if (hexapod->legs[l][s].state == OFF)
-    {
-      hexapod->legs[l][s].state = OFF_TO_WALKING;
-    }
-    else if (hexapod->legs[l][s].state == WALKING_TO_OFF)
-    {
-      Vector3d targetTipPositions[3][2] = hexapod->localTipPositions;
-      double stepHeight = walker->stepClearance*walker->maximumBodyHeight;
-      targetTipPositions[l][s][2] = poser->tipPositions[l][s][2] + stepHeight;
-      if (poser->stepToPosition(targetTipPositions, deltaZ, NO_STEP_MODE, 0.0, 1.0/params.stepFrequency))
+      if (manualLegs < MAX_MANUAL_LEGS)
       {
+	ROS_INFO_COND(leg.state == WALKING, "%s leg transitioning to MANUAL state . . .\n", legNameMap[l*2+s].c_str());
+	leg.setState(WALKING_TO_MANUAL);
+      }
+      else
+      {
+	ROS_INFO("Only allowed to have %d legs manually manipulated at one time.\n", MAX_MANUAL_LEGS);
 	toggleLegState = false;
-	hexapod->legs[l][s].state = OFF;
-	ROS_INFO("%s leg set to state: OFF.\n", legNameMap[l*2+s].c_str());
+      }	
+    }
+    else if (leg.state == MANUAL)
+    {
+      ROS_INFO_COND(leg.state == MANUAL, "%s leg transitioning to WALKING state . . .\n", legNameMap[l*2+s].c_str());
+      leg.setState(MANUAL_TO_WALKING);
+    }
+    else if (leg.state == WALKING_TO_MANUAL)
+    {            
+      poseResetMode = FORCE_ALL_RESET; //Set to ALL_RESET to force pose to new default pose         
+      walker->tipPositions[l][s] = hexapod->localTipPositions[l][s]; //Override walker tip positions for manual control
+      poser->tipPositions[l][s] = hexapod->localTipPositions[l][s];
+      double res = poser->poseForLegManipulation(leg.state, l, s, deltaZ);   
+      
+      if (params.dynamicStiffness)
+      {
+	impedance->updateStiffness(res, l, s);
+      }
+	
+      if (res == 1.0)
+      {	
+	leg.setState(MANUAL);
+	ROS_INFO("%s leg set to state: MANUAL.\n", legNameMap[l*2+s].c_str());
+	toggleLegState = false;
+	poseResetMode = NO_RESET;
+	manualLegs++;
       }
     }
-    else if (hexapod->legs[l][s].state == OFF_TO_WALKING)
+    else if (leg.state == MANUAL_TO_WALKING)
     {
-      Vector3d targetTipPositions[3][2] = hexapod->localTipPositions;
-      targetTipPositions[l][s][2] = poser->tipPositions[l][s][2];
-      if (poser->stepToPosition(targetTipPositions, deltaZ, NO_STEP_MODE, 0.0, 1.0/params.stepFrequency))
+      poseResetMode = FORCE_ALL_RESET; //Set to ALL_RESET to force pose to new default pose            
+      walker->tipPositions[l][s] = walker->identityTipPositions[l][s]; //Return walker tip positions to default
+      double res = poser->poseForLegManipulation(leg.state, l, s, deltaZ);  
+      
+      if (params.dynamicStiffness)
       {
-	toggleLegState = false;
-	hexapod->legs[l][s].state = WALKING;
+	impedance->updateStiffness(1.0-res, l, s);
+      }
+      
+      if (res == 1.0)
+      {
+	walker->tipPositions[l][s] = walker->identityTipPositions[l][s];
+	leg.setState(WALKING);
 	ROS_INFO("%s leg set to state: WALKING.\n", legNameMap[l*2+s].c_str());
+	toggleLegState = false;
+	poseResetMode = NO_RESET;
+	manualLegs--;
       }    
     }
   }
@@ -808,6 +877,19 @@ void StateController::publishLegState()
       msg.virtual_stiffness.data = impedance->virtualStiffness[l][s];
       
       legStatePublishers[l][s].publish(msg);
+      
+      //Publish leg state (ASC)
+      std_msgs::Bool msg;
+      if (walker->legSteppers[l][s].state == SWING || 
+	 (hexapod->legs[l][s].state != WALKING && hexapod->legs[l][s].state != MANUAL))
+      {
+	msg.data = true;
+      }
+      else
+      {
+	msg.data = false;
+      }
+      ascLegStatePublishers[l][s].publish(msg);          
     }
   }
 }
@@ -1104,12 +1186,6 @@ void StateController::paramAdjustCallback(const std_msgs::Int8 &input)
     {
       paramScaler += input.data/paramAdjustSensitivity;
       paramScaler = minMax(paramScaler, 0.1, 3.0);      //Parameter scaler ranges from 10%->300%
-      
-      ROS_INFO("Adjusting selected parameter . . . (WARNING: Changing parameters may crash controller)\n");
-    }
-    else
-    {
-      ROS_INFO("Checking selected parameter value . . .\n");
     }
     adjustParam = true;
   }
@@ -1127,19 +1203,15 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
       case(-1):
         break;
       case(TRIPOD_GAIT):
-        ROS_INFO("Transitioning to tripod_gait mode . . .\n");
         gait = TRIPOD_GAIT;
         break;
       case(RIPPLE_GAIT):
-        ROS_INFO("Transitioning to ripple_gait mode . . .\n");
         gait = RIPPLE_GAIT;
         break;
       case(WAVE_GAIT):
-        ROS_INFO("Transitioning to wave_gait mode . . .\n");
         gait = WAVE_GAIT;
         break;
       case (AMBLE_GAIT):
-	ROS_INFO("Transitioning to amble_gait mode . . .\n");
         gait = AMBLE_GAIT;
         break;
       default:
@@ -1175,6 +1247,8 @@ void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
 { 
   linearVelocityInput = Vector2d(twist.linear.x, twist.linear.y);
   angularVelocityInput = twist.angular.x;
+  
+  manualTipVelocity = Vector3d(twist.angular.x, twist.angular.y, (-0.5*twist.angular.z+0.5) - (-0.5*twist.linear.z+0.5));
 }
 
 /***********************************************************************************************************************
@@ -1203,7 +1277,10 @@ void StateController::startCallback(const std_msgs::Bool &input)
 ***********************************************************************************************************************/
 void StateController::poseResetCallback(const std_msgs::Int8 &input)
 {
-  poseResetMode = static_cast<PoseResetMode>(input.data);
+  if (poseResetMode != FORCE_ALL_RESET)
+  {
+    poseResetMode = static_cast<PoseResetMode>(input.data);
+  }
 }
 
 /***********************************************************************************************************************
@@ -1213,8 +1290,15 @@ void StateController::legStateCallback(const std_msgs::Bool &input)
 {
   if (input.data && legStateDebounce)
   {
-    toggleLegState = true;
-    legStateDebounce = false;
+    if (state == UNKNOWN || legSelection != NO_LEG_SELECTION)
+    {
+      toggleLegState = true;
+      legStateDebounce = false;
+    }
+    else
+    {
+      ROS_INFO("Cannot toggle leg state as no leg is currently selected. Press Y to select a leg and try again.\n");
+    }  
   }
   else if (!input.data && !toggleLegState)
   {
@@ -2049,6 +2133,12 @@ void StateController::getParameters()
     ROS_ERROR("Error reading parameter/s (max_rotation_velocity) from rosparam. Check config file is loaded and type is correct\n");  
   }
   
+  paramString = baseParamString+"pose_controller/manual_leg_manipulation/";
+  if(!n.getParam(paramString+"leg_manipulation_mode", params.legManipulationMode))
+  {
+    ROS_ERROR("Error reading parameter/s (leg_manipulation_mode) from rosparam. Check config file is loaded and type is correct\n");  
+  }
+  
   /********************************************************************************************************************/
   
   paramString = baseParamString + "/pose_controller/packed_joint_positions/";  
@@ -2204,9 +2294,14 @@ void StateController::getParameters()
     ROS_ERROR("Error reading parameter/s (virtual_stiffness) from rosparam. Check config file is loaded and type is correct\n");
   }
     
-  if (!n.getParam(paramString+"/stiffness_multiplier", params.stiffnessMultiplier))
+  if (!n.getParam(paramString+"/load_stiffness_scaler", params.loadStiffnessScaler))
   {
-    ROS_ERROR("Error reading parameter/s (stiffness_multiplier) from rosparam. Check config file is loaded and type is correct\n");
+    ROS_ERROR("Error reading parameter/s (load_stiffness_scaler) from rosparam. Check config file is loaded and type is correct\n");
+  } 
+  
+  if (!n.getParam(paramString+"/swing_stiffness_scaler", params.swingStiffnessScaler))
+  {
+    ROS_ERROR("Error reading parameter/s (swing_stiffness_scaler) from rosparam. Check config file is loaded and type is correct\n");
   } 
 
   if (!n.getParam(paramString+"virtual_damping_ratio", params.virtualDampingRatio))

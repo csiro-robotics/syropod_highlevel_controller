@@ -24,6 +24,8 @@
 #include "sensor_msgs/Imu.h"
 #include "simple_hexapod_controller/legState.h"
 
+#define MAX_MANUAL_LEGS 2
+
 struct StateController
 {
   ros::NodeHandle n;
@@ -51,11 +53,13 @@ struct StateController
   
   DebugOutput debug;
   int count = 0;
+  int manualLegs = 0;
   
   std::map<std::string, int> legIndexMap;
   std::map<int, std::string> legNameMap;
   
   ros::Publisher legStatePublishers[3][2];
+  ros::Publisher ascLegStatePublishers[3][2];
 
   ros::Publisher posePublisher;
   ros::Publisher IMURotationPublisher;
@@ -69,6 +73,7 @@ struct StateController
   bool changeGait = false;
   bool toggleLegState = false;
   bool adjustParam = false;
+  bool newParamSet = false;
   bool unstable = false;
   
   sensor_msgs::Imu imuData;
@@ -86,11 +91,14 @@ struct StateController
   
   //Param selection/adjust callback variables
   double paramScaler = 1.0;
+  std::string paramString;
+  double paramVal;
   double paramAdjustSensitivity;
   
   //Body Velocity callback variables
   Vector2d linearVelocityInput;
   double angularVelocityInput = 0; 
+  Vector3d manualTipVelocity;
   
   //Joypad pose callback variables
   double pitchJoy = 0;
@@ -99,7 +107,7 @@ struct StateController
   double xJoy = 0;
   double yJoy = 0;
   double zJoy = 0;  
-  PoseResetMode poseResetMode = NO_RESET;
+  PoseResetMode poseResetMode = ALL_RESET;
   
   //Impedance control variables
   double deltaZ[3][2] = {{0,0},{0,0},{0,0}};

@@ -25,9 +25,9 @@ public:
 	// Zero leg position for inititialzing
 	void zeroLegMatrix(double inputMatrix[3][2]);
 	
+	void updateStiffness(double stepReference, int l, int s);
 	void updateStiffness(WalkController *walker);
 	void updateStiffness(Pose currentPose, Vector3d identityTipPositions[3][2]);
-
 	
 	double virtualStiffness[3][2];	
 	

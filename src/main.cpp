@@ -65,7 +65,15 @@ int main(int argc, char* argv[])
   state.legStatePublishers[2][0] = n.advertise<simple_hexapod_controller::legState>("/hexapod/rear_left_leg/state", 1000);
   state.legStatePublishers[2][1] = n.advertise<simple_hexapod_controller::legState>("/hexapod/rear_right_leg/state", 1000);
   
-  state.posePublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/pose", 1000);
+  //ASC magnetic feet specific publishers
+  state.ascLegStatePublishers[0][0] = n.advertise<std_msgs::Bool>("leg_state_front_left_bool", 1);
+  state.ascLegStatePublishers[0][1] = n.advertise<std_msgs::Bool>("leg_state_front_right_bool", 1);
+  state.ascLegStatePublishers[1][0] = n.advertise<std_msgs::Bool>("leg_state_middle_left_bool", 1);
+  state.ascLegStatePublishers[1][1] = n.advertise<std_msgs::Bool>("leg_state_middle_right_bool", 1);
+  state.ascLegStatePublishers[2][0] = n.advertise<std_msgs::Bool>("leg_state_rear_left_bool", 1);
+  state.ascLegStatePublishers[2][1] = n.advertise<std_msgs::Bool>("leg_state_rear_right_bool", 1);  
+  
+  state.posePublisher = n.advertise<geometry_msgs::Twist>("/hexapod/pose", 1000);
   state.IMURotationPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/imu_rotation", 1000);
   state.bodyVelocityPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/body_velocity", 1000);
   

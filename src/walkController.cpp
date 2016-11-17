@@ -76,6 +76,15 @@ double WalkController::LegStepper::calculateDeltaT(StepState state, int length)
 }
 
 /***********************************************************************************************************************
+ * Sets step state
+***********************************************************************************************************************/
+void WalkController::LegStepper::setState(StepState stepState)
+{
+  state = stepState;
+  walker->stepStates[legIndex][sideIndex] = stepState;
+}
+
+/***********************************************************************************************************************
  * Iterates the step phase and updates the progress variables
 ***********************************************************************************************************************/
 void WalkController::LegStepper::iteratePhase()
@@ -94,7 +103,6 @@ void WalkController::LegStepper::iteratePhase()
     swingProgress = -1.0;    
   }    
 }
-
 
 /***********************************************************************************************************************
  * Updates position of tip using tri-quartic bezier curve tip trajectory engine. Calculates change in tip position using
@@ -299,12 +307,15 @@ void WalkController::init(Model *m, Parameters p)
           
       identityTipPositions[l][s][0] *= model->legs[l][s].mirrorDir;
       
+      legSteppers[l][s].legIndex = l;
+      legSteppers[l][s].sideIndex = s;
+      legSteppers[l][s].walker = this;
       legSteppers[l][s].defaultTipPosition = identityTipPositions[l][s];
       legSteppers[l][s].currentTipPosition = identityTipPositions[l][s];
       legSteppers[l][s].phase = 0; // Ensures that feet start stepping naturally and don't pop to up position
-      legSteppers[l][s].strideVector = Vector2d(0,0);
-      legSteppers[l][s].walker = this;
+      legSteppers[l][s].strideVector = Vector2d(0,0);      
       legSteppers[l][s].params = &params;
+      legSteppers[l][s].setState(STANCE);
     }
   }
   // check for overlapping radii
@@ -369,7 +380,7 @@ void WalkController::setGaitParams(Parameters p)
  * Calculates body and stride velocities and uses velocities in body and leg state machines 
  * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelocityInput, double deltaZ[3][2])
+void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelocityInput, Vector3d tipVelocityInput)
 {
   double onGroundRatio = double(phaseLength-(swingEnd-swingStart))/double(phaseLength);
   
@@ -441,6 +452,22 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
   } 
   
   bool hasVelocityCommand = linearVelocityInput.norm() || angularVelocityInput;
+  
+  //Check that all legs are in WALKING state
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {
+      if (hasVelocityCommand && model->legs[l][s].state != WALKING)
+      {
+	hasVelocityCommand = false;
+	if (angularVelocityInput == 0)
+	{
+	  ROS_INFO_THROTTLE(2,"Unable to walk whilst manually manipulating legs, make sure all legs are in walking state.\n");
+	}
+      }
+    }
+  }
   
   //State transitions for robot state machine.
   // State transition: STOPPED->STARTING
@@ -576,21 +603,21 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
       //Force leg state as STANCE for STARTING robot state
       if (legStepper.state == FORCE_STANCE)
       {
-        legStepper.state = STANCE;
+        legStepper.setState(STANCE);
       }
       //Force leg state as FORCE_STOP for STOPPING robot state
       else if (legStepper.state == FORCE_STOP)
       {
-        legStepper.state = FORCE_STOP;
+        legStepper.setState(FORCE_STOP);
       }
       else if (legStepper.phase >= swingStart && legStepper.phase < swingEnd)
       {
-        legStepper.state = SWING;
+        legStepper.setState(SWING);
       }
       else if (legStepper.phase < stanceEnd || legStepper.phase >= stanceStart)
       {        
-        legStepper.state = STANCE; 
-      }       
+        legStepper.setState(STANCE); 
+      } 
     }
   }
   
@@ -608,16 +635,36 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
 	{
 	  legStepper.updatePosition(); //updates current tip position through step cycle
 	}
-	
 	tipPositions[l][s] = legStepper.currentTipPosition;
+      }
+      else if (leg.state == MANUAL)
+      {
+	if (params.legManipulationMode == "joint_control")
+	{
+	  double coxaVel = tipVelocityInput[0]*params.maxRotationVelocity*timeDelta;
+	  double femurVel = tipVelocityInput[1]*params.maxRotationVelocity*timeDelta;
+	  double tibiaVel = tipVelocityInput[2]*params.maxRotationVelocity*timeDelta;
+	  leg.yaw += coxaVel;
+	  leg.liftAngle += femurVel;
+	  leg.kneeAngle += tibiaVel;
+	  leg.applyFK();
+	  tipPositions[l][s] = leg.localTipPosition;
+	}
+	else if (params.legManipulationMode == "tip_control") 
+	{
+	  tipPositions[l][s] += tipVelocityInput*params.maxTranslationVelocity*timeDelta;
+	}
       }
     }
   }  
   
   //RVIZ
-  Vector2d push = currentLinearVelocity*timeDelta;
-  pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
-  pose.rotation *= Quat(Vector3d(0.0,0.0,-currentAngularVelocity*timeDelta));
+  if (state == MOVING)
+  {
+    Vector2d push = currentLinearVelocity*timeDelta;
+    pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
+    pose.rotation *= Quat(Vector3d(0.0,0.0,-currentAngularVelocity*timeDelta));
+  }
   //RVIZ
 }
 

@@ -15,7 +15,8 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
   manualPose(Pose::identity()),
   imuPose(Pose::identity()),
   inclinationPose(Pose::identity()),
-  deltaZPose(Pose::identity())
+  deltaZPose(Pose::identity()),
+  defaultPose(Pose::identity())
 {   
   sensor_msgs::Imu imuData;
   
@@ -33,36 +34,43 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
  * Updates default stance tip positions according to desired pose
  * This is then later used in walk controller where inverse kinematics are applied
 ***********************************************************************************************************************/
-bool PoseController::updateStance(Vector3d targetTipPositions[3][2],
+void PoseController::updateStance(Vector3d targetTipPositions[3][2],
                                   bool excludeSwingingLegs)
 {  
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
     {
-      if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
+      LegState state = model->legs[l][s].state;
+      if (state == WALKING || state == MANUAL_TO_WALKING)
       {
-        tipPositions[l][s] = currentPose.inverseTransformVector(targetTipPositions[l][s]);  
+	if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
+	{
+	  tipPositions[l][s] = currentPose.inverseTransformVector(targetTipPositions[l][s]);  
+	}
+	else
+	{
+	  //Remove default autoCompensation and apply leg specific auto compensation during swing
+	  Pose swingAutoComp = currentPose;
+	  swingAutoComp.position -= (autoPoseDefault.position - autoPose[l][s].position);
+	  swingAutoComp.rotation[1] -= (autoPoseDefault.rotation[1] - autoPose[l][s].rotation[1]);
+	  swingAutoComp.rotation[2] -= (autoPoseDefault.rotation[2] - autoPose[l][s].rotation[2]);
+	  
+	  tipPositions[l][s] = swingAutoComp.inverseTransformVector(targetTipPositions[l][s]); 
+	}
       }
-      else
+      else if (state == MANUAL || WALKING_TO_MANUAL) //Apply zero posing while in MANUAL state
       {
-	//Remove default autoCompensation and apply leg specific auto compensation during swing
-	Pose swingAutoComp = currentPose;
-	swingAutoComp.position -= (autoPoseDefault.position - autoPose[l][s].position);
-	swingAutoComp.rotation[1] -= (autoPoseDefault.rotation[1] - autoPose[l][s].rotation[1]);
-	swingAutoComp.rotation[2] -= (autoPoseDefault.rotation[2] - autoPose[l][s].rotation[2]);
-	
-	tipPositions[l][s] = swingAutoComp.inverseTransformVector(targetTipPositions[l][s]); 
+	tipPositions[l][s] = targetTipPositions[l][s];
       }
     }
-  }
-  return true;       
+  }   
 }
 
 /***********************************************************************************************************************
  * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
-bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2], 
+double PoseController::stepToPosition(Vector3d targetTipPositions[3][2], 
 				    double deltaZ[3][2], 
 				    int mode, 
 				    double liftHeight, 
@@ -82,7 +90,9 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
 	hasStepped[l][s] = false;
       } 
     }  
-  }   
+  } 
+  
+  masterIterationCount++; 
   
   if (mode == NO_STEP_MODE)
   {
@@ -107,17 +117,6 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
  
   int numIterations = max(1,int(roundToInt((timeToStep/timeDelta)/(timeLimit*2))*(timeLimit*2))); //Ensure compatible number of iterations 
   double deltaT = timeLimit/numIterations;
-    
-  //Check if master count has reached final iteration and iterate if not
-  if (masterIterationCount >= numIterations)
-  {    
-    firstIteration = true;
-    return true;
-  }
-  else 
-  {
-    masterIterationCount++; 
-  }
   
   //Eg: numIterations = 18 with 6 swings (sequential mode)
   //masterIteration: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18
@@ -226,7 +225,7 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
       }
       
       //Apply inverse kinematics to localTipPositions and stanceTipPositions
-      if (model->legs[l][s].state != OFF)
+      if (model->legs[l][s].state != MANUAL)
       {
 	Vector3d adjustedPos = pos;
 	adjustedPos[2] -= deltaZ[l][s]; //Re-apply deltaZ offset
@@ -234,7 +233,17 @@ bool PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
       }
     }
   }  
-  return false;
+  
+  //Check if master count has reached final iteration and iterate if not
+  if (masterIterationCount >= numIterations)
+  {    
+    firstIteration = true;
+    return 1.0;
+  }
+  else 
+  {
+    return (double(masterIterationCount-1)/double(numIterations)); //Ratio of completion
+  }  
 }
 
 /***********************************************************************************************************************
@@ -349,7 +358,7 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
     stepTime = 2.0/params.stepFrequency;
   }
   
-  bool res = false;
+  double res = 0.0;
   double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
   double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
   switch (sequenceStep)
@@ -373,7 +382,7 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
       return false;
   }
   
-  if (res) 
+  if (res == 1.0) 
   {
     sequenceStep++;
   }
@@ -386,7 +395,7 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
 ***********************************************************************************************************************/
 bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode)
 {  
-  bool res = false;
+  double res = 0.0;
   double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
   double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
   switch (sequenceStep)
@@ -411,7 +420,7 @@ bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool fo
       return false;
   }
   
-  if (res) 
+  if (res == 1.0) 
   {
     sequenceStep++;
   }
@@ -564,47 +573,73 @@ void PoseController::autoCompensation()
 /***********************************************************************************************************************
  * Calculates pitch/roll/yaw/x,y,z for smooth transition to target pose for manual body compensation
 ***********************************************************************************************************************/
-void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode)
+void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode, Pose defaultPose)
 {   
   Vector3d translationPosition = manualPose.position;
-  Vector3d rotationPosition = Vector3d(manualPose.rotation[1], manualPose.rotation[2], manualPose.rotation[3]); //Quat to Euler
+  Vector3d rotationPosition = manualPose.rotation.vectorPart();
+  
+  Vector3d defaultTranslation = defaultPose.position;
+  Vector3d defaultRotation = defaultPose.rotation.vectorPart();
   
   Vector3d maxTranslation = params.maxTranslation;
   Vector3d maxRotation = params.maxRotation;
+  
+  bool resetTranslation[3] = {false, false, false};
+  bool resetRotation[3] = {false, false, false};
+  
   switch (poseResetMode)
   {
     case (Z_AND_YAW_RESET):
-      maxTranslation[2] = 0.0;
-      maxRotation[2] = 0.0;
+      resetTranslation[2] = true;
+      resetRotation[2] = true;
       break;
     case (X_AND_Y_RESET):
-      maxTranslation[0] = 0.0;
-      maxTranslation[1] = 0.0;
+      resetTranslation[0] = true;
+      resetTranslation[1] = true;
       break;
     case (PITCH_AND_ROLL_RESET):
-      maxRotation[0] = 0.0;
-      maxRotation[1] = 0.0;
+      resetRotation[0] = true;
+      resetRotation[1] = true;
       break;
     case (ALL_RESET):
-      maxTranslation = Vector3d(0.0,0.0,0.0);
-      maxRotation = Vector3d(0.0,0.0,0.0);
+    case(FORCE_ALL_RESET):
+      resetTranslation[0] = true;
+      resetTranslation[1] = true;
+      resetTranslation[2] = true;
+      resetRotation[0] = true;
+      resetRotation[1] = true;
+      resetRotation[2] = true;
       break;
-    case (NO_RESET):
-      maxTranslation = params.maxTranslation;
-      maxRotation = params.maxRotation;
+    case (NO_RESET): //Do nothing
+    default: //Do nothing      
       break;
   }
   
   //Override posing velocity commands depending on pose reset mode 
   for (int i=0; i<3; i++) //For each axis (x,y,z)/(roll,pitch,yaw)
   {      
-    if (maxTranslation[i] == 0.0)
+    if (resetTranslation[i])
     {
-      newPosingVelocity.position[i] = -sign(translationPosition[i])*1.0;
+      if (translationPosition[i] < defaultTranslation[i])
+      {
+	newPosingVelocity.position[i] = 1.0;
+      }
+      else if (translationPosition[i] > defaultTranslation[i])
+      {
+	newPosingVelocity.position[i] = -1.0;
+      }      
     }
-    if (maxRotation[i] == 0.0)
+    
+    if (resetRotation[i])
     {
-      newPosingVelocity.rotation[i+1] = -sign(rotationPosition[i])*1.0;
+      if (rotationPosition[i] < defaultRotation[i])
+      {
+	newPosingVelocity.rotation[i+1] = 1.0;
+      }
+      else if (rotationPosition[i] > defaultRotation[i])
+      {
+	newPosingVelocity.rotation[i+1] = -1.0;
+      }
     }
   }
   
@@ -612,43 +647,46 @@ void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode po
   Vector3d eulerRotationVelocity = Vector3d(newPosingVelocity.rotation[1], newPosingVelocity.rotation[2], newPosingVelocity.rotation[3]);
   Vector3d rotationVelocity = clamped(eulerRotationVelocity, 1.0)*params.maxRotationVelocity;  
   
+  Vector3d translationLimit = Vector3d(0,0,0);
+  Vector3d rotationLimit = Vector3d(0,0,0);
+  
   //Control velocity
   for (int i=0; i<3; i++) //For each axis (x,y,z)/(roll,pitch,yaw)
-  {     
-    //Zero velocity when translation position reaches limit
-    if (sign(translationVelocity[i]) > 0)
+  {        
+    //Assign correct translation limit based on velocity direction and reset command
+    translationLimit[i] = sign(translationVelocity[i])*maxTranslation[i];
+    if (resetTranslation[i] && defaultTranslation[i] < maxTranslation[i] && defaultTranslation[i] > -maxTranslation[i])
     {
-      if (translationPosition[i] + translationVelocity[i]*timeDelta > maxTranslation[i])
-      {
-	translationVelocity[i] = 0;
-	translationPosition[i] = maxTranslation[i];
-      }
-    }
-    else
-    {
-      if (translationPosition[i] + translationVelocity[i]*timeDelta < -maxTranslation[i])
-      {
-	translationVelocity[i] = 0;
-	translationPosition[i] = -maxTranslation[i];
-      }
+      translationLimit[i] = defaultTranslation[i];
     }
     
-    //Zero velocity when rotation position reaches limit
-    if (sign(rotationVelocity[i]) > 0)
+    bool positiveTranslationVelocity = sign(translationVelocity[i]) > 0;
+    bool exceedsPositiveTranslationLimit = positiveTranslationVelocity && (translationPosition[i] + translationVelocity[i]*timeDelta > translationLimit[i]);
+    bool exceedsNegativeTranslationLimit = !positiveTranslationVelocity && (translationPosition[i] + translationVelocity[i]*timeDelta < translationLimit[i]);
+    
+    //Zero velocity when translation position reaches limit
+    if (exceedsPositiveTranslationLimit || exceedsNegativeTranslationLimit)
     {
-      if (rotationPosition[i] + rotationVelocity[i]*timeDelta > maxRotation[i])
-      {
-	rotationVelocity[i] = 0;
-	rotationPosition[i] = maxRotation[i];
-      }
+      translationVelocity[i] = 0;
+      translationPosition[i] = translationLimit[i];
     }
-    else
+    
+    //Assign correct rotation limit based on velocity direction and reset command
+    rotationLimit[i] = sign(rotationVelocity[i])*maxRotation[i];
+    if (resetRotation[i] && defaultRotation[i] < maxRotation[i] && defaultRotation[i] > -maxRotation[i])
     {
-      if (rotationPosition[i] + rotationVelocity[i]*timeDelta < -maxRotation[i])
-      {
-	rotationVelocity[i] = 0;
-	rotationPosition[i] = -maxRotation[i];
-      }
+      rotationLimit[i] = defaultRotation[i];
+    }
+    
+    bool positiveRotationVelocity = sign(rotationVelocity[i]) > 0;
+    bool exceedsPositiveRotationLimit = positiveRotationVelocity && (rotationPosition[i] + rotationVelocity[i]*timeDelta > rotationLimit[i]);
+    bool exceedsNegativeRotationLimit = !positiveRotationVelocity && (rotationPosition[i] + rotationVelocity[i]*timeDelta < rotationLimit[i]);
+    
+    //Zero velocity when rotation position reaches limit
+    if (exceedsPositiveRotationLimit || exceedsNegativeRotationLimit)
+    {
+      rotationVelocity[i] = 0;
+      rotationPosition[i] = rotationLimit[i];
     }
     
     //Update position
@@ -784,6 +822,7 @@ void PoseController::inclinationCompensation(sensor_msgs::Imu imuData)
 ***********************************************************************************************************************/
 void PoseController::impedanceControllerCompensation(double deltaZ[3][2])
 {
+  int loadedLegs = 6;
   double averageDeltaZ = 0.0;
   for (int l = 0; l<3; l++)
   {
@@ -792,10 +831,103 @@ void PoseController::impedanceControllerCompensation(double deltaZ[3][2])
       averageDeltaZ += deltaZ[l][s];
     }
   }
-  averageDeltaZ /= 6.0;
+  averageDeltaZ /= loadedLegs;
   
   deltaZPose = Pose::identity();
   deltaZPose.position[2] = abs(averageDeltaZ);
+}
+
+/***********************************************************************************************************************
+ * Attempts to develop pose to position body such that there is a zero sum of moments from the force acting on the load
+ * bearing feet
+***********************************************************************************************************************/
+void PoseController::calculateDefaultPose()
+{
+  int legsLoaded = 0.0;
+  int legsTransitioningStates = 0.0;
+  
+  //Check how many legs are load bearing and how many are transitioning states
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {
+      LegState state = model->legStates[l][s];
+      if (state == WALKING || state == MANUAL_TO_WALKING)
+      {
+	legsLoaded++;
+      }
+      
+      if (state == MANUAL_TO_WALKING || state == WALKING_TO_MANUAL)
+      {
+	legsTransitioningStates++;
+      }
+    }
+  }
+  
+  //Only update the sum of moments if specific leg is WALKING and ALL other legs are in WALKING OR MANUAL state.
+  if (legsTransitioningStates != 0.0)
+  {
+    if (recalculateOffset)
+    {
+      Vector3d zeroMomentOffset(0,0,0);
+      for (int l = 0; l<3; l++)
+      {
+	for (int s = 0; s<2; s++)
+	{
+	  LegState state = model->legStates[l][s];
+	  if (state == WALKING || state == MANUAL_TO_WALKING)
+	  {	  
+	    zeroMomentOffset[0] += walker->identityTipPositions[l][s][0];
+	    zeroMomentOffset[1] += walker->identityTipPositions[l][s][1];
+	  }
+	}
+      }
+      zeroMomentOffset /= legsLoaded;
+      defaultPose.position[0] = zeroMomentOffset[0];
+      defaultPose.position[1] = zeroMomentOffset[1]; 
+      recalculateOffset = false;
+    }
+  }
+  else
+  {
+    recalculateOffset = true;
+  }  
+}
+
+/***********************************************************************************************************************
+ * Steps tip positions into correct pose for leg manipulation
+***********************************************************************************************************************/
+double PoseController::poseForLegManipulation(LegState state, int l, int s, double deltaZ[3][2])
+{ 
+  //Get target tip positions for legs in WALKING state using default pose
+  Pose targetPose = currentPose;
+  targetPose.position -= manualPose.position; //Remove manual posing
+  targetPose.position += defaultPose.position; //Add new default pose
+  Vector3d targetTipPositions[3][2];
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    { 
+      targetTipPositions[l][s] = targetPose.inverseTransformVector(walker->identityTipPositions[l][s]);
+    }
+  }
+  
+  double stepHeight = walker->stepClearance*walker->maximumBodyHeight;
+  double newDeltaZ[3][2] = {{deltaZ[0][0], deltaZ[0][1]}, {deltaZ[1][0], deltaZ[1][1]}, {deltaZ[2][0], deltaZ[2][1]}};
+  
+  //Change pose and deltaZ for leg transitioning to MANUAL state
+  if (state == WALKING_TO_MANUAL)
+  { 
+    targetPose = Pose::identity();
+    targetPose.position += inclinationPose.position; //Apply inclination control to lifted leg
+    double raiseHeight = stepHeight; // - deltaZ[l][s]; //Height leg is to be raised
+    targetPose.position[2] -= raiseHeight;
+    targetTipPositions[l][s] = targetPose.inverseTransformVector(walker->identityTipPositions[l][s]);
+    newDeltaZ[l][s] = 0.0;
+    //stepHeight = 0.0;    
+  }       
+      
+  return stepToPosition(targetTipPositions, newDeltaZ, SIMULTANEOUS_MODE, stepHeight, 1.0/params.stepFrequency);  
 }
 
 /***********************************************************************************************************************

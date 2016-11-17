@@ -113,6 +113,10 @@ hexapod:
         max_translation_velocity: 0.05
         max_rotation_velocity: 0.05
         
+    #Manual leg manipulation
+      manual_leg_manipulation:
+        leg_manipulation_mode: tip_control
+        
     #Packed state, joint position parameters
       packed_joint_positions:
         AL_packed_joint_positions: [1.57, 1.57, -1.57]  #CONFIRM VALUES BEFORE USE
@@ -142,7 +146,8 @@ hexapod:
       virtual_mass: 100.0
       integrator_step_time: 0.075
       virtual_stiffness: 50
-      stiffness_multiplier: 5.0
+      load_stiffness_scaler: 5.0
+      swing_stiffness_scaler: 0.1
       virtual_damping_ratio: 4.0
       force_gain: 0.1      
         
