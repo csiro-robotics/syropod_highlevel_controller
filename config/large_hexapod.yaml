@@ -19,33 +19,33 @@ hexapod:
 ######################################################################
 
     physical_leg_offsets:
-      root_offset_AL: [0.1575, 0.5675, 0.0] #Front Left Leg
-      root_offset_AR: [0.1575, 0.5675, 0.0] #Front Right Leg
-      root_offset_BL: [0.1575, 0.0, 0.0] #Middle Left Leg
-      root_offset_BR: [0.1575, 0.0, 0.0] #Middle Right Leg
-      root_offset_CL: [0.1575, -0.5675, 0.0] #Back Left Leg
-      root_offset_CR: [0.1575, -0.5675, 0.0] #Back Right Leg
+      root_offset_AL: [0.5675, -0.1575, 0.0] #Front Left Leg
+      root_offset_AR: [0.5675, -0.1575, 0.0] #Front Right Leg
+      root_offset_BL: [0.0, -0.1575, 0.0] #Middle Left Leg
+      root_offset_BR: [0.0, -0.1575, 0.0] #Middle Right Leg
+      root_offset_CL: [-0.5675, -0.1575, 0.0] #Back Left Leg
+      root_offset_CR: [-0.5675, -0.1575, 0.0] #Back Right Leg
 
-      hip_offset_AL: [0.07985, 0.0, 0.0] #Front Left Leg
-      hip_offset_AR: [0.07985, 0.0, 0.0] #Front Right Leg
-      hip_offset_BL: [0.07985, 0.0, 0.0] #Middle Left Leg
-      hip_offset_BR: [0.07985, 0.0, 0.0] #Middle Right Leg
-      hip_offset_CL: [0.07985, 0.0, 0.0] #Back Left Leg
-      hip_offset_CR: [0.07985, 0.0, 0.0] #Back Right Leg
+      hip_offset_AL: [0.0, -0.07985, 0.0] #Front Left Leg
+      hip_offset_AR: [0.0, -0.07985, 0.0] #Front Right Leg
+      hip_offset_BL: [0.0, -0.07985, 0.0] #Middle Left Leg
+      hip_offset_BR: [0.0, -0.07985, 0.0] #Middle Right Leg
+      hip_offset_CL: [0.0, -0.07985, 0.0] #Back Left Leg
+      hip_offset_CR: [0.0, -0.07985, 0.0] #Back Right Leg
 
-      knee_offset_AL: [0.8, 0.0, 0.0] #Front Left Leg
-      knee_offset_AR: [0.8, 0.0, 0.0] #Front Right Leg
-      knee_offset_BL: [0.8, 0.0, 0.0] #Middle Left Leg
-      knee_offset_BR: [0.8, 0.0, 0.0] #Middle Right Leg
-      knee_offset_CL: [0.8, 0.0, 0.0] #Back Left Leg
-      knee_offset_CR: [0.8, 0.0, 0.0] #Back Right Leg
+      knee_offset_AL: [0.0, -0.8, 0.0] #Front Left Leg
+      knee_offset_AR: [0.0, -0.8, 0.0] #Front Right Leg
+      knee_offset_BL: [0.0, -0.8, 0.0] #Middle Left Leg
+      knee_offset_BR: [0.0, -0.8, 0.0] #Middle Right Leg
+      knee_offset_CL: [0.0, -0.8, 0.0] #Back Left Leg
+      knee_offset_CR: [0.0, -0.8, 0.0] #Back Right Leg
 
-      tip_offset_AL: [1.5, 0.0, 0.0] #Front Left Leg
-      tip_offset_AR: [1.5, 0.0, 0.0] #Front Right Leg
-      tip_offset_BL: [1.5, 0.0, 0.0] #Middle Left Leg
-      tip_offset_BR: [1.5, 0.0, 0.0] #Middle Right Leg
-      tip_offset_CL: [1.5, 0.0, 0.0] #Back Left Leg
-      tip_offset_CR: [1.5, 0.0, 0.0] #Back Right Leg
+      tip_offset_AL: [0.0, -1.5, 0.0] #Front Left Leg
+      tip_offset_AR: [0.0, -1.5, 0.0] #Front Right Leg
+      tip_offset_BL: [0.0, -1.5, 0.0] #Middle Left Leg
+      tip_offset_BR: [0.0, -1.5, 0.0] #Middle Right Leg
+      tip_offset_CL: [0.0, -1.5, 0.0] #Back Left Leg
+      tip_offset_CR: [0.0, -1.5, 0.0] #Back Right Leg
 
     stance_leg_yaws: [0.785, 0, -0.785] #[0.5233, 0, -0.5233]
     physical_yaw_offset: [0.0, 0.0, 0.0]
@@ -158,7 +158,7 @@ hexapod:
   debug_parameters:
     testing: true
     test_time_length: 0.0
-    test_linear_velocity: [0.0, 0.5]
+    test_linear_velocity: [0.5, 0.0]
     test_angular_velocity: 0.0
     console_verbosity: debug
     

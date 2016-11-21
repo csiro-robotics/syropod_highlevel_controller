@@ -460,7 +460,7 @@ void StateController::compensation()
   //Manually set (joystick controlled) body compensation 
   if (params.manualCompensation)
   {     
-    Pose posingVelocity = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,pitchJoy,rollJoy,yawJoy));
+    Pose posingVelocity = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,rollJoy,pitchJoy,yawJoy));
     poser->manualCompensation(posingVelocity, poseResetMode, poser->defaultPose); //Updates current pose  
     poser->currentPose = poser->manualPose;
   } 
@@ -1246,7 +1246,7 @@ void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
 { 
   linearVelocityInput = Vector2d(twist.linear.x, twist.linear.y);
-  angularVelocityInput = twist.angular.x;
+  angularVelocityInput = twist.angular.z;
   
   manualTipVelocity = Vector3d(twist.angular.x, twist.angular.y, (-0.5*twist.angular.z+0.5) - (-0.5*twist.linear.z+0.5));
 }

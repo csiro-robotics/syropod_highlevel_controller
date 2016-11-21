@@ -11,9 +11,9 @@ void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
   kneeAngle = startKneeAngle;
   hipLength = hipOffset.norm();
   femurLength = kneeOffset.norm();
-  femurAngleOffset = atan2(kneeOffset[2], kneeOffset[0]);
+  femurAngleOffset = atan2(kneeOffset[2], -kneeOffset[1]);
   tibiaLength = tipOffset.norm();
-  tibiaAngleOffset = atan2(tipOffset[2], tipOffset[0]);
+  tibiaAngleOffset = atan2(tipOffset[2], -tipOffset[1]);
   minLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 
     2.0*femurLength*tibiaLength*cos(max(0.0, pi-model->minMaxKneeBend[1]))); 
   maxLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 
@@ -28,17 +28,17 @@ Vector3d Leg::applyLocalIK(Vector3d tipTarget)
 {
   // application of cosine rule
   Vector3d target = tipTarget;
-  target[0] *= mirrorDir;
+  target[1] *= mirrorDir;
   target -= rootOffset; // since rootOffset is fixed in root's space
-  yaw = atan2(target[1], target[0]);
+  yaw = atan2(target[0], -target[1]);
   Quat quat(Vector3d(0,0,yaw));
   target = quat.inverseRotateVector(target); // localise
   
   target -= hipOffset;
-  ASSERT(abs(target[1]) < 0.01);
-  target[1] = 0; // any offset here cannot be reached
+  ASSERT(abs(target[0]) < 0.01);
+  target[0] = 0; // any offset here cannot be reached
   double targetLength = target.norm();
-  double targetAngleOffset = atan2(target[2], target[0]);
+  double targetAngleOffset = atan2(target[2], -target[1]);
   
   targetLength = clamped(targetLength, minLegLength + 1e-4, maxLegLength - 1e-4); // reachable range
   double lift = acos((sqr(targetLength)+sqr(femurLength)-sqr(tibiaLength))/(2.0*targetLength*femurLength));
@@ -80,10 +80,10 @@ Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
 {
   Vector3d tipPosition;
   tipPosition = tipOffset;
-  tipPosition = Quat(Vector3d(0, kneeAngle, 0)).rotateVector(tipPosition) + kneeOffset;
-  tipPosition = Quat(Vector3d(0, -liftAngle, 0)).rotateVector(tipPosition) + hipOffset;
+  tipPosition = Quat(Vector3d(kneeAngle, 0, 0)).rotateVector(tipPosition) + kneeOffset;
+  tipPosition = Quat(Vector3d(-liftAngle, 0, 0)).rotateVector(tipPosition) + hipOffset;
   tipPosition = Quat(Vector3d(0, 0, yaw)).rotateVector(tipPosition) + rootOffset;
-  tipPosition[0] *= mirrorDir;
+  tipPosition[1] *= mirrorDir;
   
   return tipPosition;
 }
@@ -166,13 +166,13 @@ vector<Vector3d> Model::getJointPositions(const Pose &pose)
       Leg &leg = legs[l][s];
       Pose transform;
       transform = Pose(leg.rootOffset, Quat(Vector3d(0, 0, leg.yaw)));
-      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
-      transform *= Pose(leg.hipOffset, Quat(Vector3d(0, -leg.liftAngle, 0)));
-      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
-      transform *= Pose(leg.kneeOffset, Quat(Vector3d(0, leg.kneeAngle, 0)));
-      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
+      positions.push_back(pose.transformVector(Vector3d(transform.position[0], transform.position[1]*leg.mirrorDir, transform.position[2])));
+      transform *= Pose(leg.hipOffset, Quat(Vector3d(-leg.liftAngle, 0, 0)));
+      positions.push_back(pose.transformVector(Vector3d(transform.position[0], transform.position[1]*leg.mirrorDir, transform.position[2])));
+      transform *= Pose(leg.kneeOffset, Quat(Vector3d(leg.kneeAngle, 0, 0)));
+      positions.push_back(pose.transformVector(Vector3d(transform.position[0], transform.position[1]*leg.mirrorDir, transform.position[2])));
       transform *= Pose(leg.tipOffset, Quat(Vector3d(0, 0, 0)));
-      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
+      positions.push_back(pose.transformVector(Vector3d(transform.position[0], transform.position[1]*leg.mirrorDir, transform.position[2])));
       ASSERT(positions.back().squaredNorm() < 1000.0);
     }
   }

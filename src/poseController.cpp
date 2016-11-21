@@ -522,7 +522,7 @@ void PoseController::autoCompensation()
 	swingHeightPercentage = abs(walker->legSteppers[l][s].currentTipPosition[2] - walker->legSteppers[l][s].defaultTipPosition[2])/(walker->stepClearance*walker->maximumBodyHeight);
 
 	roll[l][s] = swingHeightPercentage*pow(-1.0, s)*params.rollAmplitude*calculateRoll; //Inverting as required
-	pitch[l][s] = swingHeightPercentage*(-(l-1))*params.pitchAmplitude*calculatePitch; //Inverting as required
+	pitch[l][s] = swingHeightPercentage*(l-1)*params.pitchAmplitude*calculatePitch; //Inverting as required
 	zTrans[l][s] = swingHeightPercentage*params.zTransAmplitude*calculateZTrans;
       } 
       else
@@ -544,8 +544,8 @@ void PoseController::autoCompensation()
     int leadLegRef = i/2;
     int leadSideRef = i%2;
     
-    autoPoseDefault.rotation[2] += roll[leadLegRef][leadSideRef];
-    autoPoseDefault.rotation[1] += pitch[leadLegRef][leadSideRef];
+    autoPoseDefault.rotation[1] += roll[leadLegRef][leadSideRef];
+    autoPoseDefault.rotation[2] += pitch[leadLegRef][leadSideRef];
     autoPoseDefault.position[2] += zTrans[leadLegRef][leadSideRef];    
   }
   
@@ -563,8 +563,8 @@ void PoseController::autoCompensation()
       int inPhaseLeadSideRef = inPhaseLeadIndex%2;      
       
       autoPose[l][s] = autoPoseDefault;
-      autoPose[l][s].rotation[2] -= roll[inPhaseLeadLegRef][inPhaseLeadSideRef];
-      autoPose[l][s].rotation[1] -= pitch[inPhaseLeadLegRef][inPhaseLeadSideRef];
+      autoPose[l][s].rotation[1] -= roll[inPhaseLeadLegRef][inPhaseLeadSideRef];
+      autoPose[l][s].rotation[2] -= pitch[inPhaseLeadLegRef][inPhaseLeadSideRef];
       autoPose[l][s].position[2] -= zTrans[inPhaseLeadLegRef][inPhaseLeadSideRef];
     }
   }
@@ -747,8 +747,8 @@ void PoseController::imuCompensation(sensor_msgs::Imu imuData, Quat targetRotati
   else
   { 
     imuPose = Pose::identity();
-    imuPose.rotation[1] = -rotationCorrection[0]; //Pitch correction
-    imuPose.rotation[2] = -rotationCorrection[1]; //Roll correction
+    imuPose.rotation[1] = -rotationCorrection[0];
+    imuPose.rotation[2] = -rotationCorrection[1];
   } 
 
   //TRANSLATION COMPENSATION
@@ -813,8 +813,8 @@ void PoseController::inclinationCompensation(sensor_msgs::Imu imuData)
   double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
   
   inclinationPose = Pose::identity();
-  inclinationPose.position[0] = lateralCorrection;
-  inclinationPose.position[1] = longitudinalCorrection;
+  inclinationPose.position[0] = longitudinalCorrection;
+  inclinationPose.position[1] = lateralCorrection;
 }
 
 /***********************************************************************************************************************

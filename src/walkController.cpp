@@ -302,10 +302,10 @@ void WalkController::init(Model *m, Parameters p)
     for (int s = 0; s<2; s++)
     {
       identityTipPositions[l][s] = model->legs[l][s].rootOffset + 
-        footSpreadDistances[l]*Vector3d(cos(model->stanceLegYaws[l]), sin(model->stanceLegYaws[l]), 0) + 
+        footSpreadDistances[l]*Vector3d(sin(model->stanceLegYaws[l]), -cos(model->stanceLegYaws[l]), 0) + 
           Vector3d(0,0,-bodyClearance*maximumBodyHeight);
           
-      identityTipPositions[l][s][0] *= model->legs[l][s].mirrorDir;
+      identityTipPositions[l][s][1] *= model->legs[l][s].mirrorDir;
       
       legSteppers[l][s].legIndex = l;
       legSteppers[l][s].sideIndex = s;
@@ -659,7 +659,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
   }  
   
   //RVIZ
-  if (state == MOVING)
+  if (state != STOPPED)
   {
     Vector2d push = currentLinearVelocity*timeDelta;
     pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
