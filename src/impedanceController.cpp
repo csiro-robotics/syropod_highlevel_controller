@@ -120,7 +120,7 @@ void ImpedanceController::updateStiffness(WalkController *walker)
   {
     for (int s = 0; s<2; s++)
     {  
-      if (walker->legSteppers[l][s].state == SWING)
+      if (walker->legSteppers[l][s].stepState == SWING)
       {
 	//Get adjacent leg references
 	int adjacent1Leg = (l==1) ? (l+1):l;

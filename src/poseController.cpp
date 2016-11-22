@@ -18,8 +18,6 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
   deltaZPose(Pose::identity()),
   defaultPose(Pose::identity())
 {   
-  sensor_msgs::Imu imuData;
-  
   rotationAbsementError = Vector3d(0,0,0);
   rotationPositionError = Vector3d(0,0,0);
   rotationVelocityError = Vector3d(0,0,0);
@@ -44,7 +42,7 @@ void PoseController::updateStance(Vector3d targetTipPositions[3][2],
       LegState state = model->legs[l][s].state;
       if (state == WALKING || state == MANUAL_TO_WALKING)
       {
-	if (!excludeSwingingLegs || walker->legSteppers[l][s].state != SWING)
+	if (!excludeSwingingLegs || walker->legSteppers[l][s].stepState != SWING)
 	{
 	  tipPositions[l][s] = currentPose.inverseTransformVector(targetTipPositions[l][s]);  
 	}
@@ -517,7 +515,7 @@ void PoseController::autoCompensation()
   {
     for (int s=0; s<2; s++)
     {
-      if (walker->legSteppers[l][s].state == SWING)
+      if (walker->legSteppers[l][s].stepState == SWING)
       {
 	swingHeightPercentage = abs(walker->legSteppers[l][s].currentTipPosition[2] - walker->legSteppers[l][s].defaultTipPosition[2])/(walker->stepClearance*walker->maximumBodyHeight);
 
@@ -698,25 +696,10 @@ void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode po
 /***********************************************************************************************************************
  * Returns roll and pitch rotation values to compensate for roll/pitch of IMU and keep body at target rotation
 ***********************************************************************************************************************/
-void PoseController::imuCompensation(sensor_msgs::Imu imuData, Quat targetRotation)
+void PoseController::imuCompensation(ImuData imuData, Quat targetRotation)
 {
-  //ROTATION COMPENSATION
-  Quat orientation; 		//IMU Orientation
-  Vector3d angularVelocity;	//IMU Angular Velocity
-  
-  //Get orientation data from IMU
-  orientation.w = imuData.orientation.w;
-  orientation.x = imuData.orientation.x;
-  orientation.y = imuData.orientation.y;
-  orientation.z = imuData.orientation.z;
-  
-  //Get angular velocity data from IMU
-  angularVelocity(0) = imuData.angular_velocity.x;
-  angularVelocity(1) = imuData.angular_velocity.y;
-  angularVelocity(2) = imuData.angular_velocity.z;
-  
   //There are two orientations per quaternion and we want the shorter/smaller difference. 
-  double dot = targetRotation.dot(~orientation);
+  double dot = targetRotation.dot(~imuData.orientation);
   if (dot < 0.0)
   {
     targetRotation = -targetRotation;
@@ -727,12 +710,12 @@ void PoseController::imuCompensation(sensor_msgs::Imu imuData, Quat targetRotati
   double kP = params.rotationCompensationProportionalGain;
   double kI = params.rotationCompensationIntegralGain;
   
-  rotationPositionError = orientation.toEulerAngles() - targetRotation.toEulerAngles();
+  rotationPositionError = imuData.orientation.toEulerAngles() - targetRotation.toEulerAngles();
   rotationAbsementError += rotationPositionError*params.timeDelta; //Integration of angle position error (absement)
   
   //Low pass filter of IMU angular velocity data
   double smoothingFactor = 0.15;
-  rotationVelocityError = smoothingFactor*angularVelocity + (1-smoothingFactor)*rotationVelocityError;
+  rotationVelocityError = smoothingFactor*imuData.angularVelocity + (1-smoothingFactor)*rotationVelocityError;
   
   Vector3d rotationCorrection = kD*rotationVelocityError + kP*rotationPositionError + kI*rotationAbsementError;
   rotationCorrection[2] = 0; //No compensation in yaw rotation
@@ -753,21 +736,7 @@ void PoseController::imuCompensation(sensor_msgs::Imu imuData, Quat targetRotati
 
   //TRANSLATION COMPENSATION
   //DOES NOT CURRENTLY WORK FULLY
-  /*
-  Quat orientation;	//IMU Orientation
-  Vector3d linearAcceleration;	//IMU Linear Acceleration
-  
-  //Get orientation data from IMU
-  orientation.w = imuData.orientation.w;
-  orientation.x = imuData.orientation.x;
-  orientation.y = imuData.orientation.y;
-  orientation.z = imuData.orientation.z;
-  
-  //Get linear acceleration data from IMU
-  linearAcceleration(0) = imuData.linear_acceleration.x;
-  linearAcceleration(1) = imuData.linear_acceleration.y;
-  linearAcceleration(2) = imuData.linear_acceleration.z;
-  
+  /* 
   //PID gains
   double kD = params.translationCompensationDerivativeGain;
   double kP = params.translationCompensationProportionalGain;
@@ -775,8 +744,8 @@ void PoseController::imuCompensation(sensor_msgs::Imu imuData, Quat targetRotati
   
   //Remove gravity
   Vector3d gravity = {0.0,0.0,9.75};  
-  Vector3d orientedGravity = orientation.rotateVector(gravity);
-  Vector3d dynamicLinearAcceleration = linearAcceleration - orientedGravity);
+  Vector3d orientedGravity = imuData.orientation.rotateVector(gravity);
+  Vector3d dynamicLinearAcceleration = imuData.linearAcceleration - orientedGravity;
   
   double decayRate = 2.3; 
   
@@ -791,23 +760,15 @@ void PoseController::imuCompensation(sensor_msgs::Imu imuData, Quat targetRotati
   
   Vector3d translationCorrection = kD*translationVelocityError + kP*translationPositionError + kI*translationAbsementError;  
   translationCorrection[2] = 0; //No compensation in z translation (competes with impedance controller)
-  */  
+  */
 }
 
 /***********************************************************************************************************************
  * Returns roll and pitch rotation values to compensate for roll/pitch of IMU and keep body at target rotation
 ***********************************************************************************************************************/
-void PoseController::inclinationCompensation(sensor_msgs::Imu imuData)
-{
-  Quat orientation;
-  
-  //Get orientation data from IMU
-  orientation.w = imuData.orientation.w;
-  orientation.x = imuData.orientation.x;
-  orientation.y = imuData.orientation.y;
-  orientation.z = imuData.orientation.z;
-  
-  Vector3d eulerAngles = orientation.toEulerAngles() - manualPose.rotation.toEulerAngles() - autoPoseDefault.rotation.toEulerAngles();
+void PoseController::inclinationCompensation(ImuData imuData)
+{  
+  Vector3d eulerAngles = imuData.orientation.toEulerAngles() - manualPose.rotation.toEulerAngles() - autoPoseDefault.rotation.toEulerAngles();
   
   double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
   double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 

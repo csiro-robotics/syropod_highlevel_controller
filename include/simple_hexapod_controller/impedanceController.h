@@ -2,6 +2,7 @@
 #define IMPEDANCECONTROLLER_H_
 
 #include "standardIncludes.h"
+#include "parametersAndStates.h"
 #include <boost/numeric/odeint.hpp>
 #include "walkController.h"
 

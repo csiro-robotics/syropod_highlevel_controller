@@ -80,7 +80,7 @@ double WalkController::LegStepper::calculateDeltaT(StepState state, int length)
 ***********************************************************************************************************************/
 void WalkController::LegStepper::setState(StepState stepState)
 {
-  state = stepState;
+  stepState = stepState;
   walker->stepStates[legIndex][sideIndex] = stepState;
 }
 
@@ -91,12 +91,12 @@ void WalkController::LegStepper::iteratePhase()
 {
   phase = (phase+1)%(walker->phaseLength);
   
-  if (state == SWING)
+  if (stepState == SWING)
   {
     swingProgress = double(phase-walker->swingStart+1)/double(walker->swingEnd - walker->swingStart);
     stanceProgress = -1.0;
   }
-  else if (state == STANCE)
+  else if (stepState == STANCE)
   {
     stanceProgress = double(mod(phase+(walker->phaseLength-walker->stanceStart), walker->phaseLength)+1)/
 		     double(mod(walker->stanceEnd-walker->stanceStart, walker->phaseLength)); 
@@ -112,11 +112,11 @@ void WalkController::LegStepper::iteratePhase()
 void WalkController::LegStepper::updatePosition()
 {      
   // Swing Phase
-  if (state == SWING)
+  if (stepState == SWING)
   {
     int iteration = phase-walker->swingStart+1;
     double swingLength = walker->swingEnd - walker->swingStart;
-    swingDeltaT = calculateDeltaT(state, swingLength);
+    swingDeltaT = calculateDeltaT(stepState, swingLength);
     int numIterations = 2.0/swingDeltaT;
     
     //Save initial tip position at beginning of swing
@@ -167,7 +167,7 @@ void WalkController::LegStepper::updatePosition()
     }
   }  
   // Stance phase
-  else if (state == STANCE)
+  else if (stepState == STANCE)
   {      
     int stanceStart = completedFirstStep ? walker->swingEnd : phaseOffset;
     int stanceEnd = walker->swingStart;
@@ -391,7 +391,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
   double maxAngularSpeed = maxLinearSpeed/stanceRadius;
   
   //Get new angular/linear velocities according to input mode
-  if (state != STOPPING)
+  if (walkState != STOPPING)
   {
     if (params.velocityInputMode == "throttle")
     {      
@@ -471,9 +471,9 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
   
   //State transitions for robot state machine.
   // State transition: STOPPED->STARTING
-  if (state == STOPPED && hasVelocityCommand)
+  if (walkState == STOPPED && hasVelocityCommand)
   {
-    state = STARTING;
+    walkState = STARTING;
     for (int l = 0; l<3; l++)
     {
       for (int s = 0; s<2; s++)
@@ -483,22 +483,22 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
     }
   }  
   // State transition: STARTING->MOVING
-  else if (state == STARTING && legsInCorrectPhase == NUM_LEGS && legsCompletedFirstStep == NUM_LEGS)
+  else if (walkState == STARTING && legsInCorrectPhase == NUM_LEGS && legsCompletedFirstStep == NUM_LEGS)
   {
     legsInCorrectPhase = 0;
     legsCompletedFirstStep = 0;
-    state = MOVING;
+    walkState = MOVING;
   }  
   // State transition: MOVING->STOPPING
-  else if (state == MOVING && !hasVelocityCommand)
+  else if (walkState == MOVING && !hasVelocityCommand)
   {
-    state = STOPPING;
+    walkState = STOPPING;
   }  
   // State transition: STOPPING->STOPPED
-  else if (state == STOPPING && legsInCorrectPhase == NUM_LEGS)
+  else if (walkState == STOPPING && legsInCorrectPhase == NUM_LEGS)
   {
     legsInCorrectPhase = 0;
-    state = STOPPED;
+    walkState = STOPPED;
   }      
    
   //Robot State Machine
@@ -513,7 +513,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
           (currentLinearVelocity + currentAngularVelocity*Vector2d(leg.localTipPosition[1], -leg.localTipPosition[0]))/
           stepFrequency;
       
-      if (state == STARTING)
+      if (walkState == STARTING)
       {  
 	legStepper.iteratePhase();
 	
@@ -539,7 +539,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
 	    }
 	    else
 	    {
-	      legStepper.state = FORCE_STANCE;  
+	      legStepper.stepState = FORCE_STANCE;  
 	    }
 	  }
 	  else
@@ -549,25 +549,25 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
 	  }      
 	}
       }
-      else if (state == STOPPING)
+      else if (walkState == STOPPING)
       {  
 	if (!legStepper.inCorrectPhase)
         {
           legStepper.iteratePhase();
           
           //Front_left leg only "meets target" after completing extra step AND returning to zero phase
-          if (l==0 && s==0 && legStepper.state == FORCE_STOP && legStepper.phase == 0)
+          if (l==0 && s==0 && legStepper.stepState == FORCE_STOP && legStepper.phase == 0)
           {
             legStepper.inCorrectPhase = true;
             legsInCorrectPhase++;
-            legStepper.state = STANCE;
+            legStepper.stepState = STANCE;
           }
         }
 	
         //All legs (except front_left) must make one extra step after receiving stopping signal
         if (legStepper.strideVector.norm() == 0 && legStepper.phase == swingEnd)
         {
-          legStepper.state = FORCE_STOP;
+          legStepper.stepState = FORCE_STOP;
           if (!(l==0 && s==0))
           {
             if (!legStepper.inCorrectPhase)
@@ -578,17 +578,17 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
           }
         }             
       }
-      else if (state == MOVING)
+      else if (walkState == MOVING)
       {
         legStepper.iteratePhase();
         legStepper.inCorrectPhase = false;
       }
-      else if (state == STOPPED)
+      else if (walkState == STOPPED)
       {        
         legStepper.inCorrectPhase = false;
 	legStepper.completedFirstStep = false;
         legStepper.phase = 0;
-        legStepper.state = STANCE;
+        legStepper.stepState = STANCE;
       } 
     }
   } 
@@ -601,12 +601,12 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
       LegStepper &legStepper = legSteppers[l][s];       
          
       //Force leg state as STANCE for STARTING robot state
-      if (legStepper.state == FORCE_STANCE)
+      if (legStepper.stepState == FORCE_STANCE)
       {
         legStepper.setState(STANCE);
       }
       //Force leg state as FORCE_STOP for STOPPING robot state
-      else if (legStepper.state == FORCE_STOP)
+      else if (legStepper.stepState == FORCE_STOP)
       {
         legStepper.setState(FORCE_STOP);
       }
@@ -631,7 +631,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
       
       if (leg.state == WALKING)
       {        
-	if (state != STOPPED) 
+	if (walkState != STOPPED) 
 	{
 	  legStepper.updatePosition(); //updates current tip position through step cycle
 	}
@@ -659,7 +659,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
   }  
   
   //RVIZ
-  if (state != STOPPED)
+  if (walkState != STOPPED)
   {
     Vector2d push = currentLinearVelocity*timeDelta;
     pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));

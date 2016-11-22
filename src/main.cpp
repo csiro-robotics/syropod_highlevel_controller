@@ -1,4 +1,4 @@
-#include "../include/simple_hexapod_controller/stateController.h"
+#include "simple_hexapod_controller/stateController.h"
 #include <ros/ros.h>
 
 /***********************************************************************************************************************
@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
   ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, &StateController::gaitSelectionCallback, &state);
   
   //Motor and other sensor topic subscriptions
-  ros::Subscriber imuDataSubscriber = n.subscribe("ig/imu/data", 1, &StateController::imuCallback, &state);  
+  ros::Subscriber imuDataSubscriber = n.subscribe("ig/imu/data_ned", 1, &StateController::imuCallback, &state);  
   ros::Subscriber tipForceSubscriber = n.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, &state);
   ros::Subscriber jointStatesSubscriber1 = n.subscribe("/hexapod_joint_state", 1000, &StateController::jointStatesCallback, &state);;
   ros::Subscriber jointStatesSubscriber2 = n.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, &state); ;

@@ -1,23 +1,7 @@
 #pragma once
+
 #include "model.h"
 #include "debugOutput.h"
-
-//States for walking controller
-enum RobotState
-{
-  STARTING,
-  MOVING,
-  STOPPING,  
-  STOPPED
-};
-
-enum StepState
-{
-  SWING,
-  STANCE,
-  FORCE_STANCE,
-  FORCE_STOP
-};
 
 //Controller that handles walking
 struct WalkController
@@ -28,7 +12,7 @@ struct WalkController
   
   Parameters params;
   
-  RobotState state = STOPPED;
+  WalkState walkState = STOPPED;
   
   Vector3d tipPositions[3][2];
   
@@ -75,7 +59,7 @@ struct WalkController
     double swingProgress;
     double stanceProgress;
     
-    StepState state = STANCE;
+    StepState stepState = STANCE;
     
     Vector3d swing1ControlNodes[5];	//Primary swing bezier curve
     Vector3d swing2ControlNodes[5];	//Secondary swing bezier curve

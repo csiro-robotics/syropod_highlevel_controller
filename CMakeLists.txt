@@ -123,7 +123,7 @@ add_executable(simple_diagnostics_node src/simpleDiagnostics.cpp)
  target_link_libraries(simple_hexapod_controller_node ${catkin_LIBRARIES})
  target_link_libraries(simple_diagnostics_node ${catkin_LIBRARIES})
  
-#add_dependencies(simple_hexapod_controller simple_hexapod_controller_cpp simple_hexapod_controller_generate_messages_cpp)
+add_dependencies(simple_hexapod_controller_node simple_hexapod_controller_cpp simple_hexapod_controller_generate_messages_cpp)
 
 
 #############

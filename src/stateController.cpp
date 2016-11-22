@@ -1,4 +1,4 @@
-#include "../include/simple_hexapod_controller/stateController.h"
+#include "simple_hexapod_controller/stateController.h"
 
 /***********************************************************************************************************************
  * State controller contructor
@@ -178,7 +178,7 @@ void StateController::loop()
   }
   
   //Hexapod state machine
-  switch (state)
+  switch (systemState)
   {
     //Hexapod is in a state of unpacking itself into neutral 'unpacked' position
     case(UNPACK):
@@ -248,7 +248,7 @@ void StateController::unpackState()
   //Move joints directly to unpacked positions and then transition to next state
   if (poser->moveToJointPosition(unpackedJointPositions, 2.0/params.stepFrequency))
   {          
-    state = STARTUP;
+    systemState = STARTUP;
     ROS_INFO("Hexapod unpacked. Running startup sequence . . .\n");
   }  
 }
@@ -262,7 +262,7 @@ void StateController::startUpState()
   poser->updateStance(walker->identityTipPositions);
   if (poser->startUpSequence(poser->tipPositions, params.moveLegsSequentially))
   {    
-    state = RUNNING;
+    systemState = RUNNING;
     ROS_INFO("Startup sequence complete. Ready to walk.\n");
   }
 }
@@ -276,7 +276,7 @@ void StateController::shutDownState()
   poser->updateStance(walker->identityTipPositions);
   if (poser->shutDownSequence(poser->tipPositions, params.moveLegsSequentially))
   {
-    state = PACK;
+    systemState = PACK;
     ROS_INFO("Shutdown sequence complete. Packing hexapod . . .\n");
   } 
 }
@@ -289,7 +289,7 @@ void StateController::packState()
   //Move joints directly to packed positions and then transition to next state
   if (poser->moveToJointPosition(packedJointPositions, 2.0/params.stepFrequency))
   {
-    state = PACKED;
+    systemState = PACKED;
     ROS_INFO("Hexapod packing complete.\n");  
   }
 }
@@ -302,7 +302,7 @@ void StateController::packedState()
   //Checks for start flag and transitions to next state
   if (startFlag)
   {
-    state = UNPACK;
+    systemState = UNPACK;
     ROS_INFO("Unpacking hexapod . . .\n");
   }
 }
@@ -320,7 +320,7 @@ void StateController::directState()
     double res = poser->stepToPosition(poser->tipPositions, deltaZ, mode, 0, params.timeToStart);
     if (res == 1.0)
     {
-      state = RUNNING;
+      systemState = RUNNING;
       ROS_INFO("Startup sequence complete. Ready to walk.\n");
     }
   }
@@ -352,19 +352,19 @@ void StateController::unknownState()
     }
     else
     {
-      state = PACKED;
+      systemState = PACKED;
       ROS_INFO("Hexapod currently packed.\n");  
     }
   }
   else if (!params.startUpSequence)
   {    
-    state = DIRECT;
+    systemState = DIRECT;
     ROS_WARN("WARNING! Running direct startup sequence - assuming hexapod is not on the ground\n");
     ROS_INFO("Running startup sequence (Complete in %f seconds) . . .\n", params.timeToStart);       
   }
   else if (startFlag)
   {
-    state = STARTUP;
+    systemState = STARTUP;
     ROS_INFO("Hexapod unpacked. Running startup sequence . . .\n");
   } 
 }
@@ -413,7 +413,7 @@ void StateController::runningState()
   
   //Update tip positions unless hexapod is undergoing gait switch, parameter adjustment or leg state transition 
   //(which all only occur once the hexapod has stopped walking)
-  if (!((changeGait || adjustParam || toggleLegState) && walker->state == STOPPED))
+  if (!((changeGait || adjustParam || toggleLegState) && walker->walkState == STOPPED))
   {   
     //Update Walker 
     walker->updateWalk(linearVelocityInput, angularVelocityInput, manualTipVelocity);   
@@ -426,7 +426,7 @@ void StateController::runningState()
     
     //DEBUG - walker state
     /*
-    switch(walker->state)
+    switch(walker->walkState)
     {
       case(MOVING):
 	ROS_DEBUG_THROTTLE(2, "Hexapod state: MOVING.\n");
@@ -447,7 +447,7 @@ void StateController::runningState()
   //Check for shutdown cue
   if (!startFlag && params.startUpSequence)
   {
-    state = SHUTDOWN;
+    systemState = SHUTDOWN;
     ROS_INFO("Running shutdown sequence . . .\n");
   }
 }
@@ -514,7 +514,7 @@ void StateController::impedanceControl()
   {
     for (int s = 0; s<2; s++)
     {
-      if (walker->legSteppers[l][s].state != SWING)
+      if (walker->legSteppers[l][s].stepState != SWING)
       {
         legsInStance++;
       }
@@ -523,7 +523,7 @@ void StateController::impedanceControl()
   
   //Calculate new stiffness based on imu orientation or walking cycle
   bool useIMUForStiffness = false; //Not fully tested
-  if (params.dynamicStiffness && walker->state != STOPPED)
+  if (params.dynamicStiffness && walker->walkState != STOPPED)
   {
     if (params.imuCompensation && useIMUForStiffness)
     {
@@ -577,13 +577,13 @@ void StateController::impedanceControl()
 ***********************************************************************************************************************/
 void StateController::paramAdjust()
 { 
-  ROS_INFO_COND(walker->state == MOVING, "Stopping hexapod to adjust parameters . . .\n"); 
+  ROS_INFO_COND(walker->walkState == MOVING, "Stopping hexapod to adjust parameters . . .\n"); 
   
   //Force hexapod to stop walking
   linearVelocityInput = Vector2d(0.0,0.0);
   angularVelocityInput = 0.0;
   
-  if (walker->state == STOPPED)
+  if (walker->walkState == STOPPED)
   {    
     if (!newParamSet)
     {
@@ -728,13 +728,13 @@ void StateController::paramAdjust()
 ***********************************************************************************************************************/
 void StateController::gaitChange()
 { 
-  ROS_INFO_COND(walker->state == MOVING, "Stopping hexapod to change gait . . .\n"); 
+  ROS_INFO_COND(walker->walkState == MOVING, "Stopping hexapod to change gait . . .\n"); 
   
   //Force hexapod to stop walking
   linearVelocityInput = Vector2d(0.0,0.0);
   angularVelocityInput = 0.0;
   
-  if (walker->state == STOPPED)
+  if (walker->walkState == STOPPED)
   {
     switch (gait)
     {
@@ -769,13 +769,13 @@ void StateController::legStateToggle()
   int s = legSelection%2;
   Leg &leg = hexapod->legs[l][s];
   
-  ROS_INFO_COND(walker->state == MOVING, "Stopping hexapod to transition state of %s leg . . .\n", legNameMap[l*2+s].c_str()); 
+  ROS_INFO_COND(walker->walkState == MOVING, "Stopping hexapod to transition state of %s leg . . .\n", legNameMap[l*2+s].c_str()); 
   
   //Force hexapod to stop walking
   linearVelocityInput = Vector2d(0.0,0.0);
   angularVelocityInput = 0.0; 
 
-  if (walker->state == STOPPED)
+  if (walker->walkState == STOPPED)
   {     
     poser->calculateDefaultPose();  //Calculate default pose for new loading pattern
     
@@ -880,7 +880,7 @@ void StateController::publishLegState()
       
       //Publish leg state (ASC)
       std_msgs::Bool msg;
-      if (walker->legSteppers[l][s].state == SWING || 
+      if (walker->legSteppers[l][s].stepState == SWING || 
 	 (hexapod->legs[l][s].state != WALKING && hexapod->legs[l][s].state != MANUAL))
       {
 	msg.data = true;
@@ -927,19 +927,11 @@ void StateController::publishPose()
 ***********************************************************************************************************************/
 void StateController::publishIMURotation()
 {
-  Quat orientation;
-  
-  //Get orientation data from IMU
-  orientation.w = imuData.orientation.w;
-  orientation.x = imuData.orientation.x;
-  orientation.y = imuData.orientation.y;
-  orientation.z = imuData.orientation.z;
-  
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(orientation.toEulerAngles()[0]);  
-  msg.data.push_back(orientation.toEulerAngles()[1]);
-  msg.data.push_back(orientation.toEulerAngles()[2]); 
+  msg.data.push_back(imuData.orientation.toEulerAngles()[0]);  
+  msg.data.push_back(imuData.orientation.toEulerAngles()[1]);
+  msg.data.push_back(imuData.orientation.toEulerAngles()[2]); 
   IMURotationPublisher.publish(msg);
 }
 
@@ -1106,7 +1098,7 @@ void StateController::publishJointValues()
 ***********************************************************************************************************************/
 void StateController::paramSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (state == RUNNING && input.data != paramSelection)
+  if (systemState == RUNNING && input.data != paramSelection)
   {
     paramScaler = -1;
     switch (input.data)
@@ -1196,7 +1188,7 @@ void StateController::paramAdjustCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (input.data != gait && state == RUNNING)
+  if (input.data != gait && systemState == RUNNING)
   {
     switch (input.data)
     {
@@ -1229,7 +1221,7 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::legSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (state == RUNNING && !toggleLegState)
+  if (systemState == RUNNING && !toggleLegState)
   {
     LegSelection newSelection = static_cast<LegSelection>(input.data);
     if (newSelection != -1 && legSelection != newSelection)
@@ -1290,7 +1282,7 @@ void StateController::legStateCallback(const std_msgs::Bool &input)
 {
   if (input.data && legStateDebounce)
   {
-    if (state == UNKNOWN || legSelection != NO_LEG_SELECTION)
+    if (systemState == UNKNOWN || legSelection != NO_LEG_SELECTION)
     {
       toggleLegState = true;
       legStateDebounce = false;
@@ -1334,7 +1326,43 @@ void StateController::startTestCallback(const std_msgs::Bool &input)
 ***********************************************************************************************************************/
 void StateController::imuCallback(const sensor_msgs::Imu &data)
 {
-  imuData = data;
+  params.imuOffset = Vector3d(0,0,0);
+  Matrix3d imuRotationOffset;
+  imuRotationOffset(0,0) = 1.0;
+  imuRotationOffset(0,1) = 0.0;
+  imuRotationOffset(0,2) = 0.0;
+  imuRotationOffset(1,0) = 0.0;
+  imuRotationOffset(1,1) = cos(3.14);
+  imuRotationOffset(1,2) = -sin(3.14);
+  imuRotationOffset(2,0) = 0.0;
+  imuRotationOffset(2,1) = sin(3.14);
+  imuRotationOffset(2,2) = cos(3.14);
+  Quat imuPhysicalOffset(imuRotationOffset);  
+
+  Quat rawOrientation;
+  rawOrientation.w = data.orientation.w;
+  rawOrientation.x = data.orientation.x;
+  rawOrientation.y = data.orientation.y;
+  rawOrientation.z = data.orientation.z;
+  
+  Vector3d rawLinearAcceleration;
+  rawLinearAcceleration[0] = data.linear_acceleration.x;
+  rawLinearAcceleration[1] = data.linear_acceleration.y;
+  rawLinearAcceleration[2] = data.linear_acceleration.z;
+  
+  Vector3d rawAngularVelocity;
+  rawAngularVelocity[0] = data.angular_velocity.x;
+  rawAngularVelocity[1] = data.angular_velocity.y;
+  rawAngularVelocity[2] = data.angular_velocity.z;
+  
+  //Rotate raw imu data according to physial imu mounting
+  imuData.orientation = rawOrientation*imuPhysicalOffset;  
+  imuData.linearAcceleration = imuPhysicalOffset.toRotationMatrix()*rawLinearAcceleration;
+  imuData.angularVelocity = imuPhysicalOffset.toRotationMatrix()*rawAngularVelocity;
+  
+  ROS_INFO_COND(false, "ORIENTATION (%f:%f:%f) rotated to (%f:%f:%f)\n", rawOrientation.toEulerAngles()[0], rawOrientation.toEulerAngles()[1], rawOrientation.toEulerAngles()[2], imuData.orientation.toEulerAngles()[0], imuData.orientation.toEulerAngles()[1],  imuData.orientation.toEulerAngles()[2]); 
+  ROS_INFO_COND(true, "LINEAR ACCELERATION (%f:%f:%f) rotated to (%f:%f:%f)\n", rawLinearAcceleration[0], rawLinearAcceleration[1], rawLinearAcceleration[2], imuData.linearAcceleration[0], imuData.linearAcceleration[1],  imuData.linearAcceleration[2]); 
+  ROS_INFO_COND(false, "ANGULAR_VELOCITY (%f:%f:%f) rotated to (%f:%f:%f)\n", rawAngularVelocity[0], rawAngularVelocity[1], rawAngularVelocity[2], imuData.angularVelocity[0], imuData.angularVelocity[1],  imuData.angularVelocity[2]); 
 }
 
 /***********************************************************************************************************************

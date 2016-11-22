@@ -1,17 +1,12 @@
 #pragma once
 #include "standardIncludes.h"
+#include "parametersAndStates.h"
 #include "quat.h"
 #include "pose.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <boost/concept_check.hpp>
 
-enum LegState
-{
-  WALKING,
-  MANUAL,
-  WALKING_TO_MANUAL,
-  MANUAL_TO_WALKING,
-};
+
 
 // hard coded to 3 joints
 struct Leg

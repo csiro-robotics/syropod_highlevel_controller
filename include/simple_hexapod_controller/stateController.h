@@ -1,25 +1,24 @@
 //Top level controller that handles state of hexapod and publishes joint values
 #pragma once
-#include "../include/simple_hexapod_controller/standardIncludes.h"
-#include "../include/simple_hexapod_controller/model.h"
-#include "../include/simple_hexapod_controller/walkController.h"
-#include "../include/simple_hexapod_controller/poseController.h"
-#include "../include/simple_hexapod_controller/debugOutput.h"
-#include "../include/simple_hexapod_controller/motorInterface.h"
-#include "../include/simple_hexapod_controller/dynamixelMotorInterface.h"
-#include "../include/simple_hexapod_controller/dynamixelProMotorInterface.h"
-#include "../include/simple_hexapod_controller/impedanceController.h"
-#include <boost/concept_check.hpp>
-#include <iostream>
+#include "standardIncludes.h"
+#include "parametersAndStates.h"
+#include "model.h"
+#include "walkController.h"
+#include "poseController.h"
+#include "debugOutput.h"
+#include "motorInterface.h"
+#include "dynamixelMotorInterface.h"
+#include "dynamixelProMotorInterface.h"
+#include "impedanceController.h"
+#include "imu.h"
+
 #include "std_msgs/Bool.h"
 #include "std_msgs/Int8.h"
 #include "std_msgs/Float32MultiArray.h"
-#include <sys/select.h>
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/Vector3.h"
 #include "geometry_msgs/Point.h"
 #include "sensor_msgs/JointState.h"
-#include <dynamic_reconfigure/server.h>
 #include "sensor_msgs/Joy.h"
 #include "sensor_msgs/Imu.h"
 #include "simple_hexapod_controller/legState.h"
@@ -30,7 +29,7 @@ struct StateController
 {
   ros::NodeHandle n;
   
-  State state = UNKNOWN;
+  SystemState systemState = UNKNOWN;
 
   Gait gait = DEFAULT;
   LegSelection legSelection = NO_LEG_SELECTION;
@@ -76,8 +75,8 @@ struct StateController
   bool newParamSet = false;
   bool unstable = false;
   
-  sensor_msgs::Imu imuData;
-  
+  ImuData imuData;
+    
   //Joint states callback variables
   //sensor_msgs::JointState jointStates;
   double jointPositions[18];

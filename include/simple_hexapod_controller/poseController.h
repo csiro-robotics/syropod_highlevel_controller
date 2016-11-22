@@ -1,27 +1,10 @@
 //Controller that handles changes in body pose
 #pragma once
+#include "parametersAndStates.h"
 #include "model.h"
 #include "debugOutput.h"
 #include "walkController.h"
-#include "sensor_msgs/Imu.h"
-
-enum StepToPositionModes
-{
-  NO_STEP_MODE,
-  SIMULTANEOUS_MODE,
-  TRIPOD_MODE,
-  SEQUENTIAL_MODE,
-};
-
-enum PoseResetMode
-{
-  NO_RESET,
-  Z_AND_YAW_RESET,
-  X_AND_Y_RESET,
-  PITCH_AND_ROLL_RESET,
-  ALL_RESET,
-  FORCE_ALL_RESET, //overrides input from user
-};
+#include "imu.h"
 
 struct PoseController
 {
@@ -106,8 +89,8 @@ struct PoseController
   //Compensation functions
   void autoCompensation(void);
   void manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode, Pose defaultPose = Pose::identity());
-  void imuCompensation (sensor_msgs::Imu imuData, Quat targetRotation);
-  void inclinationCompensation(sensor_msgs::Imu imuData);
+  void imuCompensation (ImuData imuData, Quat targetRotation);
+  void inclinationCompensation(ImuData imuData);
   void impedanceControllerCompensation(double deltaZ[3][2]);
   
   double debugTime = 0.0;
