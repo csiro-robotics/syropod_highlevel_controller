@@ -21,6 +21,7 @@ struct Quat
     this->y = y;
     this->z = z;
   }
+  
   Quat(const Vector3d &rotationVector)
   {
     double ha = 0.5 * rotationVector.norm();
@@ -30,6 +31,7 @@ struct Quat
     else
       setVectorPart(Vector3d(0,0,0));
   }
+ 
   Quat(const Matrix3d &mat)
   {
     // This algorithm comes from  "Quat Calculus and Fast Animation",
@@ -242,7 +244,21 @@ struct Quat
   {
     return Quat(0,0,0,0);
   }
+  
+  Quat slerpTo(Quat targetRotation, double t) 
+  {
+    Quaterniond a((*this).w, (*this).x, (*this).y, (*this).z);
+    Quaterniond b(targetRotation.w, targetRotation.x, targetRotation.y, targetRotation.z);
+    
+    Quaterniond qres = a.slerp(t, b);
+    
+    Quat res(qres.w(), qres.x(), qres.y(), qres.z()) ;
+   
+    return res;
+  }
 };
+
+
 
 /// Double * Quat
 inline Quat operator*(double d, const Quat &quat)

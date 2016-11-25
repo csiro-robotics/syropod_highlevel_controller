@@ -91,10 +91,10 @@ Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
 /***********************************************************************************************************************
  * Sets leg state
 ***********************************************************************************************************************/
-void Leg::setState(LegState legState)
+void Leg::setState(LegState newLegState)
 {
-  state = legState;
-  model->legStates[legIndex][sideIndex] = state;
+  legState = newLegState;
+  model->legStates[legIndex][sideIndex] = legState;
 }
 
 /***********************************************************************************************************************
@@ -144,7 +144,7 @@ void Model::updateLocal(Vector3d targetTipPositions[3][2], double deltaZ[3][2])
     for (int s = 0; s<2; s++)
     {
       Vector3d adjustedPos = targetTipPositions[l][s];
-      if (legs[l][s].state != MANUAL) //Don't apply delta Z to manually manipulated legs
+      if (legs[l][s].legState != MANUAL) //Don't apply delta Z to manually manipulated legs
       {
 	adjustedPos[2] = targetTipPositions[l][s][2] - deltaZ[l][s];
       }

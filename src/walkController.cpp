@@ -62,10 +62,10 @@ void WalkController::LegStepper::generateStanceControlNodes(Vector3d strideVecto
 /***********************************************************************************************************************
  * Calculates time deltas for use in quartic bezier curve tip trajectory calculations
 ***********************************************************************************************************************/
-double WalkController::LegStepper::calculateDeltaT(StepState state, int length)
+double WalkController::LegStepper::calculateDeltaT(StepState stepState, int length)
 {
   int numIterations = roundToInt((double(length)/walker->phaseLength)/(walker->stepFrequency*walker->timeDelta)/2.0)*2.0;  //Ensure compatible number of iterations 
-  if (state == SWING)
+  if (stepState == SWING)
   {
     return 2.0/numIterations;
   }
@@ -78,9 +78,9 @@ double WalkController::LegStepper::calculateDeltaT(StepState state, int length)
 /***********************************************************************************************************************
  * Sets step state
 ***********************************************************************************************************************/
-void WalkController::LegStepper::setState(StepState stepState)
+void WalkController::LegStepper::setState(StepState newStepState)
 {
-  stepState = stepState;
+  stepState = newStepState;
   walker->stepStates[legIndex][sideIndex] = stepState;
 }
 
@@ -353,6 +353,9 @@ void WalkController::setGaitParams(Parameters p)
   swingEnd = swingStart + params.swingPhase;      
   stanceStart = swingEnd;
   
+  ROS_ASSERT(params.stancePhase%2 == 0);
+  ROS_ASSERT(params.swingPhase%2 == 0);
+  
   //Normalises the step phase length to match the total number of iterations over a full step
   int basePhaseLength = params.stancePhase + params.swingPhase;
   double swingRatio = (params.swingPhase)/basePhaseLength; //Used to modify stepFreqency based on gait
@@ -458,7 +461,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
   {
     for (int s = 0; s<2; s++)
     {
-      if (hasVelocityCommand && model->legs[l][s].state != WALKING)
+      if (hasVelocityCommand && model->legs[l][s].legState != WALKING)
       {
 	hasVelocityCommand = false;
 	if (angularVelocityInput == 0)
@@ -593,7 +596,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
     }
   } 
   
-  //Leg State Machine
+  //Step State Machine
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -629,7 +632,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
       LegStepper &legStepper = legSteppers[l][s];
       Leg &leg = model->legs[l][s];
       
-      if (leg.state == WALKING)
+      if (leg.legState == WALKING)
       {        
 	if (walkState != STOPPED) 
 	{
@@ -637,7 +640,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
 	}
 	tipPositions[l][s] = legStepper.currentTipPosition;
       }
-      else if (leg.state == MANUAL)
+      else if (leg.legState == MANUAL)
       {
 	if (params.legManipulationMode == "joint_control")
 	{

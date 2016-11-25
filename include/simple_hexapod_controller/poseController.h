@@ -72,10 +72,11 @@ struct PoseController
   void updateStance(Vector3d targetTipPositions[3][2], 
                     bool excludeSwingingLegs=false);
   double stepToPosition(Vector3d targetTipPositions[3][2], 
-                      double deltaZ[3][2],
-                      int mode=NO_STEP_MODE,                      
-                      double stepHeight = 0.0, 
-                      double stepSpeed = 2.0);
+			Pose targetPose,
+			double deltaZ[3][2],
+			int mode=NO_STEP_MODE,                      
+			double stepHeight = 0.0, 
+			double stepSpeed = 2.0);
   bool moveToJointPosition(Vector3d targetJointPositions[3][2], double speed=2.0);
   bool startUpSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
   bool shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
@@ -88,7 +89,10 @@ struct PoseController
   
   //Compensation functions
   void autoCompensation(void);
-  void manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode, Pose defaultPose = Pose::identity());
+  void manualCompensation(Vector3d translationVelocityInput, 
+			  Vector3d rotationVelocityInput, 
+			  PoseResetMode poseResetMode, 
+			  Pose defaultPose = Pose::identity());
   void imuCompensation (ImuData imuData, Quat targetRotation);
   void inclinationCompensation(ImuData imuData);
   void impedanceControllerCompensation(double deltaZ[3][2]);

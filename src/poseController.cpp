@@ -12,11 +12,12 @@ PoseController::PoseController(Model *model, WalkController *walker, Parameters 
   currentPose(Pose::identity()), 
   targetPose(Pose::identity()),
   originPose(Pose::identity()),
-  manualPose(Pose::identity()),
+  manualPose(Pose::identity()),  
   imuPose(Pose::identity()),
   inclinationPose(Pose::identity()),
   deltaZPose(Pose::identity()),
-  defaultPose(Pose::identity())
+  defaultPose(Pose::identity()),
+  autoPoseDefault(Pose::identity())
 {   
   rotationAbsementError = Vector3d(0,0,0);
   rotationPositionError = Vector3d(0,0,0);
@@ -39,7 +40,7 @@ void PoseController::updateStance(Vector3d targetTipPositions[3][2],
   {
     for (int s = 0; s<2; s++)
     {
-      LegState state = model->legs[l][s].state;
+      LegState state = model->legs[l][s].legState;
       if (state == WALKING || state == MANUAL_TO_WALKING)
       {
 	if (!excludeSwingingLegs || walker->legSteppers[l][s].stepState != SWING)
@@ -50,10 +51,8 @@ void PoseController::updateStance(Vector3d targetTipPositions[3][2],
 	{
 	  //Remove default autoCompensation and apply leg specific auto compensation during swing
 	  Pose swingAutoComp = currentPose;
-	  swingAutoComp.position -= (autoPoseDefault.position - autoPose[l][s].position);
-	  swingAutoComp.rotation[1] -= (autoPoseDefault.rotation[1] - autoPose[l][s].rotation[1]);
-	  swingAutoComp.rotation[2] -= (autoPoseDefault.rotation[2] - autoPose[l][s].rotation[2]);
-	  
+	  swingAutoComp.position = (swingAutoComp.position - autoPoseDefault.position) + autoPose[l][s].position;
+	  swingAutoComp.rotation = (swingAutoComp.rotation * autoPoseDefault.rotation.inverse()) * autoPose[l][s].rotation;
 	  tipPositions[l][s] = swingAutoComp.inverseTransformVector(targetTipPositions[l][s]); 
 	}
       }
@@ -68,11 +67,12 @@ void PoseController::updateStance(Vector3d targetTipPositions[3][2],
 /***********************************************************************************************************************
  * Steps legs (sequentially, simultaneously or tripod) into desired tip positions - (updates default stance)
 ***********************************************************************************************************************/
-double PoseController::stepToPosition(Vector3d targetTipPositions[3][2], 
-				    double deltaZ[3][2], 
-				    int mode, 
-				    double liftHeight, 
-				    double timeToStep)
+double PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
+				      Pose targetPose,
+				      double deltaZ[3][2], 
+				      int mode, 
+				      double liftHeight, 
+				      double timeToStep)
 { 
   if (firstIteration)
   {       
@@ -122,6 +122,12 @@ double PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
   //following code gives this pattern for any provided value of numIterations
   int swingIterationCount = (masterIterationCount+(numIterations/int(timeLimit)-1))%(numIterations/int(timeLimit))+1;
   Vector3d pos;
+  
+  double completionRatio = (double(masterIterationCount-1)/double(numIterations));
+  
+  //Applies required posing slowly over course of transition
+  targetPose.position *= completionRatio; //Scales position vector by 0->1.0
+  targetPose.rotation = Pose::identity().rotation.slerpTo(targetPose.rotation, completionRatio); //Scales rotation quat by 0.0->1.0 (https://en.wikipedia.org/wiki/Slerp)
   
   //Iterate through legs (sequentially or simultaneously)   
   for (int l = 0; l<3; l++)
@@ -223,9 +229,9 @@ double PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
       }
       
       //Apply inverse kinematics to localTipPositions and stanceTipPositions
-      if (model->legs[l][s].state != MANUAL)
+      if (model->legs[l][s].legState != MANUAL)
       {
-	Vector3d adjustedPos = pos;
+	Vector3d adjustedPos = targetPose.inverseTransformVector(pos); 
 	adjustedPos[2] -= deltaZ[l][s]; //Re-apply deltaZ offset
 	model->legs[l][s].applyLocalIK(adjustedPos); 
       }
@@ -240,7 +246,7 @@ double PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
   }
   else 
   {
-    return (double(masterIterationCount-1)/double(numIterations)); //Ratio of completion
+    return completionRatio; //Ratio of completion
   }  
 }
 
@@ -362,16 +368,16 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
   switch (sequenceStep)
   {
     case 1:
-      res = stepToPosition(phase1TipPositions, deltaZ, mode, stepHeight, stepTime);
+      res = stepToPosition(phase1TipPositions, Pose::identity(), deltaZ, mode, stepHeight, stepTime);
       break;
     case 2:
-      res = stepToPosition(phase2TipPositions, deltaZ, NO_STEP_MODE, 0.0, stepTime);
+      res = stepToPosition(phase2TipPositions, Pose::identity(), deltaZ, NO_STEP_MODE, 0.0, stepTime);
       break;
     case 3:
-      res = stepToPosition(phase3TipPositions, deltaZ, mode, stepHeight, stepTime);
+      res = stepToPosition(phase3TipPositions, Pose::identity(), deltaZ, mode, stepHeight, stepTime);
       break;
     case 4:
-      res = stepToPosition(phase4TipPositions, deltaZ, NO_STEP_MODE, 0.0, stepTime);
+      res = stepToPosition(phase4TipPositions, Pose::identity(), deltaZ, NO_STEP_MODE, 0.0, stepTime);
       break;
     case 5:
       sequenceStep = 0;
@@ -403,13 +409,13 @@ bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool fo
       res = true;
       break;
     case 1:
-      res = stepToPosition(phase5TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0/params.stepFrequency);
+      res = stepToPosition(phase5TipPositions, Pose::identity(), deltaZ, NO_STEP_MODE, 0.0, 2.0/params.stepFrequency);
       break;
     case 2:
-      res = stepToPosition(phase6TipPositions, deltaZ, SEQUENTIAL_MODE, stepHeight, 6.0/params.stepFrequency);
+      res = stepToPosition(phase6TipPositions, Pose::identity(), deltaZ, SEQUENTIAL_MODE, stepHeight, 6.0/params.stepFrequency);
       break;
     case 3:
-      res = stepToPosition(phase7TipPositions, deltaZ, NO_STEP_MODE, 0.0, 2.0/params.stepFrequency);
+      res = stepToPosition(phase7TipPositions, Pose::identity(), deltaZ, NO_STEP_MODE, 0.0, 2.0/params.stepFrequency);
       break;
     case 4:
       sequenceStep = 0;
@@ -571,13 +577,16 @@ void PoseController::autoCompensation()
 /***********************************************************************************************************************
  * Calculates pitch/roll/yaw/x,y,z for smooth transition to target pose for manual body compensation
 ***********************************************************************************************************************/
-void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode poseResetMode, Pose defaultPose)
+void PoseController::manualCompensation(Vector3d translationVelocityInput,  
+					Vector3d rotationVelocityInput, 
+					PoseResetMode poseResetMode, 
+					Pose defaultPose)
 {   
   Vector3d translationPosition = manualPose.position;
-  Vector3d rotationPosition = manualPose.rotation.vectorPart();
+  Quat rotationPosition = manualPose.rotation;
   
   Vector3d defaultTranslation = defaultPose.position;
-  Vector3d defaultRotation = defaultPose.rotation.vectorPart();
+  Vector3d defaultRotation = defaultPose.rotation.toEulerAngles();
   
   Vector3d maxTranslation = params.maxTranslation;
   Vector3d maxRotation = params.maxRotation;
@@ -620,37 +629,40 @@ void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode po
     {
       if (translationPosition[i] < defaultTranslation[i])
       {
-	newPosingVelocity.position[i] = 1.0;
+	translationVelocityInput[i] = 1.0;
       }
       else if (translationPosition[i] > defaultTranslation[i])
       {
-	newPosingVelocity.position[i] = -1.0;
+	translationVelocityInput[i] = -1.0;
       }      
     }
     
     if (resetRotation[i])
     {
-      if (rotationPosition[i] < defaultRotation[i])
+      if (rotationPosition.toEulerAngles()[i] < defaultRotation[i])
       {
-	newPosingVelocity.rotation[i+1] = 1.0;
+	rotationVelocityInput[i] = 1.0;
       }
-      else if (rotationPosition[i] > defaultRotation[i])
+      else if (rotationPosition.toEulerAngles()[i] > defaultRotation[i])
       {
-	newPosingVelocity.rotation[i+1] = -1.0;
+	rotationVelocityInput[i] = -1.0;
       }
     }
   }
   
-  Vector3d translationVelocity = clamped(newPosingVelocity.position, 1.0)*params.maxTranslationVelocity;
-  Vector3d eulerRotationVelocity = Vector3d(newPosingVelocity.rotation[1], newPosingVelocity.rotation[2], newPosingVelocity.rotation[3]);
-  Vector3d rotationVelocity = clamped(eulerRotationVelocity, 1.0)*params.maxRotationVelocity;  
+  Vector3d translationVelocity = clamped(translationVelocityInput, 1.0)*params.maxTranslationVelocity;
+  Vector3d rotationVelocity = clamped(rotationVelocityInput, 1.0)*params.maxRotationVelocity;  
+  
+  Vector3d newTranslationPosition = translationPosition + translationVelocity*timeDelta;
+  Quat newRotationPosition = rotationPosition * Quat(Vector3d(rotationVelocity*timeDelta));
   
   Vector3d translationLimit = Vector3d(0,0,0);
   Vector3d rotationLimit = Vector3d(0,0,0);
   
-  //Control velocity
+  //Zero velocity input depending on position limitations
   for (int i=0; i<3; i++) //For each axis (x,y,z)/(roll,pitch,yaw)
-  {        
+  {  
+    //TRANSLATION
     //Assign correct translation limit based on velocity direction and reset command
     translationLimit[i] = sign(translationVelocity[i])*maxTranslation[i];
     if (resetTranslation[i] && defaultTranslation[i] < maxTranslation[i] && defaultTranslation[i] > -maxTranslation[i])
@@ -659,16 +671,16 @@ void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode po
     }
     
     bool positiveTranslationVelocity = sign(translationVelocity[i]) > 0;
-    bool exceedsPositiveTranslationLimit = positiveTranslationVelocity && (translationPosition[i] + translationVelocity[i]*timeDelta > translationLimit[i]);
-    bool exceedsNegativeTranslationLimit = !positiveTranslationVelocity && (translationPosition[i] + translationVelocity[i]*timeDelta < translationLimit[i]);
+    bool exceedsPositiveTranslationLimit = positiveTranslationVelocity && (newTranslationPosition[i] > translationLimit[i]);
+    bool exceedsNegativeTranslationLimit = !positiveTranslationVelocity && (newTranslationPosition[i] < translationLimit[i]);
     
     //Zero velocity when translation position reaches limit
     if (exceedsPositiveTranslationLimit || exceedsNegativeTranslationLimit)
     {
-      translationVelocity[i] = 0;
-      translationPosition[i] = translationLimit[i];
+      translationVelocity[i] = (translationLimit[i] - translationPosition[i])/timeDelta;
     }
     
+    //ROTATION
     //Assign correct rotation limit based on velocity direction and reset command
     rotationLimit[i] = sign(rotationVelocity[i])*maxRotation[i];
     if (resetRotation[i] && defaultRotation[i] < maxRotation[i] && defaultRotation[i] > -maxRotation[i])
@@ -677,20 +689,19 @@ void PoseController::manualCompensation(Pose newPosingVelocity, PoseResetMode po
     }
     
     bool positiveRotationVelocity = sign(rotationVelocity[i]) > 0;
-    bool exceedsPositiveRotationLimit = positiveRotationVelocity && (rotationPosition[i] + rotationVelocity[i]*timeDelta > rotationLimit[i]);
-    bool exceedsNegativeRotationLimit = !positiveRotationVelocity && (rotationPosition[i] + rotationVelocity[i]*timeDelta < rotationLimit[i]);
+    bool exceedsPositiveRotationLimit = positiveRotationVelocity && (newRotationPosition.toEulerAngles()[i] > rotationLimit[i]);
+    bool exceedsNegativeRotationLimit = !positiveRotationVelocity && (newRotationPosition.toEulerAngles()[i] < rotationLimit[i]);
     
     //Zero velocity when rotation position reaches limit
     if (exceedsPositiveRotationLimit || exceedsNegativeRotationLimit)
     {
-      rotationVelocity[i] = 0;
-      rotationPosition[i] = rotationLimit[i];
-    }
-    
-    //Update position
-    manualPose.position[i] = translationPosition[i]+translationVelocity[i]*timeDelta;
-    manualPose.rotation[i+1] = rotationPosition[i]+rotationVelocity[i]*timeDelta;
+      rotationVelocity[i] = (rotationLimit[i] - rotationPosition.toEulerAngles()[i])/timeDelta;
+    }   
   }   
+    
+  //Update position according to limitations
+  manualPose.position = translationPosition + translationVelocity*timeDelta;
+  manualPose.rotation = rotationPosition * Quat(Vector3d(rotationVelocity*timeDelta)); //BUG: Adding pitch and roll simultaneously adds unwanted yaw
 }
 
 /***********************************************************************************************************************
@@ -717,8 +728,8 @@ void PoseController::imuCompensation(ImuData imuData, Quat targetRotation)
   double smoothingFactor = 0.15;
   rotationVelocityError = smoothingFactor*imuData.angularVelocity + (1-smoothingFactor)*rotationVelocityError;
   
-  Vector3d rotationCorrection = kD*rotationVelocityError + kP*rotationPositionError + kI*rotationAbsementError;
-  rotationCorrection[2] = 0; //No compensation in yaw rotation
+  Vector3d rotationCorrection = -(kD*rotationVelocityError + kP*rotationPositionError + kI*rotationAbsementError);
+  rotationCorrection[2] = targetRotation.toEulerAngles()[2]; //No compensation in yaw rotation
   
   double stabilityThreshold = 100;
     
@@ -729,11 +740,10 @@ void PoseController::imuCompensation(ImuData imuData, Quat targetRotation)
   }
   else
   { 
-    imuPose = Pose::identity();
-    imuPose.rotation[1] = -rotationCorrection[0];
-    imuPose.rotation[2] = -rotationCorrection[1];
+    imuPose = Pose::identity(); 
+    imuPose.rotation = Quat(rotationCorrection);
   } 
-
+   
   //TRANSLATION COMPENSATION
   //DOES NOT CURRENTLY WORK FULLY
   /* 
@@ -768,14 +778,14 @@ void PoseController::imuCompensation(ImuData imuData, Quat targetRotation)
 ***********************************************************************************************************************/
 void PoseController::inclinationCompensation(ImuData imuData)
 {  
-  Vector3d eulerAngles = imuData.orientation.toEulerAngles() - manualPose.rotation.toEulerAngles() - autoPoseDefault.rotation.toEulerAngles();
+  Vector3d eulerAngles = imuData.orientation*(manualPose.rotation*autoPoseDefault.rotation).inverse().toEulerAngles();
   
-  double longitudinalCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]);
-  double lateralCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]); 
+  double lateralCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]); 
+  double longitudinalCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]);  
   
   inclinationPose = Pose::identity();
-  inclinationPose.position[0] = longitudinalCorrection;
-  inclinationPose.position[1] = lateralCorrection;
+  inclinationPose.position[0] = clamped(longitudinalCorrection, -params.maxTranslation[0], params.maxTranslation[0]);
+  inclinationPose.position[1] = clamped(lateralCorrection, -params.maxTranslation[1], params.maxTranslation[1]);
 }
 
 /***********************************************************************************************************************
@@ -795,7 +805,7 @@ void PoseController::impedanceControllerCompensation(double deltaZ[3][2])
   averageDeltaZ /= loadedLegs;
   
   deltaZPose = Pose::identity();
-  deltaZPose.position[2] = abs(averageDeltaZ);
+  deltaZPose.position[2] = clamped(abs(averageDeltaZ), -params.maxTranslation[2], params.maxTranslation[2]);
 }
 
 /***********************************************************************************************************************
@@ -884,11 +894,10 @@ double PoseController::poseForLegManipulation(LegState state, int l, int s, doub
     double raiseHeight = stepHeight; // - deltaZ[l][s]; //Height leg is to be raised
     targetPose.position[2] -= raiseHeight;
     targetTipPositions[l][s] = targetPose.inverseTransformVector(walker->identityTipPositions[l][s]);
-    newDeltaZ[l][s] = 0.0;
-    //stepHeight = 0.0;    
+    newDeltaZ[l][s] = 0.0; 
   }       
       
-  return stepToPosition(targetTipPositions, newDeltaZ, SIMULTANEOUS_MODE, stepHeight, 1.0/params.stepFrequency);  
+  return stepToPosition(targetTipPositions, Pose::identity(), newDeltaZ, SIMULTANEOUS_MODE, stepHeight, 1.0/params.stepFrequency);  
 }
 
 /***********************************************************************************************************************

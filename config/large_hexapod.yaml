@@ -59,6 +59,8 @@ hexapod:
     joint_max_angular_speeds: [1.0, 0.4, 0.4]
 
     dynamixel_interface: false #Set true for simulations
+    
+    imu_rotation_offset: [3.14, 0.0, 0.0]
 
 ######################################################################
 # Walk Controller Parameters

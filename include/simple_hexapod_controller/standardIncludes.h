@@ -4,6 +4,7 @@
 #include <vector>
 #include <boost/iterator/iterator_concepts.hpp>
 #include <ros/console.h>
+#include <ros/assert.h>
 using namespace Eigen;
 using namespace std;
 

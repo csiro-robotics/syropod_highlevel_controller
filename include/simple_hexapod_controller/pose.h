@@ -27,14 +27,18 @@ struct Pose
   {
     return Pose(position, rotation * quat);
   }
+  
   Vector3d operator *(const Vector3d &vec) const
   {
     return position + rotation.rotateVector(vec);
   }
+  
+  
   Pose operator *(const Pose &pose) const
   {
     return Pose(position + rotation.rotateVector(pose.position), rotation * pose.rotation);
   }
+  
   Pose operator *(double scale) const
   {
     return Pose(position*scale, rotation * scale);
@@ -51,11 +55,13 @@ struct Pose
   {
     return Pose(position - pose.position, rotation - pose.rotation);
   }
+ 
   void operator *=(const Pose &pose) 
   {
     position += rotation.rotateVector(pose.position);
     rotation *= pose.rotation;
   }
+
   void operator +=(const Pose &pose) 
   {
     position += pose.position;
@@ -93,13 +99,15 @@ struct Pose
   {
     rotation.normalize();
   }
+  
   /// Return normalized pose
   Pose normalized() const
   {
     Pose result = *this;
     result.normalize();
     return result;
-  }
+  }  
+  
   Vector3d transformVector(const Vector3d &vec) const
   {
     return position + rotation.rotateVector(vec);
@@ -108,6 +116,7 @@ struct Pose
   {
     return (~*this).transformVector(vec);
   }
+  
   
   static Pose identity()
   {

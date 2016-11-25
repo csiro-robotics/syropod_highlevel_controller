@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
   state.ascLegStatePublishers[2][1] = n.advertise<std_msgs::Bool>("leg_state_rear_right_bool", 1);  
   
   state.posePublisher = n.advertise<geometry_msgs::Twist>("/hexapod/pose", 1000);
-  state.IMURotationPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/imu_rotation", 1000);
+  state.IMUDataPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/imu_data", 1000);
   state.bodyVelocityPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/body_velocity", 1000);
   
   state.rotationPoseErrorPublisher = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rotation_pose_error", 1000);
@@ -187,7 +187,7 @@ int main(int argc, char* argv[])
     state.publishLegState(); 
 
     state.publishPose();
-    state.publishIMURotation();
+    state.publishIMUData();
     state.publishBodyVelocity();
 
     state.publishRotationPoseError();

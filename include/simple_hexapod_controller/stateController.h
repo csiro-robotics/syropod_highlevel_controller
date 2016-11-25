@@ -61,7 +61,7 @@ struct StateController
   ros::Publisher ascLegStatePublishers[3][2];
 
   ros::Publisher posePublisher;
-  ros::Publisher IMURotationPublisher;
+  ros::Publisher IMUDataPublisher;
   ros::Publisher bodyVelocityPublisher;
 
   ros::Publisher rotationPoseErrorPublisher;  
@@ -140,7 +140,7 @@ struct StateController
   void publishLegState();
 
   void publishPose();
-  void publishIMURotation();
+  void publishIMUData();
   void publishBodyVelocity();
 
   void publishRotationPoseError();

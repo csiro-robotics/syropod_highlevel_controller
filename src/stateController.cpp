@@ -316,8 +316,7 @@ void StateController::directState()
   if (startFlag)
   {
     int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
-    poser->updateStance(walker->identityTipPositions);
-    double res = poser->stepToPosition(poser->tipPositions, deltaZ, mode, 0, params.timeToStart);
+    double res = poser->stepToPosition(walker->identityTipPositions, poser->currentPose, deltaZ, mode, 0, params.timeToStart);
     if (res == 1.0)
     {
       systemState = RUNNING;
@@ -460,13 +459,18 @@ void StateController::compensation()
   //Manually set (joystick controlled) body compensation 
   if (params.manualCompensation)
   {     
-    Pose posingVelocity = Pose(Vector3d(xJoy,yJoy,zJoy), Quat(1,rollJoy,pitchJoy,yawJoy));
-    poser->manualCompensation(posingVelocity, poseResetMode, poser->defaultPose); //Updates current pose  
+    poser->manualCompensation(Vector3d(xJoy,yJoy,zJoy), 
+			      Vector3d(rollJoy,pitchJoy,yawJoy),
+			      poseResetMode, 
+			      poser->defaultPose);
     poser->currentPose = poser->manualPose;
   } 
+  else
+  {
+    poser->currentPose = Pose::identity();
+  }  
   
-  //Compensation to align centre of gravity evenly between tip positions on incline
-  
+  //Compensation to align centre of gravity evenly between tip positions on incline  
   if (params.inclinationCompensation)
   {
     poser->inclinationCompensation(imuData);    
@@ -491,15 +495,7 @@ void StateController::compensation()
   {   
     poser->autoCompensation();
     poser->currentPose.position += poser->autoPoseDefault.position;
-    poser->currentPose.rotation[1] += poser->autoPoseDefault.rotation[1];
-    poser->currentPose.rotation[2] += poser->autoPoseDefault.rotation[2];    
-  }
-  
-  //Limit posing to min/max values
-  for (int i=0; i<3; i++)
-  {
-    poser->currentPose.position[i] = clamped(poser->currentPose.position[i]-poser->deltaZPose.position[i], -params.maxTranslation[i], params.maxTranslation[i])+poser->deltaZPose.position[i];
-    poser->currentPose.rotation[i+1] = clamped(poser->currentPose.rotation[i+1], -params.maxRotation[i], params.maxRotation[i]);    
+    poser->currentPose.rotation *= poser->autoPoseDefault.rotation; //(Quaternion)
   }
 }
 
@@ -564,7 +560,7 @@ void StateController::impedanceControl()
 	tipForce[l][s] = max(tipForce[l][s], minForce);
       }
       
-      if (hexapod->legs[l][s].state == WALKING)
+      if (hexapod->legs[l][s].legState == WALKING)
       {
 	impedance->updateImpedance(l, s, tipForce, deltaZ);
       }
@@ -711,8 +707,7 @@ void StateController::paramAdjust()
     {
       //Update tip Positions for new parameter value
       double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
-      poser->updateStance(walker->identityTipPositions);
-      double res = poser->stepToPosition(poser->tipPositions, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency);
+      double res = poser->stepToPosition(poser->tipPositions, poser->currentPose, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency);
       if (res == 1.0)
       {    
 	ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
@@ -779,11 +774,11 @@ void StateController::legStateToggle()
   {     
     poser->calculateDefaultPose();  //Calculate default pose for new loading pattern
     
-    if (leg.state == WALKING)
+    if (leg.legState == WALKING)
     {        
       if (manualLegs < MAX_MANUAL_LEGS)
       {
-	ROS_INFO_COND(leg.state == WALKING, "%s leg transitioning to MANUAL state . . .\n", legNameMap[l*2+s].c_str());
+	ROS_INFO_COND(leg.legState == WALKING, "%s leg transitioning to MANUAL state . . .\n", legNameMap[l*2+s].c_str());
 	leg.setState(WALKING_TO_MANUAL);
       }
       else
@@ -792,17 +787,17 @@ void StateController::legStateToggle()
 	toggleLegState = false;
       }	
     }
-    else if (leg.state == MANUAL)
+    else if (leg.legState == MANUAL)
     {
-      ROS_INFO_COND(leg.state == MANUAL, "%s leg transitioning to WALKING state . . .\n", legNameMap[l*2+s].c_str());
+      ROS_INFO_COND(leg.legState == MANUAL, "%s leg transitioning to WALKING state . . .\n", legNameMap[l*2+s].c_str());
       leg.setState(MANUAL_TO_WALKING);
     }
-    else if (leg.state == WALKING_TO_MANUAL)
+    else if (leg.legState == WALKING_TO_MANUAL)
     {            
       poseResetMode = FORCE_ALL_RESET; //Set to ALL_RESET to force pose to new default pose         
       walker->tipPositions[l][s] = hexapod->localTipPositions[l][s]; //Override walker tip positions for manual control
       poser->tipPositions[l][s] = hexapod->localTipPositions[l][s];
-      double res = poser->poseForLegManipulation(leg.state, l, s, deltaZ);   
+      double res = poser->poseForLegManipulation(leg.legState, l, s, deltaZ);   
       
       if (params.dynamicStiffness)
       {
@@ -818,11 +813,11 @@ void StateController::legStateToggle()
 	manualLegs++;
       }
     }
-    else if (leg.state == MANUAL_TO_WALKING)
+    else if (leg.legState == MANUAL_TO_WALKING)
     {
       poseResetMode = FORCE_ALL_RESET; //Set to ALL_RESET to force pose to new default pose            
       walker->tipPositions[l][s] = walker->identityTipPositions[l][s]; //Return walker tip positions to default
-      double res = poser->poseForLegManipulation(leg.state, l, s, deltaZ);  
+      double res = poser->poseForLegManipulation(leg.legState, l, s, deltaZ);  
       
       if (params.dynamicStiffness)
       {
@@ -881,7 +876,7 @@ void StateController::publishLegState()
       //Publish leg state (ASC)
       std_msgs::Bool msg;
       if (walker->legSteppers[l][s].stepState == SWING || 
-	 (hexapod->legs[l][s].state != WALKING && hexapod->legs[l][s].state != MANUAL))
+	 (hexapod->legs[l][s].legState != WALKING && hexapod->legs[l][s].legState != MANUAL))
       {
 	msg.data = true;
       }
@@ -916,23 +911,29 @@ void StateController::publishPose()
   msg.linear.x = poser->currentPose.position[0];
   msg.linear.y = poser->currentPose.position[1];
   msg.linear.z = poser->currentPose.position[2];
-  msg.angular.x = poser->currentPose.rotation[0];
-  msg.angular.y = poser->currentPose.rotation[1];
-  msg.angular.z = poser->currentPose.rotation[2];
+  msg.angular.x = poser->currentPose.rotation.toEulerAngles()[0];
+  msg.angular.y = poser->currentPose.rotation.toEulerAngles()[1];
+  msg.angular.z = poser->currentPose.rotation.toEulerAngles()[2];
   posePublisher.publish(msg);
 }
 
 /***********************************************************************************************************************
  * Publishes current rotation as per the IMU (roll, pitch, yaw, x, y, z) for debugging
 ***********************************************************************************************************************/
-void StateController::publishIMURotation()
+void StateController::publishIMUData()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
   msg.data.push_back(imuData.orientation.toEulerAngles()[0]);  
   msg.data.push_back(imuData.orientation.toEulerAngles()[1]);
   msg.data.push_back(imuData.orientation.toEulerAngles()[2]); 
-  IMURotationPublisher.publish(msg);
+  msg.data.push_back(imuData.linearAcceleration[0]);  
+  msg.data.push_back(imuData.linearAcceleration[1]);
+  msg.data.push_back(imuData.linearAcceleration[2]); 
+  msg.data.push_back(imuData.angularVelocity[0]);  
+  msg.data.push_back(imuData.angularVelocity[1]);
+  msg.data.push_back(imuData.angularVelocity[2]); 
+  IMUDataPublisher.publish(msg);
 }
 
 /***********************************************************************************************************************
@@ -1240,7 +1241,7 @@ void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
   linearVelocityInput = Vector2d(twist.linear.x, twist.linear.y);
   angularVelocityInput = twist.angular.z;
   
-  manualTipVelocity = Vector3d(twist.angular.x, twist.angular.y, (-0.5*twist.angular.z+0.5) - (-0.5*twist.linear.z+0.5));
+  manualTipVelocity = Vector3d(twist.angular.x, twist.angular.y, 0.0);//(-0.5*twist.angular.z+0.5) - (-0.5*twist.linear.z+0.5));
 }
 
 /***********************************************************************************************************************
@@ -1326,18 +1327,7 @@ void StateController::startTestCallback(const std_msgs::Bool &input)
 ***********************************************************************************************************************/
 void StateController::imuCallback(const sensor_msgs::Imu &data)
 {
-  params.imuOffset = Vector3d(0,0,0);
-  Matrix3d imuRotationOffset;
-  imuRotationOffset(0,0) = 1.0;
-  imuRotationOffset(0,1) = 0.0;
-  imuRotationOffset(0,2) = 0.0;
-  imuRotationOffset(1,0) = 0.0;
-  imuRotationOffset(1,1) = cos(3.14);
-  imuRotationOffset(1,2) = -sin(3.14);
-  imuRotationOffset(2,0) = 0.0;
-  imuRotationOffset(2,1) = sin(3.14);
-  imuRotationOffset(2,2) = cos(3.14);
-  Quat imuPhysicalOffset(imuRotationOffset);  
+  Quat imuRotationOffset(params.imuRotationOffset);  
 
   Quat rawOrientation;
   rawOrientation.w = data.orientation.w;
@@ -1355,14 +1345,10 @@ void StateController::imuCallback(const sensor_msgs::Imu &data)
   rawAngularVelocity[1] = data.angular_velocity.y;
   rawAngularVelocity[2] = data.angular_velocity.z;
   
-  //Rotate raw imu data according to physial imu mounting
-  imuData.orientation = rawOrientation*imuPhysicalOffset;  
-  imuData.linearAcceleration = imuPhysicalOffset.toRotationMatrix()*rawLinearAcceleration;
-  imuData.angularVelocity = imuPhysicalOffset.toRotationMatrix()*rawAngularVelocity;
-  
-  ROS_INFO_COND(false, "ORIENTATION (%f:%f:%f) rotated to (%f:%f:%f)\n", rawOrientation.toEulerAngles()[0], rawOrientation.toEulerAngles()[1], rawOrientation.toEulerAngles()[2], imuData.orientation.toEulerAngles()[0], imuData.orientation.toEulerAngles()[1],  imuData.orientation.toEulerAngles()[2]); 
-  ROS_INFO_COND(true, "LINEAR ACCELERATION (%f:%f:%f) rotated to (%f:%f:%f)\n", rawLinearAcceleration[0], rawLinearAcceleration[1], rawLinearAcceleration[2], imuData.linearAcceleration[0], imuData.linearAcceleration[1],  imuData.linearAcceleration[2]); 
-  ROS_INFO_COND(false, "ANGULAR_VELOCITY (%f:%f:%f) rotated to (%f:%f:%f)\n", rawAngularVelocity[0], rawAngularVelocity[1], rawAngularVelocity[2], imuData.angularVelocity[0], imuData.angularVelocity[1],  imuData.angularVelocity[2]); 
+  //Rotate raw imu data according to physical imu mounting
+  imuData.orientation = (imuRotationOffset*rawOrientation)*imuRotationOffset.inverse(); 
+  imuData.linearAcceleration = imuRotationOffset.toRotationMatrix()*rawLinearAcceleration;
+  imuData.angularVelocity = imuRotationOffset.toRotationMatrix()*rawAngularVelocity;
 }
 
 /***********************************************************************************************************************
@@ -1997,12 +1983,22 @@ void StateController::getParameters()
   }
   else
   {
-    params.jointMaxAngularSpeeds = Map<Vector3d>(&jointMaxAngularSpeeds[0], 3);
+    params.jointMaxAngularSpeeds = Map<Vector3d>(&jointMaxAngularSpeeds[0], 2);
   }
   
   if(!n.getParam(baseParamString+"dynamixel_interface", params.dynamixelInterface))
   {
     ROS_ERROR("Error reading parameter/s (dynamixel_interface) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
+  std::vector<double> imuRotationOffset(3); 
+  if(!n.getParam(baseParamString+"imu_rotation_offset", imuRotationOffset))
+  {
+    ROS_ERROR("Error reading parameter/s (imu_rotation_offset) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  else
+  {
+    params.imuRotationOffset = Map<Vector3d>(&imuRotationOffset[0], 3);
   }
   
   /********************************************************************************************************************/
