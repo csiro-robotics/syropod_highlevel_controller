@@ -778,7 +778,9 @@ void PoseController::imuCompensation(ImuData imuData, Quat targetRotation)
 ***********************************************************************************************************************/
 void PoseController::inclinationCompensation(ImuData imuData)
 {  
-  Vector3d eulerAngles = imuData.orientation*(manualPose.rotation*autoPoseDefault.rotation).inverse().toEulerAngles();
+  Quat compensationCombined = manualPose.rotation*autoPoseDefault.rotation;
+  Quat compensationRemoved = imuData.orientation*compensationCombined.inverse();
+  Vector3d eulerAngles = compensationRemoved.toEulerAngles();
   
   double lateralCorrection = walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[0]); 
   double longitudinalCorrection = -walker->bodyClearance*walker->maximumBodyHeight*tan(eulerAngles[1]);  

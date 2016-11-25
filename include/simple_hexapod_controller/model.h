@@ -48,9 +48,7 @@ struct Leg
   double oldYaw;
   double oldLiftAngle;
   double oldKneeAngle;
-  
-  
-  
+    
   struct Model *model; // so it can refer to model's joint limits
 };
 
