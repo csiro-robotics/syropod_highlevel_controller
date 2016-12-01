@@ -42,7 +42,7 @@ StateController::~StateController()
  * Init state controller
 ***********************************************************************************************************************/
 void StateController::init() 
-{    
+{     
   //Setup motor interface
   if (params.dynamixelInterface)
   {
@@ -58,19 +58,19 @@ void StateController::init()
   //Set initial gait selection number for gait toggling
   if (params.gaitType == "tripod_gait")
   {
-    gait = TRIPOD_GAIT;
+    gaitSelection = TRIPOD_GAIT;
   }
   else if (params.gaitType == "ripple_gait")
   {
-    gait = RIPPLE_GAIT;
+    gaitSelection = RIPPLE_GAIT;
   }
   else if (params.gaitType == "wave_gait")
   {
-    gait = WAVE_GAIT;
+    gaitSelection = WAVE_GAIT;
   }
   else if (params.gaitType == "amble_gait")
   {
-    gait = AMBLE_GAIT;
+    gaitSelection = AMBLE_GAIT;
   }
   
   // Create controller objects
@@ -93,6 +93,8 @@ void StateController::init()
   packedJointPositions[2][1] = params.packedJointPositionsCR; 
   
   linearVelocityInput = Vector2d(0.0,0.0);
+  
+  isInitialised = true;
 }
 
 /***********************************************************************************************************************
@@ -178,72 +180,104 @@ void StateController::loop()
   }
   
   //Hexapod state machine
-  switch (systemState)
+  if (systemState != newSystemState)
   {
-    //Hexapod is in a state of unpacking itself into neutral 'unpacked' position
-    case(UNPACK):
-    {
-      unpackState();
-      break;
-    }
-      
-    //Hexapod steps safely from unpacked position into the operational 'walking' position
-    case(STARTUP):
-    {                
-      startUpState();
-      break;
-    }       
-    
-    //Hexapod is in operational state (walking/posing/actuating etc.)
-    case(RUNNING):
-    {   
-      runningState(); 
-      break; 
-    }         
-    
-    //Hexapod steps from operational position into a safe position where it can then begin packing procedure
-    case(SHUTDOWN):
-    {    
-      shutDownState();
-      break;
-    }
-
-    //Hexapod transitions to packed state
-    case(PACK):
-    {
-      packState();
-      break;
-    }   
-    
-    //Hexapod in packed state
-    case(PACKED):
-    {       
-      packedState();
-      break;
-    }        
-    
-    //State unknown due to first iteration of controller
-    case(UNKNOWN):
-    {
-      unknownState();    
-      break;
-    }
-    
-    //No startup/shutdown ability requested - move legs directly to walk position  
-    case(DIRECT):
-    {
-      directState();
-      break;
-    }
-  } 
-  
+    transitionSystemState();
+  }
+  else if (systemState == RUNNING)
+  {
+    runningState();
+  }  
   hexapod->clampToLimits(legNameMap); 
 }
 
 /***********************************************************************************************************************
- * Unpack state
+ * State transition handler
 ***********************************************************************************************************************/
-void StateController::unpackState()
+void StateController::transitionSystemState()
+{
+  //OFF -> PACKED (Start controller)
+  if (systemState == OFF && newSystemState == PACKED)
+  { 
+    systemState = PACKED;
+    ROS_INFO("Controller suspended.\n");
+  }
+  //OFF -> RUNNING (Directly transition to walking stance)
+  else if (systemState == OFF && newSystemState == RUNNING)
+  {
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing direct startup sequence. . .\n");
+    walker->init(hexapod, params);
+    int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
+    double res = poser->stepToPosition(walker->identityTipPositions, poser->currentPose, deltaZ, mode, 0, params.timeToStart);
+    if (res == 1.0)
+    {
+      systemState = RUNNING;
+      ROS_INFO("Direct startup sequence complete. Ready to walk.\n");
+    }           
+  }
+  //PACKED -> OFF (Suspend controller)
+  else if (systemState == PACKED && newSystemState == OFF)
+  {
+    systemState = OFF;
+    ROS_INFO("Controller suspended.\n");
+  }
+  //PACKED -> READY (Unpack Hexapod)
+  else if (systemState == PACKED && newSystemState == READY)
+  {
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing unpacking sequence. . .\n");
+    if (poser->moveToJointPosition(unpackedJointPositions, 2.0/params.stepFrequency))
+    {          
+      systemState = READY;
+      ROS_INFO("Hexapod unpacking complete. Ready to run startup sequence.\n");
+    }     
+  }
+  //READY -> PACKED (Pack Hexapod)
+  else if (systemState == READY && newSystemState == PACKED)
+  {
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing unpacking sequence. . .\n");
+    if (poser->moveToJointPosition(packedJointPositions, 2.0/params.stepFrequency))
+    {
+      systemState = PACKED;
+      ROS_INFO("Hexapod packing complete.\n");  
+    }
+  }
+  //READY -> RUNNING (Initate start up sequence to step to walking stance)
+  else if (systemState == READY && newSystemState == RUNNING)
+  {
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing startup sequence. . .\n");
+    poser->updateStance(walker->identityTipPositions);
+    if (poser->startUpSequence(poser->tipPositions, params.moveLegsSequentially))
+    {    
+      systemState = RUNNING;
+      ROS_INFO("Startup sequence complete. Ready to walk.\n");
+    }     
+  }
+  //RUNNING -> READY (Initiate shut down sequence to step from walking stance to ready stance
+  else if (systemState == RUNNING && newSystemState == READY)
+  {
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing shutdown sequence. . .\n");
+    poser->updateStance(walker->identityTipPositions);
+    if (poser->shutDownSequence(poser->tipPositions, params.moveLegsSequentially))
+    {
+      systemState = READY;
+      ROS_INFO("Shutdown sequence complete.\n");
+    }     
+  }
+  //RUNNING -> OFF (Suspend controller)
+  else if (systemState == RUNNING && newSystemState == OFF)
+  {
+    systemState = OFF;
+    ROS_INFO("Controller suspended.\n");
+  }
+  //Undefined system transition
+  else
+  {
+    ROS_FATAL("Undefined system state transition was requested! Shutting down controller!\n");
+    ros::shutdown();
+  }
+}
+/*
+void StateController::unpack()
 {
   //Move joints directly to unpacked positions and then transition to next state
   if (poser->moveToJointPosition(unpackedJointPositions, 2.0/params.stepFrequency))
@@ -253,23 +287,17 @@ void StateController::unpackState()
   }  
 }
 
-/***********************************************************************************************************************
- * StartUp state
-***********************************************************************************************************************/
 void StateController::startUpState()
 {
   //Run through start up sequence (stepping to defined positions) and then transition to next state
-  poser->updateStance(walker->identityTipPositions);
-  if (poser->startUpSequence(poser->tipPositions, params.moveLegsSequentially))
-  {    
-    systemState = RUNNING;
-    ROS_INFO("Startup sequence complete. Ready to walk.\n");
-  }
+      poser->updateStance(walker->identityTipPositions);
+      if (poser->startUpSequence(poser->tipPositions, params.moveLegsSequentially))
+      {    
+	systemState = RUNNING;
+	ROS_INFO("Startup sequence complete. Ready to walk.\n");
+      } 
 }
 
-/***********************************************************************************************************************
- * Shutdown state
-***********************************************************************************************************************/
 void StateController::shutDownState()
 {
   //Run through shut down sequence (stepping to defined positions) and then transition to next state
@@ -281,9 +309,6 @@ void StateController::shutDownState()
   } 
 }
 
-/***********************************************************************************************************************
- * Pack state
-***********************************************************************************************************************/
 void StateController::packState()
 {
   //Move joints directly to packed positions and then transition to next state
@@ -294,9 +319,6 @@ void StateController::packState()
   }
 }
 
-/***********************************************************************************************************************
- * Packed state
-***********************************************************************************************************************/
 void StateController::packedState()
 {
   //Checks for start flag and transitions to next state
@@ -307,9 +329,6 @@ void StateController::packedState()
   }
 }
 
-/***********************************************************************************************************************
- * Direct state
-***********************************************************************************************************************/
 void StateController::directState()
 {
   //Checks for start flag and then directly moves tips to walking position and transitions to next state
@@ -325,9 +344,6 @@ void StateController::directState()
   }
 }
 
-/***********************************************************************************************************************
- * Unknown state
-***********************************************************************************************************************/
 void StateController::unknownState()
 {
   int checkPacked = 0;
@@ -367,32 +383,27 @@ void StateController::unknownState()
     ROS_INFO("Hexapod unpacked. Running startup sequence . . .\n");
   } 
 }
+*/
 
 /***********************************************************************************************************************
  * Running state
 ***********************************************************************************************************************/
 void StateController::runningState()
 {           
-  //Debugging test control
-  if (params.testing)
-  {    
-    if (testState == TEST_RUNNING && (runningTime < params.testTimeLength || params.testTimeLength == 0.0))
-    {
-      ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength > 0.0, "Test started. Will finish automatically in %f seconds. Press X to stop test early.\n", params.testTimeLength);
-      ROS_DEBUG_COND(runningTime == 0 && params.testTimeLength == 0.0, "Test started. No time limit. Press X to stop test.\n");
-      runningTime += params.timeDelta;
-      linearVelocityInput = params.testLinearVelocity;
-      angularVelocityInput = params.testAngularVelocity;
+  //Cruise control (constant velocity input)
+  if (cruiseControlMode == CRUISE_CONTROL_ON)
+  {
+    if (params.forceCruiseVelocity)
+    {      
+      linearVelocityInput = params.linearCruiseVelocity;
+      angularVelocityInput = params.angularCruiseVelocity;
     }
     else
     {
-      ROS_DEBUG_COND(testState == TEST_RUNNING, "Test ended as scheduled.\n");
-      ROS_DEBUG_COND(runningTime > 0.0, "Test ended manually.\n");
-      runningTime = 0.0;
-      testState = TEST_ENDED;
+      linearVelocityInput = linearCruiseVelocity;
+      angularVelocityInput = angularCruiseVelocity;
     }
-  } 
-  
+  }
   
   //Switch gait and update walker parameters
   if (changeGait)
@@ -422,33 +433,7 @@ void StateController::runningState()
   
     //Model uses posed tip positions and adds deltaZ from impedance controller and applies inverse kinematics on each leg
     hexapod->updateLocal(poser->tipPositions, deltaZ);
-    
-    //DEBUG - walker state
-    /*
-    switch(walker->walkState)
-    {
-      case(MOVING):
-	ROS_DEBUG_THROTTLE(2, "Hexapod state: MOVING.\n");
-	break;
-      case(STARTING):
-	ROS_DEBUG_THROTTLE(2, "Hexapod state: STARTING.\n");
-	break;
-      case(STOPPING):
-	ROS_DEBUG_THROTTLE(2, "Hexapod state: STOPPING.\n");
-	break;
-      case(STOPPED):
-	ROS_DEBUG_THROTTLE(2, "Hexapod state: STOPPED.\n");
-	break;
-    }
-    */
   } 
-    
-  //Check for shutdown cue
-  if (!startFlag && params.startUpSequence)
-  {
-    systemState = SHUTDOWN;
-    ROS_INFO("Running shutdown sequence . . .\n");
-  }
 }
 
 /***********************************************************************************************************************
@@ -585,7 +570,7 @@ void StateController::paramAdjust()
     {
       switch(paramSelection)
       {
-	case(NO_PARAM_SELECTION):
+	case(NO_PARAMETER_SELECTION):
 	{
 	  break;
 	}
@@ -722,33 +707,16 @@ void StateController::paramAdjust()
  * Gait change
 ***********************************************************************************************************************/
 void StateController::gaitChange()
-{ 
-  ROS_INFO_COND(walker->walkState == MOVING, "Stopping hexapod to change gait . . .\n"); 
-  
+{  
   //Force hexapod to stop walking
   linearVelocityInput = Vector2d(0.0,0.0);
   angularVelocityInput = 0.0;
   
+  ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to change gait . . .\n"); 
+  
   if (walker->walkState == STOPPED)
   {
-    switch (gait)
-    {
-      case (TRIPOD_GAIT):
-        getGaitParameters("tripod_gait");
-        break;
-      case(RIPPLE_GAIT):
-        getGaitParameters("ripple_gait"); 
-        break;
-      case(WAVE_GAIT):
-        getGaitParameters("wave_gait");
-        break;
-      case(AMBLE_GAIT):
-	getGaitParameters("amble_gait");
-        break;
-      default:
-        ROS_WARN("Attempting to change to unknown gait.\n");
-        break;
-    }   
+    getGaitParameters(gaitSelection);   
     walker->setGaitParams(params);
     ROS_INFO("Now using %s mode.\n", params.gaitType.c_str());
     changeGait = false;
@@ -1095,6 +1063,146 @@ void StateController::publishJointValues()
 }
 
 /***********************************************************************************************************************
+ * Joypad Velocity Topic Callback
+***********************************************************************************************************************/
+void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
+{ 
+  linearVelocityInput = Vector2d(twist.linear.x, twist.linear.y);
+  angularVelocityInput = twist.angular.z;
+  
+  manualTipVelocity = Vector3d(twist.angular.x, twist.angular.y, 0.0);//(-0.5*twist.angular.z+0.5) - (-0.5*twist.linear.z+0.5));
+}
+
+/***********************************************************************************************************************
+ * Joypad Pose Topic Callback
+***********************************************************************************************************************/
+void StateController::joypadPoseCallback(const geometry_msgs::Twist &twist)
+{  
+  rollJoy = twist.angular.x;;
+  pitchJoy = twist.angular.y;
+  yawJoy = twist.angular.z;
+  xJoy = twist.linear.x;
+  yJoy = twist.linear.y;
+  zJoy = twist.linear.z;
+}
+
+/***********************************************************************************************************************
+ * System state callback handling desired system state from hexapod_remote
+***********************************************************************************************************************/
+void StateController::systemStateCallback(const std_msgs::Int8 &input)
+{
+  newSystemState = static_cast<SystemState>(int(input.data));
+  
+  //If startUpSequence parameter is false then skip READY and PACKED states
+  if (!params.startUpSequence)
+  {
+    if (newSystemState == READY || newSystemState == PACKED)
+    {
+      newSystemState = OFF;
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Gait Selection Callback
+***********************************************************************************************************************/
+void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
+{
+  if (systemState == RUNNING)
+  {
+    GaitSelection newGaitSelection = static_cast<GaitSelection>(int(input.data));
+    if (newGaitSelection != gaitSelection && newGaitSelection != UNDEFINED)
+    {
+      gaitSelection = newGaitSelection;
+      changeGait = true;
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Cruise Control Callback
+***********************************************************************************************************************/
+void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
+{
+  if (systemState == RUNNING)
+  {
+    CruiseControlMode newCruiseControlMode = static_cast<CruiseControlMode>(int(input.data));
+    if (newCruiseControlMode!= cruiseControlMode)
+    {
+      cruiseControlMode = newCruiseControlMode;
+      if (newCruiseControlMode == CRUISE_CONTROL_ON)
+      {
+	//Save current velocity input as cruise input
+	linearCruiseVelocity = linearVelocityInput; 
+	angularCruiseVelocity = angularVelocityInput;
+	ROS_INFO("Cruise control ON - Input velocity set to constant: Linear(X:Y): %f:%f, Angular(Z): %f\n", 
+		linearCruiseVelocity[0], linearCruiseVelocity[1], angularCruiseVelocity);
+      }
+      else if (newCruiseControlMode == CRUISE_CONTROL_OFF)
+      {
+	ROS_INFO("Cruise control OFF - Input velocity set by user.\n");
+      }    
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Auto Navigation Callback
+***********************************************************************************************************************/
+void StateController::autoNavigationCallback(const std_msgs::Int8 &input)
+{
+  if (systemState == RUNNING)
+  {
+    AutoNavigationMode newAutoNavigationMode = static_cast<AutoNavigationMode>(int(input.data));
+    if (newAutoNavigationMode != autoNavigationMode)
+    {
+      autoNavigationMode = newAutoNavigationMode;
+      ROS_INFO_COND(autoNavigationMode == AUTO_NAVIGATION_ON, "Auto Navigation mode ON. User input is being ignored.");
+      ROS_INFO_COND(autoNavigationMode == AUTO_NAVIGATION_OFF, "Auto Navigation mode OFF. Control returned to user input.");      
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Actuating Leg Selection Callback
+***********************************************************************************************************************/
+void StateController::legSelectionCallback(const std_msgs::Int8 &input)
+{
+  if (systemState == RUNNING && !toggleLegState)
+  {
+    LegSelection newSelection = static_cast<LegSelection>(input.data);
+    if (newSelection != -1 && legSelection != newSelection)
+    {
+      ROS_INFO("%s leg selected.\n", legNameMap[int(input.data)].c_str());
+      legSelection = newSelection;      
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Toggle Leg State Callback
+***********************************************************************************************************************/
+void StateController::legStateCallback(const std_msgs::Bool &input)
+{
+  if (input.data && legStateDebounce)
+  {
+    if (systemState == OFF || legSelection != NO_LEG_SELECTION)
+    {
+      toggleLegState = true;
+      legStateDebounce = false;
+    }
+    else
+    {
+      ROS_INFO("Cannot toggle leg state as no leg is currently selected. Press Y to select a leg and try again.\n");
+    }  
+  }
+  else if (!input.data && !toggleLegState)
+  {
+    legStateDebounce = true;
+  }
+}
+
+/***********************************************************************************************************************
  * This callback increments the gains in the controller
 ***********************************************************************************************************************/
 void StateController::paramSelectionCallback(const std_msgs::Int8 &input)
@@ -1102,11 +1210,12 @@ void StateController::paramSelectionCallback(const std_msgs::Int8 &input)
   if (systemState == RUNNING && input.data != paramSelection)
   {
     paramScaler = -1;
+    ParameterSelection parameterSelection = static_cast<ParameterSelection>(int(input.data));
     switch (input.data)
     {
-      case(NO_PARAM_SELECTION):
+      case(NO_PARAMETER_SELECTION):
       {
-        paramSelection = NO_PARAM_SELECTION;
+        paramSelection = NO_PARAMETER_SELECTION;
         ROS_INFO("No parameters currently selected.\n");
         break;
       }
@@ -1160,7 +1269,7 @@ void StateController::paramSelectionCallback(const std_msgs::Int8 &input)
       }
       default:
       {
-        paramSelection = NO_PARAM_SELECTION;
+        paramSelection = NO_PARAMETER_SELECTION;
         ROS_INFO("Unknown parameter selection requested from control input. No parameters currently selected.\n");
         break;
       }
@@ -1173,7 +1282,7 @@ void StateController::paramSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::paramAdjustCallback(const std_msgs::Int8 &input)
 {
-  if (input.data != 0.0 && !adjustParam && paramSelection != NO_PARAM_SELECTION)
+  if (input.data != 0.0 && !adjustParam && paramSelection != NO_PARAMETER_SELECTION)
   {
     if (paramScaler != -1)
     {
@@ -1185,87 +1294,6 @@ void StateController::paramAdjustCallback(const std_msgs::Int8 &input)
 }
 
 /***********************************************************************************************************************
- * Gait Selection Callback
-***********************************************************************************************************************/
-void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
-{
-  if (input.data != gait && systemState == RUNNING)
-  {
-    switch (input.data)
-    {
-      case(-1):
-        break;
-      case(TRIPOD_GAIT):
-        gait = TRIPOD_GAIT;
-        break;
-      case(RIPPLE_GAIT):
-        gait = RIPPLE_GAIT;
-        break;
-      case(WAVE_GAIT):
-        gait = WAVE_GAIT;
-        break;
-      case (AMBLE_GAIT):
-        gait = AMBLE_GAIT;
-        break;
-      default:
-        ROS_WARN("Unknown gait requested from control input.\n");
-    }
-    if (gait == input.data)
-    {
-      changeGait = true;
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Actuating Leg Selection Callback
-***********************************************************************************************************************/
-void StateController::legSelectionCallback(const std_msgs::Int8 &input)
-{
-  if (systemState == RUNNING && !toggleLegState)
-  {
-    LegSelection newSelection = static_cast<LegSelection>(input.data);
-    if (newSelection != -1 && legSelection != newSelection)
-    {
-      ROS_INFO("%s leg selected.\n", legNameMap[int(input.data)].c_str());
-      legSelection = newSelection;      
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Joypad Velocity Topic Callback
-***********************************************************************************************************************/
-void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
-{ 
-  linearVelocityInput = Vector2d(twist.linear.x, twist.linear.y);
-  angularVelocityInput = twist.angular.z;
-  
-  manualTipVelocity = Vector3d(twist.angular.x, twist.angular.y, 0.0);//(-0.5*twist.angular.z+0.5) - (-0.5*twist.linear.z+0.5));
-}
-
-/***********************************************************************************************************************
- * Joypad Pose Topic Callback
-***********************************************************************************************************************/
-void StateController::joypadPoseCallback(const geometry_msgs::Twist &twist)
-{  
-  rollJoy = twist.angular.x;;
-  pitchJoy = twist.angular.y;
-  yawJoy = twist.angular.z;
-  xJoy = twist.linear.x;
-  yJoy = twist.linear.y;
-  zJoy = twist.linear.z;
-}
-
-/***********************************************************************************************************************
- * Joypad Start State Topic Callback
-***********************************************************************************************************************/
-void StateController::startCallback(const std_msgs::Bool &input)
-{
-  startFlag = input.data;
-}
-
-/***********************************************************************************************************************
  * Joypad Pose reset mode Topic Callback
 ***********************************************************************************************************************/
 void StateController::poseResetCallback(const std_msgs::Int8 &input)
@@ -1273,52 +1301,6 @@ void StateController::poseResetCallback(const std_msgs::Int8 &input)
   if (poseResetMode != FORCE_ALL_RESET)
   {
     poseResetMode = static_cast<PoseResetMode>(input.data);
-  }
-}
-
-/***********************************************************************************************************************
- * Toggle Leg State Callback
-***********************************************************************************************************************/
-void StateController::legStateCallback(const std_msgs::Bool &input)
-{
-  if (input.data && legStateDebounce)
-  {
-    if (systemState == UNKNOWN || legSelection != NO_LEG_SELECTION)
-    {
-      toggleLegState = true;
-      legStateDebounce = false;
-    }
-    else
-    {
-      ROS_INFO("Cannot toggle leg state as no leg is currently selected. Press Y to select a leg and try again.\n");
-    }  
-  }
-  else if (!input.data && !toggleLegState)
-  {
-    legStateDebounce = true;
-  }
-}
-
-/***********************************************************************************************************************
- * Test Start Callback
-***********************************************************************************************************************/
-void StateController::startTestCallback(const std_msgs::Bool &input)
-{
-  if (input.data && startTestDebounce)
-  {
-    if (testState == TEST_RUNNING)
-    {
-      testState = TEST_ENDED;
-    }
-    else if (testState == TEST_ENDED)
-    {
-      testState = TEST_RUNNING;
-    }
-    startTestDebounce = false;
-  }
-  else if (!input.data)// && testState == TEST_ENDED)
-  {
-    startTestDebounce = true;
   }
 }
 
@@ -1598,12 +1580,12 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &jointSt
     }
     
     //Check if all joint positions have been received from topic
-    jointPosFlag = true;
+    recievedAllJointPositions = true;
     for (int i=0; i<18; i++)
     {  
       if (jointPositions[i] > 1e9)
       {
-        jointPosFlag = false;
+        recievedAllJointPositions = false;
       }
     }
   }
@@ -1632,7 +1614,7 @@ void StateController::getParameters()
   std::string forceGait; 
   
   //Gait Parameters
-  getGaitParameters(forceGait); //giving empty forceGait string gives default gait parameter
+  getGaitParameters(UNDEFINED); //giving empty forceGait string gives default gait parameter
   
   // Hexapod Parameters
   if(!n.getParam(baseParamString+"hexapod_type", params.hexapodType))
@@ -2055,6 +2037,26 @@ void StateController::getParameters()
     ROS_ERROR("Error reading parameter/s (velocity_input_mode) from rosparam. Check config file is loaded and type is correct\n");
   }
   
+  if (!n.getParam(paramString + "force_cruise_velocity", params.forceCruiseVelocity))
+  {
+    ROS_ERROR("Error reading parameter/s (force_cruise_velocity) from rosparam. Check config file is loaded and type is correct\n");
+  }
+   
+  std::vector<double> linearCruiseVelocity(2);
+  if (!n.getParam(paramString + "linear_cruise_velocity", linearCruiseVelocity))
+  {
+    ROS_ERROR("Error reading debug parameter/s (linear_cruise_velocity) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  else
+  {
+    params.linearCruiseVelocity = Map<Vector2d>(&linearCruiseVelocity[0], 2);
+  }
+  
+  if (!n.getParam(paramString + "angular_cruise_velocity", params.angularCruiseVelocity))
+  {
+    ROS_ERROR("Error reading debug parameter/s (angular_cruise_velocity) from rosparam. Check config file is loaded and type is correct\n");
+  }
+  
   /********************************************************************************************************************/
   // Pose Controller Parameters 
   paramString = baseParamString+"/pose_controller/";
@@ -2348,31 +2350,6 @@ void StateController::getParameters()
   
   paramString="/hexapod/debug_parameters/";
   
-  if (!n.getParam(paramString + "testing", params.testing))
-  {
-    ROS_ERROR("Error reading debug parameter/s (testing) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  if (!n.getParam(paramString + "test_time_length", params.testTimeLength))
-  {
-    ROS_ERROR("Error reading debug parameter/s (test_time_length) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
-  std::vector<double> testLinearVelocity(2);
-  if (!n.getParam(paramString + "test_linear_velocity", testLinearVelocity))
-  {
-    ROS_ERROR("Error reading debug parameter/s (test_linear_velocity) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  else
-  {
-    params.testLinearVelocity = Map<Vector2d>(&testLinearVelocity[0], 2);
-  }
-  
-  if (!n.getParam(paramString + "test_angular_velocity", params.testAngularVelocity))
-  {
-    ROS_ERROR("Error reading debug parameter/s (test_angular_velocity) from rosparam. Check config file is loaded and type is correct\n");
-  }
-  
   if (!n.getParam(paramString + "console_verbosity", params.consoleVerbosity))
   {
     ROS_ERROR("Error reading debug parameter/s (console_verbosity) from rosparam. Check config file is loaded and type is correct\n");
@@ -2426,21 +2403,31 @@ void StateController::getParameters()
 /***********************************************************************************************************************
  * Gets gait parameters from rosparam server
 ***********************************************************************************************************************/
-void StateController::getGaitParameters(std::string forceGait)
+void StateController::getGaitParameters(GaitSelection gaitSelection)
 {
   std::string baseParamString="/hexapod/parameters/";
   std::string paramString;
   
-  if (forceGait.empty())
+  switch (gaitSelection)
   {
-    if (!n.getParam(baseParamString+"gait_type", params.gaitType))
-    {
-      ROS_ERROR("Error reading parameter/s (gaitType) from rosparam. Check config file is loaded and type is correct\n");
-    }
-  }
-  else
-  {
-    params.gaitType = forceGait;
+    case (TRIPOD_GAIT):
+      params.gaitType = "tripod_gait";
+      break;
+    case(RIPPLE_GAIT):
+      params.gaitType = "ripple_gait"; 
+      break;
+    case(WAVE_GAIT):
+      params.gaitType = "wave_gait";
+      break;
+    case(AMBLE_GAIT):
+      params.gaitType = "amble_gait";
+      break;
+    case(UNDEFINED):
+      if (!n.getParam(baseParamString+"gait_type", params.gaitType))
+      {
+	ROS_ERROR("Error reading parameter/s (gaitType) from rosparam. Check config file is loaded and type is correct\n");
+      }
+      break;
   } 
   
   baseParamString = "/hexapod/gait_parameters/";

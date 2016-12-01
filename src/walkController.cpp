@@ -225,6 +225,8 @@ void WalkController::init(Model *m, Parameters p)
   model = m;
   params = p;
   
+  walkState = STOPPED;
+  
   stepClearance = params.stepClearance;
   stepDepth = params.stepDepth;
   bodyClearance = params.bodyClearance;
@@ -335,7 +337,8 @@ void WalkController::init(Model *m, Parameters p)
     minFootprintRadius += minGap*0.5;
   }
 
-  stanceRadius = Vector2d(identityTipPositions[0][1][0], identityTipPositions[0][1][1]).norm();
+  //Stance radius based around front-left leg to ensure positive values (due to coordinate frame system: x=forward, y=left)
+  stanceRadius = Vector2d(identityTipPositions[0][0][0], identityTipPositions[0][0][1]).norm();
 
   currentLinearVelocity = Vector2d(0,0);
   currentAngularVelocity = 0;
@@ -513,7 +516,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
       Leg &leg = model->legs[l][s]; 
       
       legStepper.strideVector = onGroundRatio*
-          (currentLinearVelocity + currentAngularVelocity*Vector2d(leg.localTipPosition[1], -leg.localTipPosition[0]))/
+          (currentLinearVelocity + currentAngularVelocity*Vector2d(-leg.localTipPosition[1], leg.localTipPosition[0]))/
           stepFrequency;
       
       if (walkState == STARTING)
@@ -666,7 +669,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
   {
     Vector2d push = currentLinearVelocity*timeDelta;
     pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
-    pose.rotation *= Quat(Vector3d(0.0,0.0,-currentAngularVelocity*timeDelta));
+    pose.rotation *= Quat(Vector3d(0.0,0.0,currentAngularVelocity*timeDelta));
   }
   //RVIZ
 }

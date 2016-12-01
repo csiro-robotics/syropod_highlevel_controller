@@ -29,18 +29,22 @@ struct StateController
 {
   ros::NodeHandle n;
   
-  SystemState systemState = UNKNOWN;
+  SystemState systemState = OFF;
+  SystemState newSystemState = OFF;
 
-  Gait gait = DEFAULT;
-  LegSelection legSelection = NO_LEG_SELECTION;
-  ParamSelection paramSelection = NO_PARAM_SELECTION;
+  GaitSelection gaitSelection = UNDEFINED;  
+  CruiseControlMode cruiseControlMode = CRUISE_CONTROL_OFF;
+  AutoNavigationMode autoNavigationMode = AUTO_NAVIGATION_OFF;
   
-  TestState testState = TEST_ENDED;
+  LegSelection legSelection = NO_LEG_SELECTION;
+  ParameterSelection paramSelection = NO_PARAMETER_SELECTION;
 
   Parameters params;
   Parameters defaultParams;
   
   double runningTime = 0;
+  
+  bool isInitialised = false;
   
   Model *hexapod;
   
@@ -83,7 +87,7 @@ struct StateController
   double jointVelocities[18];
   double jointEfforts[18];
   double tipForces[6];
-  bool jointPosFlag = false;
+  bool recievedAllJointPositions = false;
   
   //Start callback variables
   bool startFlag = false;
@@ -98,6 +102,10 @@ struct StateController
   Vector2d linearVelocityInput;
   double angularVelocityInput = 0; 
   Vector3d manualTipVelocity;
+  
+  //Cruise control callback variables
+  Vector2d linearCruiseVelocity;
+  double angularCruiseVelocity;
   
   //Joypad pose callback variables
   double pitchJoy = 0;
@@ -128,7 +136,7 @@ struct StateController
   ~StateController();
   void init();
   void getParameters();
-  void getGaitParameters(std::string forceGait);
+  void getGaitParameters(GaitSelection gaitSelection);
   void setJointPositions(bool useDefaults = false);
   void populateLegMaps();
   
@@ -150,6 +158,7 @@ struct StateController
   
   //Loop and state functions
   void loop();
+  void transitionSystemState();
   void unpackState();
   void startUpState();
   void shutDownState();
@@ -166,19 +175,21 @@ struct StateController
   void gaitChange();
   void legStateToggle();
   
-  //Callbacks
+  //Callbacks  
+  void joypadVelocityCallback(const geometry_msgs::Twist &twist);
+  void joypadPoseCallback(const geometry_msgs::Twist &twist);
+  
+  void systemStateCallback(const std_msgs::Int8 &input);
+  void gaitSelectionCallback(const std_msgs::Int8 &input);
+  void cruiseControlCallback(const std_msgs::Int8 &input);
+  void autoNavigationCallback(const std_msgs::Int8 &input);
+  void legSelectionCallback(const std_msgs::Int8 &input);
+  void legStateCallback(const std_msgs::Bool &input);  
+  void paramSelectionCallback(const std_msgs::Int8 &input);
+  void paramAdjustCallback(const std_msgs::Int8 &input);
+  void poseResetCallback(const std_msgs::Int8 &input);
+  
   void jointStatesCallback(const sensor_msgs::JointState &jointStates);
   void imuCallback(const sensor_msgs::Imu &imuData);
   void tipForceCallback(const sensor_msgs::JointState &jointStates);
-  void joypadVelocityCallback(const geometry_msgs::Twist &twist);
-  void joypadPoseCallback(const geometry_msgs::Twist &twist);
-  void imuControllerCallback(const sensor_msgs::Joy &input);
-  void gaitSelectionCallback(const std_msgs::Int8 &input);
-  void legSelectionCallback(const std_msgs::Int8 &input);
-  void legStateCallback(const std_msgs::Bool &input);
-  void startCallback(const std_msgs::Bool &input);
-  void paramSelectionCallback(const std_msgs::Int8 &input);
-  void paramAdjustCallback(const std_msgs::Int8 &input);
-  void startTestCallback(const std_msgs::Bool &input);
-  void poseResetCallback(const std_msgs::Int8 &input);
 };

@@ -46,10 +46,10 @@ int main(int argc, char* argv[])
   ros::Subscriber legStateSubscriber = n.subscribe("hexapod_remote/leg_state_toggle", 1, &StateController::legStateCallback, &state);
   ros::Subscriber paramSelectionSubscriber = n.subscribe("hexapod_remote/param_selection", 1, &StateController::paramSelectionCallback, &state);
   ros::Subscriber paramAdjustmentSubscriber = n.subscribe("hexapod_remote/param_adjust", 1, &StateController::paramAdjustCallback, &state);
-  ros::Subscriber startTestSubscriber = n.subscribe("hexapod_remote/test_state_toggle", 1, &StateController::startTestCallback, &state);
+  ros::Subscriber startTestSubscriber = n.subscribe("hexapod_remote/cruise_control_mode", 1, &StateController::cruiseControlCallback, &state);
   ros::Subscriber poseResetSubscriber = n.subscribe("hexapod_remote/pose_reset_mode", 1, &StateController::poseResetCallback, &state);  
-  ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/start_state", 1, &StateController::startCallback, &state);
-  ros::Subscriber gaitSelectSubscriber = n.subscribe("hexapod_remote/gait_mode", 1, &StateController::gaitSelectionCallback, &state);
+  ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/system_state", 1, &StateController::systemStateCallback, &state);
+  ros::Subscriber gaitSelectionSubscriber = n.subscribe("hexapod_remote/gait_selection", 1, &StateController::gaitSelectionCallback, &state);
   
   //Motor and other sensor topic subscriptions
   ros::Subscriber imuDataSubscriber = n.subscribe("ig/imu/data_ned", 1, &StateController::imuCallback, &state);  
@@ -104,16 +104,6 @@ int main(int argc, char* argv[])
     ROS_WARN("DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE.\n");
   }
   
-  //Loop waiting for start button press   
-  while(!state.startFlag)
-  {
-    ROS_INFO_THROTTLE(5.0, "Press 'Start' to run controller . . .\n"); 
-    ros::spinOnce();
-    r.sleep();
-  }
-  ROS_INFO("Controller started.\n");
-  
-  
   //Wait specified time to aquire all published joint positions via callback
   if(!jointStatesSubscriber1 && !jointStatesSubscriber2)
   {
@@ -130,24 +120,21 @@ int main(int argc, char* argv[])
     }
   }  
   
-  //Set joint position values and if needed wait for approval to use default joint position values 
-  if (!state.jointPosFlag)
+  //Loop waiting for start button press 
+  while(state.newSystemState == OFF)
   {
-    ROS_WARN("Failed to acquire ALL joint position values!\nPress B Button if you wish to continue with all unknown joint positions set to defaults . . .\n");
-    
-    //Wait for command to proceed using default joint position values
-    while(!state.toggleLegState) //using toggleLegState for convenience only
+    if (!state.recievedAllJointPositions)
     {
-      ros::spinOnce();
-      r.sleep();
-    }      
-    state.toggleLegState = false;
-    state.setJointPositions(true); //Default joint positions used
+      ROS_WARN_THROTTLE(THROTTLE_PERIOD, "Failed to acquire ALL joint position values!\nPress 'Start' to run controller with all unknown joint positions set to defaults . . .\n");
+    }
+    else
+    {
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Press 'Start' to run controller . . .\n"); 
+    }    
+    ros::spinOnce();
+    r.sleep();
   }
-  else
-  {
-    state.setJointPositions(false); //Found joint positions used
-  }
+  state.setJointPositions(!state.recievedAllJointPositions);
   
   //Check force data is available for impedanceControl
   if (state.params.impedanceControl)
@@ -172,14 +159,7 @@ int main(int argc, char* argv[])
   
   //Enter ros loop
   while (ros::ok())
-  {    
-    //Controller shutdown command
-    if (!state.params.startUpSequence && !state.startFlag)
-    {
-      ROS_INFO("Received shutdown order - shutting down the controller!\n");
-      ros::shutdown();
-    }    
-    
+  {       
     //State machine (state updating loop)
     state.loop();
     
