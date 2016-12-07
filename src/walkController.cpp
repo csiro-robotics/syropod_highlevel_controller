@@ -386,7 +386,7 @@ void WalkController::setGaitParams(Parameters p)
  * Calculates body and stride velocities and uses velocities in body and leg state machines 
  * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelocityInput, Vector3d tipVelocityInput)
+void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelocityInput)
 {
   double onGroundRatio = double(phaseLength-(swingEnd-swingStart))/double(phaseLength);
   
@@ -643,9 +643,46 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
 	}
 	tipPositions[l][s] = legStepper.currentTipPosition;
       }
-      else if (leg.legState == MANUAL)
+    }
+  }  
+  
+  //RVIZ
+  if (walkState != STOPPED)
+  {
+    Vector2d push = currentLinearVelocity*timeDelta;
+    pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
+    pose.rotation *= Quat(Vector3d(0.0,0.0,currentAngularVelocity*timeDelta));
+  }
+  //RVIZ
+}
+
+/***********************************************************************************************************************
+ * Calculates body and stride velocities and uses velocities in body and leg state machines 
+ * to update tip positions and apply inverse kinematics
+***********************************************************************************************************************/
+
+void WalkController::updateManual(LegDesignation primaryLegSelection, Vector3d primaryTipVelocityInput, 
+				  LegDesignation secondaryLegSelection, Vector3d secondaryTipVelocityInput)
+{
+  for (int l = 0; l<3; l++)
+  {
+    for (int s = 0; s<2; s++)
+    {  
+      Leg &leg = model->legs[l][s];
+      if (leg.legState == MANUAL)
       {
-	if (params.legManipulationMode == "joint_control")
+	Vector3d tipVelocityInput;
+	LegDesignation legDesignation = static_cast<LegDesignation>(leg.legIndex*2+leg.sideIndex);
+	if (legDesignation == primaryLegSelection)
+	{
+	  tipVelocityInput = primaryTipVelocityInput;
+	}
+	else if (legDesignation == secondaryLegSelection)
+	{
+	  tipVelocityInput = secondaryTipVelocityInput;
+	}
+	
+	if (params.legManipulationMode == "joint_control") //HACK Below
 	{
 	  double coxaVel = tipVelocityInput[0]*params.maxRotationVelocity*timeDelta;
 	  double femurVel = tipVelocityInput[1]*params.maxRotationVelocity*timeDelta;
@@ -662,16 +699,7 @@ void WalkController::updateWalk(Vector2d linearVelocityInput, double angularVelo
 	}
       }
     }
-  }  
-  
-  //RVIZ
-  if (walkState != STOPPED)
-  {
-    Vector2d push = currentLinearVelocity*timeDelta;
-    pose.position += pose.rotation.rotateVector(Vector3d(push[0], push[1], 0));
-    pose.rotation *= Quat(Vector3d(0.0,0.0,currentAngularVelocity*timeDelta));
   }
-  //RVIZ
 }
 
 /***********************************************************************************************************************

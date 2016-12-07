@@ -106,6 +106,8 @@ struct WalkController
   // bodyOffset is body pose relative to the basic stance pose, 
   // note that large offsets may prevent achievable leg positions
   // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
-  void updateWalk(Vector2d linearVelocityInput, double angularVelocityInput, Vector3d tipVelocityInput);
+  void updateWalk(Vector2d linearVelocityInput, double angularVelocityInput);
+  void updateManual(LegDesignation primaryLegSelection, Vector3d primaryTipVelocityInput, 
+		    LegDesignation secondaryLegSelection, Vector3d secondaryTipVelocityInput);
   void setGaitParams(Parameters p);
 };

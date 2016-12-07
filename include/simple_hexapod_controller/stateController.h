@@ -32,12 +32,17 @@ struct StateController
   SystemState systemState = OFF;
   SystemState newSystemState = OFF;
 
-  GaitSelection gaitSelection = UNDEFINED;  
+  GaitDesignation gaitSelection = GAIT_UNDESIGNATED;  
+  PosingMode posingMode = NO_POSING;
   CruiseControlMode cruiseControlMode = CRUISE_CONTROL_OFF;
   AutoNavigationMode autoNavigationMode = AUTO_NAVIGATION_OFF;
   
-  LegSelection legSelection = NO_LEG_SELECTION;
-  ParameterSelection paramSelection = NO_PARAMETER_SELECTION;
+  ParameterSelection parameterSelection = NO_PARAMETER_SELECTION;
+  
+  LegDesignation primaryLegSelection = LEG_UNDESIGNATED;
+  LegDesignation secondaryLegSelection = LEG_UNDESIGNATED;
+  LegState primaryLegState = WALKING;
+  LegState secondaryLegState = WALKING;
 
   Parameters params;
   Parameters defaultParams;
@@ -60,6 +65,7 @@ struct StateController
   
   std::map<std::string, int> legIndexMap;
   std::map<int, std::string> legNameMap;
+  std::map<ParameterSelection, std::string> parameterNameMap;
   
   ros::Publisher legStatePublishers[3][2];
   ros::Publisher ascLegStatePublishers[3][2];
@@ -74,7 +80,8 @@ struct StateController
   
   //Trigger Flags
   bool changeGait = false;
-  bool toggleLegState = false;
+  bool togglePrimaryLegState = false;
+  bool toggleSecondaryLegState = false;
   bool adjustParam = false;
   bool newParamSet = false;
   bool unstable = false;
@@ -101,7 +108,8 @@ struct StateController
   //Body Velocity callback variables
   Vector2d linearVelocityInput;
   double angularVelocityInput = 0; 
-  Vector3d manualTipVelocity;
+  Vector3d primaryManualTipVelocity;
+  Vector3d secondaryManualTipVelocity;
   
   //Cruise control callback variables
   Vector2d linearCruiseVelocity;
@@ -136,9 +144,10 @@ struct StateController
   ~StateController();
   void init();
   void getParameters();
-  void getGaitParameters(GaitSelection gaitSelection);
+  void getGaitParameters(GaitDesignation gaitSelection);
   void setJointPositions(bool useDefaults = false);
   void populateLegMaps();
+  void populateParameterNameMap();
   
   //Top level functions
   void publishJointValues();
@@ -171,22 +180,30 @@ struct StateController
   //Running state sub-functions
   void compensation();
   void impedanceControl();
-  void paramAdjust();
+  void parameterAdjust();
   void gaitChange();
   void legStateToggle();
   
   //Callbacks  
-  void joypadVelocityCallback(const geometry_msgs::Twist &twist);
-  void joypadPoseCallback(const geometry_msgs::Twist &twist);
+  void bodyVelocityInputCallback(const geometry_msgs::Twist &input);
+  void primaryTipVelocityInputCallback(const geometry_msgs::Point &input);
+  void secondaryTipVelocityInputCallback(const geometry_msgs::Point &input);
+  void bodyPoseInputCallback(const geometry_msgs::Twist &input);
   
   void systemStateCallback(const std_msgs::Int8 &input);
   void gaitSelectionCallback(const std_msgs::Int8 &input);
+  void posingModeCallback(const std_msgs::Int8 &input);
   void cruiseControlCallback(const std_msgs::Int8 &input);
   void autoNavigationCallback(const std_msgs::Int8 &input);
-  void legSelectionCallback(const std_msgs::Int8 &input);
-  void legStateCallback(const std_msgs::Bool &input);  
-  void paramSelectionCallback(const std_msgs::Int8 &input);
-  void paramAdjustCallback(const std_msgs::Int8 &input);
+  
+  void parameterSelectionCallback(const std_msgs::Int8 &input);
+  void parameterAdjustCallback(const std_msgs::Int8 &input);
+  
+  void primaryLegSelectionCallback(const std_msgs::Int8 &input);
+  void secondaryLegSelectionCallback(const std_msgs::Int8 &input);
+  void primaryLegStateCallback(const std_msgs::Int8 &input); 
+  void secondaryLegStateCallback(const std_msgs::Int8 &input);  
+
   void poseResetCallback(const std_msgs::Int8 &input);
   
   void jointStatesCallback(const sensor_msgs::JointState &jointStates);

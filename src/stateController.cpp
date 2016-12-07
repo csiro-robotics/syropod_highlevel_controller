@@ -13,6 +13,7 @@ StateController::StateController(ros::NodeHandle nodeHandle): n(nodeHandle)
   hexapod = new Model(params); 
   
   populateLegMaps();
+  populateParameterNameMap();
   
   //Populate joint position arrays
   for (int i=0; i<18; i++)
@@ -98,7 +99,7 @@ void StateController::init()
 }
 
 /***********************************************************************************************************************
- * Generates map of all joints including name and index number
+ * Generates map of all leg name and indices including name and index number
 ***********************************************************************************************************************/
 void StateController::populateLegMaps()
 {    
@@ -115,6 +116,22 @@ void StateController::populateLegMaps()
   legNameMap.insert(std::map<int, std::string>::value_type(3, "middle_right"));
   legNameMap.insert(std::map<int, std::string>::value_type(4, "rear_left"));
   legNameMap.insert(std::map<int, std::string>::value_type(5, "rear_right"));
+}
+
+/***********************************************************************************************************************
+ * Generates map of all parameter names
+***********************************************************************************************************************/
+void StateController::populateParameterNameMap()
+{    
+  parameterNameMap.insert(std::map<ParameterSelection, std::string>::value_type(NO_PARAMETER_SELECTION, "No"));
+  parameterNameMap.insert(std::map<ParameterSelection, std::string>::value_type(STEP_FREQUENCY, "step_frequency"));
+  parameterNameMap.insert(std::map<ParameterSelection, std::string>::value_type(STEP_CLEARANCE, "step_clearance"));
+  parameterNameMap.insert(std::map<ParameterSelection, std::string>::value_type(BODY_CLEARANCE, "body_clearance"));
+  parameterNameMap.insert(std::map<ParameterSelection, std::string>::value_type(LEG_SPAN_SCALE, "leg_span_scale"));
+  parameterNameMap.insert(std::map<ParameterSelection, std::string>::value_type(VIRTUAL_MASS, "virtual_mass"));
+  parameterNameMap.insert(std::map<ParameterSelection, std::string>::value_type(VIRTUAL_STIFFNESS, "virtual_stiffness"));
+  parameterNameMap.insert(std::map<ParameterSelection, std::string>::value_type(VIRTUAL_DAMPING, "virtual_damping"));
+  parameterNameMap.insert(std::map<ParameterSelection, std::string>::value_type(FORCE_GAIN, "force_gain"));
 }
 
 /***********************************************************************************************************************
@@ -200,14 +217,14 @@ void StateController::transitionSystemState()
   if (systemState == OFF && newSystemState == PACKED)
   { 
     systemState = PACKED;
-    ROS_INFO("Controller suspended.\n");
+    ROS_INFO("Controller running.\n");
   }
   //OFF -> RUNNING (Directly transition to walking stance)
   else if (systemState == OFF && newSystemState == RUNNING)
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing direct startup sequence. . .\n");
     walker->init(hexapod, params);
-    int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
+    StepToPositionModes mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
     double res = poser->stepToPosition(walker->identityTipPositions, poser->currentPose, deltaZ, mode, 0, params.timeToStart);
     if (res == 1.0)
     {
@@ -245,8 +262,7 @@ void StateController::transitionSystemState()
   else if (systemState == READY && newSystemState == RUNNING)
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing startup sequence. . .\n");
-    poser->updateStance(walker->identityTipPositions);
-    if (poser->startUpSequence(poser->tipPositions, params.moveLegsSequentially))
+    if (poser->startUpSequence(walker->identityTipPositions, poser->currentPose, deltaZ, params.moveLegsSequentially))
     {    
       systemState = RUNNING;
       ROS_INFO("Startup sequence complete. Ready to walk.\n");
@@ -256,8 +272,7 @@ void StateController::transitionSystemState()
   else if (systemState == RUNNING && newSystemState == READY)
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing shutdown sequence. . .\n");
-    poser->updateStance(walker->identityTipPositions);
-    if (poser->shutDownSequence(poser->tipPositions, params.moveLegsSequentially))
+    if (poser->shutDownSequence(poser->tipPositions, poser->currentPose, deltaZ, params.moveLegsSequentially))
     {
       systemState = READY;
       ROS_INFO("Shutdown sequence complete.\n");
@@ -413,22 +428,25 @@ void StateController::runningState()
   //Dynamically adjust parameters and change stance if required
   else if (adjustParam)
   {
-    paramAdjust();
+    parameterAdjust();
   }
   //Toggle state of leg and transition between states        
-  else if (toggleLegState)
+  else if (togglePrimaryLegState || toggleSecondaryLegState)
   {
     legStateToggle();
   }  
   
   //Update tip positions unless hexapod is undergoing gait switch, parameter adjustment or leg state transition 
   //(which all only occur once the hexapod has stopped walking)
-  if (!((changeGait || adjustParam || toggleLegState) && walker->walkState == STOPPED))
+  if (!((changeGait || adjustParam || togglePrimaryLegState || toggleSecondaryLegState) && walker->walkState == STOPPED))
   {   
-    //Update Walker 
-    walker->updateWalk(linearVelocityInput, angularVelocityInput, manualTipVelocity);   
+    //Update tip positions for walking legs
+    walker->updateWalk(linearVelocityInput, angularVelocityInput);   
       
-    //Pose controller takes current tip positions from walking cycle and applies pose compensation
+    //Update tip positions for manually controlled legs
+    walker->updateManual(primaryLegSelection, primaryManualTipVelocity, secondaryLegSelection, secondaryManualTipVelocity);
+    
+    //Pose controller takes current tip positions from walker and applies pose compensation
     poser->updateStance(walker->tipPositions, params.autoCompensation && !params.imuCompensation);
   
     //Model uses posed tip positions and adds deltaZ from impedance controller and applies inverse kinematics on each leg
@@ -556,19 +574,13 @@ void StateController::impedanceControl()
 /***********************************************************************************************************************
  * Dynamic Parameter adjustment
 ***********************************************************************************************************************/
-void StateController::paramAdjust()
-{ 
-  ROS_INFO_COND(walker->walkState == MOVING, "Stopping hexapod to adjust parameters . . .\n"); 
-  
-  //Force hexapod to stop walking
-  linearVelocityInput = Vector2d(0.0,0.0);
-  angularVelocityInput = 0.0;
-  
+void StateController::parameterAdjust()
+{   
   if (walker->walkState == STOPPED)
   {    
     if (!newParamSet)
     {
-      switch(paramSelection)
+      switch(parameterSelection)
       {
 	case(NO_PARAMETER_SELECTION):
 	{
@@ -692,7 +704,7 @@ void StateController::paramAdjust()
     {
       //Update tip Positions for new parameter value
       double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
-      double res = poser->stepToPosition(poser->tipPositions, poser->currentPose, deltaZ, TRIPOD_MODE, stepHeight, 1.0/walker->stepFrequency);
+      double res = poser->stepToPosition(walker->identityTipPositions, poser->currentPose, deltaZ, TRIPOD_MODE, stepHeight);
       if (res == 1.0)
       {    
 	ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
@@ -701,6 +713,13 @@ void StateController::paramAdjust()
       } 
     }
   }
+  //Force hexapod to stop walking
+  else 
+  {    
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to adjust parameters . . .\n"); 
+    linearVelocityInput = Vector2d(0.0,0.0);
+    angularVelocityInput = 0.0;         
+  }
 }
 
 /***********************************************************************************************************************
@@ -708,12 +727,6 @@ void StateController::paramAdjust()
 ***********************************************************************************************************************/
 void StateController::gaitChange()
 {  
-  //Force hexapod to stop walking
-  linearVelocityInput = Vector2d(0.0,0.0);
-  angularVelocityInput = 0.0;
-  
-  ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to change gait . . .\n"); 
-  
   if (walker->walkState == STOPPED)
   {
     getGaitParameters(gaitSelection);   
@@ -721,26 +734,39 @@ void StateController::gaitChange()
     ROS_INFO("Now using %s mode.\n", params.gaitType.c_str());
     changeGait = false;
   }
+  //Force hexapod to stop walking
+  else 
+  {    
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to change gait . . .\n"); 
+    linearVelocityInput = Vector2d(0.0,0.0);
+    angularVelocityInput = 0.0;         
+  }
 }
 
 /***********************************************************************************************************************
  * Leg State Toggle
 ***********************************************************************************************************************/
 void StateController::legStateToggle()
-{ 
-  int l = legSelection/2;
-  int s = legSelection%2;
-  Leg &leg = hexapod->legs[l][s];
-  
-  ROS_INFO_COND(walker->walkState == MOVING, "Stopping hexapod to transition state of %s leg . . .\n", legNameMap[l*2+s].c_str()); 
-  
-  //Force hexapod to stop walking
-  linearVelocityInput = Vector2d(0.0,0.0);
-  angularVelocityInput = 0.0; 
-
+{    
   if (walker->walkState == STOPPED)
-  {     
-    poser->calculateDefaultPose();  //Calculate default pose for new loading pattern
+  {   
+    //Choose primary or secondary leg state to transition
+    int l;
+    int s;
+    if (togglePrimaryLegState)
+    {
+      l = primaryLegSelection/2;
+      s = primaryLegSelection%2;
+    }
+    else if (toggleSecondaryLegState)
+    {
+      l = secondaryLegSelection/2;
+      s = secondaryLegSelection%2;
+    }
+    Leg &leg = hexapod->legs[l][s];
+    
+    //Calculate default pose for new loading pattern
+    poser->calculateDefaultPose();
     
     if (leg.legState == WALKING)
     {        
@@ -752,7 +778,8 @@ void StateController::legStateToggle()
       else
       {
 	ROS_INFO("Only allowed to have %d legs manually manipulated at one time.\n", MAX_MANUAL_LEGS);
-	toggleLegState = false;
+	togglePrimaryLegState = false;
+	toggleSecondaryLegState = false;
       }	
     }
     else if (leg.legState == MANUAL)
@@ -762,7 +789,7 @@ void StateController::legStateToggle()
     }
     else if (leg.legState == WALKING_TO_MANUAL)
     {            
-      poseResetMode = FORCE_ALL_RESET; //Set to ALL_RESET to force pose to new default pose         
+      poseResetMode = IMMEDIATE_ALL_RESET; //Set to ALL_RESET to force pose to new default pose         
       walker->tipPositions[l][s] = hexapod->localTipPositions[l][s]; //Override walker tip positions for manual control
       poser->tipPositions[l][s] = hexapod->localTipPositions[l][s];
       double res = poser->poseForLegManipulation(leg.legState, l, s, deltaZ);   
@@ -776,14 +803,15 @@ void StateController::legStateToggle()
       {	
 	leg.setState(MANUAL);
 	ROS_INFO("%s leg set to state: MANUAL.\n", legNameMap[l*2+s].c_str());
-	toggleLegState = false;
+	togglePrimaryLegState = false;
+	toggleSecondaryLegState = false;
 	poseResetMode = NO_RESET;
 	manualLegs++;
       }
     }
     else if (leg.legState == MANUAL_TO_WALKING)
     {
-      poseResetMode = FORCE_ALL_RESET; //Set to ALL_RESET to force pose to new default pose            
+      poseResetMode = IMMEDIATE_ALL_RESET; //Set to ALL_RESET to force pose to new default pose            
       walker->tipPositions[l][s] = walker->identityTipPositions[l][s]; //Return walker tip positions to default
       double res = poser->poseForLegManipulation(leg.legState, l, s, deltaZ);  
       
@@ -797,11 +825,19 @@ void StateController::legStateToggle()
 	walker->tipPositions[l][s] = walker->identityTipPositions[l][s];
 	leg.setState(WALKING);
 	ROS_INFO("%s leg set to state: WALKING.\n", legNameMap[l*2+s].c_str());
-	toggleLegState = false;
+	togglePrimaryLegState = false;
+	toggleSecondaryLegState = false;
 	poseResetMode = NO_RESET;
 	manualLegs--;
       }    
     }
+  }
+  //Force hexapod to stop walking
+  else 
+  {    
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to transition leg state . . .\n"); 
+    linearVelocityInput = Vector2d(0.0,0.0);
+    angularVelocityInput = 0.0;         
   }
 }
 
@@ -1063,20 +1099,34 @@ void StateController::publishJointValues()
 }
 
 /***********************************************************************************************************************
- * Joypad Velocity Topic Callback
+ * Input Body Velocity Topic Callback
 ***********************************************************************************************************************/
-void StateController::joypadVelocityCallback(const geometry_msgs::Twist &twist)
+void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist &input)
 { 
-  linearVelocityInput = Vector2d(twist.linear.x, twist.linear.y);
-  angularVelocityInput = twist.angular.z;
-  
-  manualTipVelocity = Vector3d(twist.angular.x, twist.angular.y, 0.0);//(-0.5*twist.angular.z+0.5) - (-0.5*twist.linear.z+0.5));
+  linearVelocityInput = Vector2d(input.linear.x, input.linear.y);
+  angularVelocityInput = input.angular.z;
+}
+
+/***********************************************************************************************************************
+ * Input Primary Manual Tip Velocity Topic Callback
+***********************************************************************************************************************/
+void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point &input)
+{  
+  primaryManualTipVelocity = Vector3d(input.x, input.y, input.z);
+}
+
+/***********************************************************************************************************************
+ * Input Secondary Manual Tip Velocity Topic Callback
+***********************************************************************************************************************/
+void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point &input)
+{  
+  secondaryManualTipVelocity = Vector3d(input.x, input.y, input.z);
 }
 
 /***********************************************************************************************************************
  * Joypad Pose Topic Callback
 ***********************************************************************************************************************/
-void StateController::joypadPoseCallback(const geometry_msgs::Twist &twist)
+void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &twist)
 {  
   rollJoy = twist.angular.x;;
   pitchJoy = twist.angular.y;
@@ -1110,11 +1160,41 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 {
   if (systemState == RUNNING)
   {
-    GaitSelection newGaitSelection = static_cast<GaitSelection>(int(input.data));
-    if (newGaitSelection != gaitSelection && newGaitSelection != UNDEFINED)
+    GaitDesignation newGaitSelection = static_cast<GaitDesignation>(int(input.data));
+    if (newGaitSelection != gaitSelection && newGaitSelection != GAIT_UNDESIGNATED)
     {
       gaitSelection = newGaitSelection;
       changeGait = true;
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Posing Mode Callback
+***********************************************************************************************************************/
+void StateController::posingModeCallback(const std_msgs::Int8 &input)
+{
+  if (systemState == RUNNING)
+  {
+    PosingMode newPosingMode = static_cast<PosingMode>(int(input.data));
+    if (newPosingMode != posingMode)
+    {
+      posingMode = newPosingMode;
+      switch (posingMode)
+      {
+	case(NO_POSING):
+	  ROS_INFO("Posing mode set to ""NO_POSING"". Body will not respond to manual posing input (except for reset commands).\n");
+	  break;
+	case(X_Y_POSING):
+	  ROS_INFO("Posing mode set to ""X_Y_POSING"". Body will only respond to x/y translational manual posing input.\n");
+	  break;
+	case(PITCH_ROLL_POSING):
+	  ROS_INFO("Posing mode set to ""PITCH_ROLL_POSING"". Body will only respond to pitch/roll rotational manual posing input.\n");
+	  break;
+	case(Z_YAW_POSING):
+	  ROS_INFO("Posing mode set to ""Z_YAW_POSING"". Body will only respond to z translational and yaw rotational manual posing input.\n");
+	  break;
+      }
     }
   }
 }
@@ -1157,122 +1237,25 @@ void StateController::autoNavigationCallback(const std_msgs::Int8 &input)
     if (newAutoNavigationMode != autoNavigationMode)
     {
       autoNavigationMode = newAutoNavigationMode;
-      ROS_INFO_COND(autoNavigationMode == AUTO_NAVIGATION_ON, "Auto Navigation mode ON. User input is being ignored.");
-      ROS_INFO_COND(autoNavigationMode == AUTO_NAVIGATION_OFF, "Auto Navigation mode OFF. Control returned to user input.");      
+      ROS_INFO_COND(autoNavigationMode == AUTO_NAVIGATION_ON, "Auto Navigation mode ON. User input is being ignored.\n");
+      ROS_INFO_COND(autoNavigationMode == AUTO_NAVIGATION_OFF, "Auto Navigation mode OFF. Control returned to user input.\n");      
     }
-  }
-}
-
-/***********************************************************************************************************************
- * Actuating Leg Selection Callback
-***********************************************************************************************************************/
-void StateController::legSelectionCallback(const std_msgs::Int8 &input)
-{
-  if (systemState == RUNNING && !toggleLegState)
-  {
-    LegSelection newSelection = static_cast<LegSelection>(input.data);
-    if (newSelection != -1 && legSelection != newSelection)
-    {
-      ROS_INFO("%s leg selected.\n", legNameMap[int(input.data)].c_str());
-      legSelection = newSelection;      
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Toggle Leg State Callback
-***********************************************************************************************************************/
-void StateController::legStateCallback(const std_msgs::Bool &input)
-{
-  if (input.data && legStateDebounce)
-  {
-    if (systemState == OFF || legSelection != NO_LEG_SELECTION)
-    {
-      toggleLegState = true;
-      legStateDebounce = false;
-    }
-    else
-    {
-      ROS_INFO("Cannot toggle leg state as no leg is currently selected. Press Y to select a leg and try again.\n");
-    }  
-  }
-  else if (!input.data && !toggleLegState)
-  {
-    legStateDebounce = true;
   }
 }
 
 /***********************************************************************************************************************
  * This callback increments the gains in the controller
 ***********************************************************************************************************************/
-void StateController::paramSelectionCallback(const std_msgs::Int8 &input)
+void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (systemState == RUNNING && input.data != paramSelection)
-  {
-    paramScaler = -1;
-    ParameterSelection parameterSelection = static_cast<ParameterSelection>(int(input.data));
-    switch (input.data)
+  if (systemState == RUNNING)
+  {    
+    ParameterSelection newParameterSelection = static_cast<ParameterSelection>(int(input.data));
+    if (newParameterSelection != parameterSelection)
     {
-      case(NO_PARAMETER_SELECTION):
-      {
-        paramSelection = NO_PARAMETER_SELECTION;
-        ROS_INFO("No parameters currently selected.\n");
-        break;
-      }
-      case(STEP_FREQUENCY):
-      {
-        paramSelection = STEP_FREQUENCY;
-        ROS_INFO("step_frequency parameter selected.\n");
-        break;
-      }
-      case(STEP_CLEARANCE):
-      {
-        paramSelection = STEP_CLEARANCE;
-        ROS_INFO("step_clearance parameter selected.\n");
-        break;
-      }
-      case(BODY_CLEARANCE):
-      {
-        paramSelection = BODY_CLEARANCE;
-        ROS_INFO("body_clearance parameter selected.\n");
-        break;
-      }      
-      case(LEG_SPAN_SCALE):
-      {
-        paramSelection = LEG_SPAN_SCALE;
-        ROS_INFO("leg_span_scale parameter selected.\n");
-        break;
-      }
-      case(VIRTUAL_MASS):
-      {
-        paramSelection = VIRTUAL_MASS;
-        ROS_INFO("virtual_mass impedance parameter selected.\n");
-        break;
-      }
-      case(VIRTUAL_STIFFNESS):
-      {
-        paramSelection = VIRTUAL_STIFFNESS;
-        ROS_INFO("virtual_stiffness impedance parameter selected.\n");
-        break;
-      }      
-      case(VIRTUAL_DAMPING):
-      {
-        paramSelection = VIRTUAL_DAMPING;
-        ROS_INFO("virtual_damping impedance parameter selected.\n");
-        break;
-      }
-      case(FORCE_GAIN):
-      {
-        paramSelection = FORCE_GAIN;
-        ROS_INFO("force_gain impedance parameter selected.\n");
-        break;
-      }
-      default:
-      {
-        paramSelection = NO_PARAMETER_SELECTION;
-        ROS_INFO("Unknown parameter selection requested from control input. No parameters currently selected.\n");
-        break;
-      }
+      paramScaler = -1;
+      ROS_INFO("%s parameter currently selected.\n", parameterNameMap[newParameterSelection].c_str());
+      parameterSelection = newParameterSelection; 
     }
   }
 }
@@ -1280,16 +1263,19 @@ void StateController::paramSelectionCallback(const std_msgs::Int8 &input)
 /***********************************************************************************************************************
  * Toggle Leg State Callback
 ***********************************************************************************************************************/
-void StateController::paramAdjustCallback(const std_msgs::Int8 &input)
+void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
 {
-  if (input.data != 0.0 && !adjustParam && paramSelection != NO_PARAMETER_SELECTION)
+  if (systemState == RUNNING)
   {
-    if (paramScaler != -1)
+    if (input.data != 0.0 && !adjustParam && parameterSelection != NO_PARAMETER_SELECTION)
     {
-      paramScaler += input.data/paramAdjustSensitivity;
-      paramScaler = minMax(paramScaler, 0.1, 3.0);      //Parameter scaler ranges from 10%->300%
+      if (paramScaler != -1)
+      {
+	paramScaler += input.data/paramAdjustSensitivity;
+	paramScaler = minMax(paramScaler, 0.1, 3.0);      //Parameter scaler ranges from 10%->300%
+      }
+      adjustParam = true;
     }
-    adjustParam = true;
   }
 }
 
@@ -1298,9 +1284,113 @@ void StateController::paramAdjustCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::poseResetCallback(const std_msgs::Int8 &input)
 {
-  if (poseResetMode != FORCE_ALL_RESET)
+  if (poseResetMode != IMMEDIATE_ALL_RESET)
   {
     poseResetMode = static_cast<PoseResetMode>(input.data);
+  }
+}
+
+/***********************************************************************************************************************
+ * Actuating Leg Primary Selection Callback
+***********************************************************************************************************************/
+void StateController::primaryLegSelectionCallback(const std_msgs::Int8 &input)
+{
+  if (systemState == RUNNING)
+  {
+    LegDesignation newPrimaryLegSelection = static_cast<LegDesignation>(input.data);
+    if (primaryLegSelection != newPrimaryLegSelection)
+    {
+      if (newPrimaryLegSelection == LEG_UNDESIGNATED)
+      {
+	ROS_INFO("No leg currently selected for primary control.\n");
+      }
+      else
+      {
+	ROS_INFO("%s leg selected for primary control.\n", legNameMap[int(input.data)].c_str());
+      }
+      primaryLegSelection = newPrimaryLegSelection;      
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Actuating Leg Secondary Selection Callback
+***********************************************************************************************************************/
+void StateController::secondaryLegSelectionCallback(const std_msgs::Int8 &input)
+{
+  if (systemState == RUNNING)
+  {
+    LegDesignation newSecondaryLegSelection = static_cast<LegDesignation>(input.data);
+    if (secondaryLegSelection != newSecondaryLegSelection)
+    {
+      if (newSecondaryLegSelection == LEG_UNDESIGNATED)
+      {
+	ROS_INFO("No leg currently selected for secondary control.\n");
+      }
+      else
+      {
+	ROS_INFO("%s leg selected for secondary control.\n", legNameMap[int(input.data)].c_str());
+      }
+      secondaryLegSelection = newSecondaryLegSelection;      
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Toggle Primary Leg State Callback
+***********************************************************************************************************************/
+void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
+{
+  if (systemState == RUNNING)
+  {
+    LegState newPrimaryLegState = static_cast<LegState>(int(input.data));
+    if (newPrimaryLegState != primaryLegState)
+    {
+      if (primaryLegSelection == LEG_UNDESIGNATED)
+      {
+	ROS_INFO("Cannot toggle primary leg state as no leg is currently selected as primary.");
+	ROS_INFO("Press left bumper to select a leg and try again.\n");
+      }
+      else if (toggleSecondaryLegState)
+      {
+	ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Cannot toggle primary leg state as secondary leg is currently transitioning states.");
+	ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Please wait and try again.\n");
+      }
+      else
+      {
+	primaryLegState = newPrimaryLegState;
+	togglePrimaryLegState = true;	
+      }  
+    }
+  }
+}
+
+/***********************************************************************************************************************
+ * Toggle Secondary Leg State Callback
+***********************************************************************************************************************/
+void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
+{
+  if (systemState == RUNNING)
+  {
+    LegState newSecondaryLegState = static_cast<LegState>(int(input.data));
+    if (newSecondaryLegState != secondaryLegState)
+    {
+      if (secondaryLegSelection == LEG_UNDESIGNATED)
+      {
+	ROS_INFO("Cannot toggle secondary leg state as no leg is currently selected as secondary.");
+	ROS_INFO("Press left bumper to select a leg and try again.\n");
+      }
+      else if (togglePrimaryLegState)
+      {
+	ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Cannot toggle secondary leg state as secondary leg is currently transitioning states.");
+	ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Please wait and try again.\n");
+      }
+      else
+      {
+	secondaryLegState = newSecondaryLegState;
+	toggleSecondaryLegState = true;	
+      }  
+    }
   }
 }
 
@@ -1614,7 +1704,7 @@ void StateController::getParameters()
   std::string forceGait; 
   
   //Gait Parameters
-  getGaitParameters(UNDEFINED); //giving empty forceGait string gives default gait parameter
+  getGaitParameters(GAIT_UNDESIGNATED);
   
   // Hexapod Parameters
   if(!n.getParam(baseParamString+"hexapod_type", params.hexapodType))
@@ -2403,7 +2493,7 @@ void StateController::getParameters()
 /***********************************************************************************************************************
  * Gets gait parameters from rosparam server
 ***********************************************************************************************************************/
-void StateController::getGaitParameters(GaitSelection gaitSelection)
+void StateController::getGaitParameters(GaitDesignation gaitSelection)
 {
   std::string baseParamString="/hexapod/parameters/";
   std::string paramString;
@@ -2422,7 +2512,7 @@ void StateController::getGaitParameters(GaitSelection gaitSelection)
     case(AMBLE_GAIT):
       params.gaitType = "amble_gait";
       break;
-    case(UNDEFINED):
+    case(GAIT_UNDESIGNATED):
       if (!n.getParam(baseParamString+"gait_type", params.gaitType))
       {
 	ROS_ERROR("Error reading parameter/s (gaitType) from rosparam. Check config file is loaded and type is correct\n");

@@ -40,16 +40,26 @@ int main(int argc, char* argv[])
   }
   
   //Hexapod Remote topic subscriptions
-  ros::Subscriber velocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, &StateController::joypadVelocityCallback, &state);
-  ros::Subscriber poseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, &StateController::joypadPoseCallback, &state);
-  ros::Subscriber legSelectSubscriber = n.subscribe("hexapod_remote/leg_selection", 1, &StateController::legSelectionCallback, &state);
-  ros::Subscriber legStateSubscriber = n.subscribe("hexapod_remote/leg_state_toggle", 1, &StateController::legStateCallback, &state);
-  ros::Subscriber paramSelectionSubscriber = n.subscribe("hexapod_remote/param_selection", 1, &StateController::paramSelectionCallback, &state);
-  ros::Subscriber paramAdjustmentSubscriber = n.subscribe("hexapod_remote/param_adjust", 1, &StateController::paramAdjustCallback, &state);
-  ros::Subscriber startTestSubscriber = n.subscribe("hexapod_remote/cruise_control_mode", 1, &StateController::cruiseControlCallback, &state);
-  ros::Subscriber poseResetSubscriber = n.subscribe("hexapod_remote/pose_reset_mode", 1, &StateController::poseResetCallback, &state);  
-  ros::Subscriber startSubscriber = n.subscribe("hexapod_remote/system_state", 1, &StateController::systemStateCallback, &state);
+  ros::Subscriber bodyVelocitySubscriber = n.subscribe("hexapod_remote/desired_velocity", 1, &StateController::bodyVelocityInputCallback, &state);
+  ros::Subscriber primaryTipVelocitySubscriber = n.subscribe("hexapod_remote/primary_tip_velocity", 1, &StateController::primaryTipVelocityInputCallback, &state);
+  ros::Subscriber secondaryTipVelocitySubscriber = n.subscribe("hexapod_remote/secondary_tip_velocity", 1, &StateController::secondaryTipVelocityInputCallback, &state);
+  ros::Subscriber bodyPoseSubscriber = n.subscribe("hexapod_remote/desired_pose", 1, &StateController::bodyPoseInputCallback, &state);
+  
+  ros::Subscriber systemStateSubscriber = n.subscribe("hexapod_remote/system_state", 1, &StateController::systemStateCallback, &state);
   ros::Subscriber gaitSelectionSubscriber = n.subscribe("hexapod_remote/gait_selection", 1, &StateController::gaitSelectionCallback, &state);
+  ros::Subscriber posingModeSubscriber = n.subscribe("hexapod_remote/posing_mode", 1, &StateController::posingModeCallback, &state);
+  ros::Subscriber cruiseControlSubscriber = n.subscribe("hexapod_remote/cruise_control_mode", 1, &StateController::cruiseControlCallback, &state);
+  ros::Subscriber autoNavigationSubscriber = n.subscribe("hexapod_remote/auto_navigation_mode", 1, &StateController::autoNavigationCallback, &state);
+  
+  ros::Subscriber parameterSelectionSubscriber = n.subscribe("hexapod_remote/parameter_selection", 1, &StateController::parameterSelectionCallback, &state);
+  ros::Subscriber parameterAdjustmentSubscriber = n.subscribe("hexapod_remote/parameter_adjustment", 1, &StateController::parameterAdjustCallback, &state);
+  
+  ros::Subscriber primaryLegSelectSubscriber = n.subscribe("hexapod_remote/primary_leg_selection", 1, &StateController::primaryLegSelectionCallback, &state);
+  ros::Subscriber primaryLegStateSubscriber = n.subscribe("hexapod_remote/primary_leg_state", 1, &StateController::primaryLegStateCallback, &state);
+  ros::Subscriber secondaryLegSelectSubscriber = n.subscribe("hexapod_remote/secondary_leg_selection", 1, &StateController::secondaryLegSelectionCallback, &state);
+  ros::Subscriber secondaryLegStateSubscriber = n.subscribe("hexapod_remote/secondary_leg_state", 1, &StateController::secondaryLegStateCallback, &state);
+  
+  ros::Subscriber poseResetSubscriber = n.subscribe("hexapod_remote/pose_reset_mode", 1, &StateController::poseResetCallback, &state);  
   
   //Motor and other sensor topic subscriptions
   ros::Subscriber imuDataSubscriber = n.subscribe("ig/imu/data_ned", 1, &StateController::imuCallback, &state);  

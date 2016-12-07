@@ -74,12 +74,12 @@ struct PoseController
   double stepToPosition(Vector3d targetTipPositions[3][2], 
 			Pose targetPose,
 			double deltaZ[3][2],
-			int mode=NO_STEP_MODE,                      
-			double stepHeight = 0.0, 
-			double stepSpeed = 2.0);
+			StepToPositionModes mode=NO_STEP_MODE,                      
+			double stepHeight = 0.0,
+			double forceTimeToStep = 0.0);
   bool moveToJointPosition(Vector3d targetJointPositions[3][2], double speed=2.0);
-  bool startUpSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
-  bool shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode);
+  bool startUpSequence(Vector3d targetTipPositions[3][2], Pose targetPose, double deltaZ[3][2], bool forceSequentialMode);
+  bool shutDownSequence(Vector3d targetTipPositions[3][2], Pose targetPose, double deltaZ[3][2], bool forceSequentialMode);
   double createSequence(Vector3d targetTipPositions[3][2]); 
   void resetSequence(void);
   

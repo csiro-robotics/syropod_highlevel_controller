@@ -70,9 +70,9 @@ void PoseController::updateStance(Vector3d targetTipPositions[3][2],
 double PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
 				      Pose targetPose,
 				      double deltaZ[3][2], 
-				      int mode, 
-				      double liftHeight, 
-				      double timeToStep)
+				      StepToPositionModes mode, 
+				      double liftHeight,
+				      double forceTimeToStep)
 { 
   if (firstIteration)
   {       
@@ -112,6 +112,8 @@ double PoseController::stepToPosition(Vector3d targetTipPositions[3][2],
       timeLimit = 6.0;
       break;
   }  
+
+  double timeToStep = (forceTimeToStep == 0.0) ? timeLimit/(2.0*params.stepFrequency) : forceTimeToStep;
  
   int numIterations = max(1,int(roundToInt((timeToStep/timeDelta)/(timeLimit*2))*(timeLimit*2))); //Ensure compatible number of iterations 
   double deltaT = timeLimit/numIterations;
@@ -323,7 +325,7 @@ bool PoseController::moveToJointPosition(Vector3d targetJointPositions[3][2], do
 /***********************************************************************************************************************
  * Startup sequence
 ***********************************************************************************************************************/
-bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode)
+bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], Pose targetPose, double deltaZ[3][2], bool forceSequentialMode)
 {  
   if (sequenceStep == 0)
   {
@@ -338,7 +340,7 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
     }
   }
   
-  int mode;
+  StepToPositionModes mode;
   double stepTime;
   if (forceSequentialMode)
   {
@@ -357,27 +359,31 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
   {
     stepTime = 6.0/params.stepFrequency;
   }
-  else
+  else if (mode == TRIPOD_MODE)
   {
     stepTime = 2.0/params.stepFrequency;
+  }
+  else if (mode == SIMULTANEOUS_MODE)
+  {
+    stepTime = 1.0/params.stepFrequency;
   }
   
   double res = 0.0;
   double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
-  double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
+  double zeroDeltaZ[3][2] = {{0,0},{0,0},{0,0}};
   switch (sequenceStep)
   {
     case 1:
-      res = stepToPosition(phase1TipPositions, Pose::identity(), deltaZ, mode, stepHeight, stepTime);
+      res = stepToPosition(phase1TipPositions, Pose::identity(), zeroDeltaZ, mode, stepHeight);
       break;
     case 2:
-      res = stepToPosition(phase2TipPositions, Pose::identity(), deltaZ, NO_STEP_MODE, 0.0, stepTime);
+      res = stepToPosition(phase2TipPositions, Pose::identity(), zeroDeltaZ, NO_STEP_MODE, 0.0);
       break;
     case 3:
-      res = stepToPosition(phase3TipPositions, Pose::identity(), deltaZ, mode, stepHeight, stepTime);
+      res = stepToPosition(phase3TipPositions, Pose::identity(), zeroDeltaZ, TRIPOD_MODE, stepHeight);
       break;
     case 4:
-      res = stepToPosition(phase4TipPositions, Pose::identity(), deltaZ, NO_STEP_MODE, 0.0, stepTime);
+      res = stepToPosition(phase4TipPositions, targetPose, deltaZ, NO_STEP_MODE, 0.0);
       break;
     case 5:
       sequenceStep = 0;
@@ -397,11 +403,11 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], bool for
 /***********************************************************************************************************************
  * Shutdown sequence
 ***********************************************************************************************************************/
-bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool forceSequentialMode)
+bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], Pose targetPose, double deltaZ[3][2], bool forceSequentialMode)
 {  
   double res = 0.0;
   double stepHeight = walker->maximumBodyHeight*walker->stepClearance;
-  double deltaZ[3][2] = {{0,0},{0,0},{0,0}};
+  double zeroDeltaZ[3][2] = {{0,0},{0,0},{0,0}};
   switch (sequenceStep)
   {
     case 0:
@@ -409,13 +415,13 @@ bool PoseController::shutDownSequence(Vector3d targetTipPositions[3][2], bool fo
       res = true;
       break;
     case 1:
-      res = stepToPosition(phase5TipPositions, Pose::identity(), deltaZ, NO_STEP_MODE, 0.0, 2.0/params.stepFrequency);
+      res = stepToPosition(phase5TipPositions, Pose::identity(), zeroDeltaZ, NO_STEP_MODE, 0.0);
       break;
     case 2:
-      res = stepToPosition(phase6TipPositions, Pose::identity(), deltaZ, SEQUENTIAL_MODE, stepHeight, 6.0/params.stepFrequency);
+      res = stepToPosition(phase6TipPositions, Pose::identity(), zeroDeltaZ, TRIPOD_MODE, stepHeight);
       break;
     case 3:
-      res = stepToPosition(phase7TipPositions, Pose::identity(), deltaZ, NO_STEP_MODE, 0.0, 2.0/params.stepFrequency);
+      res = stepToPosition(phase7TipPositions, Pose::identity(), zeroDeltaZ, NO_STEP_MODE, 0.0);
       break;
     case 4:
       sequenceStep = 0;
@@ -458,12 +464,12 @@ double PoseController::createSequence(Vector3d targetTipPositions[3][2])
   
   double liftAngle = pi/3;
   double  desKneeAngle = liftAngle+asin(model->legs[0][0].femurLength*sin(liftAngle)/model->legs[0][0].tibiaLength);
-  double offset = atan2(model->legs[0][0].tipOffset[2],model->legs[0][0].tipOffset[0]);
+  double offset = atan2(model->legs[0][0].tipOffset[2],-model->legs[0][0].tipOffset[1]);
   desKneeAngle += offset;
   Vector3d minStartTipPositions = model->legs[0][0].calculateFK(0.77,liftAngle,desKneeAngle);
   double startStanceRatio = minStartTipPositions.squaredNorm()/targetTipPositions[0][0].squaredNorm();
  
-  double heightScaler = 0.85;
+  double heightScaler = 0.75;
   for (int l = 0; l<3; l++)
   {
     for (int s = 0; s<2; s++)
@@ -609,7 +615,6 @@ void PoseController::manualCompensation(Vector3d translationVelocityInput,
       resetRotation[1] = true;
       break;
     case (ALL_RESET):
-    case(FORCE_ALL_RESET):
       resetTranslation[0] = true;
       resetTranslation[1] = true;
       resetTranslation[2] = true;
@@ -617,6 +622,9 @@ void PoseController::manualCompensation(Vector3d translationVelocityInput,
       resetRotation[1] = true;
       resetRotation[2] = true;
       break;
+    case(IMMEDIATE_ALL_RESET):
+      manualPose = defaultPose;
+      return;
     case (NO_RESET): //Do nothing
     default: //Do nothing      
       break;
@@ -856,8 +864,8 @@ void PoseController::calculateDefaultPose()
 	}
       }
       zeroMomentOffset /= legsLoaded;
-      defaultPose.position[0] = zeroMomentOffset[0];
-      defaultPose.position[1] = zeroMomentOffset[1]; 
+      defaultPose.position[0] = clamped(zeroMomentOffset[0], -params.maxTranslation[0], params.maxTranslation[0]);
+      defaultPose.position[1] = clamped(zeroMomentOffset[1], -params.maxTranslation[1], params.maxTranslation[1]); 
       recalculateOffset = false;
     }
   }
@@ -874,8 +882,8 @@ double PoseController::poseForLegManipulation(LegState state, int l, int s, doub
 { 
   //Get target tip positions for legs in WALKING state using default pose
   Pose targetPose = currentPose;
-  targetPose.position -= manualPose.position; //Remove manual posing
-  targetPose.position += defaultPose.position; //Add new default pose
+  targetPose.position -= manualPose.position;
+  targetPose.position += defaultPose.position;
   Vector3d targetTipPositions[3][2];
   for (int l = 0; l<3; l++)
   {
@@ -899,7 +907,7 @@ double PoseController::poseForLegManipulation(LegState state, int l, int s, doub
     newDeltaZ[l][s] = 0.0; 
   }       
       
-  return stepToPosition(targetTipPositions, Pose::identity(), newDeltaZ, SIMULTANEOUS_MODE, stepHeight, 1.0/params.stepFrequency);  
+  return stepToPosition(targetTipPositions, Pose::identity(), newDeltaZ, SIMULTANEOUS_MODE, stepHeight);  
 }
 
 /***********************************************************************************************************************
