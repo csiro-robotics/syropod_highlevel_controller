@@ -29,7 +29,7 @@ struct StateController
 {
   ros::NodeHandle n;
   
-  SystemState systemState = OFF;
+  SystemState systemState = UNKNOWN;
   SystemState newSystemState = OFF;
 
   GaitDesignation gaitSelection = GAIT_UNDESIGNATED;  
@@ -79,10 +79,11 @@ struct StateController
   ros::Publisher zTipErrorPublisher;  
   
   //Trigger Flags
-  bool changeGait = false;
+  bool transitionSystemStateFlag = false;
+  bool gaitChangeFlag = false;
   bool togglePrimaryLegState = false;
   bool toggleSecondaryLegState = false;
-  bool adjustParam = false;
+  bool parameterAdjustFlag = false;
   bool newParamSet = false;
   bool unstable = false;
   

@@ -140,7 +140,8 @@ int main(int argc, char* argv[])
     else
     {
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Press 'Start' to run controller . . .\n"); 
-    }    
+    }  
+    state.transitionSystemStateFlag = false;
     ros::spinOnce();
     r.sleep();
   }

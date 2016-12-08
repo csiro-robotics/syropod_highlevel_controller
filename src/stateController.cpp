@@ -197,7 +197,7 @@ void StateController::loop()
   }
   
   //Hexapod state machine
-  if (systemState != newSystemState)
+  if (transitionSystemStateFlag)
   {
     transitionSystemState();
   }
@@ -213,24 +213,71 @@ void StateController::loop()
 ***********************************************************************************************************************/
 void StateController::transitionSystemState()
 {
-  //OFF -> PACKED (Start controller)
-  if (systemState == OFF && newSystemState == PACKED)
-  { 
-    systemState = PACKED;
-    ROS_INFO("Controller running.\n");
-  }
-  //OFF -> RUNNING (Directly transition to walking stance)
-  else if (systemState == OFF && newSystemState == RUNNING)
+  //UNKNOWN -> OFF/PACKED/READY/RUNNING  if (systemState == UNKNOWN)
+  if (systemState == UNKNOWN)
   {
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing direct startup sequence. . .\n");
-    walker->init(hexapod, params);
-    StepToPositionModes mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
-    double res = poser->stepToPosition(walker->identityTipPositions, poser->currentPose, deltaZ, mode, 0, params.timeToStart);
-    if (res == 1.0)
+    int checkPacked = 0;
+    for (int l=0; l<3; l++)
     {
-      systemState = RUNNING;
-      ROS_INFO("Direct startup sequence complete. Ready to walk.\n");
-    }           
+      for (int s=0; s<2; s++)
+      {
+	//Check all current joint positions are 'close' to packed joint positions
+	double jointTolerance = 0.2;
+	checkPacked += int(abs(hexapod->legs[l][s].yaw - packedJointPositions[l][s][0]) < jointTolerance &&
+			abs(hexapod->legs[l][s].liftAngle - packedJointPositions[l][s][1]) < jointTolerance &&
+			abs(hexapod->legs[l][s].kneeAngle - packedJointPositions[l][s][2]) < jointTolerance);
+      }
+    }
+    if (checkPacked == 6) //All joints in each leg are approximately in the packed position
+    {
+      if (!params.startUpSequence)
+      {
+	ROS_FATAL("Hexapod currently in packed state and cannot run direct startup sequence.\nEither manually unpack hexapod or set start_up_sequence to true in config file\n");
+	ros::shutdown();
+      }
+      else
+      {
+	systemState = PACKED;
+	ROS_INFO("Hexapod currently packed.\n");  
+      }
+    }
+    else if (!params.startUpSequence)
+    {  
+      ROS_WARN("start_up_sequence parameter is set to false, ensure hexapod is off the ground before transitioning system state.\n");
+      systemState = OFF;    
+    }
+    else
+    {
+      //double timeOut = 30;
+      systemState = PACKED;
+      ROS_WARN("Hexapod state is unknown. Future state transitions may be undesireable, recommend ensuring hexapod is off the ground before proceeding.\n");
+      //ROS_WARN("Suspending controller for %f seconds. Any desired state transitions will begin after this period.\n", timeOut);
+      //sleep(timeOut);
+      //ROS_WARN("Controller resuming.\n");
+    }    
+  }  
+  //OFF -> !OFF (Start controller or directly transition to walking stance)
+  else if (systemState == OFF && newSystemState != OFF)
+  {
+    //OFF -> RUNNING (Direct startup)
+    if (newSystemState == RUNNING && !params.startUpSequence)
+    {
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning directly to RUNNING state . . .\n");
+      walker->init(hexapod, params);
+      StepToPositionModes mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
+      double res = poser->stepToPosition(walker->identityTipPositions, poser->currentPose, deltaZ, mode, 0, params.timeToStart);
+      if (res == 1.0)
+      {
+	systemState = RUNNING;
+	ROS_INFO("Direct startup sequence complete. Ready to walk.\n");
+      }   
+    }
+    //OFF -> PACKED/READY/RUNNING (Start controller)
+    else
+    {
+      systemState = PACKED;
+      ROS_INFO("Controller running.\n");
+    }      
   }
   //PACKED -> OFF (Suspend controller)
   else if (systemState == PACKED && newSystemState == OFF)
@@ -238,51 +285,54 @@ void StateController::transitionSystemState()
     systemState = OFF;
     ROS_INFO("Controller suspended.\n");
   }
-  //PACKED -> READY (Unpack Hexapod)
-  else if (systemState == PACKED && newSystemState == READY)
+  //PACKED -> READY/RUNNING (Unpack Hexapod)
+  else if (systemState == PACKED && (newSystemState == READY || newSystemState == RUNNING))
   {
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing unpacking sequence. . .\n");
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state . . .\n");
     if (poser->moveToJointPosition(unpackedJointPositions, 2.0/params.stepFrequency))
     {          
       systemState = READY;
-      ROS_INFO("Hexapod unpacking complete. Ready to run startup sequence.\n");
+      ROS_INFO("State transition complete. Hexapod is in READY state.\n");
     }     
   }
-  //READY -> PACKED (Pack Hexapod)
-  else if (systemState == READY && newSystemState == PACKED)
+  //READY -> PACKED/OFF (Pack Hexapod)
+  else if (systemState == READY && (newSystemState == PACKED || newSystemState == OFF))
   {
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing unpacking sequence. . .\n");
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to PACKED state . . .\n");
     if (poser->moveToJointPosition(packedJointPositions, 2.0/params.stepFrequency))
     {
       systemState = PACKED;
-      ROS_INFO("Hexapod packing complete.\n");  
+      ROS_INFO("State transition complete. Hexapod is in PACKED state.\n");  
     }
   }
   //READY -> RUNNING (Initate start up sequence to step to walking stance)
   else if (systemState == READY && newSystemState == RUNNING)
   {
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing startup sequence. . .\n");
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to RUNNING state . . .\n");
     if (poser->startUpSequence(walker->identityTipPositions, poser->currentPose, deltaZ, params.moveLegsSequentially))
     {    
       systemState = RUNNING;
-      ROS_INFO("Startup sequence complete. Ready to walk.\n");
+      ROS_INFO("State transition complete. Hexapod is in RUNNING state. Ready to walk.\n");
     }     
   }
-  //RUNNING -> READY (Initiate shut down sequence to step from walking stance to ready stance
-  else if (systemState == RUNNING && newSystemState == READY)
+  //RUNNING -> !RUNNING (Initiate shut down sequence to step from walking stance to ready stance or suspend controller)
+  else if (systemState == RUNNING && newSystemState != RUNNING)
   {
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod executing shutdown sequence. . .\n");
-    if (poser->shutDownSequence(poser->tipPositions, poser->currentPose, deltaZ, params.moveLegsSequentially))
+    //RUNNING -> OFF (Suspend controller)
+    if (newSystemState == OFF && !params.startUpSequence)
     {
-      systemState = READY;
-      ROS_INFO("Shutdown sequence complete.\n");
-    }     
-  }
-  //RUNNING -> OFF (Suspend controller)
-  else if (systemState == RUNNING && newSystemState == OFF)
-  {
-    systemState = OFF;
-    ROS_INFO("Controller suspended.\n");
+      systemState = OFF;
+      ROS_INFO("Controller suspended.\n");
+    }
+    else
+    {
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state . . .\n");
+      if (poser->shutDownSequence(poser->tipPositions, poser->currentPose, deltaZ, params.moveLegsSequentially))
+      {
+	systemState = READY;
+	ROS_INFO("State transition complete. Hexapod is in READY state.\n");
+      } 
+    }
   }
   //Undefined system transition
   else
@@ -290,115 +340,13 @@ void StateController::transitionSystemState()
     ROS_FATAL("Undefined system state transition was requested! Shutting down controller!\n");
     ros::shutdown();
   }
-}
-/*
-void StateController::unpack()
-{
-  //Move joints directly to unpacked positions and then transition to next state
-  if (poser->moveToJointPosition(unpackedJointPositions, 2.0/params.stepFrequency))
-  {          
-    systemState = STARTUP;
-    ROS_INFO("Hexapod unpacked. Running startup sequence . . .\n");
-  }  
-}
-
-void StateController::startUpState()
-{
-  //Run through start up sequence (stepping to defined positions) and then transition to next state
-      poser->updateStance(walker->identityTipPositions);
-      if (poser->startUpSequence(poser->tipPositions, params.moveLegsSequentially))
-      {    
-	systemState = RUNNING;
-	ROS_INFO("Startup sequence complete. Ready to walk.\n");
-      } 
-}
-
-void StateController::shutDownState()
-{
-  //Run through shut down sequence (stepping to defined positions) and then transition to next state
-  poser->updateStance(walker->identityTipPositions);
-  if (poser->shutDownSequence(poser->tipPositions, params.moveLegsSequentially))
+  
+  //Transition complete
+  if (systemState == newSystemState)
   {
-    systemState = PACK;
-    ROS_INFO("Shutdown sequence complete. Packing hexapod . . .\n");
-  } 
-}
-
-void StateController::packState()
-{
-  //Move joints directly to packed positions and then transition to next state
-  if (poser->moveToJointPosition(packedJointPositions, 2.0/params.stepFrequency))
-  {
-    systemState = PACKED;
-    ROS_INFO("Hexapod packing complete.\n");  
+    transitionSystemStateFlag = false;
   }
 }
-
-void StateController::packedState()
-{
-  //Checks for start flag and transitions to next state
-  if (startFlag)
-  {
-    systemState = UNPACK;
-    ROS_INFO("Unpacking hexapod . . .\n");
-  }
-}
-
-void StateController::directState()
-{
-  //Checks for start flag and then directly moves tips to walking position and transitions to next state
-  if (startFlag)
-  {
-    int mode = params.moveLegsSequentially ? SEQUENTIAL_MODE:NO_STEP_MODE;
-    double res = poser->stepToPosition(walker->identityTipPositions, poser->currentPose, deltaZ, mode, 0, params.timeToStart);
-    if (res == 1.0)
-    {
-      systemState = RUNNING;
-      ROS_INFO("Startup sequence complete. Ready to walk.\n");
-    }
-  }
-}
-
-void StateController::unknownState()
-{
-  int checkPacked = 0;
-  for (int l=0; l<3; l++)
-  {
-    for (int s=0; s<2; s++)
-    {
-      //Check all current joint positions are 'close' to packed joint positions
-      double tolerance = 0.1;
-      checkPacked += abs(hexapod->legs[l][s].yaw - packedJointPositions[l][s][0]) < tolerance &&
-                      abs(hexapod->legs[l][s].liftAngle - packedJointPositions[l][s][1]) < tolerance &&
-                      abs(hexapod->legs[l][s].kneeAngle - packedJointPositions[l][s][2]) < tolerance;
-    }
-  }
-  if (checkPacked == 6) //All joints in each leg are approximately in the packed position
-  {
-    if (!params.startUpSequence)
-    {
-      ROS_ERROR("Hexapod currently in packed state and cannot run direct startup sequence.\nEither manually unpack hexapod or set start_up_sequence to true in config file\n");
-      ROS_ASSERT(false);
-    }
-    else
-    {
-      systemState = PACKED;
-      ROS_INFO("Hexapod currently packed.\n");  
-    }
-  }
-  else if (!params.startUpSequence)
-  {    
-    systemState = DIRECT;
-    ROS_WARN("WARNING! Running direct startup sequence - assuming hexapod is not on the ground\n");
-    ROS_INFO("Running startup sequence (Complete in %f seconds) . . .\n", params.timeToStart);       
-  }
-  else if (startFlag)
-  {
-    systemState = STARTUP;
-    ROS_INFO("Hexapod unpacked. Running startup sequence . . .\n");
-  } 
-}
-*/
 
 /***********************************************************************************************************************
  * Running state
@@ -421,12 +369,12 @@ void StateController::runningState()
   }
   
   //Switch gait and update walker parameters
-  if (changeGait)
+  if (gaitChangeFlag)
   {
     gaitChange();
   } 
   //Dynamically adjust parameters and change stance if required
-  else if (adjustParam)
+  else if (parameterAdjustFlag)
   {
     parameterAdjust();
   }
@@ -438,7 +386,7 @@ void StateController::runningState()
   
   //Update tip positions unless hexapod is undergoing gait switch, parameter adjustment or leg state transition 
   //(which all only occur once the hexapod has stopped walking)
-  if (!((changeGait || adjustParam || togglePrimaryLegState || toggleSecondaryLegState) && walker->walkState == STOPPED))
+  if (!((gaitChangeFlag || parameterAdjustFlag || togglePrimaryLegState || toggleSecondaryLegState) && walker->walkState == STOPPED))
   {   
     //Update tip positions for walking legs
     walker->updateWalk(linearVelocityInput, angularVelocityInput);   
@@ -708,7 +656,7 @@ void StateController::parameterAdjust()
       if (res == 1.0)
       {    
 	ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler*100), paramVal);
-	adjustParam = false;
+	parameterAdjustFlag = false;
 	newParamSet = false;
       } 
     }
@@ -732,7 +680,7 @@ void StateController::gaitChange()
     getGaitParameters(gaitSelection);   
     walker->setGaitParams(params);
     ROS_INFO("Now using %s mode.\n", params.gaitType.c_str());
-    changeGait = false;
+    gaitChangeFlag = false;
   }
   //Force hexapod to stop walking
   else 
@@ -1124,7 +1072,7 @@ void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Poi
 }
 
 /***********************************************************************************************************************
- * Joypad Pose Topic Callback
+ * Body Pose Topic Callback
 ***********************************************************************************************************************/
 void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &twist)
 {  
@@ -1141,14 +1089,21 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &twist)
 ***********************************************************************************************************************/
 void StateController::systemStateCallback(const std_msgs::Int8 &input)
 {
-  newSystemState = static_cast<SystemState>(int(input.data));
-  
-  //If startUpSequence parameter is false then skip READY and PACKED states
-  if (!params.startUpSequence)
+  if (!transitionSystemStateFlag)
   {
-    if (newSystemState == READY || newSystemState == PACKED)
+    newSystemState = static_cast<SystemState>(int(input.data));
+    //If startUpSequence parameter is false then skip READY and PACKED states
+    if (!params.startUpSequence)
     {
-      newSystemState = OFF;
+      if (newSystemState == READY || newSystemState == PACKED)
+      {
+	newSystemState = OFF;
+      }
+    }
+    
+    if (newSystemState != systemState)
+    {
+      transitionSystemStateFlag = true;
     }
   }
 }
@@ -1164,7 +1119,7 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
     if (newGaitSelection != gaitSelection && newGaitSelection != GAIT_UNDESIGNATED)
     {
       gaitSelection = newGaitSelection;
-      changeGait = true;
+      gaitChangeFlag = true;
     }
   }
 }
@@ -1244,7 +1199,7 @@ void StateController::autoNavigationCallback(const std_msgs::Int8 &input)
 }
 
 /***********************************************************************************************************************
- * This callback increments the gains in the controller
+ * Parameter selection callback
 ***********************************************************************************************************************/
 void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
 {
@@ -1261,26 +1216,26 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
 }
 
 /***********************************************************************************************************************
- * Toggle Leg State Callback
+ * Parameter adjustment callback
 ***********************************************************************************************************************/
 void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
 {
   if (systemState == RUNNING)
   {
-    if (input.data != 0.0 && !adjustParam && parameterSelection != NO_PARAMETER_SELECTION)
+    if (input.data != 0.0 && !parameterAdjustFlag && parameterSelection != NO_PARAMETER_SELECTION)
     {
       if (paramScaler != -1)
       {
 	paramScaler += input.data/paramAdjustSensitivity;
 	paramScaler = minMax(paramScaler, 0.1, 3.0);      //Parameter scaler ranges from 10%->300%
       }
-      adjustParam = true;
+      parameterAdjustFlag = true;
     }
   }
 }
 
 /***********************************************************************************************************************
- * Joypad Pose reset mode Topic Callback
+ * Pose reset mode callback
 ***********************************************************************************************************************/
 void StateController::poseResetCallback(const std_msgs::Int8 &input)
 {
