@@ -341,7 +341,6 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], Pose tar
   }
   
   StepToPositionModes mode;
-  double stepTime;
   if (forceSequentialMode)
   {
     mode = SEQUENTIAL_MODE;
@@ -353,19 +352,6 @@ bool PoseController::startUpSequence(Vector3d targetTipPositions[3][2], Pose tar
   else if (sequenceStep == 3)
   {
     mode = startHeightRatio > 0.8 ? TRIPOD_MODE:SEQUENTIAL_MODE;
-  }
-  
-  if (mode == SEQUENTIAL_MODE)
-  {
-    stepTime = 6.0/params.stepFrequency;
-  }
-  else if (mode == TRIPOD_MODE)
-  {
-    stepTime = 2.0/params.stepFrequency;
-  }
-  else if (mode == SIMULTANEOUS_MODE)
-  {
-    stepTime = 1.0/params.stepFrequency;
   }
   
   double res = 0.0;

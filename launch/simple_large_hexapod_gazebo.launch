@@ -1,5 +1,5 @@
 <launch>
-        <include file="$(find hexapod_large_gazebo)/launch/gazebo.launch" />
+        <include file="$(find hexapod_large_gazebo)/launch/gazebo_hokuyo.launch" />
 	<include file="$(find hexapod_remote)/launch/hexapod_remote.launch" />
 	<rosparam file="$(find simple_hexapod_controller)/config/large_hexapod.yaml" command="load"/>
 	<rosparam file="$(find simple_hexapod_controller)/config/gait.yaml" command="load"/>
