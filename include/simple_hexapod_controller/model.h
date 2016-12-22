@@ -45,27 +45,25 @@ class Leg
   public:
     Leg(int id_number, Parameters params);
     
+    //Accessors
     inline int getIDNumber(void) { return id_number_; };
     inline std::string getIDName(void) { return id_name_; };
-    inline double getMirrorDir(void) { return mirror_dir_;};
-    
-    inline LegType getType(void) { return leg_type_; };
-    inline void setType(LegType leg_type) { leg_type_ = leg_type; };
-    
-    inline LegState getLegState(void) { return leg_state_; };
-    inline void setLegState(LegState leg_state) { leg_state_ = leg_state; };    
-    
+    inline double getMirrorDir(void) { return mirror_dir_;};    
+    inline LegType getType(void) { return leg_type_; };    
+    inline LegState getLegState(void) { return leg_state_; };    
     inline double getMinLegLength(void) { return min_leg_length_;};
-    inline double getMaxLegLength(void) { return max_leg_length_;};
-    
+    inline double getMaxLegLength(void) { return max_leg_length_;};    
     inline Vector3d getWalkedTipPosition(void) { return leg_stepper_->getCurrentTipPosition(); };
     inline Vector3d getPosedTipPosition(void) { return posed_tip_position_; };
-    inline Vector3d getLocalTipPosition(void) { return local_tip_position_; };
+    inline Vector3d getLocalTipPosition(void) { return local_tip_position_; };    
+    inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};    
+    inline LegPoser* getLegPoser(void) { return leg_poser_ ;};    
+    inline double getDeltaZ(void) { return delta_z_; };
     
-    inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};
+    //Mutators
+    inline void setType(LegType leg_type) { leg_type_ = leg_type; };
+    inline void setLegState(LegState leg_state) { leg_state_ = leg_state; };  
     inline void setLegStepper(WalkController* walker, Vector3d identity_tip_position) { leg_stepper_ = new LegStepper(walker, this, identity_tip_position); };
-    
-    inline LegPoser* getLegPoser(void) { return leg_poser_ ;};
     inline void setLegPoser(PoseController* poser, Vector3d packed_joint_positions, Vector3d unpacked_joint_positions) { leg_poser_ = new LegPoser(poser, this, packed_joint_positions, unpacked_joint_positions); };
     
     Vector3d applyLocalIK(Vector3d tip_target); // sets angles to reach local position relative to root    
@@ -83,6 +81,7 @@ class Leg
     
     LegStepper* leg_stepper_;
     LegPoser* leg_poser_;
+    double delta_z_;
     
     Vector3d posed_tip_position_; 
     Vector3d local_tip_position_;  // actual tip position relative to root

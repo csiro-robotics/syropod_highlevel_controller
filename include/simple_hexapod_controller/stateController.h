@@ -178,7 +178,7 @@ struct StateController
   void runningState();
 
   // Running state sub-functions
-  void updatePose()();
+  void updatePose();
   void impedanceControl();
   void parameterAdjust();
   void gaitChange();

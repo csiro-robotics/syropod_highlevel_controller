@@ -3,7 +3,10 @@
 #include "model.h"
 #include "debugOutput.h"
 
-// Controller that handles walking
+
+/***********************************************************************************************************************
+ * Top level controller that calculates walk characteristics and coordinates leg specific walk controllers
+***********************************************************************************************************************/
 class WalkController
 {  
   public:
@@ -19,6 +22,7 @@ class WalkController
     inline double getStepClearance(void) { return step_clearance_; };
     inline double getMaxBodyHeight(void) { return maximum_body_height_; };
     inline double getStepDepth(void) { return step_depth_; };
+    inline double getBodyHeight(void) { return body_clearance_ * maximum_body_height_; };
     
     void init(Model *model, Parameters p);
     void setGaitParams(Parameters p);
@@ -59,6 +63,9 @@ class WalkController
     int legs_completed_first_step_ = 0; 
 };
 
+/***********************************************************************************************************************
+ * Leg specific controller which walks leg through step cycle
+***********************************************************************************************************************/
 class LegStepper
 {
   public:
@@ -123,3 +130,5 @@ class LegStepper
     Vector3d swing_origin_tip_position_;
     Vector3d stance_origin_tip_position_;
 };
+/***********************************************************************************************************************
+***********************************************************************************************************************/

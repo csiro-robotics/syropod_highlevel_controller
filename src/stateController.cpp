@@ -409,13 +409,12 @@ void StateController::runningState()
 ***********************************************************************************************************************/
 void StateController::updatePose()
 {
-  // Manually set (joystick controlled) body compensation
   Pose new_pose;
+  
+  // Manually set (joystick controlled) body compensation
   if (params.manual_compensation)
   {
-    poser->manualCompensation(Vector3d(xJoy, yJoy, zJoy), Vector3d(rollJoy, pitchJoy, yawJoy), poseResetMode,
-                              poser->defaultPose);
-    new_pose = poser->manualPose;
+    new_pose = poser->manualCompensation(Vector3d(xJoy, yJoy, zJoy), Vector3d(rollJoy, pitchJoy, yawJoy));
   }
   else
   {
@@ -425,30 +424,28 @@ void StateController::updatePose()
   // Compensation to align centre of gravity evenly between tip positions on incline
   if (params.inclination_compensation)
   {
-    poser->inclinationCompensation(imuData);
-    new_pose.position_ += poser->inclinationPose.position_;
+    new_pose.position_ += poser->inclinationCompensation(walker, imuData);
   }
 
   // Compensation to offset average deltaZ from impedance controller and keep body at specificied height
   if (params.impedance_control)
   {
-    poser->impedanceControllerCompensation(deltaZ);
-    new_pose.position_ += poser->deltaZPose.position_;
+    new_pose.position_[2] += poser->impedanceControllerCompensation(hexapod);
   }
 
   // Auto body compensation using IMU feedback
   if (params.imu_compensation)
   {
-    poser->imuCompensation(imuData, poser->manualPose.rotation_);
-    new_pose.rotation_ = poser->imuPose.rotation_;
+    new_pose.rotation_ = poser->imuCompensation(imuData);
   }
   // Automatic (non-feedback) body compensation
   else if (params.auto_compensation)
   {
-    poser->autoCompensation();
-    new_pose.position_ += poser->autoPoseDefault.position_;
-    new_pose.rotation_ *= poser->autoPoseDefault.rotation_;  //(Quaternion)
+    Pose auto_pose = poser->autoCompensation();
+    new_pose.position_ += auto_pose.position_;
+    new_pose.rotation_ *= auto_pose.rotation_;  //(Quaternion)
   }
+  
   hexapod->setCurrentPose(new_pose);
 }
 
@@ -654,10 +651,8 @@ void StateController::parameterAdjust()
     else
     {
       // Update tip Positions for new parameter value
-      double stepHeight = walker->maximum_body_height_ * walker->step_clearance_;
-      double res =
-          poser->stepLegsToPosition(walker->identityTipPositions, poser->current_pose_, deltaZ, TRIPOD_MODE, stepHeight);
-      if (res == 1.0)
+      bool complete = poser->stepToNewStance(hexapod);
+      if (complete)
       {
         ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", paramString.c_str(), roundToInt(paramScaler * 100),
                  paramVal);
@@ -742,11 +737,11 @@ void StateController::legStateToggle()
     }
     else if (transitioning_leg->getLegState() == WALKING_TO_MANUAL)
     {
-      poseResetMode = IMMEDIATE_ALL_RESET;  // Set to ALL_RESET to force pose to new default pose
+      poser->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       //walker->tipPositions[l][s] = hexapod->local_tip_positions_[l][s];  // Override walker tip positions for manual
                                                                       // control
       //poser->tipPositions[l][s] = hexapod->local_tip_positions_[l][s];
-      double res = poser->poseForLegManipulation(hexapod, transitioning_leg);
+      double res = poser->poseForLegManipulation(hexapod);
 
       if (params.dynamic_stiffness)
       {
@@ -759,15 +754,15 @@ void StateController::legStateToggle()
         ROS_INFO("%s leg set to state: MANUAL.\n", legNameMap[l * 2 + s].c_str());
         togglePrimaryLegState = false;
         toggleSecondaryLegState = false;
-        poseResetMode = NO_RESET;
+        poser->setPoseResetMode(NO_RESET);
         manualLegs++;
       }
     }
     else if (transitioning_leg->getLegState() == MANUAL_TO_WALKING)
     {
-      poseResetMode = IMMEDIATE_ALL_RESET;  // Set to ALL_RESET to force pose to new default pose
+      poser->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       //walker->tipPositions[l][s] = walker->identityTipPositions[l][s];  // Return walker tip positions to default
-      double res = poser->poseForLegManipulation(hexapod, transitioning_leg);
+      double res = poser->poseForLegManipulation(hexapod);
 
       if (params.dynamic_stiffness)
       {
@@ -781,7 +776,7 @@ void StateController::legStateToggle()
         ROS_INFO("%s leg set to state: WALKING.\n", leg->getIDName().c_str());
         togglePrimaryLegState = false;
         toggleSecondaryLegState = false;
-        poseResetMode = NO_RESET;
+        poser->setPoseResetMode(NO_RESET);
         manualLegs--;
       }
     }
@@ -901,15 +896,15 @@ void StateController::publishRotationPoseError()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(poser->rotationPositionError[0]);
-  msg.data.push_back(poser->rotationPositionError[1]);
-  msg.data.push_back(poser->rotationPositionError[2]);
+  msg.data.push_back(poser->rotation_position_error[0]);
+  msg.data.push_back(poser->rotation_position_error[1]);
+  msg.data.push_back(poser->rotation_position_error[2]);
   msg.data.push_back(poser->rotationAbsementError[0]);
   msg.data.push_back(poser->rotationAbsementError[1]);
   msg.data.push_back(poser->rotationAbsementError[2]);
-  msg.data.push_back(poser->rotationVelocityError[0]);
-  msg.data.push_back(poser->rotationVelocityError[1]);
-  msg.data.push_back(poser->rotationVelocityError[2]);
+  msg.data.push_back(poser->rotation_velocity_error[0]);
+  msg.data.push_back(poser->rotation_velocity_error[1]);
+  msg.data.push_back(poser->rotation_velocity_error[2]);
   rotationPoseErrorPublisher.publish(msg);
 }
 
@@ -1257,9 +1252,9 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::poseResetCallback(const std_msgs::Int8 &input)
 {
-  if (poseResetMode != IMMEDIATE_ALL_RESET)
+  if (poser->getPoseResetMode() != IMMEDIATE_ALL_RESET)
   {
-    poseResetMode = static_cast<PoseResetMode>(input.data);
+    poser->setPoseResetMode(static_cast<PoseResetMode>(input.data));
   }
 }
 
