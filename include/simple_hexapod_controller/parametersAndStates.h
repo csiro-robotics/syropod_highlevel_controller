@@ -1,7 +1,17 @@
 #pragma once
 #include "standardIncludes.h"
 
-#define THROTTLE_PERIOD 5 //seconds
+#define THROTTLE_PERIOD 5  // seconds
+
+enum LegType
+{
+  UNKNOWN_LEG_TYPE,
+  ONE_DOF,
+  TWO_DOF,
+  THREE_DOF, //Only type implemented
+  FOUR_DOF,
+  FIVE_DOF,
+};
 
 enum SystemState
 {
@@ -32,13 +42,13 @@ enum PosingMode
 enum CruiseControlMode
 {
   CRUISE_CONTROL_OFF,
-  CRUISE_CONTROL_ON,  
+  CRUISE_CONTROL_ON,
 };
 
 enum AutoNavigationMode
 {
   AUTO_NAVIGATION_OFF,
-  AUTO_NAVIGATION_ON,  
+  AUTO_NAVIGATION_ON,
 };
 
 enum LegState
@@ -53,7 +63,7 @@ enum WalkState
 {
   STARTING,
   MOVING,
-  STOPPING,  
+  STOPPING,
   STOPPED
 };
 
@@ -65,9 +75,8 @@ enum StepState
   FORCE_STOP
 };
 
-enum StepToPositionModes
+enum LegCoordinationMode
 {
-  NO_STEP_MODE,
   SIMULTANEOUS_MODE,
   TRIPOD_MODE,
   SEQUENTIAL_MODE,
@@ -80,18 +89,20 @@ enum PoseResetMode
   X_AND_Y_RESET,
   PITCH_AND_ROLL_RESET,
   ALL_RESET,
-  IMMEDIATE_ALL_RESET, //overrides input from user
+  IMMEDIATE_ALL_RESET,  // overrides input from user
 };
 
 enum LegDesignation
 {
-  FRONT_LEFT,
-  FRONT_RIGHT,
-  MIDDLE_LEFT,
-  MIDDLE_RIGHT,
-  REAR_LEFT,
-  REAR_RIGHT,
-  LEG_UNDESIGNATED,
+  LEG_AL,
+  LEG_AR,
+  LEG_BL,
+  LEG_BR,
+  LEG_CL,
+  LEG_CR,
+  LEG_DL,
+  LEG_DR,
+  LEG_UNDESIGNATED = -1,
 };
 
 enum ParameterSelection
@@ -109,110 +120,109 @@ enum ParameterSelection
 
 struct Parameters
 {
-  std::string hexapodType;
-  double timeDelta;  
-  bool imuCompensation;
-  bool autoCompensation;  
-  bool manualCompensation;
-  bool inclinationCompensation;
+  std::string hexapod_type;
+  double time_delta;
+  bool imu_compensation;
+  bool auto_compensation;
+  bool manual_compensation;
+  bool inclination_compensation;
 
-  //Hexapod Parameters
-  Vector3d rootOffset[3][2];
-  Vector3d hipOffset[3][2];
-  Vector3d kneeOffset[3][2];
-  Vector3d tipOffset[3][2];
-  Vector3d stanceLegYaws;
-  Vector3d physicalYawOffset;
-  double physicalKneeOffset;
-  Vector3d yawLimits;
-  Vector2d kneeLimits;
-  Vector2d hipLimits;
-  Vector3d jointMaxAngularSpeeds;
-  bool dynamixelInterface;
-  Vector3d imuRotationOffset;
+  // Hexapod Parameters
+  int num_legs = 6;
+  int leg_DOF[6];
+  std::string leg_id_names[6];
+  Vector3d coxa_offset[3][2];
+  Vector3d femur_offset[3][2];
+  Vector3d tibia_offset[3][2];
+  Vector3d tip_offset[3][2];
+  Vector3d stance_coxa_angles;
+  Vector3d physical_coxa_angle_offset;
+  double physical_tibia_angle_offset;
+  Vector3d coxa_joint_limits;
+  Vector2d tibia_joint_limits;
+  Vector2d femur_joint_limits;
+  Vector3d joint_max_angular_speeds;
+  bool use_dynamixel_pro_interface;
+  Vector3d imu_rotation_offset;
 
-  //Walk Controller Parameters
-  std::string gaitType;  
-  double stepFrequency;
-  double stepClearance;
-  double stepDepth;
-  double bodyClearance;
-  double legSpanScale; 
-  double maxLinearAcceleration;
-  double maxAngularAcceleration;
-  double footprintDownscale;
-  double interfaceSetupSpeed;
-  std::string velocityInputMode; 
-  
-  bool forceCruiseVelocity;
-  Vector2d linearCruiseVelocity;
-  double angularCruiseVelocity;
-  
-  //Pose Controller Parameters
-  bool startUpSequence;
-  bool moveLegsSequentially;
-  double timeToStart;
-  
-  double rotationCompensationProportionalGain;
-  double rotationCompensationIntegralGain;
-  double rotationCompensationDerivativeGain;
-  double translationCompensationProportionalGain;
-  double translationCompensationIntegralGain;
-  double translationCompensationDerivativeGain;  
-  
-  double pitchAmplitude;
-  double rollAmplitude;
-  double zTransAmplitude;
-  
-  Vector3d maxTranslation;
-  double maxTranslationVelocity;
-  
-  Vector3d maxRotation;
-  double maxRotationVelocity;
-  
-  std::string legManipulationMode;
-  
-  Vector3d packedJointPositionsAL;
-  Vector3d packedJointPositionsAR;
-  Vector3d packedJointPositionsBL;
-  Vector3d packedJointPositionsBR;
-  Vector3d packedJointPositionsCL;
-  Vector3d packedJointPositionsCR;
-  Vector3d unpackedJointPositionsAL;
-  Vector3d unpackedJointPositionsAR;
-  Vector3d unpackedJointPositionsBL;
-  Vector3d unpackedJointPositionsBR;
-  Vector3d unpackedJointPositionsCL;
-  Vector3d unpackedJointPositionsCR;
-  
-  //Impedance Controller Parameters
-  bool impedanceControl;
-  bool dynamicStiffness;
-  double integratorStepTime;
-  double virtualMass;
-  double virtualStiffness;
-  double loadStiffnessScaler;
-  double swingStiffnessScaler;
-  double virtualDampingRatio;
-  double forceGain;
-  std::string impedanceInput;
-    
-  //Gait Parameters
-  double stancePhase;
-  double swingPhase;
-  double phaseOffset;  
-  std::vector<int> offsetMultiplier;
-  
-  //Debug Parameters
+  // Walk Controller Parameters
+  std::string gait_type;
+  double step_frequency;
+  double step_clearance;
+  double step_depth;
+  double body_clearance;
+  double leg_span_scale;
+  double max_linear_acceleration;
+  double max_angular_acceleration;
+  double footprint_downscale;
+  double interface_setup_speed;
+  std::string velocity_input_mode;
+
+  bool force_cruise_velocity;
+  Vector2d linear_cruise_velocity;
+  double angular_cruise_velocity;
+
+  // Pose Controller Parameters
+  bool start_up_sequence;
+  double time_to_start;
+
+  double rotation_compensation_proportional_gain;
+  double rotation_compensation_integral_gain;
+  double rotation_compensation_derivative_gain;
+  double translation_compensation_proportional_gain;
+  double translation_compensation_integral_gain;
+  double translation_compensation_derivative_gain;
+
+  double pitch_amplitude;
+  double roll_amplitude;
+  double z_translation_amplitude;
+
+  Vector3d max_translation;
+  double max_translation_velocity;
+
+  Vector3d max_rotation;
+  double max_rotation_velocity;
+
+  std::string leg_manipulation_mode;
+
+  Vector3d packed_joint_positions_AL;
+  Vector3d packed_joint_positions_AR;
+  Vector3d packed_joint_positions_BL;
+  Vector3d packed_joint_positions_BR;
+  Vector3d packed_joint_positions_CL;
+  Vector3d packed_joint_positions_CR;
+  Vector3d unpacked_joint_positions_AL;
+  Vector3d unpacked_joint_positions_AR;
+  Vector3d unpacked_joint_positions_BL;
+  Vector3d unpacked_joint_positions_BR;
+  Vector3d unpacked_joint_positions_CL;
+  Vector3d unpacked_joint_positions_CR;
+
+  // Impedance Controller Parameters
+  bool impedance_control;
+  bool dynamic_stiffness;
+  double integrator_step_time;
+  double virtual_mass;
+  double virtual_stiffness;
+  double load_stiffness_scaler;
+  double swing_stiffness_scaler;
+  double virtual_damping_ratio;
+  double force_gain;
+  std::string impedance_input;
+
+  // Gait Parameters
+  double stance_phase;
+  double swing_phase;
+  double phase_offset;
+  std::vector<int> offset_multiplier;
+
+  // Debug Parameters
   bool debug_rviz;
-  std::string consoleVerbosity;
-  bool debugMoveToJointPosition;
-  bool debugStepToPosition;
-  bool debugSwingTrajectory;
-  bool debugStanceTrajectory;
-  bool debugManualCompensationRotation;
-  bool debugManualCompensationTranslation;  
+  std::string console_verbosity;
+  bool debug_moveToJointPosition;
+  bool debug_stepToPosition;
+  bool debug_swing_trajectory;
+  bool debug_stance_trajectory;
+  bool debug_manual_compensation_rotation;
+  bool debug_manual_compensation_translation;
 };
-
-
-

@@ -5,6 +5,6 @@
 struct ImuData
 {
   Quat orientation;
-  Vector3d linearAcceleration;
-  Vector3d angularVelocity;
+  Vector3d linear_acceleration;
+  Vector3d angular_velocity;
 };

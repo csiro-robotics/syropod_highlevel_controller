@@ -10,83 +10,85 @@ using namespace std;
 
 #define NUM_LEGS 6
 #define DEBUGDRAW
-const double pi = M_PI; //< easier to read
+const double pi = M_PI;  //< easier to read
 
 // ifdef because assert(x) is nop on NDEBUG defined, not on 'DEBUG not defined'
 #ifndef DEBUG
-#define ASSERT(x) {}
- #define ATTEMPT(x_, y_) x_
+#define ASSERT(x)                                                                                                      \
+  {                                                                                                                    \
+  }
+#define ATTEMPT(x_, y_) x_
 #else
- #define ASSERT(x) assert(x)
- #define ATTEMPT(x_, y_) assert(x_ y_)
+#define ASSERT(x) assert(x)
+#define ATTEMPT(x_, y_) assert(x_ y_)
 #endif
 
-template<class T>
+template <class T>
 T mod(const T &a, int &b)
-{ return (a%b+b)%b; }
+{
+  return (a % b + b) % b;
+}
 
-template<class T>
-T sqr(const T &val){ return val*val; }
+template <class T>
+T sqr(const T &val)
+{
+  return val * val;
+}
 
-template<class T>
-T sign(const T &val){ return val>0 ? 1 : -1; }
+template <class T>
+T sign(const T &val)
+{
+  return val > 0 ? 1 : -1;
+}
 
 inline double solveQuadratic(double a, double b, double c, double *negative = NULL)
 {
-  double inside = sqr(b)-4.0*a*c;
+  double inside = sqr(b) - 4.0 * a * c;
   ASSERT(inside >= 0.0);
   if (negative != NULL)
   {
     double numerator = -b - sqrt(inside);
-    if (2.0*a < numerator)
-      *negative = 2.0*c / numerator;
+    if (2.0 * a < numerator)
+      *negative = 2.0 * c / numerator;
     else
-      *negative = numerator/(2.0*a);
+      *negative = numerator / (2.0 * a);
   }
   double numerator = -b + sqrt(inside);
-  if (2.0*a < numerator)
-    return 2.0*c / numerator;
-  return numerator/(2.0*a);
+  if (2.0 * a < numerator)
+    return 2.0 * c / numerator;
+  return numerator / (2.0 * a);
 }
 
 template <class T>
 inline T cubicBezier(T *points, double t)
 {
   double s = 1.0 - t;
-  return points[0] * (s*s*s) +
-         points[1] * (3.0*t*s*s) +
-         points[2] * (3.0*t*t*s) +
-         points[3] * (t*t*t);
+  return points[0] * (s * s * s) + points[1] * (3.0 * t * s * s) + points[2] * (3.0 * t * t * s) +
+         points[3] * (t * t * t);
 }
 
 template <class T>
 inline T cubicBezierDot(T *points, double t)
 {
   double s = 1.0 - t;
-  return (3*s*s*(points[1]-points[0]) + 
-         6*s*t*(points[2]-points[1]) + 
-         3*t*t*(points[3]-points[2]));                
+  return (3 * s * s * (points[1] - points[0]) + 6 * s * t * (points[2] - points[1]) +
+          3 * t * t * (points[3] - points[2]));
 }
 
 template <class T>
 inline T quarticBezier(T *points, double t)
 {
   double s = 1.0 - t;
-  return points[0] * (s*s*s*s) +
-         points[1] * (4.0*t*s*s*s) +
-         points[2] * (6.0*t*t*s*s) +
-         points[3] * (4.0*t*t*t*s) +
-	 points[4] * (t*t*t*t);
+  return points[0] * (s * s * s * s) + points[1] * (4.0 * t * s * s * s) + points[2] * (6.0 * t * t * s * s) +
+         points[3] * (4.0 * t * t * t * s) + points[4] * (t * t * t * t);
 }
 
 template <class T>
 inline T quarticBezierDot(T *points, double t)
 {
   double s = 1.0 - t;
-  return (4.0*s*s*s*(points[1]-points[0]) + 
-         12.0*s*s*t*(points[2]-points[1]) + 
-         12.0*s*t*t*(points[3]-points[2]) + 
-	 4.0*t*t*t*(points[4]-points[3]));                
+  return (4.0 * s * s * s * (points[1] - points[0]) + 12.0 * s * s * t * (points[2] - points[1]) +
+          12.0 * s * t * t * (points[3] - points[2]) + 4.0 * t * t * t * (points[4] - points[3]));
 }
 
 inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)
@@ -106,7 +108,7 @@ inline Vector3d absVector(const Vector3d &a)
 
 inline double minMax(const double val, const double minimum, const double maximum)
 {
-  return (val > (minimum+maximum)/2) ? min(maximum, val) : max(minimum, val);
+  return (val > (minimum + maximum) / 2) ? min(maximum, val) : max(minimum, val);
 }
 
 /// Past tense avoids confusion, result is passed back
@@ -122,10 +124,9 @@ T clamped(const T &value, double magnitude)
 {
   double magSqr = value.norm();
   if (magSqr > magnitude)
-    return value * (magnitude/magSqr);
+    return value * (magnitude / magSqr);
   return value;
 }
-
 
 inline int roundToInt(double x)
 {
@@ -145,26 +146,27 @@ inline vector<int> ints(int start, int end, int step = 1)
 {
   ASSERT(end >= start);
   vector<int> result;
-  result.reserve((((end+1)-start) / step)+1);
-  for (int i = start; i<=end; i+=step)
+  result.reserve((((end + 1) - start) / step) + 1);
+  for (int i = start; i <= end; i += step)
     result.push_back(i);
   return result;
 }
 
 /// Increasing list of doubles from start to end inclusive, increasing by step
-inline vector<double> doubles(double start, double end, double step = 1.0) 
+inline vector<double> doubles(double start, double end, double step = 1.0)
 {
   ASSERT(end >= start && step > 0);
   vector<double> result;
-  
-  // The complication here is to make sure that you get the right result by passing in double(start, end, (end-start)/integerCount)
-  
-  unsigned int count = (unsigned int)(0.5 + (end - start) / step); // round
-  if ((end - start) / double(count) != step) // for non-simple cases, just use the normal count calculation
-    count = (unsigned int)((end - start) / step); 
-  result.reserve(count+1);
-  for (unsigned int i = 0; i<=count; ++i)
-    result.push_back(start + double(i)*step); // I avoid incrementing by step due to drift for very small step
+
+  // The complication here is to make sure that you get the right result by passing in double(start, end,
+  // (end-start)/integerCount)
+
+  unsigned int count = (unsigned int)(0.5 + (end - start) / step);  // round
+  if ((end - start) / double(count) != step)  // for non-simple cases, just use the normal count calculation
+    count = (unsigned int)((end - start) / step);
+  result.reserve(count + 1);
+  for (unsigned int i = 0; i <= count; ++i)
+    result.push_back(start + double(i) * step);  // I avoid incrementing by step due to drift for very small step
   return result;
 }
 
@@ -174,7 +176,7 @@ T mean(const vector<T> &list)
 {
   ASSERT(list.size() > 0);
   T result = list[0];
-  for (unsigned int i = 1; i<list.size(); i++)
+  for (unsigned int i = 1; i < list.size(); i++)
     result += list[i];
   result /= double(list.size());
   return result;
@@ -189,14 +191,13 @@ T median(vector<T> list)
   typename vector<T>::iterator first = list.begin();
   typename vector<T>::iterator last = list.end();
   typename vector<T>::iterator middle = first + ((last - first) / 2);
-  nth_element(first, middle, last); // can specify comparator as optional 4th arg
-  if (list.size() % 2) // odd
+  nth_element(first, middle, last);  // can specify comparator as optional 4th arg
+  if (list.size() % 2)               // odd
     return *middle;
   else
   {
-    typename vector<T>::iterator middle2 = middle+1;
+    typename vector<T>::iterator middle2 = middle + 1;
     nth_element(first, middle2, last);
-    return (*middle + *middle2)/2.0;
+    return (*middle + *middle2) / 2.0;
   }
 }
-

@@ -3,111 +3,123 @@
 #include "model.h"
 #include "debugOutput.h"
 
-//Controller that handles walking
-struct WalkController
+// Controller that handles walking
+class WalkController
+{  
+  public:
+    WalkController(Model *model, Parameters p);
+    
+    inline int getPhaseLength(void) { return phase_length_; };
+    inline int getSwingStart(void) { return swing_start_; };
+    inline int getSwingEnd(void) { return swing_end_; };
+    inline int getStanceStart(void) { return stance_start_; };
+    inline int getStanceEnd(void) { return stance_end_; };
+    inline double getTimeDelta(void) { return time_delta_; };
+    inline double getStepFrequency(void) { return step_frequency_; };
+    inline double getStepClearance(void) { return step_clearance_; };
+    inline double getMaxBodyHeight(void) { return maximum_body_height_; };
+    inline double getStepDepth(void) { return step_depth_; };
+    
+    void init(Model *model, Parameters p);
+    void setGaitParams(Parameters p);
+    void updateWalk(Vector2d linear_velocity_input, double angular_velocity_input, Model *model);
+    void updateManual(int primary_leg_selection_ID, Vector3d primary_tip_velocity_input,
+		      int secondary_leg_selection_ID, Vector3d secondary_tip_velocity_input, Model *model);
+
+  private:
+    Pose pose_;  // DEBUGGING
+    Parameters params_;
+
+    WalkState walk_state_ = STOPPED;
+
+    double time_delta_;
+
+    // Walk parameters
+    double step_frequency_;
+    double step_clearance_;
+    double step_depth_;
+    double body_clearance_;
+
+    int phase_length_;
+    int stance_end_;
+    int swing_start_;
+    int swing_end_;
+    int stance_start_;
+
+    Vector3d foot_spread_distances_;
+    double min_footprint_radius_;
+    double stance_radius_;
+
+    Vector2d current_linear_velocity_;  // Linear Body Velocity
+    double current_angular_velocity_;  // Angular Body Velocity
+
+    double maximum_body_height_;
+
+    int legs_at_correct_phase_ = 0;
+    int legs_completed_first_step_ = 0; 
+};
+
+class LegStepper
 {
-  Model *model;
-  
-  Pose pose; //DEBUGGING
-  
-  Parameters params;
-  
-  WalkState walkState = STOPPED;
-  
-  Vector3d tipPositions[3][2];
-  
-  double timeDelta;
-  
-  //Walk parameters
-  double stepFrequency;  
-  double stepClearance;
-  double stepDepth;
-  double bodyClearance;
-  
-  int phaseLength;
-  int stanceEnd;   
-  int swingStart;
-  int swingEnd;     
-  int stanceStart;
-  
-  Vector3d footSpreadDistances;
-  double minFootprintRadius;
-  double stanceRadius; // affects turning circle
-  Vector3d identityTipPositions[3][2];
-  
-  Vector2d currentLinearVelocity; //Linear Body Velocity
-  double currentAngularVelocity; //Angular Body Velocity
-  
-  double maximumBodyHeight;
-  
-  int legsInCorrectPhase = 0;
-  int legsCompletedFirstStep = 0;
-  
-  StepState stepStates[3][2];
+  public:
+    LegStepper::LegStepper(WalkController* walker, Vector3d identity_tip_position);    
     
-  struct LegStepper
-  {
-    int legIndex;
-    int sideIndex;
+    //Accessors
+    inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };    
+    inline Vector3d getDefaultTipPosition(void) { return default_tip_position_;};    
+    inline StepState getStepState(void) { return step_state_; };
+    inline int getPhase(void) { return phase_; };    
+    inline int getPhaseOffset(void) { return phase_offset_; };    
+    inline Vector3d getStrideVector(void) { return stride_vector_; };
+    inline double getSwingHeight(void) { return swing_height_; };
+    inline double getStanceDepth(void) { return stance_depth_; };    
+    inline bool hasCompletedFirstStep(void) { return completed_first_step_; };    
+    inline bool isAtCorrectPhase(void) { return at_correct_phase_; };    
     
-    bool inCorrectPhase = false;
-    bool completedFirstStep = false;
+    //Mutators
+    inline void setCurrentTipPosition(Vector3d current_tip_position) { current_tip_position_ = current_tip_position; };
+    inline void setStepState(StepState stepState) { step_state_ = stepState; };
+    inline void setPhase(int phase) { phase_ = phase; };
+    inline void setPhaseOffset(int phase_offset) { phase_offset_ = phase_offset;};
+    inline void setStrideVector(Vector3d stride_vector) { stride_vector_ = stride_vector; };
+    inline void setCompletedFirstStep(bool completed_first_step) { completed_first_step_ = completed_first_step; };
+    inline void setAtCorrectPhase(bool at_correct_phase) { at_correct_phase_ = at_correct_phase; };
     
-    int phase;
-    int phaseOffset;
+    void updatePosition(void);
+    void generateSwingControlNodes(Vector3d stride_vector);
+    void generateStanceControlNodes(Vector3d stride_vector);
+    void iteratePhase(void);
+    double calculateDeltaT(int length);
+  
+  private:
+    WalkController* walker_;
+    Leg3DOF* leg_;
     
-    double swingProgress;
-    double stanceProgress;
-    
-    StepState stepState = STANCE;
-    
-    Vector3d swing1ControlNodes[5];	//Primary swing bezier curve
-    Vector3d swing2ControlNodes[5];	//Secondary swing bezier curve
-    Vector3d stanceControlNodes[5];	//Stance bezier curve
-    
-    double swingDeltaT;
-    double stanceDeltaT;
-    
-    Vector2d strideVector; // length gives stride length
-    Vector3d currentTipPosition;
-    Vector3d currentTipVelocity;
-    Vector3d defaultTipPosition;
-    Vector3d swingOriginTipPosition;
-    Vector3d stanceOriginTipPosition;
+    bool at_correct_phase_ = false;
+    bool completed_first_step_ = false;
 
-    
-    struct WalkController *walker; //So LegStepper can access walkcontroller member variables
-    struct Parameters *params;
-    
-    void updatePosition();
+    int phase_ = 0;
+    int phase_offset_;
 
-    void generateSwingControlNodes(Vector3d strideVector);
-    void generateStanceControlNodes(Vector3d strideVector);
-    
-    void iteratePhase();
-    
-    void setState(StepState state);
-    
-    double calculateDeltaT(StepState state, int length);
-    
-  } legSteppers[3][2];
-  
-  // Determines the basic stance pose which the hexapod will try to maintain, by finding the largest footprint 
-  // radius that each leg can achieve for the specified level of clearance
-  //    stepFrequency- preferred step cycles per second
-  //    bodyClearance, stepClearance- 0 to 1, 1 is vertical legs
-  //    stanceLegYaws- natural yaw pose per leg
-  //    minYawLimits- the minimum yaw (or hip) joint limit around centre for each leg
+    double swing_progress_;
+    double stance_progress_;
 
-  WalkController(Model *model, Parameters p);
-  
-  void init(Model *model, Parameters p);
-  // curvature is 0 to 1 so 1 is rotate on the spot, 0.5 rotates around leg stance pos
-  // bodyOffset is body pose relative to the basic stance pose, 
-  // note that large offsets may prevent achievable leg positions
-  // call this function even when not walking (newLocalVelocity=0), otherwise joint angles will just freeze
-  void updateWalk(Vector2d linearVelocityInput, double angularVelocityInput);
-  void updateManual(LegDesignation primaryLegSelection, Vector3d primaryTipVelocityInput, 
-		    LegDesignation secondaryLegSelection, Vector3d secondaryTipVelocityInput);
-  void setGaitParams(Parameters p);
+    StepState step_state_ = STANCE;
+
+    Vector3d swing_1_nodes_[5];  // Primary swing bezier curve
+    Vector3d swing_2_nodes_[5];  // Secondary swing bezier curve
+    Vector3d stance_nodes_[5];  // Stance bezier curve
+
+    double swing_delta_t_;
+    double stance_delta_t_;
+
+    Vector2d stride_vector_;  // length gives stride length  
+    double swing_height_;
+    double stance_depth_;
+    
+    Vector3d current_tip_position_;
+    Vector3d current_tip_velocity_;
+    Vector3d default_tip_position_;
+    Vector3d swing_origin_tip_position_;
+    Vector3d stance_origin_tip_position_;
 };
