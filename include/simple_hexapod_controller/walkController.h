@@ -10,7 +10,7 @@
 class WalkController
 {  
   public:
-    WalkController(Model *model, Parameters p);
+    WalkController(Model *model, Parameters* params);
     
     inline int getPhaseLength(void) { return phase_length_; };
     inline int getSwingStart(void) { return swing_start_; };
@@ -31,11 +31,8 @@ class WalkController
 		      int secondary_leg_selection_ID, Vector3d secondary_tip_velocity_input, Model *model);
 
   private:
-    Pose pose_;  // DEBUGGING
-    Parameters params_;
-
+    Parameters* params_;
     WalkState walk_state_ = STOPPED;
-
     double time_delta_;
 
     // Walk parameters
@@ -61,6 +58,8 @@ class WalkController
 
     int legs_at_correct_phase_ = 0;
     int legs_completed_first_step_ = 0; 
+    
+    Pose pose_;  // DEBUGGING
 };
 
 /***********************************************************************************************************************

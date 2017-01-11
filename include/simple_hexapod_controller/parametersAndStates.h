@@ -20,6 +20,7 @@ enum SystemState
   READY,
   RUNNING,
   UNKNOWN = -1,
+  WAITING_FOR_USER = -2,
 };
 
 enum GaitDesignation
@@ -120,17 +121,21 @@ enum ParameterSelection
 
 struct Parameters
 {
-  std::string hexapod_type;
-  double time_delta;
-  bool imu_compensation;
-  bool auto_compensation;
-  bool manual_compensation;
-  bool inclination_compensation;
-
-  // Hexapod Parameters
-  int num_legs = 6;
-  int leg_DOF[6];
-  std::string leg_id_names[6];
+  // Control parameters
+  Parameter time_delta;
+  Parameter imu_compensation;
+  Parameter auto_compensation;
+  Parameter manual_compensation;
+  Parameter inclination_compensation;
+  Parameter impedance_control;
+  Parameter use_dynamixel_pro_interface;
+  Parameter imu_rotation_offset;
+  Parameter interface_setup_speed;
+  // Model parameters
+  Parameter hexapod_type;
+  Parameter num_legs;
+  Parameter leg_DOF;
+  Parameter leg_id_names;
   Vector3d coxa_offset[3][2];
   Vector3d femur_offset[3][2];
   Vector3d tibia_offset[3][2];
@@ -142,8 +147,8 @@ struct Parameters
   Vector2d tibia_joint_limits;
   Vector2d femur_joint_limits;
   Vector3d joint_max_angular_speeds;
-  bool use_dynamixel_pro_interface;
-  Vector3d imu_rotation_offset;
+  
+  
 
   // Walk Controller Parameters
   std::string gait_type;
@@ -155,7 +160,7 @@ struct Parameters
   double max_linear_acceleration;
   double max_angular_acceleration;
   double footprint_downscale;
-  double interface_setup_speed;
+  
   std::string velocity_input_mode;
 
   bool force_cruise_velocity;
@@ -166,12 +171,12 @@ struct Parameters
   bool start_up_sequence;
   double time_to_start;
 
-  double rotation_compensation_proportional_gain;
-  double rotation_compensation_integral_gain;
-  double rotation_compensation_derivative_gain;
-  double translation_compensation_proportional_gain;
-  double translation_compensation_integral_gain;
-  double translation_compensation_derivative_gain;
+  double rotation_gain_p;
+  double rotation_gain_i;
+  double rotation_gain_d;
+  double translation_gain_p;
+  double translation_gain_i;
+  double translation_gain_d;
 
   double pitch_amplitude;
   double roll_amplitude;
@@ -199,7 +204,7 @@ struct Parameters
   Vector3d unpacked_joint_positions_CR;
 
   // Impedance Controller Parameters
-  bool impedance_control;
+  
   bool dynamic_stiffness;
   double integrator_step_time;
   double virtual_mass;
@@ -223,6 +228,13 @@ struct Parameters
   bool debug_stepToPosition;
   bool debug_swing_trajectory;
   bool debug_stance_trajectory;
-  bool debug_manual_compensation_rotation;
-  bool debug_manual_compensation_translation;
 };
+
+template<typename T>
+struct Parameter
+{
+  std::string name;
+  T current_value;
+  T default_value;
+};
+  

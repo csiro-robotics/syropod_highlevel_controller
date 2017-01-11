@@ -16,8 +16,7 @@ Model::Model(Parameters params)
       case (3_DOF):
       {
 	Leg3DOF* leg = new Leg3DOF(this, i, params);
-	leg_container_.insert<i, Leg3DOF*>(i, leg);
-	leg->init(0, max(0.0, min_max_femur_angle_[0]), max(0.0, min_max_tibia_angle_[0])); 
+	leg_container_.insert<std::string, Leg3DOF*>(leg->getIDName(), leg);
 	break;
       }
       default: //TBD implement other DOF leg types
@@ -27,43 +26,24 @@ Model::Model(Parameters params)
       }
     }
   }
-  
-  /*
-  for (int l = 0; l < 3; l++)
-  {
-    for (int s = 0; s < 2; s++)
-    {
-      Leg &leg = legs_[l][s];
-      leg.model_ = this;
-      leg.leg_index_ = l;
-      leg.side_index_ = s;
-      leg.coxa_offset_ = params.coxa_offset[l][s];
-      leg.femur_offset_ = params.femur_offset[l][s];
-      leg.tibia_offset_ = params.tibia_offset[l][s];
-      leg.tip_offset_ = params.tip_offset[l][s];
-      leg.mirror_dir_ = s ? 1 : -1;
-      leg.init(0, max(0.0, min_max_femur_angle_[0]), max(0.0, min_max_tibia_angle_[0]));
-      leg.setState(WALKING);
-    }
-  }
-  */
 }
 
 /***********************************************************************************************************************
  * Applies inverse kinematics for target tip positions of legs (not in OFF state) along with deltaZ from impedance cont.
 ***********************************************************************************************************************/
-void Model::updateLocal(Vector3d targetTipPositions[3][2], double deltaZ[3][2])
-{
+void Model::updateLocal()
+{  
   typedef std::map<std::string, Leg3DOF*>::iterator it_type;
   for (it_type it = leg_container_.begin(); it != leg_container_.end(); ++it)
   {
-    Leg3DOF leg = *it->second();
-    Vector3d adjustedPos = targetTipPositions[l][s];
-    if (leg.getLegState() != MANUAL)  // Don't apply delta Z to manually manipulated legs
+    Leg3DOF* leg = it->second();
+    LegPoser* leg_poser = leg->getLegPoser();
+    Vector3d target_tip_position = leg_poser->getCurrentTipPosition();
+    if (leg->getLegState() != MANUAL)  // Don't apply delta Z to manually manipulated legs
     {
-      adjustedPos[2] = targetTipPositions[l][s][2] - deltaZ[l][s];
+      target_tip_position[2] -= leg->getDeltaZ();
     }
-    leg.applyLocalIK(adjustedPos);
+    leg->applyLocalIK(target_tip_position);
   }
 }
 
@@ -72,6 +52,7 @@ void Model::updateLocal(Vector3d targetTipPositions[3][2], double deltaZ[3][2])
 ***********************************************************************************************************************/
 vector<Vector3d> Model::getJointPositions(const Pose &pose)
 {
+  //TBD Refactor
   vector<Vector3d> positions;
   typedef std::map<std::string, Leg3DOF*>::iterator it_type;
   for (it_type it = leg_container_.begin(); it != leg_container_.end(); ++it)
@@ -98,118 +79,88 @@ vector<Vector3d> Model::getJointPositions(const Pose &pose)
 /***********************************************************************************************************************
  * Restrict joint angles to limits
 ***********************************************************************************************************************/
-void Model::clampToLimits(std::map<int, std::string> legNameMap)
+void Model::clampToLimits(void)
 {
-  // clamp angles and alert if a limit has been hit
+  // Clamp desired joint positions and alert if a limit has been hit
   vector<Vector3d> positions;
-  typedef std::map<std::string, Leg3DOF*>::iterator it_type;
-  for (it_type it = leg_container_.begin(); it != leg_container_.end(); ++it)
+  typedef std::map<std::string, Leg3DOF*>::iterator leg_it_type;
+  for (leg_it_type leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
-    Leg3DOF leg = *it->second();
-    double messageTolerance = 0.017444;  // 1 degree over limit before warning message
-    if (leg.getCoxaJointPosition() - leg.default_coxa_joint_position_ < leg.min_coxa_joint_limit_around_default_)
+    Leg3DOF* leg = leg_it->second();    
+    typedef std::map<std::string, Joint*> joint_container_type;
+    joint_container_type::iterator joint_it_type;
+    joint_container_type* joints = leg->getJointContainer();
+    
+    for (joint_it_type joint_it = joints->begin(); joint_it != joints->end(); ++joint_it)
     {
-      double diff = abs(leg.getCoxaJointPosition() - (-coxa_angle_limit_around_stance_[l] + stance_coxa_angles_[l]));
-      if (diff > messageTolerance)
+      Joint* joint = joint_it->second();
+      double desired_position = joint->getDesiredPosition();
+      double min_position = joint->getMinPosition();
+      double max_position = joint->getMaxPosition();
+      if (desired_position < min_position)
       {
-	ROS_WARN("%s leg has tried to exceed body_coxa joint limit: %f by %f. Clamping body_coxa joint to limit.\n",
-		  legNameMap[l * 2 + s].c_str(), -coxa_angle_limit_around_stance_[l] + stance_coxa_angles_[l], diff);
-      }
-      leg.coxa_joint_position_ = -coxa_angle_limit_around_stance_[l] + stance_coxa_angles_[l];
-    }
-    else if (leg.coxa_joint_position_ - stance_coxa_angles_[l] > coxa_angle_limit_around_stance_[l])
-    {
-      double diff = abs(leg.coxa_joint_position_ - (coxa_angle_limit_around_stance_[l] + stance_coxa_angles_[l]));
-      if (diff > messageTolerance)
+	joint->setDesiredPosition(min_position);
+	double diff = abs(desired_position - min_position);
+	ROS_WARN_COND(diff > message_tolerance, 
+		      "%s leg has tried to exceed %s min joint limit: %f by %f. Clamping joint to limit.\n", 
+		      leg->getIDName().c_str(), joint->getName().c_str(), min_position, diff);
+      }      
+      else if (desired_position > max_position)
       {
-	ROS_WARN("%s leg has tried to exceed body_coxa joint limit: %f by %f. Clamping body_coxa joint to limit.\n",
-		  legNameMap[l * 2 + s].c_str(), coxa_angle_limit_around_stance_[l] + stance_coxa_angles_[l], diff);
-      }
-      leg.coxa_joint_position_ = coxa_angle_limit_around_stance_[l] + stance_coxa_angles_[l];
-    }
-
-    if (leg.femur_joint_position_ < min_max_femur_angle_[0])
-    {
-      double diff = abs(leg.femur_joint_position_ - min_max_femur_angle_[0]);
-      if (diff > messageTolerance)
-      {
-	ROS_WARN("%s leg has tried to exceed coxa_femur joint limit: %f by %f. Clamping coxa_femur joint to limit.\n",
-		  legNameMap[l * 2 + s].c_str(), min_max_femur_angle_[0], diff);
-      }
-      leg.femur_joint_position_ = min_max_femur_angle_[0];
-    }
-    else if (leg.femur_joint_position_ > min_max_femur_angle_[1])
-    {
-      double diff = abs(leg.femur_joint_position_ - min_max_femur_angle_[1]);
-      if (diff > messageTolerance)
-      {
-	ROS_WARN("%s leg has tried to exceed coxa_femur joint limit: %f by %f. Clamping coxa_femur joint to limit.\n",
-		  legNameMap[l * 2 + s].c_str(), min_max_femur_angle_[1], diff);
-      }
-      leg.femur_joint_position_ = min_max_femur_angle_[1];
-    }
-    if (leg.tibia_joint_position_ < min_max_tibia_angle_[0])
-    {
-      double diff = abs(leg.tibia_joint_position_ - min_max_tibia_angle_[0]);
-      if (diff > messageTolerance)
-      {
-	ROS_WARN("%s leg has tried to exceed femur_tibia joint limit: %f by %f. Clamping femur_tibia joint to "
-		  "limit.\n",
-		  legNameMap[l * 2 + s].c_str(), min_max_tibia_angle_[0], diff);
-      }
-      leg.tibia_joint_position_ = min_max_tibia_angle_[0];
-    }
-    else if (leg.tibia_joint_position_ > min_max_tibia_angle_[1])
-    {
-      double diff = abs(leg.tibia_joint_position_ - min_max_tibia_angle_[1]);
-      if (diff > messageTolerance)
-      {
-	ROS_WARN("%s leg has tried to exceed femur_tibia joint limit: %f by %f. Clamping femur_tibia joint to "
-		  "limit.\n",
-		  legNameMap[l * 2 + s].c_str(), min_max_tibia_angle_[1], diff);
-      }
-      leg.tibia_joint_position_ = min_max_tibia_angle_[1];
+	joint->setDesiredPosition(max_position);
+	double diff = abs(desired_position - max_position);
+	ROS_WARN_COND(diff > message_tolerance, 
+		      "%s leg has tried to exceed %s max joint limit: %f by %f. Clamping joint to limit.\n", 
+		      leg->getIDName().c_str(), joint->getName().c_str(), max_position, diff);
+      }      
     }
   }
 }
 
+Leg::Leg(Model model, int id_number, Parameters* params) 
+  : model_(model)
+  , id_number_(id_number)
+  , id_name_(params->leg_id_names[id_number])
+  , leg_state_(WALKING)
+{
+  mirror_dir_ = pow(-1.0, (id_number_%2)+1);  
+}
+
+
 /***********************************************************************************************************************
  * Initialises leg by calculating leg component lengths and applying forward kinematics for tip position
 ***********************************************************************************************************************/
-Leg3DOF::Leg3DOF(Model model, int i, Parameters p) 
-  : model_(model)
-  , id_number_(i)
-  , id_name_(p.leg_id_names[i])
-  , coxa_offset_(p.coxa_offset[i])
-  , femur_offset_(p.femur_offset[i])
-  , tibia_offset_(p.tibia_offset[i])
-  , tip_offset_(p.tip_offset[i])
-  , leg_state_(WALKING)
+Leg3DOF::Leg3DOF(Model* model, int id_number, Parameters* params) 
+  : coxa_offset_(params.coxa_offset[i])
+  , femur_offset_(params.femur_offset[i])
+  , tibia_offset_(params.tibia_offset[i])
+  , tip_offset_(params.tip_offset[i])
+  , Leg(model, id_number, params)
 {
-  leg_type_ = static_cast<LegType>(p.leg_DOF[i]);
-    
-  mirror_dir_ = pow(-1.0, (id_number_%2)+1); //Id == even -> left side -> negative mirror direction
+  leg_type_ = static_cast<LegType>(params.leg_DOF[i]);
+  tripod_group_ = (id_number > 1) ? abs(id_number%2-1):id_number; //(0,3,5 -> 0) && (1,2,4 -> 1)
+  num_joints_ = 3;
+  for (int i = 0; i < num_joints_; ++i)
+  {
+    Joint* new_joint = new Joint(this, i, params);
+    Link* new_link = new Link(this, i, params);
+    joint_container_.insert<std::string, Joint*>(new_joint->getIDName(), new_joint);
+    link_container_.insert<std::string, Link*>(new_link->getIDName(), new_link);
+  }  
   
-  tripod_group_ = (i > 1) ? abs(i%2-1):i; //(0,3,5 -> 0) && (1,2,4 -> 1)
   
-  coxa_link_length_(femur_offset_.norm());
-  femur_link_length_(tibia_offset_.norm());
-  tibia_link_length_(tip_offset_.norm());
   
-  min_leg_length_ = sqrt(sqr(tibia_link_length_) + sqr(femur_link_length_) -
-                      2.0 * femur_link_length_ * tibia_link_length_ * cos(max(0.0, pi - model_->min_max_tibia_angle_[1])));
-  max_leg_length_ = sqrt(sqr(tibia_link_length_) + sqr(femur_link_length_) -
-                      2.0 * femur_link_length_ * tibia_link_length_ * cos(pi - max(0.0, model_->min_max_tibia_angle_[0])));
-  femur_angle_offset_ = atan2(tibia_offset_[2], -tibia_offset_[1]);
-  tibia_angle_offset_ = atan2(tip_offset_[2], -tip_offset_[1]);
+  double femur_link_length = link_container_[params->leg_id_names[1]]->getLinkLength();
+  double tibia_link_length = link_container_[params->leg_id_names[2]]->getLinkLength();
+  double min_femur_angle = joint_container_[params->leg_id_names[1]]->getMinPosition();
+  double max_tibia_angle = joint_container_[params->leg_id_names[2]]->getMaxPosition();
+  double min_tibia_angle = joint_container_[params->leg_id_names[2]]->getMinPosition();
+  min_leg_length_ = sqrt(sqr(tibia_link_length) + sqr(femur_link_length) -
+                      2.0 * femur_link_length * tibia_link_length * cos(max(0.0, pi - max_tibia_angle)));
+  max_leg_length_ = sqrt(sqr(tibia_link_length) + sqr(femur_link_length) -
+                      2.0 * femur_link_length * tibia_link_length * cos(pi - max(0.0, min_tibia_angle)));
   
-  default_coxa_joint_position_ = p.stance_coxa_angles[i/2];
-  min_coxa_joint_limit_around_default_ = -p.coxa_joint_limits[i/2]; //In reference to default coxa joint position
-  max_coxa_joint_limit_around_default_ = p.coxa_joint_limits[i/2];
-  min_femur_joint_limit_ = p.femur_joint_limits[0]; //In reference to zero femur joint position
-  max_femur_joint_limit_ = p.femur_joint_limits[1];
-  min_tibia_joint_limit_ = p.tibia_joint_limits[0]; //In reference to zero tibia joint position
-  max_tibia_joint_limit_ = p.tibia_joint_limits[1];
+  init(0.0, mirror_dir_*max(0.0, min_femur_angle), mirror_dir_*max(0.0, min_tibia_angle));
 }
 
 
@@ -224,10 +175,10 @@ void Leg3DOF::init(double initial_coxa_angle, double initial_femur_angle, double
 /***********************************************************************************************************************
  * Applies inverse kinematics to achieve target tip position
 ***********************************************************************************************************************/
-Vector3d Leg3DOF::applyLocalIK(Vector3d tipTarget)
+Vector3d Leg3DOF::applyLocalIK(Vector3d target_tip_position)
 {
   // application of cosine rule
-  Vector3d target = tipTarget;
+  Vector3d target = target_tip_position;
   target[1] *= mirror_dir_;
   target -= coxa_offset_;  // since rootOffset is fixed in root's space
   coxa_joint_position_ = atan2(target[0], -target[1]);
@@ -237,31 +188,30 @@ Vector3d Leg3DOF::applyLocalIK(Vector3d tipTarget)
   target -= femur_offset_;
   ASSERT(abs(target[0]) < 0.01);
   target[0] = 0;  // any offset here cannot be reached
-  double targetLength = target.norm();
-  double targetAngleOffset = atan2(target[2], -target[1]);
+  double target_length = target.norm();
+  double target_angle_offset = atan2(target[2], -target[1]);
 
-  targetLength = clamped(targetLength, min_leg_length_ + 1e-4, max_leg_length_ - 1e-4);  // reachable range
-  double lift = acos((sqr(targetLength) + sqr(femur_link_length_) - sqr(tibia_link_length_)) / (2.0 * targetLength * femur_link_length_));
-  femur_joint_position_ = targetAngleOffset + lift;
-  double kneeBend =
-      acos(-(sqr(femur_link_length_) + sqr(tibia_link_length_) - sqr(targetLength)) / (2.0 * femur_link_length_ * tibia_link_length_));
-  tibia_joint_position_ = tibia_angle_offset_ + kneeBend;
+  target_length = clamped(target_length, min_leg_length_ + 1e-4, max_leg_length_ - 1e-4);  // reachable range
+  double lift = acos((sqr(target_length) + sqr(femur_link_length_) - sqr(tibia_link_length_)) / (2.0 * target_length * femur_link_length_));
+  femur_joint_position_ = target_angle_offset + lift;
+  double knee_bend =
+      acos(-(sqr(femur_link_length_) + sqr(tibia_link_length_) - sqr(target_length)) / (2.0 * femur_link_length_ * tibia_link_length_));
+  tibia_joint_position_ = tibia_angle_offset_ + knee_bend;
   ASSERT(abs(yaw) < 7.0);
   ASSERT(abs(liftAngle) < 7.0);
   ASSERT(abs(kneeAngle) < 7.0);
 
-  Vector3d resultTipPosition = applyFK();
+  Vector3d result_tip_position = applyFK();
 
   // Debugging Error Check: Any error occurs due to an imperfect vector rotation algorithm
-  Vector3d diffVec = resultTipPosition - tipTarget;
-  double errorThreshold = 1e-3;
-  if (diffVec[0] > errorThreshold || diffVec[1] > errorThreshold || diffVec[2] > errorThreshold)
+  Vector3d diff_vec = result_tip_position - target_tip_position;
+  double error_threshold = 1e-3;
+  if (diff_vec[0] > error_threshold || diff_vec[1] > error_threshold || diff_vec[2] > error_threshold)
   {
-    ROS_WARN("FORWARD KINEMATICS ERROR: %f:%f:%f\n", diffVec[0], diffVec[1], diffVec[2]);
+    ROS_WARN("FORWARD KINEMATICS ERROR: %f:%f:%f\n", diff_vec[0], diff_vec[1], diff_vec[2]);
   }
-
-  Vector3d jointPositions = { coxa_joint_position_, femur_joint_position_, tibia_joint_position_ };
-  return jointPositions;
+  
+  return Vector3d(coxa_joint_position_, femur_joint_position_, tibia_joint_position_);
 }
 
 /***********************************************************************************************************************
@@ -286,6 +236,31 @@ Vector3d Leg3DOF::calculateFK(double coxa_joint_angle, double femur_joint_angle,
   tipPosition[1] *= mirror_dir_;
 
   return tipPosition;
+}
+
+Joint::Joint(Leg* leg, int id_number, Parameters* params)
+{
+  
+  
+
+  femur_angle_offset_ = atan2(tibia_offset_[2], -tibia_offset_[1]);
+  tibia_angle_offset_ = atan2(tip_offset_[2], -tip_offset_[1]);
+  
+  default_coxa_joint_position_ = params.stance_coxa_angles[i/2];
+  min_coxa_joint_limit_ = -params.coxa_joint_limits[i/2]; //In reference to default coxa joint position
+  max_coxa_joint_limit_ = params.coxa_joint_limits[i/2];
+  min_femur_joint_limit_ = params.femur_joint_limits[0]; //In reference to zero femur joint position
+  max_femur_joint_limit_ = params.femur_joint_limits[1];
+  min_tibia_joint_limit_ = params.tibia_joint_limits[0]; //In reference to zero tibia joint position
+  max_tibia_joint_limit_ = params.tibia_joint_limits[1];
+  
+}
+
+Link::Link(Leg* leg, int id_number, Parameters* params)
+{  
+  coxa_link_length_(femur_offset_.norm());
+  femur_link_length_(tibia_offset_.norm());
+  tibia_link_length_(tip_offset_.norm());
 }
 
 /***********************************************************************************************************************

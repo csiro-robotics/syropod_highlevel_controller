@@ -5,8 +5,12 @@
 #include <boost/iterator/iterator_concepts.hpp>
 #include <ros/console.h>
 #include <ros/assert.h>
+#include <sstream>
+#include <string.h>
+#include <stdio.h>
 using namespace Eigen;
 using namespace std;
+
 
 #define NUM_LEGS 6
 #define DEBUGDRAW
@@ -200,4 +204,19 @@ T median(vector<T> list)
     nth_element(first, middle2, last);
     return (*middle + *middle2) / 2.0;
   }
+}
+
+template <typename T>
+std::string numberToString ( T number )
+{
+  ostringstream ss;
+  ss << number;
+  return ss.str();
+}
+
+int stringToInt (std::string str)
+{
+  int i;
+  std::istringstream(str) >> i;
+  return i;
 }

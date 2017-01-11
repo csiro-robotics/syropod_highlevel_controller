@@ -5,53 +5,58 @@
 #include "debugOutput.h"
 #include "walkController.h"
 #include "imu.h"
+#include "geometry_msgs/Twist.h"
 
 class PoseController
 {      
   public:
     //Constructor
-    PoseController(Model *model, Parameters params);
+    PoseController(Model *model, Parameters* params);
     
     //Accessors
     inline PoseResetMode getPoseResetMode(void) { return pose_reset_mode_; };
     
     //Mutators
     inline void setPoseResetMode(PoseResetMode mode) { pose_reset_mode_ = mode; };
+    inline void setManualPoseInput(Vector3d translation, Vector3d rotation) 
+    {
+      translation_velocity_input_ = translation;
+      rotation_velocity_input_ = rotation;
+    }
     
-    //Other functions
-    void updateStance(Vector3d targetTipPositions[3][2], bool excludeSwingingLegs = false);
-    
-    bool startUpSequence(Vector3d targetTipPositions[3][2], Pose targetPose, double deltaZ[3][2],
-			bool forceSequentialMode);
-    bool shutDownSequence(Vector3d targetTipPositions[3][2], Pose targetPose, double deltaZ[3][2],
-			  bool forceSequentialMode);
-    double createSequence(Vector3d targetTipPositions[3][2]);
+    // Updates tip positions based on current pose
+    void updateStance(void);
 
     //Coordinated leg movements - tip position
-    double directStartup(Model* model);
-    double stepToNewStance(Model* model);
-    double poseForLegManipulation(Model* model);
+    double directStartup();
+    double stepToNewStance();
+    double poseForLegManipulation();
+    bool shutDownSequence();
+    bool startUpSequence();    
     
     //Coordinated leg movements - joint position
-    bool packLegs(Model* model, double time_to_pack);
-    bool unpackLegs(Model* model, double time_to_unpack);
-    bool moveLegsToJointPositions(map<Leg3DOF*, Vector3d> leg_target_map, 
-				  LegCoordinationMode mode, double time_to_move);
+    bool packLegs(double time_to_pack);
+    bool unpackLegs(double time_to_unpack);
     
     // Compensation functions
     void autoCompensation(void);
-    void manualCompensation(Vector3d translation_velocity_input, Vector3d rotation_velocity_input);
+    void manualCompensation(void);
     void imuCompensation(ImuData imu_data);
     void inclinationCompensation(WalkController* walker, ImuData imu_data);
-    void impedanceControllerCompensation(Model* model);
+    void impedanceControllerCompensation();
     
     void calculateDefaultPose();
     
   private:    
-    Parameters params_;
-    PoseResetMode pose_reset_mode_;
+    Model* model_;
+    Parameters* params_;
     std::map<std::string, Leg*>::iterator leg_it_;
     
+    PoseResetMode pose_reset_mode_;
+    Vector3d translation_velocity_input_;
+    Vector3d rotation_velocity_input_;
+    
+    //Tripod coordination variables
     int legs_completed_task_ = 0;
     int current_group_ = 0;
     
@@ -63,6 +68,12 @@ class PoseController
     Pose default_pose_; // Default pose calculated for different loading patterns
     Vector3d inclination_compensation_offset_;
     
+    //Shutdown/Startup state variables
+    bool set_target_ = true;
+    bool lower_complete_ = false;
+    bool step_complete_ = false;
+    bool raise_complete_ = false;
+    
     //DEBUGGING
     // Imu compensation PID error vectors
     Vector3d rotation_absement_error;
@@ -73,18 +84,6 @@ class PoseController
     Vector3d translationPositionError;
     Vector3d translationVelocityError;
     Vector3d translationAccelerationError;
-
-    // Used in startup and shutdown sequences
-    int sequence_step_ = 0;
-    double start_height_ratio_;
-    Vector3d phase1TipPositions[3][2];
-    Vector3d phase2TipPositions[3][2];
-    Vector3d phase3TipPositions[3][2];
-    Vector3d phase4TipPositions[3][2];
-    Vector3d phase5TipPositions[3][2];
-    Vector3d phase6TipPositions[3][2];
-    Vector3d phase7TipPositions[3][2];
-    Vector3d phase8TipPositions[3][2];   
 };
 
 class LegPoser
@@ -92,8 +91,12 @@ class LegPoser
   public:
     LegPoser(PoseController* poser, Vector3d packed_joint_positions, Vector3d unpacked_joint_positions);
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
+    inline Vector3d getTargetTipPosition(void) { return target_tip_position_; };
     inline Vector3d getPackedJointPositions(void) { return packed_joint_positions_; };
     inline Vector3d getUnpackedJointPositions(void) { return unpacked_joint_positions_; };
+    
+    inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
+    inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
     
     //updatePosition(void); //apply current pose to generate new tip position
     bool moveToJointPosition(Vector3d targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
@@ -112,4 +115,5 @@ class LegPoser
     
     Vector3d origin_tip_position_;
     Vector3d current_tip_position_;
+    Vector3d target_tip_position_;
 };

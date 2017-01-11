@@ -24,91 +24,91 @@
 #include "simple_hexapod_controller/legState.h"
 
 #define MAX_MANUAL_LEGS 2
+#define UNASSIGNED_VALUE 1e10
 
-struct StateController
+class StateController
 {
-  ros::NodeHandle n;
+public:  
+  inline Parameters* getParameters(void) { return &params_; };
+  inline Model* getModel(void) { return model_; };
+  inline SystemState getSystemState(void) { return system_state_; };  
+  
+  inline bool receivingImuData(void) { return imu_data_subscriber_; };
+  inline bool receivingTipForces(void) { return tip_force_subscriber_; };
+  inline bool receivingJointStates(void) { return joint_state_subscriber_1_ || joint_state_subscriber_2_; };
+  inline bool hasAllJointPositions(void) { return received_all_joint_positions_; };
+  inline void resetDebug(void) { debug_.reset; };
+  
+private:
+  ros::NodeHandle n_;
 
-  SystemState systemState = UNKNOWN;
-  SystemState newSystemState = OFF;
+  SystemState system_state_ = WAITING_FOR_USER;
+  SystemState new_system_state_ = OFF;
 
-  GaitDesignation gaitSelection = GAIT_UNDESIGNATED;
-  PosingMode posingMode = NO_POSING;
-  CruiseControlMode cruiseControlMode = CRUISE_CONTROL_OFF;
-  AutoNavigationMode autoNavigationMode = AUTO_NAVIGATION_OFF;
+  GaitDesignation gait_selection_ = GAIT_UNDESIGNATED;
+  PosingMode posing_mode_ = NO_POSING;
+  CruiseControlMode cruise_control_mode_ = CRUISE_CONTROL_OFF;
+  AutoNavigationMode auto_navigation_mode_ = AUTO_NAVIGATION_OFF;
 
-  ParameterSelection parameterSelection = NO_PARAMETER_SELECTION;
+  ParameterSelection parameter_selection_ = NO_PARAMETER_SELECTION;
 
-  LegDesignation primaryLegSelection = LEG_UNDESIGNATED;
-  LegDesignation secondaryLegSelection = LEG_UNDESIGNATED;
-  LegState primaryLegState = WALKING;
-  LegState secondaryLegState = WALKING;
+  LegDesignation primary_leg_selection_ = LEG_UNDESIGNATED;
+  LegDesignation secondary_leg_selection_ = LEG_UNDESIGNATED;
+  LegState primary_leg_state_ = WALKING;
+  LegState secondary_leg_state_ = WALKING;
 
-  Parameters params;
-  Parameters defaultParams;
+  Parameters params_;
+  std::map<std::string, Parameter> params_map_;
+  std::map<std::string, Parameter> gait_params_map_;  
 
-  double runningTime = 0;
+  Model* model_;
+  MotorInterface* interface_;
 
-  bool isInitialised = false;
+  WalkController* walker_;
+  PoseController* poser_;
+  ImpedanceController* impedance_;
 
-  Model *hexapod;
+  DebugOutput debug_;
+  int manual_leg_count_ = 0;
+  
+  ros::Subscriber imu_data_subscriber_;
+  ros::Subscriber tip_force_subscriber_;
+  ros::Subscriber joint_state_subscriber_1_;
+  ros::Subscriber joint_state_subscriber_2_;
 
-  MotorInterface *interface;
+  ros::Publisher pose_publisher_;
+  ros::Publisher imu_data_publisher_;
+  ros::Publisher body_velocity_publisher_;
 
-  WalkController *walker;
-  PoseController *poser;
-  ImpedanceController *impedance;
-
-  DebugOutput debug;
-  int count = 0;
-  int manualLegs = 0;
-
-  std::map<std::string, int> legIndexMap;
-  std::map<int, std::string> legNameMap;
-  std::map<ParameterSelection, std::string> parameterNameMap;
-
-  ros::Publisher legStatePublishers[3][2];
-  ros::Publisher ascLegStatePublishers[3][2];
-
-  ros::Publisher posePublisher;
-  ros::Publisher IMUDataPublisher;
-  ros::Publisher bodyVelocityPublisher;
-
-  ros::Publisher rotationPoseErrorPublisher;
-  ros::Publisher translationPoseErrorPublisher;
-  ros::Publisher zTipErrorPublisher;
+  ros::Publisher rotation_pose_error_publisher_;
+  ros::Publisher translation_pose_error_publisher_;
+  ros::Publisher z_tip_error_publisher_;
 
   // Trigger Flags
-  bool transitionSystemStateFlag = false;
-  bool gaitChangeFlag = false;
-  bool togglePrimaryLegState = false;
-  bool toggleSecondaryLegState = false;
-  bool parameterAdjustFlag = false;
-  bool newParamSet = false;
-  bool unstable = false;
+  bool gait_change_flag_ = false;
+  bool toggle_primary_leg_state_ = false;
+  bool toggle_secondary_leg_state_ = false;
+  bool parameter_adjust_flag_ = false;
+  bool new_parameter_set_ = false;
 
-  ImuData imuData;
+  ImuData imu_data_;
 
   // Joint states callback variables
   // sensor_msgs::JointState jointStates;
-  double jointPositions[18];
+  vector<double> joint_positions_;
   double jointVelocities[18];
   double jointEfforts[18];
   double tipForces[6];
-  bool recievedAllJointPositions = false;
-
-  // Start callback variables
-  bool startFlag = false;
+  bool received_all_joint_positions_ = false;
 
   // Param selection/adjust callback variables
-  double paramScaler = 1.0;
-  std::string paramString;
-  double paramVal;
-  double paramAdjustSensitivity;
+  double param_scaler_ = 1.0;
+  double param_value_;
+  double param_adjust_sensitivity_;
 
   // Body Velocity callback variables
-  Vector2d linearVelocityInput;
-  double angularVelocityInput = 0;
+  Vector2d linear_velocity_input_;
+  double angular_velocity_input_ = 0;
   Vector3d primaryManualTipVelocity;
   Vector3d secondaryManualTipVelocity;
 
@@ -117,8 +117,8 @@ struct StateController
   double angularCruiseVelocity;
 
   // Joypad pose callback variables
-  double pitchJoy = 0;
-  double rollJoy = 0;
+  double pitch_input_ = 0;
+  double roll_input_ = 0;
   double yawJoy = 0;
   double xJoy = 0;
   double yJoy = 0;
@@ -128,12 +128,8 @@ struct StateController
   // Impedance control variables
   double deltaZ[3][2] = { { 0, 0 }, { 0, 0 }, { 0, 0 } };
   double tipForce[3][2] = { { 0, 0 }, { 0, 0 }, { 0, 0 } };
-  bool useTipForce = false;
-  bool useJointEffort = false;
-
-  // Packed/Unpacked joint position arrays
-  Vector3d packedJointPositions[3][2];
-  Vector3d unpackedJointPositions[3][2];
+  bool use_tip_force_ = false;
+  bool use_joint_effort_ = false;
 
   // Misc variables
   bool legStateDebounce = false;
@@ -145,7 +141,13 @@ struct StateController
   ~StateController();
   void init();
   void getParameters();
+  void getControlParameters(void);
+  void getModelParameters(void);
+  void getWalkerParameters(void);
   void getGaitParameters(GaitDesignation gaitSelection);
+  void getPoserParameters(void);
+  void getImpedanceControlParameters(void);
+  void getDebugParameters(void);
   void setJointPositions(bool useDefaults = false);
   void populateLegMaps();
   void populateParameterNameMap();

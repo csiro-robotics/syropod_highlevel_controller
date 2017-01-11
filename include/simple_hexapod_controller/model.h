@@ -4,6 +4,7 @@
 #include "quat.h"
 #include "pose.h"
 #include "walkController.h"
+#include "poseController.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <boost/concept_check.hpp>
 
@@ -33,9 +34,6 @@ class Model
     Pose current_pose_;  // Current pose of body including all compensation posing
     
     Vector3d stance_coxa_angles_;
-    Vector3d coxa_angle_limit_around_stance_;
-    Vector2d min_max_tibia_angle_;
-    Vector2d min_max_femur_angle_;
     Vector3d joint_max_angular_speeds_;
 };
 
@@ -43,19 +41,21 @@ class Model
 class Leg
 {
   public:
-    Leg(int id_number, Parameters params);
+    Leg(Model* model, int id_number, Parameters* params);
     
     //Accessors
     inline int getIDNumber(void) { return id_number_; };
     inline std::string getIDName(void) { return id_name_; };
+    inline LegState getLegState(void) { return leg_state_; };
+    inline std::map<std::string, Joint*> getJointContainer(void) { return joint_container_; };
     inline double getMirrorDir(void) { return mirror_dir_;};    
     inline LegType getType(void) { return leg_type_; };    
-    inline LegState getLegState(void) { return leg_state_; };    
+    inline int getNumJoints(void) { return num_joints_; };
+     
+    
     inline double getMinLegLength(void) { return min_leg_length_;};
     inline double getMaxLegLength(void) { return max_leg_length_;};    
-    inline Vector3d getWalkedTipPosition(void) { return leg_stepper_->getCurrentTipPosition(); };
-    inline Vector3d getPosedTipPosition(void) { return posed_tip_position_; };
-    inline Vector3d getLocalTipPosition(void) { return local_tip_position_; };    
+ 
     inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};    
     inline LegPoser* getLegPoser(void) { return leg_poser_ ;};    
     inline double getDeltaZ(void) { return delta_z_; };
@@ -63,6 +63,8 @@ class Leg
     //Mutators
     inline void setType(LegType leg_type) { leg_type_ = leg_type; };
     inline void setLegState(LegState leg_state) { leg_state_ = leg_state; };  
+    inline void setStatePublisher(ros::Publisher publisher) { leg_state_publisher_ = publisher; };
+    inline void setASCStatePublisher(ros::Publisher publisher) { asc_leg_state_publisher_ = publisher; };
     inline void setLegStepper(WalkController* walker, Vector3d identity_tip_position) { leg_stepper_ = new LegStepper(walker, this, identity_tip_position); };
     inline void setLegPoser(PoseController* poser, Vector3d packed_joint_positions, Vector3d unpacked_joint_positions) { leg_poser_ = new LegPoser(poser, this, packed_joint_positions, unpacked_joint_positions); };
     
@@ -70,11 +72,19 @@ class Leg
     Vector3d applyFK(); // works out local tip position from angles
   
   protected:
+    Model *model_;  // so it can refer to model's joint limits  
+    std::map<std::string, *Joint> joint_container_;
+    std::map<std::string, *Link> link_container_;
+    
     const int id_number_;
     const std::string id_name_;
     
     const LegType leg_type_;
+    const int num_joints_;
+    
     LegState leg_state_;
+    ros::Publisher leg_state_publisher_;
+    ros::Publisher asc_leg_state_publisher_;
     
     std::map<std::string, *Joint> joint_container_;
     std::map<std::string, *Link> link_container_;
@@ -90,20 +100,15 @@ class Leg
     const double max_leg_length_;
     
     const double mirror_dir_;  // 1 or -1 for mirrored
-    
-    struct Model *model_;  // so it can refer to model's joint limits  
 };
 
 //3 Degree of freedom leg class
 class Leg3DOF: public Leg
 {
   public:  
-    Leg3DOF(int id_number, Parameters params);
+    Leg3DOF(Model* model, int id_number, Parameters* params);
     
     inline int getTripodGroup(void) { return tripod_group_; }
-    
-    inline LegState getLegState(void) { return leg_state_; };
-    inline void setLegState(LegState leg_state) { leg_state_ = leg_state; };
     
     inline double getCoxaJointPosition(void) { return coxa_joint_position_; };
     inline double getFemurJointPosition(void) { return femur_joint_position_; };
@@ -119,8 +124,17 @@ class Leg3DOF: public Leg
     inline Vector3d getTipOffset(void) { return tip_offset_;};
     
     inline double getDefaultCoxaJointPosition(void) { return default_coxa_joint_position_;};
-    inline double getMinCoxaJointLimitAroundDefault(void) { return min_coxa_joint_limit_around_default_;};
-    inline double getMaxCoxaJointLimitAroundDefault(void) { return max_coxa_joint_limit_around_default_;};
+    
+    inline double getMinCoxaJointLimit(void) { return min_coxa_joint_limit_;};
+    inline double getMaxCoxaJointLimit(void) { return max_coxa_joint_limit_;};    
+    inline double getMinFemurJointLimit(void) { return min_femur_joint_limit_; };
+    inline double getMaxFemurJointLimit(void) { return max_femur_joint_limit_; };    
+    inline double getMinTibiaJointLimit(void) { return min_tibia_joint_limit_; };
+    inline double getMaxTibiaJointLimit(void) { return max_tibia_joint_limit_; };
+    
+    inline void setCoxaJointPosition(double position) { coxa_joint_position_ = position; };
+    inline void setFemurJointPosition(double position) { femur_joint_position_ = position; };
+    inline void setTibiaJointPosition(double position) { tibia_joint_position_ = position; };
 
     void init(double initial_coxa_angle, double initial_femur_angle, double initial_tibia_angle);
     Vector3d calculateFK(double coxa_angle, double femur_angle, double tibia_angle);   
@@ -151,8 +165,8 @@ class Leg3DOF: public Leg
     
     double default_coxa_joint_position_;
     
-    double min_coxa_joint_limit_around_default_;
-    double max_coxa_joint_limit_around_default_;
+    double min_coxa_joint_limit_;
+    double max_coxa_joint_limit_;
     double min_femur_joint_limit_;
     double max_femur_joint_limit_;
     double min_tibia_joint_limit_;
@@ -162,27 +176,58 @@ class Leg3DOF: public Leg
 class Joint //TBD
 {
   public:
-    Joint(int id_number);
+    Joint(Leg* leg, int id_number, Parameters* params);
+    
+    inline const int getIDNumber(void) { return id_number_; };
+    inline const std::string getIDName(void) { return name_; };
+    
+    inline const double getPositionOffset(void) { return position_offset_; };
+    inline const double getMaxPosition(void) { return max_position_; };
+    inline const double getMinPosition(void) { return min_position_; };
+    inline const double getDefaultPosition(void) { return default_position_; };
+    
+    inline double getCurrentPosition(void) { return current_position_; };
+    inline double getDesiredPosition(void) { return desired_position_; };
+    inline double getPreviousDesiredPosition(void) { return previous_desired_position_; };
+    
+    inline double getCurrentVelocity(void) { return current_velocity_; };
+    inline double getDesiredVelocity(void) { return desired_velocity_; };
+    inline double getPreviousDesiredVelocity(void) { return previous_desired_velocity_; };
+    
+    inline void setDesiredPosition(double position) { desired_position_ = position; };
   
   private:
-    int id_number;
-    std::string id_name;
+    const Leg* leg_;
+    const int id_number_;
+    const std::string name_;
     
-    const double position_offset;
+    const double position_offset_;
+    const double max_position_;
+    const double min_position_;
+    const double default_position_;
     
-    double position;
-    double velocity;
-    
-    double last_position;
-    double last_velocity; 
+    double current_position_;
+    double desired_position_;
+    double previous_desired_position_;
+    double current_velocity_;
+    double desired_velocity_;  
+    double previous_desired_velocity_;
 };
 
 class Link //TBD
 {
   public:
-    Link(int id_number);
+    Link(Leg* leg, int id_number, Parameters* params);
+    
+    inline const int getIDNumber(void) { return id_number_; };
+    inline const std::string getIDName(void) { return name_; };
+    
+    inline const double getLinkLength(void) { return link_length_; };
     
   private:
+    const Leg* leg_;
+    const int id_number_;
+    const std::string name_;
     const double link_length_;
 };
 
