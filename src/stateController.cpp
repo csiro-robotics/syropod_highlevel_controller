@@ -6,67 +6,66 @@
 StateController::StateController(ros::NodeHandle n) : n_(n)
 {
   // Get parameters from parameter server and initialises parameter map
-  getParameters();
+  initParameters();
 
   // Initiate model and imu objects
-  model_ = new Model(params_);
+  model_ = new Model(&params_);
   
   // Hexapod Remote topic subscriptions
-  n.subscribe("hexapod_remote/desired_velocity", 1, &bodyVelocityInputCallback);
-  n.subscribe("hexapod_remote/primary_tip_velocity", 1, &primaryTipVelocityInputCallback);
-  n.subscribe("hexapod_remote/secondary_tip_velocity", 1, &secondaryTipVelocityInputCallback);
-  n.subscribe("hexapod_remote/desired_pose", 1, &bodyPoseInputCallback);
-  n.subscribe("hexapod_remote/system_state", 1, &systemStateCallback);
-  n.subscribe("hexapod_remote/gait_selection", 1, &gaitSelectionCallback);
-  n.subscribe("hexapod_remote/posing_mode", 1, &posingModeCallback);
-  n.subscribe("hexapod_remote/cruise_control_mode", 1, &cruiseControlCallback);
-  n.subscribe("hexapod_remote/auto_navigation_mode", 1, &autoNavigationCallback);
-  n.subscribe("hexapod_remote/parameter_selection", 1, &parameterSelectionCallback);
-  n.subscribe("hexapod_remote/parameter_adjustment", 1, &parameterAdjustCallback);
-  n.subscribe("hexapod_remote/primary_leg_selection", 1, &primaryLegSelectionCallback);
-  n.subscribe("hexapod_remote/primary_leg_state", 1, &primaryLegStateCallback);
-  n.subscribe("hexapod_remote/secondary_leg_selection", 1, &secondaryLegSelectionCallback);
-  n.subscribe("hexapod_remote/secondary_leg_state", 1, &secondaryLegStateCallback);
-  n.subscribe("hexapod_remote/pose_reset_mode", 1, &poseResetCallback);
+  desired_velocity_subscriber_ = 
+    n_.subscribe("hexapod_remote/desired_velocity", 1, &StateController::bodyVelocityInputCallback, this);
+  primary_tip_velocity_subscriber_ = 
+    n_.subscribe("hexapod_remote/primary_tip_velocity", 1, &StateController::primaryTipVelocityInputCallback, this);
+  secondary_tip_velocity_subscriber_ = 
+    n_.subscribe("hexapod_remote/secondary_tip_velocity", 1, &StateController::secondaryTipVelocityInputCallback, this);
+  desired_pose_subscriber_ = 
+    n_.subscribe("hexapod_remote/desired_pose", 1, &StateController::bodyPoseInputCallback, this);
+  system_state_subscriber_ = 
+    n_.subscribe("hexapod_remote/system_state", 1, &StateController::systemStateCallback, this);
+  gait_selection_subscriber_ = 
+    n_.subscribe("hexapod_remote/gait_selection", 1, &StateController::gaitSelectionCallback, this);
+  posing_mode_subscriber_ = 
+    n_.subscribe("hexapod_remote/posing_mode", 1, &StateController::posingModeCallback, this);
+  cruise_control_mode_subscriber_ = 
+    n_.subscribe("hexapod_remote/cruise_control_mode", 1, &StateController::cruiseControlCallback, this);
+  auto_navigation_mode_subscriber_ = 
+    n_.subscribe("hexapod_remote/auto_navigation_mode", 1, &StateController::autoNavigationCallback, this);
+  parameter_selection_subscriber_ = 
+    n_.subscribe("hexapod_remote/parameter_selection", 1, &StateController::parameterSelectionCallback, this);
+  parameter_adjustment_subscriber_ = 
+    n_.subscribe("hexapod_remote/parameter_adjustment", 1, &StateController::parameterAdjustCallback, this);
+  primary_leg_selection_subscriber_ = 
+    n_.subscribe("hexapod_remote/primary_leg_selection", 1, &StateController::primaryLegSelectionCallback, this);
+  primary_leg_state_subscriber_ = 
+    n_.subscribe("hexapod_remote/primary_leg_state", 1, &StateController::primaryLegStateCallback, this);
+  secondary_leg_selection_subscriber_ = 
+    n_.subscribe("hexapod_remote/secondary_leg_selection", 1, &StateController::secondaryLegSelectionCallback, this);
+  secondary_leg_state_subscriber_ = 
+    n_.subscribe("hexapod_remote/secondary_leg_state", 1, &StateController::secondaryLegStateCallback, this);
+  pose_reset_mode_subscriber_ = 
+    n_.subscribe("hexapod_remote/pose_reset_mode", 1, &StateController::poseResetCallback, this);
 
   // Motor and other sensor topic subscriptions
-  imu_data_subscriber_ = n.subscribe("ig/imu/data_ned", 1, &imuCallback);
-  tip_force_subscriber_ = n.subscribe("/motor_encoders", 1, &tipForceCallback);
-  joint_state_subscriber_1_ = n.subscribe("/hexapod_joint_state", 1000, &jointStatesCallback);
-  joint_state_subscriber_2_ = n.subscribe("/hexapod/joint_states", 1000, &jointStatesCallback);
+  imu_data_subscriber_ = n_.subscribe("ig/imu/data_ned", 1, &StateController::imuCallback, this);
+  tip_force_subscriber_ = n_.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, this);
+  joint_state_subscriber_ = n_.subscribe("/hexapod/joint_states", 1000, &StateController::jointStatesCallback, this);
   
   //Set up debugging publishers  
-  pose_publisher_ = n.advertise<geometry_msgs::Twist>("/hexapod/pose", 1000);
-  imu_data_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/hexapod/imu_data", 1000);
-  body_velocity_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/hexapod/body_velocity", 1000);
-  rotation_pose_error_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/hexapod/rotation_pose_error", 1000);
-  translation_pose_error_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/hexapod/translation_pose_error", 1000);
-  z_tip_error_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/hexapod/z_tip_error", 1000);
+  pose_publisher_ = n_.advertise<geometry_msgs::Twist>("/hexapod/pose", 1000);
+  imu_data_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/hexapod/imu_data", 1000);
+  body_velocity_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/hexapod/body_velocity", 1000);
+  rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/hexapod/rotation_pose_error", 1000);
+  translation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/hexapod/translation_pose_error", 1000);
   
   // Set up leg state publishers within leg objects
-  std::map<std::string, Leg*>::iterator leg_it;
-  for (leg_it = model_->getLegContainer().begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    Leg3DOF* leg = leg_it->second();
+    Leg* leg = leg_it->second;
     std::string leg_name = leg->getIDName();
-    leg->setStatePublisher(n.advertise<simple_hexapod_controller::legState>("/hexapod/"+leg_name+"/state", 1000));
-    leg->setASCStatePublisher(n.advertise<std_msgs::Bool>("/leg_state_"+leg_name+"_bool", 1));
+    leg->setStatePublisher(n_.advertise<simple_hexapod_controller::legState>("/hexapod/"+leg_name+"/state", 1000));
+    leg->setASCStatePublisher(n_.advertise<std_msgs::Bool>("/leg_state_"+leg_name+"_bool", 1));
   }
-  
-  // Populate joint position arrays
-  for (int i = 0; i < 18; i++)
-  {
-    joint_positions_[i] = 1e10;  // Excessive to make obvious when real values are read from subscribed topic
-    jointVelocities[i] = 0.0;
-    jointEfforts[i] = 0.0;
-    if (i < 6)
-    {
-      tipForces[i] = 0;
-    }
-  }
-  
-  use_tip_force_ = (params_.impedance_input == "tip_force");
-  use_joint_effort_ = (params_.impedance_input == "joint_effort");
 }
 
 /***********************************************************************************************************************
@@ -86,31 +85,23 @@ StateController::~StateController()
 void StateController::init()
 {
   // Setup motor interface
-  if (params_.use_dynamixel_pro_interface)
-  {
-    interface_ = new DynamixelProMotorInterface();
-  }
-  else
-  {
-    interface_ = new DynamixelMotorInterface();
-  }
-
-  interface_->setupSpeed(params_.interface_setup_speed);
+  interface_ = new DynamixelMotorInterface(model_);
+  interface_->setupSpeed(params_.interface_setup_speed.data); //TBD needed?
 
   // Set initial gait selection number for gait toggling
-  if (params_.gait_type == "tripod_gait")
+  if (params_.gait_type.data == "tripod_gait")
   {
     gait_selection_ = TRIPOD_GAIT;
   }
-  else if (params_.gait_type == "ripple_gait")
+  else if (params_.gait_type.data == "ripple_gait")
   {
     gait_selection_ = RIPPLE_GAIT;
   }
-  else if (params_.gait_type == "wave_gait")
+  else if (params_.gait_type.data == "wave_gait")
   {
     gait_selection_ = WAVE_GAIT;
   }
-  else if (params_.gait_type == "amble_gait")
+  else if (params_.gait_type.data == "amble_gait")
   {
     gait_selection_ = AMBLE_GAIT;
   }
@@ -118,35 +109,9 @@ void StateController::init()
   // Create controller objects
   walker_ = new WalkController(model_, &params_);
   poser_ = new PoseController(model_, &params_);
-  impedance_ = new ImpedanceController(&params_);
-
-  linear_velocity_input_ = Vector2d(0.0, 0.0);
-}
-
-/***********************************************************************************************************************
- * Sets joint values in model according to aquired joint positions (set to default values if required)
-***********************************************************************************************************************/
-void StateController::setJointPositions(bool use_defaults)
-{
-  if (use_defaults)
-  {
-    params_.start_up_sequence = false;
-  }
-  else
-  {
-    // Set initial leg angles
-    int index = 0;
-    typedef std::map<std::string, Leg*>::iterator it_type;
-    for (it_type it = model_->getLegContainer().begin(); it != model_->getLegContainer()->end(); ++it)
-    {
-      Leg3DOF* leg = it->second();
-      double dir = leg->getMirrorDir();
-      leg->init(joint_positions_[index + 0] + dir * params_.physical_coxa_angle_offset[leg],
-		-joint_positions_[index + 1], joint_positions_[index + 2] + dir * params_.physical_tibia_angle_offset);
-      }
-      index += num_joints;
-    }    
-  }  
+  impedance_ = new ImpedanceController(model_, &params_);
+  
+  system_state_ = UNKNOWN;
 }
 
 /***********************************************************************************************************************
@@ -155,16 +120,19 @@ void StateController::setJointPositions(bool use_defaults)
 void StateController::loop()
 {
   // Compensation - updates currentPose for body compensation
-  updatePose();
-
-  // Impedance control - updates deltaZ values
-  if (params_.impedance_control)
+  if (system_state_ != UNKNOWN)
   {
-    impedanceControl();
+    poser_->updateCurrentPose(walker_->getBodyHeight());
+
+    // Impedance control - updates deltaZ values
+    if (params_.impedance_control.data)
+    {
+      impedanceControl();
+    }
   }
 
   // Hexapod state machine
-  if (transitionSystemStateFlag)
+  if (transition_state_flag_)
   {
     transitionSystemState();
   }
@@ -176,6 +144,28 @@ void StateController::loop()
 }
 
 /***********************************************************************************************************************
+ * Impedance Control
+***********************************************************************************************************************/
+void StateController::impedanceControl()
+{
+  // Calculate new stiffness based on walking cycle
+  if (walker_->getWalkState() != STOPPED)
+  {
+    impedance_->updateStiffness(walker_);
+  }
+  // Get current force value on leg and run impedance calculations to get a vertical tip offset (deltaZ)  
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  {
+    Leg* leg = leg_it->second;
+    if (leg->getLegState() == WALKING) //TBD Needed?
+    {
+      impedance_->updateImpedance(leg, params_.use_joint_effort.data);
+    }
+  }
+}
+
+/***********************************************************************************************************************
  * State transition handler
 ***********************************************************************************************************************/
 void StateController::transitionSystemState()
@@ -183,22 +173,22 @@ void StateController::transitionSystemState()
   // UNKNOWN -> OFF/PACKED/READY/RUNNING  if (systemState == UNKNOWN)
   if (system_state_ == UNKNOWN)
   {
-    int checkPacked = 0;
-    typedef std::map<std::string, Leg*>::iterator it_type;
-    for (it_type it = model_->getLegContainer().begin(); it != model_->getLegContainer()->end(); ++it)
+    int check_packed = 0;
+    std::map<int, Leg*>::iterator leg_it;
+    for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
     {
-      Leg3DOF leg = it->second();
-      
-      // Check all current joint positions are 'close' to packed joint positions
-      double jointTolerance = 0.2;
-      int index = leg.getIDNumber();
-      checkPacked += int(abs(leg.coxa_joint_position_ - packedJointPositions[index][0]) < jointTolerance &&
-			 abs(leg.femur_joint_position_ - packedJointPositions[index][1]) < jointTolerance &&
-			 abs(leg.tibia_joint_position_ - packedJointPositions[index][2]) < jointTolerance);
+      Leg* leg = leg_it->second;
+      std::map<int, Joint*>::iterator joint_it;
+      for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+      {
+	Joint* joint = joint_it->second;
+	double joint_tolerance = 0.01;
+	check_packed += int(abs(joint->current_position - joint->packed_position) < joint_tolerance);
+      }
     }
-    if (checkPacked == 6)  // All joints in each leg are approximately in the packed position
+    if (check_packed == model_->getLegCount())  // All joints in each leg are approximately in the packed position
     {
-      if (!params_.start_up_sequence)
+      if (!params_.start_up_sequence.data)
       {
         ROS_FATAL("Hexapod currently in packed state and cannot run direct startup sequence.\nEither manually unpack "
                   "hexapod or set start_up_sequence to true in config file\n");
@@ -210,7 +200,7 @@ void StateController::transitionSystemState()
         ROS_INFO("Hexapod currently packed.\n");
       }
     }
-    else if (!params_.start_up_sequence)
+    else if (!params_.start_up_sequence.data)
     {
       ROS_WARN("start_up_sequence parameter is set to false, ensure hexapod is off the ground before transitioning "
                "system state.\n");
@@ -218,26 +208,20 @@ void StateController::transitionSystemState()
     }
     else
     {
-      // double timeOut = 30;
       system_state_ = PACKED;
       ROS_WARN("Hexapod state is unknown. Future state transitions may be undesireable, recommend ensuring hexapod is "
                "off the ground before proceeding.\n");
-      // ROS_WARN("Suspending controller for %f seconds. Any desired state transitions will begin after this period.\n",
-      // timeOut);
-      // sleep(timeOut);
-      // ROS_WARN("Controller resuming.\n");
     }
   }
   // OFF -> !OFF (Start controller or directly transition to walking stance)
   else if (system_state_ == OFF && new_system_state_ != OFF)
   {
     // OFF -> RUNNING (Direct startup)
-    if (new_system_state_ == RUNNING && !params_.start_up_sequence)
+    if (new_system_state_ == RUNNING && !params_.start_up_sequence.data)
     {
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning directly to RUNNING state . . .\n");
-      //walker->init(hexapod, params); TBD
-      double res = poser_->directStartup(model_);
-      if (res == 1.0)
+      bool complete = (poser_->directStartup() == 1.0);
+      if (complete)
       {
         system_state_ = RUNNING;
         ROS_INFO("Direct startup sequence complete. Ready to walk.\n");
@@ -260,8 +244,8 @@ void StateController::transitionSystemState()
   else if (system_state_ == PACKED && (new_system_state_ == READY || new_system_state_ == RUNNING))
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state . . .\n");
-    int completed_count = 0;    
-    if (poser_->unpackLegs(2.0 / params_.step_frequency))
+    bool complete = poser_->unpackLegs(2.0 / params_.step_frequency.data);
+    if (complete)
     {
       system_state_ = READY;
       ROS_INFO("State transition complete. Hexapod is in READY state.\n");
@@ -271,7 +255,8 @@ void StateController::transitionSystemState()
   else if (system_state_ == READY && (new_system_state_ == PACKED || new_system_state_ == OFF))
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to PACKED state . . .\n");
-    if (poser_->moveToJointPosition(packedJointPositions, 2.0 / params_.step_frequency))
+    bool complete = poser_->packLegs(2.0 / params_.step_frequency.data);
+    if (complete)
     {
       system_state_ = PACKED;
       ROS_INFO("State transition complete. Hexapod is in PACKED state.\n");
@@ -281,7 +266,8 @@ void StateController::transitionSystemState()
   else if (system_state_ == READY && new_system_state_ == RUNNING)
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to RUNNING state . . .\n");
-    if (poser_->startUpSequence(walker_->identityTipPositions, poser_->getCurrentPose(), deltaZ, params_.move_legs_sequentially))
+    bool complete = poser_->startUpSequence();
+    if (complete)
     {
       system_state_ = RUNNING;
       ROS_INFO("State transition complete. Hexapod is in RUNNING state. Ready to walk.\n");
@@ -291,7 +277,7 @@ void StateController::transitionSystemState()
   else if (system_state_ == RUNNING && new_system_state_ != RUNNING)
   {
     // RUNNING -> OFF (Suspend controller)
-    if (new_system_state_ == OFF && !params_.start_up_sequence)
+    if (new_system_state_ == OFF && !params_.start_up_sequence.data)
     {
       system_state_ = OFF;
       ROS_INFO("Controller suspended.\n");
@@ -299,7 +285,8 @@ void StateController::transitionSystemState()
     else
     {
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state . . .\n");
-      if (poser_->shutDownSequence(poser_->getTipPositions(), poser_->getCurrentPose(), deltaZ, params_.move_legs_sequentially))
+      bool complete = poser_->shutDownSequence();
+      if (complete)
       {
         system_state_ = READY;
         ROS_INFO("State transition complete. Hexapod is in READY state.\n");
@@ -316,7 +303,7 @@ void StateController::transitionSystemState()
   // Transition complete
   if (system_state_ == new_system_state_)
   {
-    transitionSystemStateFlag = false;
+    transition_state_flag_ = false;
   }
 }
 
@@ -328,166 +315,58 @@ void StateController::runningState()
   // Cruise control (constant velocity input)
   if (cruise_control_mode_ == CRUISE_CONTROL_ON)
   {
-    if (params_.force_cruise_velocity)
+    if (params_.force_cruise_velocity.data)
     {
-      linear_velocity_input_ = params_.linear_cruise_velocity;
-      angularVelocityInput = params_.angular_cruise_velocity;
+      linear_velocity_input_[0] = params_.linear_cruise_velocity.data["x"];
+      linear_cruise_velocity_[1] = params_.linear_cruise_velocity.data["y"];
+      angular_velocity_input_ = params_.angular_cruise_velocity.data;
     }
     else
     {
-      linear_velocity_input_ = linearCruiseVelocity;
-      angularVelocityInput = angularCruiseVelocity;
+      linear_velocity_input_ = linear_cruise_velocity_;
+      angular_velocity_input_ = angular_cruise_velocity_;
     }
   }
-
   // Switch gait and update walker parameters
   if (gait_change_flag_)
   {
-    gaitChange();
+    changeGait();
   }
   // Dynamically adjust parameters and change stance if required
   else if (parameter_adjust_flag_)
   {
-    parameterAdjust();
+    adjustParameter();
   }
   // Toggle state of leg and transition between states
   else if (toggle_primary_leg_state_ || toggle_secondary_leg_state_)
   {
     legStateToggle();
   }
-
   // Update tip positions unless hexapod is undergoing gait switch, parameter adjustment or leg state transition
   //(which all only occur once the hexapod has stopped walking)
   if (!((gait_change_flag_ || parameter_adjust_flag_ || toggle_primary_leg_state_ || toggle_secondary_leg_state_) &&
-        walker_->walk_state_ == STOPPED))
-  {
-    
+        walker_->getWalkState() == STOPPED))
+  {    
     // Update tip positions for walking legs
-    walker_->updateWalk(linear_velocity_input_, angularVelocityInput, model_);
-
+    walker_->updateWalk(linear_velocity_input_, angular_velocity_input_);
     // Update tip positions for manually controlled legs
-    walker_->updateManual(primary_leg_selection_, primaryManualTipVelocity, secondary_leg_selection_,
-                         secondaryManualTipVelocity, model_);
-
+    walker_->updateManual(primary_leg_selection_, primary_tip_velocity_input_, 
+			  secondary_leg_selection_, secondary_tip_velocity_input_);
     // Pose controller takes current tip positions from walker and applies pose compensation
-    poser_->updateStance(model_);
-
-    // Model uses posed tip positions and adds deltaZ from impedance controller and applies inverse kinematics on each
-    // leg
-    model_->updateLocal();
-  }
-}
-
-/***********************************************************************************************************************
- * Compensation
-***********************************************************************************************************************/
-void StateController::updatePose()
-{
-  Pose new_pose;
-  
-  // Manually set (joystick controlled) body compensation
-  if (params_.manual_compensation)
-  {
-    new_pose = poser_->manualCompensation();
-  }
-  else
-  {
-    new_pose = Pose::identity();
-  }
-
-  // Compensation to align centre of gravity evenly between tip positions on incline
-  if (params_.inclination_compensation)
-  {
-    new_pose.position_ += poser_->inclinationCompensation(walker_, imu_data_);
-  }
-
-  // Compensation to offset average deltaZ from impedance controller and keep body at specificied height
-  if (params_.impedance_control)
-  {
-    new_pose.position_[2] += poser_->impedanceControllerCompensation(model_);
-  }
-
-  // Auto body compensation using IMU feedback
-  if (params_.imu_compensation)
-  {
-    new_pose.rotation_ = poser_->imuCompensation(imu_data_);
-  }
-  // Automatic (non-feedback) body compensation
-  else if (params_.auto_compensation)
-  {
-    Pose auto_pose = poser_->autoCompensation();
-    new_pose.position_ += auto_pose.position_;
-    new_pose.rotation_ *= auto_pose.rotation_;  //(Quaternion)
-  }
-  
-  model_->setCurrentPose(new_pose);
-}
-
-/***********************************************************************************************************************
- * Impedance Control
-***********************************************************************************************************************/
-void StateController::impedanceControl()
-{
-  // Check how many legs are in stance phase
-  int legsInStance = 0;
-  for (int l = 0; l < 3; l++)
-  {
-    for (int s = 0; s < 2; s++)
+    poser_->updateStance();
+    // Model uses posed tip positions, adds deltaZ from impedance controller and applies inverse kinematics on each leg
+    std::map<int, Leg*>::iterator leg_it;
+    for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
     {
-      if (walker_->legSteppers[l][s].step_state_ != SWING)
+      Leg* leg = leg_it->second;
+      LegPoser* leg_poser = leg->getLegPoser();
+      Vector3d target_tip_position = leg_poser->getCurrentTipPosition();
+      if (leg->getLegState() != MANUAL)  // Don't apply delta Z to manually manipulated legs
       {
-        legsInStance++;
+	target_tip_position[2] -= leg->getDeltaZ();
       }
-    }
-  }
-
-  // Calculate new stiffness based on imu orientation or walking cycle
-  bool useIMUForStiffness = false;  // Not fully tested
-  if (params_.dynamic_stiffness && walker_->walk_state_ != STOPPED)
-  {
-    if (params_.imu_compensation && useIMUForStiffness)
-    {
-      impedance_->updateStiffness(poser_->current_pose_, walker_->identityTipPositions);  // TBD CHECK
-    }
-    else
-    {
-      impedance_->updateStiffness(walker_);
-    }
-  }
-
-  // Get current force value on leg and run impedance calculations to get a vertical tip offset (deltaZ)
-  for (int l = 0; l < 3; l++)
-  {
-    for (int s = 0; s < 2; s++)
-    {
-      if (params_.dynamic_stiffness || legsInStance == 6)
-      {
-        double maxForce = 0;
-        double minForce = 0;
-        if (use_tip_force_)
-        {
-          double forceOffset = 1255.0;
-          tipForce[l][s] = tipForces[2 * l + s] - forceOffset;
-          maxForce = 1000.0;
-          minForce = 0.0;
-        }
-        else if (use_joint_effort_)
-        {
-          int index = 6 * l + 3 * s + 1;
-          int dir = (s == 0) ? -1 : 1;
-          tipForce[l][s] = dir * (jointEfforts[index]);
-          maxForce = 1e9;
-          minForce = 0.0;
-        }
-        // Ensure force is within limits
-        tipForce[l][s] = min(tipForce[l][s], maxForce);
-        tipForce[l][s] = max(tipForce[l][s], minForce);
-      }
-
-      if (model_->legs_[l][s].leg_state_ == WALKING)
-      {
-        impedance_->updateImpedance(l, s, tipForce, deltaZ);
-      }
+      leg->setDesiredTipPosition(target_tip_position);
+      leg->applyLocalIK(params_.time_delta.data);
     }
   }
 }
@@ -495,136 +374,31 @@ void StateController::impedanceControl()
 /***********************************************************************************************************************
  * Dynamic Parameter adjustment
 ***********************************************************************************************************************/
-void StateController::parameterAdjust()
+void StateController::adjustParameter()
 {
-  if (walker_->walk_state_ == STOPPED)
+  if (walker_->getWalkState() == STOPPED)
   {
+    AdjustableParameter* p = parameter_being_adjusted_;
     if (!new_parameter_set_)
-    {
-      switch (parameter_selection_)
-      {
-        case (NO_PARAMETER_SELECTION):
-        {
-          break;
-        }
-        case (STEP_FREQUENCY):
-        {
-          if (param_scaler_ == -1)
-          {
-            param_scaler_ = params_.step_frequency / default_params_.step_frequency;
-          }
-          params_.step_frequency = minMax(default_params_.step_frequency * param_scaler_, 0.1, 3.0);
-          walker_->setGaitParams(params_);
-          poser_->parameters = params_;
-          param_value_ = params_.step_frequency;
-          break;
-        }
-        case (STEP_CLEARANCE):
-        {
-          if (param_scaler_ == -1)
-          {
-            param_scaler_ = params_.step_clearance / default_params_.step_clearance;
-          }
-          params_.step_clearance = minMax(default_params_.step_clearance * param_scaler_, 0.01, 0.4);
-          walker_->init(model_, params_);
-          param_value_ = params_.step_clearance;
-          break;
-        }
-        case (BODY_CLEARANCE):
-        {
-          if (default_params_.body_clearance == -1)
-          {
-            params_.body_clearance = walker_->body_clearance_;
-            default_params_.body_clearance = params_.body_clearance;
-          }
-          if (param_scaler_ == -1)
-          {
-            param_scaler_ = params_.body_clearance / default_params_.body_clearance;
-          }
-          params_.body_clearance = minMax(default_params_.body_clearance * param_scaler_, 0.1, 0.99);
-          walker_->init(model_, params_);
-          param_value_ = params_.body_clearance;
-          break;
-        }
-        case (LEG_SPAN_SCALE):
-        {
-          if (param_scaler_ == -1)
-          {
-            param_scaler_ = params_.leg_span_scale / default_params_.leg_span_scale;
-          }
-          params_.leg_span_scale = minMax(default_params_.leg_span_scale * param_scaler_, 0.1, 1.5);
-          walker_->init(model_, params_);
-          param_value_ = params_.leg_span_scale;
-          break;
-        }
-        case (VIRTUAL_MASS):
-        {
-          if (param_scaler_ == -1)
-          {
-            param_scaler_ = params_.virtual_mass / default_params_.virtual_mass;
-          }
-          params_.virtual_mass = minMax(default_params_.virtual_mass * param_scaler_, 0, 500);
-          impedance_->init(params_);
-          param_value_ = params_.virtual_mass;
-          break;
-        }
-        case (VIRTUAL_STIFFNESS):
-        {
-          if (param_scaler_ == -1)
-          {
-            param_scaler_ = params_.virtual_stiffness / default_params_.virtual_stiffness;
-          }
-          params_.virtual_stiffness = minMax(default_params_.virtual_stiffness * param_scaler_, 0, 500);
-          impedance_->init(params_);
-          param_value_ = params_.virtual_stiffness;
-          break;
-        }
-        case (VIRTUAL_DAMPING):
-        {
-          if (param_scaler_ == -1)
-          {
-            param_scaler_ = params_.virtual_damping_ratio / default_params_.virtual_damping_ratio;
-          }
-          params_.virtual_damping_ratio = minMax(default_params_.virtual_damping_ratio * param_scaler_, 0, 2.0);
-          impedance_->init(params_);
-          param_value_ = params_.virtual_damping_ratio;
-          break;
-        }
-        case (FORCE_GAIN):
-        {
-          if (param_scaler_ == -1)
-          {
-            param_scaler_ = params_.force_gain / default_params_.force_gain;
-          }
-          params_.force_gain = minMax(default_params_.force_gain * param_scaler_, 0, 2.0);
-          impedance_->init(params_);
-          param_value_ = params_.force_gain;
-          break;
-        }
-        default:
-        {
-          param_value_ = -1;
-          param_scaler_ = -1;
-          ROS_WARN("Attempting to adjust unknown parameter.\n");
-          break;
-        }
-      }
-      new_parameter_set_ = true;
-      ROS_INFO("Attempting to adjust '%s' parameter to %d%% of default (%f) . . .\n", paramString.c_str(),
-               roundToInt(paramScaler * 100), paramVal);
+    {      
+      p->current_value = clamped(p->current_value + p->adjust_step, p->min_value, p->max_value);
+      walker_->init();
+      impedance_->init();
+      new_parameter_set_ = true;      
+      ROS_INFO("Attempting to adjust '%s' parameter to %f. (Default: %f, Min: %f, Max: %f) . . .\n", 
+	       p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
     }
     else
     {
       // Update tip Positions for new parameter value
-      bool complete = (poser_->stepToNewStance(model_) == 1.0);
+      bool complete = (poser_->stepToNewStance() == 1.0);
       if (complete)
       {
-	std::string param_string = parameter_name_map_[parameter_selection_];
-        ROS_INFO("Parameter '%s' set to %d%% of default (%f).\n", params_string.c_str(), roundToInt(paramScaler * 100),
-                 paramVal);
+        ROS_INFO("Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f) . . .\n",
+		 p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
         parameter_adjust_flag_ = false;
         new_parameter_set_ = false;
-      }
+      }      
     }
   }
   // Force hexapod to stop walking
@@ -632,20 +406,20 @@ void StateController::parameterAdjust()
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to adjust parameters . . .\n");
     linear_velocity_input_ = Vector2d(0.0, 0.0);
-    angularVelocityInput = 0.0;
+    angular_velocity_input_ = 0.0;
   }
 }
 
 /***********************************************************************************************************************
  * Gait change
 ***********************************************************************************************************************/
-void StateController::gaitChange()
+void StateController::changeGait(void)
 {
-  if (walker_->walk_state_ == STOPPED)
+  if (walker_->getWalkState() == STOPPED)
   {
-    getGaitParameters(gait_selection_);
-    walker_->setGaitParams(params_);
-    ROS_INFO("Now using %s mode.\n", params.gait_type.c_str());
+    initGaitParameters(gait_selection_);
+    walker_->setGaitParams(&params_);
+    ROS_INFO("Now using %s mode.\n", params_.gait_type.data.c_str());
     gait_change_flag_ = false;
   }
   // Force hexapod to stop walking
@@ -653,7 +427,7 @@ void StateController::gaitChange()
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to change gait . . .\n");
     linear_velocity_input_ = Vector2d(0.0, 0.0);
-    angularVelocityInput = 0.0;
+    angular_velocity_input_ = 0.0;
   }
 }
 
@@ -662,17 +436,17 @@ void StateController::gaitChange()
 ***********************************************************************************************************************/
 void StateController::legStateToggle()
 {
-  if (walker_->walk_state_ == STOPPED)
+  if (walker_->getWalkState() == STOPPED)
   {
     // Choose primary or secondary leg state to transition
-    Leg3DOF* transitioning_leg;
+    Leg* transitioning_leg;
     if (toggle_primary_leg_state_)
     {
-      transitioning_leg = model_->getLegByID(primary_leg_selection_);
+      transitioning_leg = model_->getLegByIDNumber(primary_leg_selection_);
     }
     else if (toggle_secondary_leg_state_)
     {
-      transitioning_leg = model_->getLegByID(secondary_leg_selection_);
+      transitioning_leg = model_->getLegByIDNumber(secondary_leg_selection_);
     }
     std::string leg_name = transitioning_leg->getIDName();
 
@@ -683,8 +457,8 @@ void StateController::legStateToggle()
     {
       if (manual_leg_count_ < MAX_MANUAL_LEGS)
       {
-        ROS_INFO_COND(leg.leg_state_ == WALKING, "%s leg transitioning to MANUAL state . . .\n",
-                      leg_name.c_str());
+        ROS_INFO_COND(transitioning_leg->getLegState() == WALKING, "%s leg transitioning to MANUAL state . . .\n", 
+		      transitioning_leg->getIDName().c_str());
         transitioning_leg->setLegState(WALKING_TO_MANUAL);
       }
       else
@@ -696,27 +470,24 @@ void StateController::legStateToggle()
     }
     else if (transitioning_leg->getLegState() == MANUAL)
     {
-      ROS_INFO_COND(leg.leg_state_ == MANUAL, "%s leg transitioning to WALKING state . . .\n",
-                    leg_name.c_str());
+      ROS_INFO_COND(transitioning_leg->getLegState() == MANUAL, "%s leg transitioning to WALKING state . . .\n",
+                    transitioning_leg->getIDName().c_str());
       transitioning_leg->setLegState(MANUAL_TO_WALKING);
     }
     else if (transitioning_leg->getLegState() == WALKING_TO_MANUAL)
     {
       poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
-      //walker->tipPositions[l][s] = hexapod->local_tip_positions_[l][s];  // Override walker tip positions for manual
-                                                                      // control
-      //poser->tipPositions[l][s] = hexapod->local_tip_positions_[l][s];
-      double res = poser_->poseForLegManipulation(model_);
+      double res = poser_->poseForLegManipulation();
 
-      if (params_.dynamic_stiffness)
+      if (params_.dynamic_stiffness.data)
       {
-        impedance_->updateStiffness(res, l, s);
+        impedance_->updateStiffness(transitioning_leg, res);
       }
 
       if (res == 1.0)
       {
         transitioning_leg->setLegState(MANUAL);
-        ROS_INFO("%s leg set to state: MANUAL.\n", leg_name.c_str());
+        ROS_INFO("%s leg set to state: MANUAL.\n", transitioning_leg->getIDName().c_str());
         toggle_primary_leg_state_ = false;
         toggle_secondary_leg_state_ = false;
         poser_->setPoseResetMode(NO_RESET);
@@ -726,19 +497,17 @@ void StateController::legStateToggle()
     else if (transitioning_leg->getLegState() == MANUAL_TO_WALKING)
     {
       poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
-      //walker->tipPositions[l][s] = walker->identityTipPositions[l][s];  // Return walker tip positions to default
-      double res = poser_->poseForLegManipulation(model_);
+      double res = poser_->poseForLegManipulation();
 
-      if (params_.dynamic_stiffness)
+      if (params_.dynamic_stiffness.data)
       {
-        impedance_->updateStiffness(1.0 - res, l, s);
+        impedance_->updateStiffness(transitioning_leg, res);
       }
 
       if (res == 1.0)
       {
-        //walker->tipPositions[l][s] = walker->identityTipPositions[l][s];
         transitioning_leg->setLegState(WALKING);
-        ROS_INFO("%s leg set to state: WALKING.\n", leg->getIDName().c_str());
+        ROS_INFO("%s leg set to state: WALKING.\n", transitioning_leg->getIDName().c_str());
         toggle_primary_leg_state_ = false;
         toggle_secondary_leg_state_ = false;
         poser_->setPoseResetMode(NO_RESET);
@@ -751,8 +520,40 @@ void StateController::legStateToggle()
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to transition leg state . . .\n");
     linear_velocity_input_ = Vector2d(0.0, 0.0);
-    angularVelocityInput = 0.0;
+    angular_velocity_input_ = 0.0;
   }
+}
+
+/***********************************************************************************************************************
+ * Confirms/clamps desired joint positions and velocities and calls motor interface to publish desired joint state
+***********************************************************************************************************************/
+void StateController::publishDesiredJointState(void)
+{
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  {
+    Leg* leg = leg_it->second;
+    std::map<int, Joint*>::iterator joint_it;
+    for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+    {
+      Joint* joint = joint_it->second;
+      double time_delta = params_.time_delta.data;
+      
+      //TBD Need first iteration check?
+      joint->desired_velocity = (joint->desired_position - joint->prev_desired_position) / time_delta;
+      /*
+      if (abs(joint->desired_velocity) > joint->max_angular_speed)
+      {
+	ROS_WARN("%s desired position requires velocity %f which exceeds maximum velocity %f) - CLAMPING TO MAXIMUM!\n",
+		    joint->name.c_str(), joint->desired_velocity, sign(joint->desired_velocity)*joint->max_angular_speed);
+	joint->desired_velocity = sign(joint->desired_velocity)*joint->max_angular_speed;
+	joint->desired_position = joint->prev_desired_position + joint->desired_velocity*time_delta;
+      }
+      */
+      joint->prev_desired_position = joint->desired_position;
+    }
+  }
+  interface_->publish(); //Uses joint states stored in joint objects in model
 }
 
 /***********************************************************************************************************************
@@ -761,49 +562,48 @@ void StateController::legStateToggle()
 void StateController::publishLegState()
 {
   simple_hexapod_controller::legState msg;
-  for (int l = 0; l < 3; l++)
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    for (int s = 0; s < 2; s++)
+    Leg* leg = leg_it->second;
+    LegStepper* leg_stepper = leg->getLegStepper();
+    LegPoser* leg_poser = leg->getLegPoser();
+    msg.header.stamp = ros::Time::now();
+    msg.leg_name.data = leg->getIDName().c_str();
+    // Tip positions
+    msg.local_tip_position.x = leg->getLocalTipPosition()[0];
+    msg.local_tip_position.y = leg->getLocalTipPosition()[1];
+    msg.local_tip_position.z = leg->getLocalTipPosition()[2];
+    msg.poser_tip_positions.x = leg_poser->getCurrentTipPosition()[0];
+    msg.poser_tip_positions.y = leg_poser->getCurrentTipPosition()[1];
+    msg.poser_tip_positions.z = leg_poser->getCurrentTipPosition()[2];
+    msg.walker_tip_positions.x = leg_stepper->getCurrentTipPosition()[0];
+    msg.walker_tip_positions.y = leg_stepper->getCurrentTipPosition()[1];
+    msg.walker_tip_positions.z = leg_stepper->getCurrentTipPosition()[2];
+
+    // Step progress
+    msg.swing_progress.data = leg_stepper->getSwingProgress();
+    msg.stance_progress.data = leg_stepper->getStanceProgress();
+
+    // Impedance controller
+    msg.tip_force.data = leg->getTipForce();
+    msg.delta_z.data = leg->getDeltaZ();
+    msg.virtual_stiffness.data = leg->getVirtualStiffness();
+
+    leg->publishState(msg);
+
+    // Publish leg state (ASC)
+    std_msgs::Bool msg;
+    if (leg_stepper->getStepState() == SWING ||
+	(leg->getLegState() != WALKING && leg->getLegState() != MANUAL))
     {
-      msg.header.stamp = ros::Time::now();
-
-      msg.leg_name.data = legNameMap[2 * l + s].c_str();
-
-      // Tip positions
-      msg.local_tip_position.x = model_->local_tip_positions_[l][s][0];
-      msg.local_tip_position.y = model_->local_tip_positions_[l][s][1];
-      msg.local_tip_position.z = model_->local_tip_positions_[l][s][2];
-      msg.poser_tip_positions.x = poser_->tipPositions[l][s][0];
-      msg.poser_tip_positions.y = poser_->tipPositions[l][s][1];
-      msg.poser_tip_positions.z = poser_->tipPositions[l][s][2];
-      msg.walker_tip_positions.x = walker_->tipPositions[l][s][0];
-      msg.walker_tip_positions.y = walker_->tipPositions[l][s][1];
-      msg.walker_tip_positions.z = walker_->tipPositions[l][s][2];
-
-      // Step progress
-      msg.swing_progress.data = walker_->legSteppers[l][s].swing_progress_;
-      msg.stance_progress.data = walker_->legSteppers[l][s].stance_progress_;
-
-      // Impedance controller
-      msg.tip_force.data = tipForce[l][s];
-      msg.delta_z.data = deltaZ[l][s];
-      msg.virtual_stiffness.data = impedance_->virtualStiffness[l][s];
-
-      leg_state_publishers_[l][s].publish(msg);
-
-      // Publish leg state (ASC)
-      std_msgs::Bool msg;
-      if (walker_->legSteppers[l][s].step_state_ == SWING ||
-          (model_->legs_[l][s].leg_state_ != WALKING && model_->legs_[l][s].leg_state_ != MANUAL))
-      {
-        msg.data = true;
-      }
-      else
-      {
-        msg.data = false;
-      }
-      ascLegStatePublishers[l][s].publish(msg);
+      msg.data = true;
     }
+    else
+    {
+      msg.data = false;
+    }
+    leg->publishASCState(msg);
   }
 }
 
@@ -814,9 +614,9 @@ void StateController::publishBodyVelocity()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(walker_->current_linear_velocity_[0]);
-  msg.data.push_back(walker_->current_linear_velocity_[1]);
-  msg.data.push_back(walker_->current_angular_velocity_);
+  msg.data.push_back(walker_->getCurrentLinearVelocity()[0]);
+  msg.data.push_back(walker_->getCurrentLinearVelocity()[1]);
+  msg.data.push_back(walker_->getCurrentAngularVelocity());
   body_velocity_publisher_.publish(msg);
 }
 
@@ -826,12 +626,12 @@ void StateController::publishBodyVelocity()
 void StateController::publishPose()
 {
   geometry_msgs::Twist msg;
-  msg.linear.x = poser_->current_pose_.position_[0];
-  msg.linear.y = poser_->current_pose_.position_[1];
-  msg.linear.z = poser_->current_pose_.position_[2];
-  msg.angular.x = poser_->current_pose_.rotation_.toEulerAngles()[0];
-  msg.angular.y = poser_->current_pose_.rotation_.toEulerAngles()[1];
-  msg.angular.z = poser_->current_pose_.rotation_.toEulerAngles()[2];
+  msg.linear.x = model_->getCurrentPose().position_[0];
+  msg.linear.y = model_->getCurrentPose().position_[1];
+  msg.linear.z = model_->getCurrentPose().position_[2];
+  msg.angular.x = model_->getCurrentPose().rotation_.toEulerAngles()[0];
+  msg.angular.y = model_->getCurrentPose().rotation_.toEulerAngles()[1];
+  msg.angular.z = model_->getCurrentPose().rotation_.toEulerAngles()[2];
   pose_publisher_.publish(msg);
 }
 
@@ -842,15 +642,15 @@ void StateController::publishIMUData()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(imu_data_.orientation.toEulerAngles()[0]);
-  msg.data.push_back(imu_data_.orientation.toEulerAngles()[1]);
-  msg.data.push_back(imu_data_.orientation.toEulerAngles()[2]);
-  msg.data.push_back(imu_data_.linear_acceleration[0]);
-  msg.data.push_back(imu_data_.linear_acceleration[1]);
-  msg.data.push_back(imu_data_.linear_acceleration[2]);
-  msg.data.push_back(imu_data_.angular_velocity[0]);
-  msg.data.push_back(imu_data_.angular_velocity[1]);
-  msg.data.push_back(imu_data_.angular_velocity[2]);
+  msg.data.push_back(poser_->getImuData().orientation.toEulerAngles()[0]);
+  msg.data.push_back(poser_->getImuData().orientation.toEulerAngles()[1]);
+  msg.data.push_back(poser_->getImuData().orientation.toEulerAngles()[2]);
+  msg.data.push_back(poser_->getImuData().linear_acceleration[0]);
+  msg.data.push_back(poser_->getImuData().linear_acceleration[1]);
+  msg.data.push_back(poser_->getImuData().linear_acceleration[2]);
+  msg.data.push_back(poser_->getImuData().angular_velocity[0]);
+  msg.data.push_back(poser_->getImuData().angular_velocity[1]);
+  msg.data.push_back(poser_->getImuData().angular_velocity[2]);
   imu_data_publisher_.publish(msg);
 }
 
@@ -861,15 +661,15 @@ void StateController::publishRotationPoseError()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(poser_->rotation_position_error[0]);
-  msg.data.push_back(poser_->rotation_position_error[1]);
-  msg.data.push_back(poser_->rotation_position_error[2]);
-  msg.data.push_back(poser_->rotationAbsementError[0]);
-  msg.data.push_back(poser_->rotationAbsementError[1]);
-  msg.data.push_back(poser_->rotationAbsementError[2]);
-  msg.data.push_back(poser_->rotation_velocity_error[0]);
-  msg.data.push_back(poser_->rotation_velocity_error[1]);
-  msg.data.push_back(poser_->rotation_velocity_error[2]);
+  msg.data.push_back(poser_->getRotationAbsementError()[0]);
+  msg.data.push_back(poser_->getRotationAbsementError()[1]);
+  msg.data.push_back(poser_->getRotationAbsementError()[2]);
+  msg.data.push_back(poser_->getRotationPositionError()[0]);
+  msg.data.push_back(poser_->getRotationPositionError()[1]);
+  msg.data.push_back(poser_->getRotationPositionError()[2]);
+  msg.data.push_back(poser_->getRotationVelocityError()[0]);
+  msg.data.push_back(poser_->getRotationVelocityError()[1]);
+  msg.data.push_back(poser_->getRotationVelocityError()[2]);
   rotation_pose_error_publisher_.publish(msg);
 }
 
@@ -880,137 +680,28 @@ void StateController::publishTranslationPoseError()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(poser_->translationPositionError[0]);
-  msg.data.push_back(poser_->translationPositionError[1]);
-  msg.data.push_back(poser_->translationPositionError[2]);
-  msg.data.push_back(poser_->translationAbsementError[0]);
-  msg.data.push_back(poser_->translationAbsementError[1]);
-  msg.data.push_back(poser_->translationAbsementError[2]);
-  msg.data.push_back(poser_->translationVelocityError[0]);
-  msg.data.push_back(poser_->translationVelocityError[1]);
-  msg.data.push_back(poser_->translationVelocityError[2]);
+  msg.data.push_back(poser_->getTranslationAbsementError()[0]);
+  msg.data.push_back(poser_->getTranslationAbsementError()[1]);
+  msg.data.push_back(poser_->getTranslationAbsementError()[2]);
+  msg.data.push_back(poser_->getTranslationPositionError()[0]);
+  msg.data.push_back(poser_->getTranslationPositionError()[1]);
+  msg.data.push_back(poser_->getTranslationPositionError()[2]);
+  msg.data.push_back(poser_->getTranslationVelocityError()[0]);
+  msg.data.push_back(poser_->getTranslationVelocityError()[1]);
+  msg.data.push_back(poser_->getTranslationVelocityError()[2]);
   translation_pose_error_publisher_.publish(msg);
-}
-
-/***********************************************************************************************************************
- * Publishes pose angle and position error for debugging
-***********************************************************************************************************************/
-void StateController::publishZTipError()
-{
-  std_msgs::Float32MultiArray msg;
-  msg.data.clear();
-  for (int l = 0; l < 3; l++)
-  {
-    for (int s = 0; s < 2; s++)
-    {
-      msg.data.push_back(impedance_->zTipPositionError[l][s]);
-      msg.data.push_back(impedance_->zTipAbsementError[l][s]);
-      msg.data.push_back(impedance_->zTipVelocityError[l][s]);
-    }
-  }
-  z_tip_error_publisher_.publish(msg);
 }
 
 /***********************************************************************************************************************
  * Draws robot in RVIZ for debugging
 ***********************************************************************************************************************/
-void StateController::RVIZDebugging()
+void StateController::RVIZDebugging(bool static_display)
 {
-  for (int s = 0; s < 2; s++)
-  {
-    for (int l = 0; l < 3; l++)
-    {
-      debug_.tip_positions_.insert(debug_.tip_positions_.begin(),
-                                walker_->pose_.transformVector(model_->legs_[l][s].local_tip_position_));
-      debug_.static_tip_positions_.insert(debug_.static_tip_positions_.begin(), model_->legs_[l][s].local_tip_position_);
-    }
-  }
-
-  debug_.drawRobot(model_->legs_[0][0].femur_offset_, model_->getJointPositions(walker_->pose_), Vector4d(1, 1, 1, 1));
-  debug_.drawPoints(debug_.tip_positions_, Vector4d(1, 0, 0, 1));  // Actual Tip Trajectory Paths
-  // debug.drawPoints(debug.staticTipPositions, Vector4d(1,0,0,1)); //Static Single Tip Trajectory command
-
-  if (debug_.tip_positions_.size() > 2000)
-  {
-    debug_.tip_positions_.erase(debug_.tip_positions_.end() - 6, debug_.tip_positions_.end());
-  }
-  if (debug_.static_tip_positions_.size() >= 6 * (1 / (params_.time_delta.current_value * walker_->step_frequency_)))
-  {
-    debug_.static_tip_positions_.clear();
-  }
-}
-
-/***********************************************************************************************************************
- * Clamps joint velocities and publishes angle and velocity data to motor interface
-***********************************************************************************************************************/
-void StateController::publishJointValues()
-{
-  for (int s = 0; s < 2; s++)
-  {
-    double dir = s == 0 ? -1 : 1;
-    for (int l = 0; l < 3; l++)
-    {
-      double yaw = dir * (model_->legs_[l][s].coxa_angle_ - params_.physical_coxa_angle_offset[l]);
-      double lift = dir * model_->legs_[l][s].femur_angle_;
-      double knee = dir * model_->legs_[l][s].tibia_angle_ - dir * params_.physical_tibia_angle_offset;
-
-      double yawVel = 0;
-      double liftVel = 0;
-      double kneeVel = 0;
-
-      if (firstIteration >= 6)  // First Iteration of ALL legs
-      {
-        yawVel = (yaw - model_->legs_[l][s].old_coxa_angle_) / params_.time_delta.current_value;
-        liftVel = (lift - model_->legs_[l][s].old_femur_angle) / params_.time_delta.current_value;
-        kneeVel = (knee - model_->legs_[l][s].old_tibia_angle_) / params_.time_delta.current_value;
-
-        if (abs(yawVel) > model_->joint_max_angular_speeds_[0])
-        {
-          ROS_WARN("%s_body_coxa joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n",
-                   leg_name.c_str(), yawVel, sign(yawVel) * hexapod->joint_max_angular_speeds_[0]);
-
-          yawVel = sign(yawVel) * model_->joint_max_angular_speeds_[0];
-          yaw = model_->legs_[l][s].old_coxa_angle_ + yawVel * params_.time_delta.current_value;
-        }
-        if (abs(liftVel) > model_->joint_max_angular_speeds_[1])
-        {
-          ROS_WARN("%s_coxa_femour joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n",
-                   leg_name.c_str(), liftVel, sign(liftVel) * hexapod->joint_max_angular_speeds_[1]);
-
-          liftVel = sign(liftVel) * model_->joint_max_angular_speeds_[1];
-          lift = model_->legs_[l][s].old_femur_angle + liftVel * params_.time_delta.current_value;
-        }
-        if (abs(kneeVel) > model_->joint_max_angular_speeds_[2])
-        {
-          ROS_WARN("%s_femour_tibia joint velocity (%f) exceeds maximum (%f)) - CLAMPING TO MAXIMUM!\n",
-                   leg_name.c_str(), kneeVel, sign(kneeVel) * hexapod->joint_max_angular_speeds_[2]);
-
-          kneeVel = sign(kneeVel) * model_->joint_max_angular_speeds_[2];
-          knee = model_->legs_[l][s].old_tibia_angle_ + kneeVel * params_.time_delta.current_value;
-        }
-      }
-      else
-      {
-        firstIteration++;  // First Iteration of ALL legs
-      }
-
-      interface_->setTargetAngle(l, s, 0, yaw);
-      interface_->setTargetAngle(l, s, 1, -lift);
-      interface_->setTargetAngle(l, s, 2, knee);
-
-      if (!params_.use_dynamixel_pro_interface)
-      {
-        interface_->setVelocity(l, s, 0, yawVel);  // Doesn't cooperate with with Large Hexapod Dynamixel Pro drivers
-      }
-      interface_->setVelocity(l, s, 1, -liftVel);
-      interface_->setVelocity(l, s, 2, kneeVel);
-
-      model_->legs_[l][s].old_coxa_angle_ = yaw;
-      model_->legs_[l][s].old_femur_angle = lift;
-      model_->legs_[l][s].old_tibia_angle_ = knee;
-    }
-  }
-  interface_->publish();
+  std::map<int, Leg*>::iterator leg_it;
+  debug_.updatePose(walker_->getCurrentLinearVelocity() * params_.time_delta.data,
+		    walker_->getCurrentAngularVelocity() * params_.time_delta.data);
+  debug_.drawRobot(model_, Vector4d(1, 1, 1, 1), static_display);
+  debug_.drawPoints(model_, Vector4d(1, 0, 0, 1), static_display);
 }
 
 /***********************************************************************************************************************
@@ -1019,7 +710,7 @@ void StateController::publishJointValues()
 void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist &input)
 {
   linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y);
-  angularVelocityInput = input.angular.z;
+  angular_velocity_input_ = input.angular.z;
 }
 
 /***********************************************************************************************************************
@@ -1027,7 +718,7 @@ void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist &inpu
 ***********************************************************************************************************************/
 void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point &input)
 {
-  primaryManualTipVelocity = Vector3d(input.x, input.y, input.z);
+  primary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
 }
 
 /***********************************************************************************************************************
@@ -1035,7 +726,7 @@ void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point
 ***********************************************************************************************************************/
 void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point &input)
 {
-  secondaryManualTipVelocity = Vector3d(input.x, input.y, input.z);
+  secondary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
 }
 
 /***********************************************************************************************************************
@@ -1043,9 +734,12 @@ void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Poi
 ***********************************************************************************************************************/
 void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &input)
 {
-  Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
-  Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
-  poser_->setManualPoseInput(translation_input, rotation_input);
+  if (system_state_ != WAITING_FOR_USER)
+  {
+    Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
+    Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
+    poser_->setManualPoseInput(translation_input, rotation_input);
+  }
 }
 
 /***********************************************************************************************************************
@@ -1053,19 +747,31 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &input)
 ***********************************************************************************************************************/
 void StateController::systemStateCallback(const std_msgs::Int8 &input)
 {
-  new_system_state_ = static_cast<SystemState>(int(input.data));
-  // 
-  if (system_state_ == WAITING_FOR_USER && new_system_state_ != OFF)
+  SystemState input_state = static_cast<SystemState>(int(input.data));
+  //Get initial system state from input and don't update until new state received
+  if (new_system_state_ == WAITING_FOR_USER)
   {
-    system_state_ = UNKNOWN;
+    new_system_state_ = input_state; 
+  }  
+  // Wait for user input (start button = new state received)
+  else if (system_state_ == WAITING_FOR_USER && new_system_state_ != input_state)
+  {
+    new_system_state_ = input_state; //Update 
+    user_input_flag_ = true;
   }  
   // If startUpSequence parameter is false then skip READY and PACKED states
-  else if (!params_.start_up_sequence)
+  else if (system_state_ != WAITING_FOR_USER && !params_.start_up_sequence.data)
   {
+    new_system_state_ = input_state;
     if (new_system_state_ == READY || new_system_state_ == PACKED)
     {
       new_system_state_ = OFF;
     }
+  }
+  
+  if (new_system_state_ != system_state_ && system_state_ != WAITING_FOR_USER)
+  {
+    transition_state_flag_ = true;
   }
 }
 
@@ -1076,10 +782,10 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 {
   if (system_state_ == RUNNING)
   {
-    GaitDesignation newGaitSelection = static_cast<GaitDesignation>(int(input.data));
-    if (newGaitSelection != gait_selection_ && newGaitSelection != GAIT_UNDESIGNATED)
+    GaitDesignation new_gait_selection = static_cast<GaitDesignation>(int(input.data));
+    if (new_gait_selection != gait_selection_ && new_gait_selection != GAIT_UNDESIGNATED)
     {
-      gait_selection_ = newGaitSelection;
+      gait_selection_ = new_gait_selection;
       gait_change_flag_ = true;
     }
   }
@@ -1092,31 +798,27 @@ void StateController::posingModeCallback(const std_msgs::Int8 &input)
 {
   if (system_state_ == RUNNING)
   {
-    PosingMode newPosingMode = static_cast<PosingMode>(int(input.data));
-    if (newPosingMode != posing_mode_)
+    PosingMode new_posing_mode = static_cast<PosingMode>(int(input.data));
+    if (new_posing_mode != posing_mode_)
     {
-      posing_mode_ = newPosingMode;
-      switch (posing_mode_)
+      posing_mode_ = new_posing_mode;
+      switch (posing_mode_) //Used only for user message, control handled by hexapod_remote
       {
         case (NO_POSING):
-          ROS_INFO("Posing mode set to "
-                   "NO_POSING"
-                   ". Body will not respond to manual posing input (except for reset commands).\n");
+          ROS_INFO("Posing mode set to NO_POSING. "
+                   "Body will not respond to manual posing input (except for reset commands).\n");
           break;
         case (X_Y_POSING):
-          ROS_INFO("Posing mode set to "
-                   "X_Y_POSING"
-                   ". Body will only respond to x/y translational manual posing input.\n");
+          ROS_INFO("Posing mode set to X_Y_POSING. "
+                   "Body will only respond to x/y translational manual posing input.\n");
           break;
         case (PITCH_ROLL_POSING):
-          ROS_INFO("Posing mode set to "
-                   "PITCH_ROLL_POSING"
-                   ". Body will only respond to pitch/roll rotational manual posing input.\n");
+          ROS_INFO("Posing mode set to PITCH_ROLL_POSING. "
+                   "Body will only respond to pitch/roll rotational manual posing input.\n");
           break;
         case (Z_YAW_POSING):
-          ROS_INFO("Posing mode set to "
-                   "Z_YAW_POSING"
-                   ". Body will only respond to z translational and yaw rotational manual posing input.\n");
+          ROS_INFO("Posing mode set to Z_YAW_POSING. "
+                   "Body will only respond to z translational and yaw rotational manual posing input.\n");
           break;
       }
     }
@@ -1130,19 +832,19 @@ void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
 {
   if (system_state_ == RUNNING)
   {
-    CruiseControlMode newCruiseControlMode = static_cast<CruiseControlMode>(int(input.data));
-    if (newCruiseControlMode != cruise_control_mode_)
+    CruiseControlMode new_cruise_control_mode = static_cast<CruiseControlMode>(int(input.data));
+    if (new_cruise_control_mode != cruise_control_mode_)
     {
-      cruise_control_mode_ = newCruiseControlMode;
-      if (newCruiseControlMode == CRUISE_CONTROL_ON)
+      cruise_control_mode_ = new_cruise_control_mode;
+      if (new_cruise_control_mode == CRUISE_CONTROL_ON)
       {
         // Save current velocity input as cruise input
-        linearCruiseVelocity = linear_velocity_input_;
-        angularCruiseVelocity = angularVelocityInput;
+        linear_cruise_velocity_ = linear_velocity_input_;
+        angular_cruise_velocity_ = angular_velocity_input_;
         ROS_INFO("Cruise control ON - Input velocity set to constant: Linear(X:Y): %f:%f, Angular(Z): %f\n",
-                 linearCruiseVelocity[0], linearCruiseVelocity[1], angularCruiseVelocity);
+                 linear_cruise_velocity_[0], linear_cruise_velocity_[1], angular_cruise_velocity_);
       }
-      else if (newCruiseControlMode == CRUISE_CONTROL_OFF)
+      else if (new_cruise_control_mode == CRUISE_CONTROL_OFF)
       {
         ROS_INFO("Cruise control OFF - Input velocity set by user.\n");
       }
@@ -1157,13 +859,13 @@ void StateController::autoNavigationCallback(const std_msgs::Int8 &input)
 {
   if (system_state_ == RUNNING)
   {
-    AutoNavigationMode newAutoNavigationMode = static_cast<AutoNavigationMode>(int(input.data));
-    if (newAutoNavigationMode != auto_navigation_mode_)
+    AutoNavigationMode new_auto_navigation_mode = static_cast<AutoNavigationMode>(int(input.data));
+    if (new_auto_navigation_mode != auto_navigation_mode_)
     {
-      auto_navigation_mode_ = newAutoNavigationMode;
-      ROS_INFO_COND(autoNavigationMode == AUTO_NAVIGATION_ON, "Auto Navigation mode ON. User input is being "
+      auto_navigation_mode_ = new_auto_navigation_mode;
+      ROS_INFO_COND(auto_navigation_mode_ == AUTO_NAVIGATION_ON, "Auto Navigation mode ON. User input is being "
                                                               "ignored.\n");
-      ROS_INFO_COND(autoNavigationMode == AUTO_NAVIGATION_OFF, "Auto Navigation mode OFF. Control returned to user "
+      ROS_INFO_COND(auto_navigation_mode_ == AUTO_NAVIGATION_OFF, "Auto Navigation mode OFF. Control returned to user "
                                                                "input.\n");
     }
   }
@@ -1176,12 +878,19 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
 {
   if (system_state_ == RUNNING)
   {
-    ParameterSelection newParameterSelection = static_cast<ParameterSelection>(int(input.data));
-    if (newParameterSelection != parameter_selection_)
+    ParameterSelection new_parameter_selection = static_cast<ParameterSelection>(int(input.data));
+    if (new_parameter_selection != parameter_selection_)
     {
-      param_scaler_ = -1;
-      ROS_INFO("%s parameter currently selected.\n", getParameterName(new_parameter_selection).c_str());
-      parameter_selection_ = newParameterSelection;
+      parameter_selection_ = new_parameter_selection;      
+      if (parameter_selection_ != NO_PARAMETER_SELECTION)
+      {
+	parameter_being_adjusted_ = params_.map[parameter_selection_];
+	ROS_INFO("%s parameter currently selected.\n", parameter_being_adjusted_->name.c_str());  
+      }
+      else
+      {
+	ROS_INFO("No parameter currently selected.\n"); 
+      }
     }
   }
 }
@@ -1190,19 +899,19 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
  * Parameter adjustment callback
 ***********************************************************************************************************************/
 void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
-{
+{  
   if (system_state_ == RUNNING)
   {
-    if (input.data != 0.0 && !parameter_adjust_flag_ && parameter_selection_ != NO_PARAMETER_SELECTION)
+    int adjust_direction = input.data; // -1 || 0 || 1 (Increase, no adjustment, decrease)
+    if (adjust_direction != 0.0 && !parameter_adjust_flag_ && parameter_selection_ != NO_PARAMETER_SELECTION)
     {
-      if (param_scaler_ != -1)
+      if (sign(parameter_being_adjusted_->adjust_step) != sign(adjust_direction)) //If directions differ
       {
-        param_scaler_ += input.data / paramAdjustSensitivity;
-        param_scaler_ = minMax(param_scaler_, 0.1, 3.0);  // Parameter scaler ranges from 10%->300%
+	parameter_being_adjusted_->adjust_step *= -1; //Change direction
       }
       parameter_adjust_flag_ = true;
     }
-  }
+  }  
 }
 
 /***********************************************************************************************************************
@@ -1210,9 +919,12 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::poseResetCallback(const std_msgs::Int8 &input)
 {
-  if (poser_->getPoseResetMode() != IMMEDIATE_ALL_RESET)
+  if (system_state_ != WAITING_FOR_USER)
   {
-    poser_->setPoseResetMode(static_cast<PoseResetMode>(input.data));
+    if (poser_->getPoseResetMode() != IMMEDIATE_ALL_RESET)
+    {
+      poser_->setPoseResetMode(static_cast<PoseResetMode>(input.data));
+    }
   }
 }
 
@@ -1223,18 +935,19 @@ void StateController::primaryLegSelectionCallback(const std_msgs::Int8 &input)
 {
   if (system_state_ == RUNNING)
   {
-    LegDesignation newPrimaryLegSelection = static_cast<LegDesignation>(input.data);
-    if (primary_leg_selection_ != newPrimaryLegSelection)
+    LegDesignation new_primary_leg_selection = static_cast<LegDesignation>(input.data);
+    if (primary_leg_selection_ != new_primary_leg_selection)
     {
-      if (newPrimaryLegSelection == LEG_UNDESIGNATED)
+      primary_leg_selection_ = new_primary_leg_selection;
+      if (new_primary_leg_selection != LEG_UNDESIGNATED)
       {
-        ROS_INFO("No leg currently selected for primary control.\n");
+	primary_leg_ = model_->getLegByIDNumber(primary_leg_selection_);
+	ROS_INFO("%s leg selected for primary control.\n", primary_leg_->getIDName().c_str());        
       }
       else
       {
-        ROS_INFO("%s leg selected for primary control.\n", legNameMap[int(input.data)].c_str());
-      }
-      primary_leg_selection_ = newPrimaryLegSelection;
+	ROS_INFO("No leg currently selected for primary control.\n");        
+      }      
     }
   }
 }
@@ -1246,18 +959,19 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8 &input)
 {
   if (system_state_ == RUNNING)
   {
-    LegDesignation newSecondaryLegSelection = static_cast<LegDesignation>(input.data);
-    if (secondary_leg_selection_ != newSecondaryLegSelection)
+    LegDesignation new_secondary_leg_selection = static_cast<LegDesignation>(input.data);
+    if (secondary_leg_selection_ != new_secondary_leg_selection)
     {
-      if (newSecondaryLegSelection == LEG_UNDESIGNATED)
+      secondary_leg_selection_ = new_secondary_leg_selection;
+      if (new_secondary_leg_selection != LEG_UNDESIGNATED)
       {
-        ROS_INFO("No leg currently selected for secondary control.\n");
+	secondary_leg_ = model_->getLegByIDNumber(secondary_leg_selection_);
+	ROS_INFO("%s leg selected for secondary control.\n", secondary_leg_->getIDName().c_str());        
       }
       else
       {
-        ROS_INFO("%s leg selected for secondary control.\n", legNameMap[int(input.data)].c_str());
-      }
-      secondary_leg_selection_ = newSecondaryLegSelection;
+	ROS_INFO("No leg currently selected for secondary control.\n");        
+      }      
     }
   }
 }
@@ -1327,28 +1041,33 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::imuCallback(const sensor_msgs::Imu &data)
 {
-  Quat imuRotationOffset(params_.imu_rotation_offset);
+  Vector3d euler_offset;
+  euler_offset[0] = params_.imu_rotation_offset.data[0];
+  euler_offset[1] = params_.imu_rotation_offset.data[1];
+  euler_offset[2] = params_.imu_rotation_offset.data[2];  
+  Quat imu_rotation_offset(euler_offset);
+  //TBD use tf
 
-  Quat rawOrientation;
-  rawOrientation.w = data.orientation.w;
-  rawOrientation.x = data.orientation.x;
-  rawOrientation.y = data.orientation.y;
-  rawOrientation.z = data.orientation.z;
+  Quat raw_orientation;
+  raw_orientation.w = data.orientation.w;
+  raw_orientation.x = data.orientation.x;
+  raw_orientation.y = data.orientation.y;
+  raw_orientation.z = data.orientation.z;
 
-  Vector3d rawLinearAcceleration;
-  rawLinearAcceleration[0] = data.linear_acceleration.x;
-  rawLinearAcceleration[1] = data.linear_acceleration.y;
-  rawLinearAcceleration[2] = data.linear_acceleration.z;
+  Vector3d raw_linear_acceleration;
+  raw_linear_acceleration[0] = data.linear_acceleration.x;
+  raw_linear_acceleration[1] = data.linear_acceleration.y;
+  raw_linear_acceleration[2] = data.linear_acceleration.z;
 
-  Vector3d rawAngularVelocity;
-  rawAngularVelocity[0] = data.angular_velocity.x;
-  rawAngularVelocity[1] = data.angular_velocity.y;
-  rawAngularVelocity[2] = data.angular_velocity.z;
+  Vector3d raw_angular_velocity;
+  raw_angular_velocity[0] = data.angular_velocity.x;
+  raw_angular_velocity[1] = data.angular_velocity.y;
+  raw_angular_velocity[2] = data.angular_velocity.z;
 
   // Rotate raw imu data according to physical imu mounting
-  imu_data_.orientation = (imuRotationOffset * rawOrientation) * imuRotationOffset.inverse();
-  imu_data_.linear_acceleration = imuRotationOffset.toRotationMatrix() * rawLinearAcceleration;
-  imu_data_.angular_velocity = imuRotationOffset.toRotationMatrix() * rawAngularVelocity;
+  poser_->setImuData((imu_rotation_offset * raw_orientation) * imu_rotation_offset.inverse(),
+		     imu_rotation_offset.toRotationMatrix() * raw_linear_acceleration,
+		     imu_rotation_offset.toRotationMatrix() * raw_angular_velocity);
 }
 
 /***********************************************************************************************************************
@@ -1359,246 +1078,42 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_s
   bool get_effort_values = (joint_states.effort.size() != 0);
   bool get_velocity_values = (joint_states.velocity.size() != 0);
 
+  // Iterate through message and assign found state values to joint objects
   for (uint i = 0; i < joint_states.name.size(); ++i)
   {
-    const char *joint_name = joint_states.name[i].c_str();
-    typedef std::map<std::string, Leg*>::iterator it_type;
-    for (it_type leg_it = model_->getLegContainer().begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+    std::map<int, Leg*>::iterator leg_it;
+    for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
     {
-      Leg3DOF* leg = leg_it->second();
-      leg->updateJointPositionActual(joint_name, joint_states.position[i]);
-      leg->updateJointVelocityActual(joint_name, joint_states.velocity[i]);
-      leg->updateJointEffortActual(joint_name, joint_states.effort[i]);
+      Leg* leg = leg_it->second;
+      std::string joint_name(joint_states.name[i]);
+      Joint* joint = leg->getJointByIDName(joint_name);
+      joint->current_position = joint_states.position[i] - joint->position_offset;
+      if (get_velocity_values)
+      {
+	joint->current_velocity = joint_states.velocity[i];
+      }
+      if (get_effort_values)
+      {
+	joint->current_effort = joint_states.effort[i];
+      }
     }
   }
-
-    
-    
-    
-    if (!strcmp(joint_name, "front_left_body_coxa") || !strcmp(joint_name, "AL_coxa_joint"))
+  // Check if all joint positions have been received from topic
+  if (!joint_positions_initialised)
+  {
+    joint_positions_initialised = true;
+    std::map<int, Leg*>::iterator leg_it;
+    for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
     {
-      joint_positions_[0] = joint_states.position[i];
-      if (get_velocity_values)
+      Leg* leg = leg_it->second;
+      std::map<int, Joint*>::iterator joint_it;
+      for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
-        jointVelocities[0] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[0] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "front_left_coxa_femour") || !strcmp(joint_name, "AL_femur_joint"))
-    {
-      joint_positions_[1] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[1] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[1] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "front_left_femour_tibia") || !strcmp(joint_name, "AL_tibia_joint"))
-    {
-      joint_positions_[2] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[2] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[2] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "front_right_body_coxa") || !strcmp(joint_name, "AR_coxa_joint"))
-    {
-      joint_positions_[3] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[3] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[3] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "front_right_coxa_femour") || !strcmp(joint_name, "AR_femur_joint"))
-    {
-      joint_positions_[4] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[4] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[4] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "front_right_femour_tibia") || !strcmp(joint_name, "AR_tibia_joint"))
-    {
-      joint_positions_[5] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[5] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[5] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "middle_left_body_coxa") || !strcmp(joint_name, "BL_coxa_joint"))
-    {
-      joint_positions_[6] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[6] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[6] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "middle_left_coxa_femour") || !strcmp(joint_name, "BL_femur_joint"))
-    {
-      joint_positions_[7] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[7] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[7] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "middle_left_femour_tibia") || !strcmp(joint_name, "BL_tibia_joint"))
-    {
-      joint_positions_[8] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[8] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[8] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "middle_right_body_coxa") || !strcmp(joint_name, "BR_coxa_joint"))
-    {
-      joint_positions_[9] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[9] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[9] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "middle_right_coxa_femour") || !strcmp(joint_name, "BR_femur_joint"))
-    {
-      joint_positions_[10] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[10] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[10] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "middle_right_femour_tibia") || !strcmp(joint_name, "BR_tibia_joint"))
-    {
-      joint_positions_[11] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[11] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[11] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "rear_left_body_coxa") || !strcmp(joint_name, "CL_coxa_joint"))
-    {
-      joint_positions_[12] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[12] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[12] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "rear_left_coxa_femour") || !strcmp(joint_name, "CL_femur_joint"))
-    {
-      joint_positions_[13] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[13] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[13] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "rear_left_femour_tibia") || !strcmp(joint_name, "CL_tibia_joint"))
-    {
-      joint_positions_[14] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[14] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[14] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "rear_right_body_coxa") || !strcmp(joint_name, "CR_coxa_joint"))
-    {
-      joint_positions_[15] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[15] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[15] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "rear_right_coxa_femour") || !strcmp(joint_name, "CR_femur_joint"))
-    {
-      joint_positions_[16] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[16] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[16] = joint_states.effort[i];
-      }
-    }
-    else if (!strcmp(joint_name, "rear_right_femour_tibia") || !strcmp(joint_name, "CR_tibia_joint"))
-    {
-      joint_positions_[17] = joint_states.position[i];
-      if (get_velocity_values)
-      {
-        jointVelocities[17] = joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        jointEfforts[17] = joint_states.effort[i];
-      }
-    }
-
-    // Check if all joint positions have been received from topic
-    received_all_joint_positions_ = true;
-    for (int i = 0; i < 18; i++)
-    {
-      if (joint_positions_[i] > 1e9)
-      {
-        received_all_joint_positions_ = false;
+	Joint* joint = joint_it->second;
+	if (joint->current_position == UNASSIGNED_VALUE)
+	{
+	  joint_positions_initialised = false;
+	}
       }
     }
   }
@@ -1607,199 +1122,155 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_s
 /***********************************************************************************************************************
  * Gets tip forces
 ***********************************************************************************************************************/
-void StateController::tipForceCallback(const sensor_msgs::JointState &jointStates)
+void StateController::tipForceCallback(const sensor_msgs::JointState &raw_tip_forces) //TBD redesign
 {
-  tipForces[0] = jointStates.effort[0];
-  tipForces[1] = jointStates.effort[2];
-  tipForces[2] = jointStates.effort[4];
-  tipForces[3] = jointStates.effort[6];
-  tipForces[4] = jointStates.effort[8];
-  tipForces[5] = jointStates.effort[10];
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  {
+    Leg* leg = leg_it->second;
+    double force_offset = 1255.0;
+    double max_force = 1000.0;
+    double min_force = 0.0;
+    double tip_force = clamped(raw_tip_forces.effort[leg->getIDNumber()*2] - force_offset, min_force, max_force);
+    leg->setTipForce(tip_force);
+  }
+}
+
+/***********************************************************************************************************************
+ * Initialises model by initialising all legs
+***********************************************************************************************************************/
+void StateController::initModel(bool use_default_joint_positions)
+{
+  model_->initLegs(use_default_joint_positions);
 }
 
 /***********************************************************************************************************************
  * Gets hexapod parameters from rosparam server
 ***********************************************************************************************************************/
-void StateController::getParameters()
+void StateController::initParameters(void)
 {
-  typedef std::map<std::string, Parameter> p;
-  params_map_.clear();
-  //Control parameters
-  params_map_.insert(p::value_type("time_delta", &params_.time_delta));
-  params_map_.insert(p::value_type("imu_compensation", &params_.imu_compensation));
-  params_map_.insert(p::value_type("auto_compensation", &params_.auto_compensation));
-  params_map_.insert(p::value_type("manual_compensation", &params_.manual_compensation));
-  params_map_.insert(p::value_type("inclination_compensation", &params_.inclination_compensation));
-  params_map_.insert(p::value_type("impedance_control", &params_.impedance_control));
-  params_map_.insert(p::value_type("use_dynamixel_pro_interface", &params_.use_dynamixel_pro_interface));
-  params_map_.insert(p::value_type("imu_rotation_offset", &params_.imu_rotation_offset)); //TBD Remove and use tf instead
-  params_map_.insert(p::value_type("interface_setup_speed", &params_.interface_setup_speed));
-  // Model parameters - provision for max 8 legs with 5 joints each (40DOF)
-  params_map_.insert(p::value_type("hexapod_type", &params_.hexapod_type));
-  params_map_.insert(p::value_type("num_legs", &params_.num_legs));
-  params_map_.insert(p::value_type("leg_DOF", &params_.leg_DOF));
-  params_map_.insert(p::value_type("leg_id_names", &params_.leg_id_names));  
-  params_map_.insert(p::value_type("AL_0_joint_parameters", &params_.AL_0_joint_parameters));
-  params_map_.insert(p::value_type("AL_1_joint_parameters", &params_.AL_1_joint_parameters));
-  params_map_.insert(p::value_type("AL_2_joint_parameters", &params_.AL_2_joint_parameters));
-  params_map_.insert(p::value_type("AL_3_joint_parameters", &params_.AL_3_joint_parameters));
-  params_map_.insert(p::value_type("AL_4_joint_parameters", &params_.AL_4_joint_parameters));
-  params_map_.insert(p::value_type("AR_0_joint_parameters", &params_.AR_0_joint_parameters));
-  params_map_.insert(p::value_type("AR_1_joint_parameters", &params_.AR_1_joint_parameters));
-  params_map_.insert(p::value_type("AR_2_joint_parameters", &params_.AR_2_joint_parameters));
-  params_map_.insert(p::value_type("AR_3_joint_parameters", &params_.AR_3_joint_parameters));
-  params_map_.insert(p::value_type("AR_4_joint_parameters", &params_.AR_4_joint_parameters));
-  params_map_.insert(p::value_type("BL_0_joint_parameters", &params_.BL_0_joint_parameters));
-  params_map_.insert(p::value_type("BL_1_joint_parameters", &params_.BL_1_joint_parameters));
-  params_map_.insert(p::value_type("BL_2_joint_parameters", &params_.BL_2_joint_parameters));
-  params_map_.insert(p::value_type("BL_3_joint_parameters", &params_.BL_3_joint_parameters));
-  params_map_.insert(p::value_type("BL_4_joint_parameters", &params_.BL_4_joint_parameters));
-  params_map_.insert(p::value_type("BR_0_joint_parameters", &params_.BR_0_joint_parameters));
-  params_map_.insert(p::value_type("BR_1_joint_parameters", &params_.BR_1_joint_parameters));
-  params_map_.insert(p::value_type("BR_2_joint_parameters", &params_.BR_2_joint_parameters));
-  params_map_.insert(p::value_type("BR_3_joint_parameters", &params_.BR_3_joint_parameters));
-  params_map_.insert(p::value_type("BR_4_joint_parameters", &params_.BR_4_joint_parameters));
-  params_map_.insert(p::value_type("CL_0_joint_parameters", &params_.CL_0_joint_parameters));
-  params_map_.insert(p::value_type("CL_1_joint_parameters", &params_.CL_1_joint_parameters));
-  params_map_.insert(p::value_type("CL_2_joint_parameters", &params_.CL_2_joint_parameters));
-  params_map_.insert(p::value_type("CL_3_joint_parameters", &params_.CL_3_joint_parameters));
-  params_map_.insert(p::value_type("CL_4_joint_parameters", &params_.CL_4_joint_parameters));
-  params_map_.insert(p::value_type("CR_0_joint_parameters", &params_.CR_0_joint_parameters));
-  params_map_.insert(p::value_type("CR_1_joint_parameters", &params_.CR_1_joint_parameters));
-  params_map_.insert(p::value_type("CR_2_joint_parameters", &params_.CR_2_joint_parameters));
-  params_map_.insert(p::value_type("CR_3_joint_parameters", &params_.CR_3_joint_parameters));
-  params_map_.insert(p::value_type("CR_4_joint_parameters", &params_.CR_4_joint_parameters));
-  params_map_.insert(p::value_type("DL_0_joint_parameters", &params_.DL_0_joint_parameters));
-  params_map_.insert(p::value_type("DL_1_joint_parameters", &params_.DL_1_joint_parameters));
-  params_map_.insert(p::value_type("DL_2_joint_parameters", &params_.DL_2_joint_parameters));
-  params_map_.insert(p::value_type("DL_3_joint_parameters", &params_.DL_3_joint_parameters));
-  params_map_.insert(p::value_type("DL_4_joint_parameters", &params_.DL_4_joint_parameters));
-  params_map_.insert(p::value_type("DR_0_joint_parameters", &params_.DR_0_joint_parameters));
-  params_map_.insert(p::value_type("DR_1_joint_parameters", &params_.DR_1_joint_parameters));
-  params_map_.insert(p::value_type("DR_2_joint_parameters", &params_.DR_2_joint_parameters));
-  params_map_.insert(p::value_type("DR_3_joint_parameters", &params_.DR_3_joint_parameters));
-  params_map_.insert(p::value_type("DR_4_joint_parameters", &params_.DR_4_joint_parameters));
-  // Walker parameters
-  params_map_.insert(p::value_type("gait_type", &params_.gait_type));
-  params_map_.insert(p::value_type("step_frequency", &params_.step_frequency));
-  params_map_.insert(p::value_type("step_clearance", &params_.step_clearance));
-  params_map_.insert(p::value_type("step_depth", &params_.step_depth));
-  params_map_.insert(p::value_type("body_clearance", &params_.body_clearance));
-  params_map_.insert(p::value_type("leg_span_scale", &params_.leg_span_scale));
-  params_map_.insert(p::value_type("max_linear_acceleration", &params_.max_linear_acceleration));
-  params_map_.insert(p::value_type("max_angular_acceleration", &params_.max_angular_acceleration));
-  params_map_.insert(p::value_type("footprint_downscale", &params_.footprint_downscale));
-  params_map_.insert(p::value_type("velocity_input_mode", &params_.velocity_input_mode));
-  params_map_.insert(p::value_type("force_cruise_velocity", &params_.force_cruise_velocity));
-  params_map_.insert(p::value_type("linear_cruise_velocity", &params_.linear_cruise_velocity));
-  params_map_.insert(p::value_type("angular_cruise_velocity", &params_.angular_cruise_velocity));
-  // Poser parameters
-  params_map_.insert(p::value_type("start_up_sequence", &params_.start_up_sequence));
-  params_map_.insert(p::value_type("time_to_start", &params_.time_to_start));  
-  params_map_.insert(p::value_type("rotation_gain_p", &params_.rotation_gain_p));
-  params_map_.insert(p::value_type("rotation_gain_i", &params_.rotation_gain_i));
-  params_map_.insert(p::value_type("rotation_gain_d", &params_.rotation_gain_d));
-  params_map_.insert(p::value_type("translation_gain_p", &params_.translation_gain_p));  
-  params_map_.insert(p::value_type("translation_gain_i", &params_.translation_gain_i));
-  params_map_.insert(p::value_type("translation_gain_d", &params_.translation_gain_d));  
-  params_map_.insert(p::value_type("pitch_amplitude", &params_.pitch_amplitude));
-  params_map_.insert(p::value_type("roll_amplitude", &params_.roll_amplitude));
-  params_map_.insert(p::value_type("z_translation_amplitude", &params_.z_translation_amplitude));  
-  params_map_.insert(p::value_type("max_translation", &params_.max_translation));
-  params_map_.insert(p::value_type("max_translation_velocity", &params_.max_translation_velocity));
-  params_map_.insert(p::value_type("max_rotation", &params_.max_rotation));
-  params_map_.insert(p::value_type("max_rotation_velocity", &params_.max_rotation_velocity));  
-  params_map_.insert(p::value_type("leg_manipulation_mode", &params_.leg_manipulation_mode)); 
+  // Control parameters
+  params_.time_delta.init(n_, "time_delta");
+  params_.imu_compensation.init(n_, "imu_compensation");
+  params_.auto_compensation.init(n_, "auto_compensation");
+  params_.manual_compensation.init(n_, "manual_compensation");
+  params_.inclination_compensation.init(n_, "inclination_compensation");
+  params_.impedance_control.init(n_, "impedance_control");  
+  params_.imu_rotation_offset.init(n_, "imu_rotation_offset");
+  params_.interface_setup_speed.init(n_, "interface_setup_speed");
+  // Model parameters
+  params_.hexapod_type.init(n_, "hexapod_type");
+  params_.leg_id.init(n_, "leg_id");
+  params_.joint_id.init(n_, "joint_id");
+  params_.link_id.init(n_, "link_id");
+  params_.leg_DOF.init(n_, "leg_DOF"); 
+  params_.leg_stance_yaws.init(n_, "leg_stance_yaws");
+  // Walk controller parameters
+  params_.gait_type.init(n_, "gait_type");
+  params_.step_frequency.init(n_, "step_frequency");
+  params_.step_clearance.init(n_, "step_clearance");
+  params_.step_depth.init(n_, "step_depth");
+  params_.body_clearance.init(n_, "body_clearance");
+  params_.leg_span_scale.init(n_, "leg_span_scale");
+  params_.max_linear_acceleration.init(n_, "max_linear_acceleration");
+  params_.max_angular_acceleration.init(n_, "max_angular_acceleration");
+  params_.footprint_downscale.init(n_, "footprint_downscale");
+  params_.velocity_input_mode.init(n_, "velocity_input_mode");
+  params_.force_cruise_velocity.init(n_, "force_cruise_velocity");
+  params_.linear_cruise_velocity.init(n_, "linear_cruise_velocity");
+  params_.angular_cruise_velocity.init(n_, "angular_cruise_velocity");
+  // Pose controller parameters
+  params_.start_up_sequence.init(n_, "start_up_sequence");
+  params_.time_to_start.init(n_, "time_to_start");
+  params_.rotation_pid_gains.init(n_, "rotation_pid_gains");
+  params_.translation_pid_gains.init(n_, "translation_pid_gains");  
+  params_.auto_compensation_parameters.init(n_, "auto_compensation_parameters");
+  params_.max_translation.init(n_, "max_translation");
+  params_.max_translation_velocity.init(n_, "max_translation_velocity");
+  params_.max_rotation.init(n_, "max_rotation");
+  params_.max_rotation_velocity.init(n_, "max_rotation_velocity");
+  params_.leg_manipulation_mode.init(n_, "leg_manipulation_mode");
   // Impedance controller parameters
-  params_map_.insert(p::value_type("impedance_control", &params_.impedance_control));
-  params_map_.insert(p::value_type("dynamic_stiffness", &params_.dynamic_stiffness));
-  params_map_.insert(p::value_type("integrator_step_time", &params_.integrator_step_time));
-  params_map_.insert(p::value_type("virtual_mass", &params_.virtual_mass));
-  params_map_.insert(p::value_type("virtual_stiffness", &params_.virtual_stiffness));
-  params_map_.insert(p::value_type("load_stiffness_scaler", &params_.load_stiffness_scaler));
-  params_map_.insert(p::value_type("swing_stiffness_scaler", &params_.swing_stiffness_scaler));
-  params_map_.insert(p::value_type("virtual_damping_ratio", &params_.virtual_damping_ratio));
-  params_map_.insert(p::value_type("force_gain", &params_.force_gain));
-  params_map_.insert(p::value_type("impedance_input", &params_.impedance_input));
-  // Debug parameters
-  params_map_.insert(p::value_type("debug_rviz", &params_.debug_rviz));
-  params_map_.insert(p::value_type("console_verbosity", &params_.console_verbosity));
-  params_map_.insert(p::value_type("debug_moveToJointPosition", &params_.debug_moveToJointPosition));
-  params_map_.insert(p::value_type("debug_stepToPosition", &params_.debug_stepToPosition));
-  params_map_.insert(p::value_type("debug_swing_trajectory", &params_.debug_swing_trajectory));
-  params_map_.insert(p::value_type("debug_stance_trajectory", &params_.debug_stance_trajectory));
-  // Gait parameters
-  gait_params_map_.insert(p::value_type("stance_phase", &params_.stance_phase));
-  gait_params_map_.insert(p::value_type("swing_phase", &params_.swing_phase));
-  gait_params_map_.insert(p::value_type("phase_offset", &params_.phase_offset));
-  gait_params_map_.insert(p::value_type("offset_multiplier", &params_.offset_multiplier)); 
+  params_.dynamic_stiffness.init(n_, "dynamic_stiffness");
+  params_.use_joint_effort.init(n_, "use_joint_effort");
+  params_.integrator_step_time.init(n_, "integrator_step_time");
+  params_.virtual_mass.init(n_, "virtual_mass");
+  params_.virtual_stiffness.init(n_, "virtual_stiffness");
+  params_.load_stiffness_scaler.init(n_, "load_stiffness_scaler");
+  params_.swing_stiffness_scaler.init(n_, "swing_stiffness_scaler");
+  params_.virtual_damping_ratio.init(n_, "virtual_damping_ratio");
+  params_.force_gain.init(n_, "force_gain");
+  params_.debug_rviz.init(n_, "debug_rviz");
+  params_.console_verbosity.init(n_, "console_verbosity");
+  params_.debug_moveToJointPosition.init(n_, "debug_move_to_joint_position");
+  params_.debug_stepToPosition.init(n_, "debug_step_to_position");
+  params_.debug_swing_trajectory.init(n_, "debug_swing_trajectory");
+  params_.debug_stance_trajectory.init(n_, "debug_stance_trajectory");
   
-  std::string baseParamString = "/hexapod/parameters/";
-  typedef std::map<std::string, Parameter>::iterator it_type;
-  for(it_type param_it = params_map_.begin(); param_it != params_map_.end(); ++param_it)
+  // Init all joint and link parameters per leg
+  if (params_.leg_id.initialised && params_.joint_id.initialised && params_.link_id.initialised)
   {
-    Parameter* parameter = param_it->second();
-    parameter->name = param_it->first();
-    bool parameter_found  = n_.getParam(baseParamString + parameter->name, parameter->default_value);
-    bool ignore_error = false;
-    std::string param_type(parameter->name, 5);
-    if (!parameter_found && (param_type == 'joint_parameters' || param_type == 'link_parameters'))
-    {      
-      std::string leg_id(parameter->name, 0, 2);
-      std::string joint_id(parameter->name, 3, 1);
-      map<std::string, int> legs = params_.leg_info.current_value;
-      ignore_error = (legs.find(leg_id) == legs.end()) || stringToInt(joint_id) > legs[leg_id];
-    }
-      
-    parameter->current_value = parameter->default_value;
-    ROS_ERROR_COND(!parameter_found && !ignore_error, 
-		   "Error reading parameter/s %s from rosparam. Check config file is loaded and type is correct\n",
-		   parameter->name());
-  } 
+    std::vector<std::string>::iterator leg_it;
+    int leg_id_num = 0;
+    for (leg_it = params_.leg_id.data.begin(); leg_it != params_.leg_id.data.end(); ++leg_it, ++leg_id_num)
+    {
+      std::string leg_id_name = *leg_it;
+      params_.link_parameters[leg_id_num][0].init(n_, leg_id_name + "_base_link_parameters");
+      int num_joints = params_.leg_DOF.data[leg_id_name];
+      for (int i=1; i<num_joints+1; ++i)
+      {
+	std::string link_name = params_.link_id.data[i];
+	std::string joint_name = params_.joint_id.data[i-1];
+	std::string link_parameter_name = leg_id_name + "_" + link_name + "_link_parameters";
+	std::string joint_parameter_name = leg_id_name + "_" + joint_name + "_joint_parameters";
+	params_.link_parameters[leg_id_num][i].init(n_, link_parameter_name);
+	params_.joint_parameters[leg_id_num][i-1].init(n_, joint_parameter_name);
+      }
+    } 
+  }
+
+  // Generate adjustable parameter map for parameter adjustment selection
+  params_.map.insert(AdjustableParamMapType::value_type(STEP_FREQUENCY, &params_.step_frequency));
+  params_.map.insert(AdjustableParamMapType::value_type(STEP_CLEARANCE, &params_.step_clearance));
+  params_.map.insert(AdjustableParamMapType::value_type(BODY_CLEARANCE, &params_.body_clearance));
+  params_.map.insert(AdjustableParamMapType::value_type(LEG_SPAN_SCALE, &params_.leg_span_scale));
+  params_.map.insert(AdjustableParamMapType::value_type(VIRTUAL_MASS, &params_.virtual_mass));
+  params_.map.insert(AdjustableParamMapType::value_type(VIRTUAL_STIFFNESS, &params_.virtual_stiffness));
+  params_.map.insert(AdjustableParamMapType::value_type(VIRTUAL_DAMPING, &params_.virtual_damping_ratio));
+  params_.map.insert(AdjustableParamMapType::value_type(FORCE_GAIN, &params_.force_gain));
   
-  getGaitParameters(GAIT_UNDESIGNATED); //Get gait parameters seperately as it depends on gait designation
+  initGaitParameters(GAIT_UNDESIGNATED);
 }
 
 /***********************************************************************************************************************
  * Gets hexapod gait parameters from rosparam server
 ***********************************************************************************************************************/
-void StateController::getGaitParameters(GaitDesignation gaitSelection)
+void StateController::initGaitParameters(GaitDesignation gaitSelection)
 {  
   switch (gaitSelection)
   {
     case (TRIPOD_GAIT):
-      params_.gait_type = "tripod_gait";
+      params_.gait_type.data = "tripod_gait";
       break;
     case (RIPPLE_GAIT):
-      params_.gait_type = "ripple_gait";
+      params_.gait_type.data = "ripple_gait";
       break;
     case (WAVE_GAIT):
-      params_.gait_type = "wave_gait";
+      params_.gait_type.data = "wave_gait";
       break;
     case (AMBLE_GAIT):
-      params_.gait_type = "amble_gait";
+      params_.gait_type.data = "amble_gait";
       break;
     case (GAIT_UNDESIGNATED):
-      if (!n_.getParam("/hexapod/parameters/default_gait_type", params_.gait_type))
-      {
-        ROS_ERROR("Error reading parameter/s (default_gait_type) from rosparam. Check config file is loaded and type is "
-                  "correct\n");
-      }
+      params_.gait_type.init(n_, "gait_type");
       break;
   }
 
-  std::string base_param_string = "/hexapod/gait_parameters/" + params_.gait_type + "/";
-  typedef std::map<std::string, Parameter>::iterator it_type;
-  for(it_type param_it = gait_params_map_.begin(); param_it != gait_params_map_.end(); ++param_it)
-  {
-    Parameter* parameter = param_it->second();
-    parameter->name = param_it->first();
-    bool parameter_found  = n_.getParam(base_param_string + parameter->name, parameter->default_value);
-    parameter->current_value = parameter->default_value;
-    ROS_ERROR_COND(!parameter_found, 
-		   "Error reading parameter/s %s from rosparam. Check config file is loaded and type is correct\n",
-		   parameter->name());
-  } 
+  std::string base_gait_parameters_name = "/hexapod/gait_parameters/";
+  params_.stance_phase.init(n_, "stance_phase", base_gait_parameters_name + params_.gait_type.data + "/");
+  params_.swing_phase.init(n_, "swing_phase", base_gait_parameters_name + params_.gait_type.data + "/");
+  params_.phase_offset.init(n_, "phase_offset", base_gait_parameters_name + params_.gait_type.data + "/");
+  params_.offset_multiplier.init(n_, "offset_multiplier", base_gait_parameters_name + params_.gait_type.data + "/");
 }
 /***********************************************************************************************************************
 ***********************************************************************************************************************/

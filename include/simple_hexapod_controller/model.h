@@ -1,235 +1,232 @@
-#pragma once
+#ifndef SIMPLE_HEXAPOD_CONTROLLER_MODEL_H
+#define SIMPLE_HEXAPOD_CONTROLLER_MODEL_H
+/** 
+ *  \file    model.h
+ *  \brief   Describes the hexapod model including all legs, joints and links. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   January 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ */
+
 #include "standardIncludes.h"
 #include "parametersAndStates.h"
 #include "quat.h"
 #include "pose.h"
-#include "walkController.h"
-#include "poseController.h"
-#include <Eigen/src/Core/Matrix.h>
-#include <boost/concept_check.hpp>
+#include "simple_hexapod_controller/legState.h"
 
-//extern AutoNavigationParameters params;
+//#include "walkController.h"
+//#include "poseController.h"
+//#include <Eigen/src/Core/Matrix.h>
+//#include <boost/concept_check.hpp>
+
+class Leg;
+class Joint;
+class Link;
+class Tip;
+
+class WalkController;
+class LegStepper;
+class PoseController;
+class LegPoser;
 
 // defines the hexapod model
 class Model
 {
   public:
-    Model(Parameters parameters);    
+    Model(Parameters* parameters);    
     
-    inline std::map<int, *Leg>* getLegContainer(void) { return &leg_container_;};
-    inline Leg3DOF* getLegByID(int id) { return leg_container_[id];};
+    inline std::map<int, Leg*>* getLegContainer(void) { return &leg_container_;};
     inline int getLegCount(void) { return leg_count_; };
     inline Pose getCurrentPose(void) { return current_pose_; };
     
     inline void setCurrentPose(Pose pose) { current_pose_ = pose; };
     
+    void initLegs(bool use_default_joint_positions);
     vector<Vector3d> getJointPositions(const Pose &pose);
-    void clampToLimits(std::map<int, std::string> leg_name_map);
-    void updateLocal(Vector3d target_tip_positions[3][2], double delta_z[3][2]);
+    void clampToLimits(void);
+    void updateLocal(Vector3d );
+    
+    Leg* getLegByIDNumber(int leg_id_num) { return leg_container_[leg_id_num]; };
+    Leg* getLegByIDName(std::string leg_id_name);  
     
   private:
-    std::map<std::string, *Leg> leg_container_;
-    int leg_count_;
-    
+    std::map<int, Leg*> leg_container_;
+    int leg_count_;    
     Pose current_pose_;  // Current pose of body including all compensation posing
-    
-    Vector3d stance_coxa_angles_;
-    Vector3d joint_max_angular_speeds_;
 };
 
 //Base leg class
+typedef std::vector<double> state_type; //Impedance state used in impedance controller
 class Leg
 {
   public:
     Leg(Model* model, int id_number, Parameters* params);
     
-    //Accessors
-    inline int getIDNumber(void) { return id_number_; };
     inline std::string getIDName(void) { return id_name_; };
-    inline LegState getLegState(void) { return leg_state_; };
-    inline std::map<std::string, Joint*> getJointContainer(void) { return joint_container_; };
-    inline double getMirrorDir(void) { return mirror_dir_;};    
-    inline LegType getType(void) { return leg_type_; };    
+    inline int getIDNumber(void) { return id_number_; };
     inline int getNumJoints(void) { return num_joints_; };
-     
-    
-    inline double getMinLegLength(void) { return min_leg_length_;};
-    inline double getMaxLegLength(void) { return max_leg_length_;};    
- 
-    inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};    
-    inline LegPoser* getLegPoser(void) { return leg_poser_ ;};    
+    inline int getTripodGroup(void) { return tripod_group_; }; //3DOF only
+    inline LegState getLegState(void) { return leg_state_; };
+    inline double getMirrorDir(void) { return mirror_dir_; };  
+    inline double getStanceLegYaw(void) { return stance_leg_yaw_; };
+    inline double getMinLegLength(void) { return min_leg_length_; };
+    inline double getMaxLegLength(void) { return max_leg_length_; };
+    inline double getTipForce(void) { return tip_force_; };
     inline double getDeltaZ(void) { return delta_z_; };
+    inline double getVirtualMass(void) { return virtual_mass_; };
+    inline double getVirtualStiffness(void) { return virtual_stiffness_; };
+    inline double getVirtualDampingRatio(void) { return virtual_damping_ratio_; };
+    inline state_type* getImpedanceState(void) { return &impedance_state_; };
+    inline std::map<int, Joint*>* getJointContainer(void) { return &joint_container_; };
+    inline std::map<int, Link*>* getLinkContainer(void) { return &link_container_; };
+    inline Tip* getTip(void) { return tip_; };
+    inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};    
+    inline LegPoser* getLegPoser(void) { return leg_poser_ ;};
+    inline Vector3d getLocalTipPosition(void) { return local_tip_position_; };
     
-    //Mutators
-    inline void setType(LegType leg_type) { leg_type_ = leg_type; };
     inline void setLegState(LegState leg_state) { leg_state_ = leg_state; };  
     inline void setStatePublisher(ros::Publisher publisher) { leg_state_publisher_ = publisher; };
     inline void setASCStatePublisher(ros::Publisher publisher) { asc_leg_state_publisher_ = publisher; };
-    inline void setLegStepper(WalkController* walker, Vector3d identity_tip_position) { leg_stepper_ = new LegStepper(walker, this, identity_tip_position); };
-    inline void setLegPoser(PoseController* poser, Vector3d packed_joint_positions, Vector3d unpacked_joint_positions) { leg_poser_ = new LegPoser(poser, this, packed_joint_positions, unpacked_joint_positions); };
+    inline void setLegStepper(LegStepper* leg_stepper) { leg_stepper_ = leg_stepper; };
+    inline void setLegPoser(LegPoser* leg_poser) { leg_poser_ = leg_poser; };
+    inline void setTipForce(double tip_force) { tip_force_ = tip_force; };
+    inline void setDeltaZ(double dz) { delta_z_ = dz; };
+    inline void setVirtualMass(double mass) { virtual_mass_ = mass; };
+    inline void setVirtualStiffness(double stiffness) { virtual_stiffness_ = stiffness; };
+    inline void setVirtualDampingRatio(double damping_ratio) { virtual_damping_ratio_ = damping_ratio; };
+    inline void setDesiredTipPosition(Vector3d tip_position) { desired_tip_position_ = tip_position; };
     
-    Vector3d applyLocalIK(Vector3d tip_target); // sets angles to reach local position relative to root    
-    Vector3d applyFK(); // works out local tip position from angles
+    void init(bool use_default_joint_positions);
+    void applyDeltaZ(Vector3d tip_position);
+    void applyLocalIK(double time_delta); // sets angles to reach local position relative to root    
+    Vector3d applyFK(bool set_local = true); // works out local tip position from angles
+    void updateTransforms(void);
+    
+    void publishState(simple_hexapod_controller::legState msg) { leg_state_publisher_.publish(msg); };
+    void publishASCState(std_msgs::Bool msg) { asc_leg_state_publisher_.publish(msg); };
+    
+    Joint* getJointByIDNumber(int joint_id_num) { return joint_container_[joint_id_num]; };
+    Link* getLinkByIDNumber(int link_id_num) { return link_container_[link_id_num]; };
+    Joint* getJointByIDName(std::string joint_id_name);    
+    Link* getLinkByIDName(std::string link_name);
   
   protected:
-    Model *model_;  // so it can refer to model's joint limits  
-    std::map<std::string, *Joint> joint_container_;
-    std::map<std::string, *Link> link_container_;
+    Model* model_;
+    std::map<int, Joint*> joint_container_;
+    std::map<int, Link*> link_container_;
+    Tip* tip_;
     
     const int id_number_;
     const std::string id_name_;
     
-    const LegType leg_type_;
     const int num_joints_;
+    const double mirror_dir_;  // 1 or -1 for mirrored
+    const double stance_leg_yaw_;    
     
     LegState leg_state_;
     ros::Publisher leg_state_publisher_;
     ros::Publisher asc_leg_state_publisher_;
     
-    std::map<std::string, *Joint> joint_container_;
-    std::map<std::string, *Link> link_container_;
-    
     LegStepper* leg_stepper_;
     LegPoser* leg_poser_;
-    double delta_z_;
     
-    Vector3d posed_tip_position_; 
+    double delta_z_ = 0.0;
+    double virtual_mass_;
+    double virtual_stiffness_;
+    double virtual_damping_ratio_;
+    state_type impedance_state_;
+    
+    Vector3d desired_tip_position_;
     Vector3d local_tip_position_;  // actual tip position relative to root
     
-    const double min_leg_length_;
-    const double max_leg_length_;
-    
-    const double mirror_dir_;  // 1 or -1 for mirrored
-};
-
-//3 Degree of freedom leg class
-class Leg3DOF: public Leg
-{
-  public:  
-    Leg3DOF(Model* model, int id_number, Parameters* params);
-    
-    inline int getTripodGroup(void) { return tripod_group_; }
-    
-    inline double getCoxaJointPosition(void) { return coxa_joint_position_; };
-    inline double getFemurJointPosition(void) { return femur_joint_position_; };
-    inline double getTibiaJointPosition(void) { return tibia_joint_position_; };
-    
-    inline double getCoxaLinkLength(void) { return coxa_link_length_;};
-    inline double getFemurLinkLength(void) { return femur_link_length_;};
-    inline double getTibiaLinkLength(void) { return tibia_link_length_;};
-    
-    inline Vector3d getCoxaOffset(void) {return coxa_offset_;};
-    inline Vector3d getFemurOffset(void) {return femur_offset_;};
-    inline Vector3d getTibiaOffset(void) {return tibia_offset_;};
-    inline Vector3d getTipOffset(void) { return tip_offset_;};
-    
-    inline double getDefaultCoxaJointPosition(void) { return default_coxa_joint_position_;};
-    
-    inline double getMinCoxaJointLimit(void) { return min_coxa_joint_limit_;};
-    inline double getMaxCoxaJointLimit(void) { return max_coxa_joint_limit_;};    
-    inline double getMinFemurJointLimit(void) { return min_femur_joint_limit_; };
-    inline double getMaxFemurJointLimit(void) { return max_femur_joint_limit_; };    
-    inline double getMinTibiaJointLimit(void) { return min_tibia_joint_limit_; };
-    inline double getMaxTibiaJointLimit(void) { return max_tibia_joint_limit_; };
-    
-    inline void setCoxaJointPosition(double position) { coxa_joint_position_ = position; };
-    inline void setFemurJointPosition(double position) { femur_joint_position_ = position; };
-    inline void setTibiaJointPosition(double position) { tibia_joint_position_ = position; };
-
-    void init(double initial_coxa_angle, double initial_femur_angle, double initial_tibia_angle);
-    Vector3d calculateFK(double coxa_angle, double femur_angle, double tibia_angle);   
-    
-  private:    
+    double min_leg_length_;
+    double max_leg_length_;
     int tripod_group_;
     
-    double coxa_joint_position_;
-    double femur_joint_position_;
-    double tibia_joint_position_;
-
-    // these are all local to parent
-    Vector3d coxa_offset_;
-    Vector3d femur_offset_;
-    Vector3d tibia_offset_;
-    Vector3d tip_offset_;
-    
-    double coxa_link_length_;
-    double femur_link_length_;    
-    double tibia_link_length_;
-    
-    double femur_angle_offset_;
-    double tibia_angle_offset_;    
-
-    double old_coxa_angle_;
-    double old_femur_angle;
-    double old_tibia_angle_;  
-    
-    double default_coxa_joint_position_;
-    
-    double min_coxa_joint_limit_;
-    double max_coxa_joint_limit_;
-    double min_femur_joint_limit_;
-    double max_femur_joint_limit_;
-    double min_tibia_joint_limit_;
-    double max_tibia_joint_limit_;
+    double tip_force_ = 0.0;
 };
 
-class Joint //TBD
+struct Link
 {
   public:
-    Joint(Leg* leg, int id_number, Parameters* params);
-    
-    inline const int getIDNumber(void) { return id_number_; };
-    inline const std::string getIDName(void) { return name_; };
-    
-    inline const double getPositionOffset(void) { return position_offset_; };
-    inline const double getMaxPosition(void) { return max_position_; };
-    inline const double getMinPosition(void) { return min_position_; };
-    inline const double getDefaultPosition(void) { return default_position_; };
-    
-    inline double getCurrentPosition(void) { return current_position_; };
-    inline double getDesiredPosition(void) { return desired_position_; };
-    inline double getPreviousDesiredPosition(void) { return previous_desired_position_; };
-    
-    inline double getCurrentVelocity(void) { return current_velocity_; };
-    inline double getDesiredVelocity(void) { return desired_velocity_; };
-    inline double getPreviousDesiredVelocity(void) { return previous_desired_velocity_; };
-    
-    inline void setDesiredPosition(double position) { desired_position_ = position; };
-  
-  private:
-    const Leg* leg_;
-    const int id_number_;
-    const std::string name_;
-    
-    const double position_offset_;
-    const double max_position_;
-    const double min_position_;
-    const double default_position_;
-    
-    double current_position_;
-    double desired_position_;
-    double previous_desired_position_;
-    double current_velocity_;
-    double desired_velocity_;  
-    double previous_desired_velocity_;
+    Link(Leg* leg, Joint* actuating_joint, int id, Parameters* params);    
+    const Leg* parent_leg;
+    const Joint* actuating_joint;
+    const int id_number;
+    const std::string name;    
+    const double length; //DH parameter 'r'   
+    const double angle; //DH parameter 'theta'
+    const double offset; //DH parameter 'd'
+    const double twist; //DH parameter 'alpha'    
 };
 
-class Link //TBD
+struct Joint
 {
   public:
-    Link(Leg* leg, int id_number, Parameters* params);
+    Joint(Leg* leg, Link* reference_link, int id_number, Parameters* params);
     
-    inline const int getIDNumber(void) { return id_number_; };
-    inline const std::string getIDName(void) { return name_; };
+    inline Matrix4d getBaseTransform(void) const
+    { 
+      return (id_number == 1) ? transform : reference_link->actuating_joint->getBaseTransform()*transform;
+    };
     
-    inline const double getLinkLength(void) { return link_length_; };
+    inline Vector3d getCartesianOffset(Vector3d origin = Vector3d(0,0,0)) const
+    {
+      Vector4d result = transform*Vector4d(origin[0],origin[1],origin[2],1);
+      return Vector3d(result[0], result[1], result[2]);
+    }
     
-  private:
-    const Leg* leg_;
-    const int id_number_;
-    const std::string name_;
-    const double link_length_;
+    const Leg* parent_leg;
+    const Link* reference_link;
+    const int id_number;
+    const std::string name;
+    Matrix4d transform;    
+    
+    const double position_offset;
+    const double min_position;
+    const double max_position;
+    const double packed_position;
+    const double unpacked_position;
+    const double max_angular_speed;     
+    
+    double desired_position = 0.0;
+    double desired_velocity = 0.0; 
+    double desired_effort = 0.0;    
+    double prev_desired_position = 0.0;   
+    double prev_desired_velocity = 0.0;    
+    double prev_desired_effort = 0.0;     
+    
+    // Current joint state from joint state publisher
+    double current_position = UNASSIGNED_VALUE;
+    double current_velocity = UNASSIGNED_VALUE;
+    double current_effort = UNASSIGNED_VALUE;
 };
+
+struct Tip
+{
+  public: 
+    Tip(Leg* leg, Link* reference_link);    
+    inline Matrix4d getBaseTransform(void) 
+    { 
+      return reference_link->actuating_joint->getBaseTransform()*transform; 
+    };    
+    const Leg* parent_leg;
+    const Link* reference_link;
+    const std::string name;   
+    Matrix4d transform;
+};
+#endif /* SIMPLE_HEXAPOD_CONTROLLER_MODEL_H */
 
 
 

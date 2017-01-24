@@ -1,5 +1,4 @@
 #include "simple_hexapod_controller/stateController.h"
-#include <ros/ros.h>
 
 /***********************************************************************************************************************
  * Main
@@ -14,23 +13,25 @@ int main(int argc, char* argv[])
   Parameters* params = state.getParameters();
 
   bool set_logger_level_result = false;
-  switch(params->console_verbosity)
+  if (params->console_verbosity.data == std::string("debug"))
   {
-    case("debug"):
-      set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
-      break;
-    case("info"):
-      set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
-      break;
-    case("warning"):
-      set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Warn);
-      break;
-    case("error"):
-      set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Error);
-      break;
-    case("fatal"):
-      set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Fatal);
-      break;
+    set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
+  }
+  else if (params->console_verbosity.data == "info")
+  {
+    set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
+  }
+  else if (params->console_verbosity.data == "warning")
+  {
+    set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Warn);
+  }
+  else if (params->console_verbosity.data == "error")
+  {
+    set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Error);
+  }
+  else if (params->console_verbosity.data == "fatal")
+  {
+    set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Fatal);
   }
 
   if (set_logger_level_result)
@@ -39,25 +40,10 @@ int main(int argc, char* argv[])
   }
 
   // Set ros rate from params
-  ros::Rate r(roundToInt(1.0 / params->time_delta));
-
-  // Display warning message concerning use of correct motor interface
-  if (params->use_dynamixel_pro_interface)
-  {
-    ROS_WARN("Using dynamixel PRO motor interface - will only work with Large Hexapod Robot (not simulations or small "
-             "hexapod platforms).\nSet use_dynamixel_pro_interface to false in config file if not using Large Hexapod.\n");    
-  }
-  else
-  {
-    if (params->hexapod_type == "large_hexapod")
-    {
-      ROS_WARN("Using dynamixel motor interface - will not work with Large Hexapod (simulations only).\nSet "
-               "use_dynamixel_pro_interface to true in config file if using Large Hexapod.\n");
-    }
-  }
+  ros::Rate r(roundToInt(1.0 / params->time_delta.data));
 
   // RVIZ simulation warning message
-  if (params->debug_rviz)
+  if (params->debug_rviz.data)
   {
     ROS_WARN("DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE.\n");
   }
@@ -66,26 +52,27 @@ int main(int argc, char* argv[])
   if (!state.receivingJointStates())
   {
     ROS_WARN("Failed to subscribe to joint_states topic! - check to see if topic is being published.\n");
-    params->start_up_sequence = false;
+    params->start_up_sequence.data = false;
   }
-  else if ((params->imu_compensation || params->inclination_compensation) && !state.receivingImuData())
+  else if ((params->imu_compensation.data || params->inclination_compensation.data) 
+    && !state.receivingImuData())
   {
     ROS_WARN("Failed to subscribe to imu_data topic! - check to see if topic is being published.\n");
-    params->imu_compensation = false;
-    params->inclination_compensation = false;
+    params->imu_compensation.data = false;
+    params->inclination_compensation.data = false;
   }
-  else if (params->impedance_control)
+  else if (params->impedance_control.data)
   {
-    if ((params->impedance_input == "tip_force" && !state.receivingTipForces()) ||
-       (params->impedance_input == "joint_effort" && !state.receivingJointStates()))
+    if ((params->use_joint_effort.data && !state.receivingTipForces()) ||
+       (!params->use_joint_effort.data && !state.receivingJointStates()))
     {
       ROS_WARN("Failed to subscribe to force data topic/s! Please check that topic is being published.\n");
-      params->impedance_control = false;
+      params->impedance_control.data = false;
     }
   }
 
   // Wait specified time to aquire all published joint positions via callback //TBD Still needed?, consider cutting
-  int spin = 2.0 / params->time_delta;  // Max ros spin cycles to find joint positions
+  int spin = 2.0 / params->time_delta.data;  // Max ros spin cycles to find joint positions
   while (spin--)
   {
     ros::spinOnce();
@@ -93,27 +80,30 @@ int main(int argc, char* argv[])
   }
 
   // Set start message
-  bool use_default_joint_positions = !state.hasAllJointPositions();
   std::string start_message;
-  if (use_default_joint_positions)
+  if (state.areJointPostionsInitialised())
   {
-    start_message = "Failed to acquire ALL joint position values!\nPress 'Start' to run controller with all unknown joint positions set to defaults . . .\n";
+    start_message = "Press 'Start' to run controller . . .\n";
+    state.initModel();
   }
   else
   {
-    start_message = "Press 'Start' to run controller . . .\n";
-  }
+    start_message = "Failed to initialise joint position values!\n"
+      "Press 'Start' to run controller initialising unknown joint positions to defaults . . .\n";
+    params->start_up_sequence.data = false;  
+    state.initModel(true);
+  }  
   
   // Loop waiting for start button press
-  while (state.getSystemState() == WAITING_FOR_USER)
+  while (!state.getUserInputFlag())
   {
-    ROS_WARN_THROTTLE(THROTTLE_PERIOD, start_message.c_str());
+    ROS_WARN_THROTTLE(THROTTLE_PERIOD, "%s", start_message.c_str());
     ros::spinOnce();
     r.sleep();
   }
-  state.setJointPositions(use_default_joint_positions);
-
+  
   state.init();
+  
   while (ros::ok())
   {
     state.loop();
@@ -123,12 +113,11 @@ int main(int argc, char* argv[])
     state.publishBodyVelocity();
     state.publishRotationPoseError();
     state.publishTranslationPoseError();
-    state.publishZTipError();
-    if (params->debug_rviz)
+    if (params->debug_rviz.data)
     {
       state.RVIZDebugging();
     }
-    state.publishJointValues();
+    state.publishDesiredJointState();
     ros::spinOnce();
     r.sleep();
     state.resetDebug();

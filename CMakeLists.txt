@@ -12,10 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   dynamixel_controllers
-  dynamixel_msgs  
+  dynamixel_msgs
  )
-
-
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -120,7 +118,7 @@ add_executable(simple_diagnostics_node src/simpleDiagnostics.cpp)
 ## as an example, message headers may need to be generated before nodes
 
 ## Specify libraries to link a library or executable target against
- target_link_libraries(simple_hexapod_controller_node ${catkin_LIBRARIES})
+ target_link_libraries(simple_hexapod_controller_node ${catkin_LIBRARIES} -fopenmp)
  target_link_libraries(simple_diagnostics_node ${catkin_LIBRARIES})
  
 add_dependencies(simple_hexapod_controller_node simple_hexapod_controller_cpp simple_hexapod_controller_generate_messages_cpp)

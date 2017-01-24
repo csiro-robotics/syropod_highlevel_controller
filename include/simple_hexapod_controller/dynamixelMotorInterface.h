@@ -1,36 +1,51 @@
-#include "ros/ros.h"
-#include "motorInterface.h"
-#include "std_msgs/Float64.h"
+#ifndef SIMPLE_HEXAPOD_CONTROLLER_DYNAMIXEL_MOTOR_INTERFACE_H
+#define SIMPLE_HEXAPOD_CONTROLLER_DYNAMIXEL_MOTOR_INTERFACE_H
+/** 
+ *  \file    dynamixel_motor_interface.h
+ *  \brief   Interface to dynamixel motor drivers. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   January 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ */
+//#include "ros/ros.h"
+
+
 #include "standardIncludes.h"
+
 #include "dynamixel_controllers/SetSpeed.h"
 #include "dynamixel_controllers/SetComplianceSlope.h"
+#include "model.h"
 
-class DynamixelMotorInterface : public MotorInterface
+//#include "sensor_msgs/JointState.h"
+
+class DynamixelMotorInterface
 {
 public:
-  DynamixelMotorInterface()
-    : position_publishers_(3, vector<vector<ros::Publisher> >(2, vector<ros::Publisher>(3)))
-    , velocity_publishers_(3, vector<vector<ros::Publisher> >(2, vector<ros::Publisher>(3)))
-    , angles_(3, vector<vector<double> >(2, vector<double>(3)))
-    , velocities_(3, vector<vector<double> >(2, vector<double>(3)))
-  {
-    setupPublishers();
-  }
-
-  void setTargetAngle(int leg_ID, int side, int joint_ID, double angle);
-  void setVelocity(int leg_ID, int side, int joint_ID, double velocity);
-  void setupSpeed(double speed);
-  void publish(void);
+  DynamixelMotorInterface(Model* model);
+  void setupSpeed(double new_speed);  
   void setPGain(double p_gain);
+  void publish(void);
 
 private:
+  ros::NodeHandle n_; 
+  ros::Publisher motor_publisher_;
   ros::ServiceClient set_speed_1_;
   ros::ServiceClient set_gain_p_;
-  ros::NodeHandle n_;  
-  vector<vector<vector<ros::Publisher> > > position_publishers_;
-  vector<vector<vector<ros::Publisher> > > velocity_publishers_;
-  vector<vector<vector<double> > > angles_;
-  vector<vector<vector<double> > > velocities_;
   
+  Model* model_;
+    
   void setupPublishers(void);
 };
+
+#endif /* SIMPLE_HEXAPOD_CONTROLLER_DYNAMIXEL_MOTOR_INTERFACE_H */

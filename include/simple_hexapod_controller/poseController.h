@@ -1,23 +1,64 @@
-// Controller that handles changes in body pose
-#pragma once
+#ifndef SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H
+#define SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H
+/** 
+ *  \file    pose_controller.h
+ *  \brief   Handles control of hexapod body posing. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   January 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ */
+
+#include "standardIncludes.h"
 #include "parametersAndStates.h"
+#include "quat.h"
+#include "pose.h"
+
 #include "model.h"
-#include "debugOutput.h"
 #include "walkController.h"
-#include "imu.h"
-#include "geometry_msgs/Twist.h"
+
+//#include "debugOutput.h"
+
+struct ImuData
+{
+  Quat orientation;
+  Vector3d linear_acceleration;
+  Vector3d angular_velocity;
+};
 
 class PoseController
 {      
   public:
-    //Constructor
-    PoseController(Model *model, Parameters* params);
+    PoseController(Model* model, Parameters* params);
     
-    //Accessors
     inline PoseResetMode getPoseResetMode(void) { return pose_reset_mode_; };
+    inline ImuData getImuData(void) { return imu_data_; };
+    inline Parameters* getParameters(void) { return params_; };
+    inline Vector3d getRotationAbsementError(void) { return rotation_absement_error_; };
+    inline Vector3d getRotationPositionError(void) { return rotation_position_error_; };
+    inline Vector3d getRotationVelocityError(void) { return rotation_velocity_error_; };
+    inline Vector3d getTranslationAbsementError(void) { return translation_absement_error_; };
+    inline Vector3d getTranslationPositionError(void) { return translation_position_error_; };
+    inline Vector3d getTranslationVelocityError(void) { return translation_velocity_error_; };
+    inline Vector3d getTranslationAccelerationError(void) { return translation_acceleration_error_; };
     
-    //Mutators
     inline void setPoseResetMode(PoseResetMode mode) { pose_reset_mode_ = mode; };
+    inline void setImuData(Quat orientation, Vector3d linear_acceleration, Vector3d angular_velocity)
+    {
+      imu_data_.orientation = orientation;
+      imu_data_.linear_acceleration = linear_acceleration;
+      imu_data_.angular_velocity = angular_velocity;
+    }
     inline void setManualPoseInput(Vector3d translation, Vector3d rotation) 
     {
       translation_velocity_input_ = translation;
@@ -28,29 +69,31 @@ class PoseController
     void updateStance(void);
 
     //Coordinated leg movements - tip position
-    double directStartup();
-    double stepToNewStance();
-    double poseForLegManipulation();
-    bool shutDownSequence();
-    bool startUpSequence();    
+    double directStartup(void);
+    double stepToNewStance(void);
+    double poseForLegManipulation(void);
+    bool shutDownSequence(void);
+    bool startUpSequence(void);    
     
     //Coordinated leg movements - joint position
     bool packLegs(double time_to_pack);
     bool unpackLegs(double time_to_unpack);
     
     // Compensation functions
-    void autoCompensation(void);
-    void manualCompensation(void);
-    void imuCompensation(ImuData imu_data);
-    void inclinationCompensation(WalkController* walker, ImuData imu_data);
-    void impedanceControllerCompensation();
+    void updateCurrentPose(double body_height);
+    Pose manualCompensation(void);
+    Pose autoCompensation(void);    
+    Quat imuCompensation(void);
+    Vector3d inclinationCompensation(double body_height);
+    double impedanceControllerCompensation(void);
     
-    void calculateDefaultPose();
+    void calculateDefaultPose(void);
     
   private:    
     Model* model_;
+    ImuData imu_data_; 
     Parameters* params_;
-    std::map<std::string, Leg*>::iterator leg_it_;
+    std::map<int, Leg*>::iterator leg_it_;
     
     PoseResetMode pose_reset_mode_;
     Vector3d translation_velocity_input_;
@@ -76,44 +119,42 @@ class PoseController
     
     //DEBUGGING
     // Imu compensation PID error vectors
-    Vector3d rotation_absement_error;
-    Vector3d rotation_position_error;
-    Vector3d rotation_velocity_error;
+    Vector3d rotation_absement_error_;
+    Vector3d rotation_position_error_;
+    Vector3d rotation_velocity_error_;
 
-    Vector3d translationAbsementError;
-    Vector3d translationPositionError;
-    Vector3d translationVelocityError;
-    Vector3d translationAccelerationError;
+    Vector3d translation_absement_error_;
+    Vector3d translation_position_error_;
+    Vector3d translation_velocity_error_;
+    Vector3d translation_acceleration_error_;
 };
 
 class LegPoser
 {
   public:
-    LegPoser(PoseController* poser, Vector3d packed_joint_positions, Vector3d unpacked_joint_positions);
+    LegPoser(PoseController* poser, Leg* leg);
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
     inline Vector3d getTargetTipPosition(void) { return target_tip_position_; };
-    inline Vector3d getPackedJointPositions(void) { return packed_joint_positions_; };
-    inline Vector3d getUnpackedJointPositions(void) { return unpacked_joint_positions_; };
     
     inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
     inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
     
     //updatePosition(void); //apply current pose to generate new tip position
-    bool moveToJointPosition(Vector3d targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
-    double stepToPosition(Vector3d targetTipPosition, Pose targetPose);
+    bool moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
+    double stepToPosition(Vector3d targetTipPosition, Pose targetPose, double lift_height, double time_to_step);
     
   private:
-    PoserController* poser_;
-    Leg3DOF* leg_;
+    PoseController* poser_;
+    Leg* leg_;
     
     bool first_iteration_ = true;
     int master_iteration_count_ = 0;
     
-    Vector3d origin_joint_positions_;
-    Vector3d packed_joint_positions_;
-    Vector3d unpacked_joint_positions_;
+    vector<double> origin_joint_positions_;
     
     Vector3d origin_tip_position_;
     Vector3d current_tip_position_;
     Vector3d target_tip_position_;
 };
+
+#endif /* SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H */

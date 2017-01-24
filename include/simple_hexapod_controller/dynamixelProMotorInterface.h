@@ -1,4 +1,4 @@
-#include "ros/ros.h"
+/*#include "ros/ros.h"
 #include "motorInterface.h"
 #include "std_msgs/Float64.h"
 #include <sensor_msgs/JointState.h>
@@ -20,4 +20,4 @@ private:
   ros::Publisher motor_publisher_;
   vector<vector<vector<double> > > angles_;
   vector<vector<vector<double> > > velocities_;
-};
+};*/

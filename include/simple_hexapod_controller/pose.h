@@ -1,4 +1,23 @@
-#pragma once
+#ifndef SIMPLE_HEXAPOD_CONTROLLER_POSE_H
+#define SIMPLE_HEXAPOD_CONTROLLER_POSE_H
+/** 
+ *  \file    pose.h
+ *  \brief   Custom class definition of hexapod pose. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   January 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ */
 #include "standardIncludes.h"
 #include "quat.h"
 
@@ -128,3 +147,5 @@ class Pose
       return Pose(Vector3d(0, 0, 0), Quat(0, 0, 0, 0));
     }
 };
+
+#endif /* SIMPLE_HEXAPOD_CONTROLLER_POSE_H */

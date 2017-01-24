@@ -1,17 +1,26 @@
-#pragma once
+#ifndef SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H
+#define SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H
+/** 
+ *  \file    parameters_and_states.h
+ *  \brief   Defines various hexapod and system parameters and states. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   January 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ */
+
 #include "standardIncludes.h"
-
 #define THROTTLE_PERIOD 5  // seconds
-
-enum LegType
-{
-  UNKNOWN_LEG_TYPE,
-  ONE_DOF,
-  TWO_DOF,
-  THREE_DOF, //Only type implemented
-  FOUR_DOF,
-  FIVE_DOF,
-};
 
 enum SystemState
 {
@@ -95,14 +104,14 @@ enum PoseResetMode
 
 enum LegDesignation
 {
-  LEG_AL,
-  LEG_AR,
-  LEG_BL,
-  LEG_BR,
-  LEG_CL,
-  LEG_CR,
-  LEG_DL,
-  LEG_DR,
+  LEG_0,
+  LEG_1,
+  LEG_2,
+  LEG_3,
+  LEG_4,
+  LEG_5,
+  LEG_6,
+  LEG_7,
   LEG_UNDESIGNATED = -1,
 };
 
@@ -119,122 +128,115 @@ enum ParameterSelection
   FORCE_GAIN,
 };
 
-struct Parameters
-{
-  // Control parameters
-  Parameter time_delta;
-  Parameter imu_compensation;
-  Parameter auto_compensation;
-  Parameter manual_compensation;
-  Parameter inclination_compensation;
-  Parameter impedance_control;
-  Parameter use_dynamixel_pro_interface;
-  Parameter imu_rotation_offset;
-  Parameter interface_setup_speed;
-  // Model parameters
-  Parameter hexapod_type;
-  Parameter num_legs;
-  Parameter leg_DOF;
-  Parameter leg_id_names;
-  Vector3d coxa_offset[3][2];
-  Vector3d femur_offset[3][2];
-  Vector3d tibia_offset[3][2];
-  Vector3d tip_offset[3][2];
-  Vector3d stance_coxa_angles;
-  Vector3d physical_coxa_angle_offset;
-  double physical_tibia_angle_offset;
-  Vector3d coxa_joint_limits;
-  Vector2d tibia_joint_limits;
-  Vector2d femur_joint_limits;
-  Vector3d joint_max_angular_speeds;
-  
-  
-
-  // Walk Controller Parameters
-  std::string gait_type;
-  double step_frequency;
-  double step_clearance;
-  double step_depth;
-  double body_clearance;
-  double leg_span_scale;
-  double max_linear_acceleration;
-  double max_angular_acceleration;
-  double footprint_downscale;
-  
-  std::string velocity_input_mode;
-
-  bool force_cruise_velocity;
-  Vector2d linear_cruise_velocity;
-  double angular_cruise_velocity;
-
-  // Pose Controller Parameters
-  bool start_up_sequence;
-  double time_to_start;
-
-  double rotation_gain_p;
-  double rotation_gain_i;
-  double rotation_gain_d;
-  double translation_gain_p;
-  double translation_gain_i;
-  double translation_gain_d;
-
-  double pitch_amplitude;
-  double roll_amplitude;
-  double z_translation_amplitude;
-
-  Vector3d max_translation;
-  double max_translation_velocity;
-
-  Vector3d max_rotation;
-  double max_rotation_velocity;
-
-  std::string leg_manipulation_mode;
-
-  Vector3d packed_joint_positions_AL;
-  Vector3d packed_joint_positions_AR;
-  Vector3d packed_joint_positions_BL;
-  Vector3d packed_joint_positions_BR;
-  Vector3d packed_joint_positions_CL;
-  Vector3d packed_joint_positions_CR;
-  Vector3d unpacked_joint_positions_AL;
-  Vector3d unpacked_joint_positions_AR;
-  Vector3d unpacked_joint_positions_BL;
-  Vector3d unpacked_joint_positions_BR;
-  Vector3d unpacked_joint_positions_CL;
-  Vector3d unpacked_joint_positions_CR;
-
-  // Impedance Controller Parameters
-  
-  bool dynamic_stiffness;
-  double integrator_step_time;
-  double virtual_mass;
-  double virtual_stiffness;
-  double load_stiffness_scaler;
-  double swing_stiffness_scaler;
-  double virtual_damping_ratio;
-  double force_gain;
-  std::string impedance_input;
-
-  // Gait Parameters
-  double stance_phase;
-  double swing_phase;
-  double phase_offset;
-  std::vector<int> offset_multiplier;
-
-  // Debug Parameters
-  bool debug_rviz;
-  std::string console_verbosity;
-  bool debug_moveToJointPosition;
-  bool debug_stepToPosition;
-  bool debug_swing_trajectory;
-  bool debug_stance_trajectory;
-};
-
-template<typename T>
+template <typename T>
 struct Parameter
 {
-  std::string name;
-  T current_value;
-  T default_value;
+  std::string name; 
+  T data;
+  bool required = true;
+  bool initialised = false;
+  
+  void init(ros::NodeHandle n, 
+	    std::string name_input,
+	    std::string base_parameter_name = "/hexapod/parameters/",
+	    bool required_input = true)
+  {
+    name = name_input;
+    required = required_input;
+    bool parameter_found = n.getParam(base_parameter_name + name_input, data);
+    if (!parameter_found && required)
+    {
+      ROS_ERROR("Error reading parameter/s %s from rosparam. Check config file is loaded and type is correct\n",
+		name.c_str());
+    }
+    else
+    {
+      initialised = true;
+    }
+  }
 };
+
+struct AdjustableParameter : public Parameter<double>
+{
+  double current_value;
+  double max_value;
+  double min_value;
+  double default_value;
+  double adjust_step;
+};
+
+typedef std::map<ParameterSelection, AdjustableParameter*> AdjustableParamMapType;
+
+struct Parameters
+{      
+  AdjustableParamMapType map;
+  
+  // Control parameters
+  Parameter<double> 				time_delta;
+  Parameter<bool> 				imu_compensation;
+  Parameter<bool> 				auto_compensation;
+  Parameter<bool> 				manual_compensation;
+  Parameter<bool> 				inclination_compensation;
+  Parameter<bool> 				impedance_control;
+  Parameter<vector<double>> 			imu_rotation_offset;
+  Parameter<double> 				interface_setup_speed;
+  // Model parameters
+  Parameter<std::string> 			hexapod_type;
+  Parameter<std::vector<std::string>>	 	leg_id;
+  Parameter<std::vector<std::string>> 		joint_id;
+  Parameter<std::vector<std::string>> 		link_id;
+  Parameter<std::map<std::string, int>> 	leg_DOF;
+  Parameter<std::map<std::string, double>>	leg_stance_yaws;
+  Parameter<std::map<std::string, double>>	joint_parameters[8][6]; //Max 8 legs with 6 joints
+  Parameter<std::map<std::string, double>>	link_parameters[8][7];
+  // Walk controller parameters
+  Parameter<std::string> 			gait_type;
+  AdjustableParameter 				step_frequency;
+  AdjustableParameter 				step_clearance;
+  Parameter<double> 				step_depth;
+  AdjustableParameter 				body_clearance;
+  AdjustableParameter 				leg_span_scale;
+  Parameter<double> 				max_linear_acceleration;
+  Parameter<double> 				max_angular_acceleration;
+  Parameter<double> 				footprint_downscale; 
+  Parameter<std::string>			velocity_input_mode;
+  Parameter<bool> 				force_cruise_velocity;
+  Parameter<std::map<std::string, double>> 	linear_cruise_velocity;
+  Parameter<double> 				angular_cruise_velocity;
+  // Pose controller parameters
+  Parameter<bool> 				start_up_sequence;
+  Parameter<double> 				time_to_start;
+  Parameter<std::map<std::string, double>>	rotation_pid_gains;
+  Parameter<std::map<std::string, double>>	translation_pid_gains;
+  Parameter<std::map<std::string, double>>	auto_compensation_parameters;
+  Parameter<std::map<std::string, double>>	max_translation;
+  Parameter<double> 				max_translation_velocity;
+  Parameter<std::map<std::string, double>> 	max_rotation;
+  Parameter<double> 				max_rotation_velocity;
+  Parameter<std::string> 			leg_manipulation_mode;
+  // Impedance controller parameters  
+  Parameter<bool> 				dynamic_stiffness;
+  Parameter<bool> 				use_joint_effort;
+  Parameter<double> 				integrator_step_time;
+  AdjustableParameter 				virtual_mass;
+  AdjustableParameter 				virtual_stiffness;
+  Parameter<double> 				load_stiffness_scaler;
+  Parameter<double> 				swing_stiffness_scaler;
+  AdjustableParameter 				virtual_damping_ratio;
+  AdjustableParameter 				force_gain;
+
+  // Gait parameters
+  Parameter<int> 				stance_phase;
+  Parameter<int> 				swing_phase;
+  Parameter<int> 				phase_offset;
+  Parameter<vector<int>> 			offset_multiplier;
+  // Debug Parameters
+  Parameter<bool> 				debug_rviz;
+  Parameter<std::string>			console_verbosity;
+  Parameter<bool> 				debug_moveToJointPosition;
+  Parameter<bool> 				debug_stepToPosition;
+  Parameter<bool> 				debug_swing_trajectory;
+  Parameter<bool> 				debug_stance_trajectory;
+};
+#endif /* SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H */
   

@@ -1,5 +1,24 @@
-#pragma once
-#include "standardIncludes.h"
+#ifndef SIMPLE_HEXAPOD_CONTROLLER_QUAT_H
+#define SIMPLE_HEXAPOD_CONTROLLER_QUAT_H
+/** 
+ *  \file    quat.h
+ *  \brief   Custom class definition of Quaternion data type. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   January 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ */
+//#include "standardIncludes.h"
 
 /// Quaternion class. (Eigen's Quaterniond is missing many useful functions)
 struct Quat
@@ -285,3 +304,5 @@ inline vector<Quat> unwrapQuats(const vector<Quat> &quats)
   }
   return result;
 }
+
+#endif /* SIMPLE_HEXAPOD_CONTROLLER_QUAT_H */

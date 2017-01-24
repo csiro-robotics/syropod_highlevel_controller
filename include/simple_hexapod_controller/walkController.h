@@ -1,8 +1,29 @@
-#pragma once
+#ifndef SIMPLE_HEXAPOD_CONTROLLER_WALK_CONTROLLER_H
+#define SIMPLE_HEXAPOD_CONTROLLER_WALK_CONTROLLER_H
+/** 
+ *  \file    walk_controller.h
+ *  \brief   Handles control of hexapod walking. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   January 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ */
+
+#include "standardIncludes.h"
+#include "parametersAndStates.h"
+#include "pose.h"
 
 #include "model.h"
-#include "debugOutput.h"
-
 
 /***********************************************************************************************************************
  * Top level controller that calculates walk characteristics and coordinates leg specific walk controllers
@@ -10,8 +31,9 @@
 class WalkController
 {  
   public:
-    WalkController(Model *model, Parameters* params);
+    WalkController(Model* model, Parameters* params);
     
+    inline Parameters* getParameters(void) { return params_; };
     inline int getPhaseLength(void) { return phase_length_; };
     inline int getSwingStart(void) { return swing_start_; };
     inline int getSwingEnd(void) { return swing_end_; };
@@ -23,16 +45,20 @@ class WalkController
     inline double getMaxBodyHeight(void) { return maximum_body_height_; };
     inline double getStepDepth(void) { return step_depth_; };
     inline double getBodyHeight(void) { return body_clearance_ * maximum_body_height_; };
+    inline WalkState getWalkState(void) { return walk_state_; };
+    inline Vector2d getCurrentLinearVelocity(void) { return current_linear_velocity_; };
+    inline double getCurrentAngularVelocity(void) { return current_angular_velocity_; };
     
-    void init(Model *model, Parameters p);
-    void setGaitParams(Parameters p);
-    void updateWalk(Vector2d linear_velocity_input, double angular_velocity_input, Model *model);
+    void init(void);
+    void setGaitParams(Parameters* p);
+    void updateWalk(Vector2d linear_velocity_input, double angular_velocity_input);
     void updateManual(int primary_leg_selection_ID, Vector3d primary_tip_velocity_input,
-		      int secondary_leg_selection_ID, Vector3d secondary_tip_velocity_input, Model *model);
+		      int secondary_leg_selection_ID, Vector3d secondary_tip_velocity_input);
 
   private:
+    Model* model_;
     Parameters* params_;
-    WalkState walk_state_ = STOPPED;
+    WalkState walk_state_;
     double time_delta_;
 
     // Walk parameters
@@ -51,15 +77,13 @@ class WalkController
     double min_footprint_radius_;
     double stance_radius_;
 
-    Vector2d current_linear_velocity_;  // Linear Body Velocity
+    Vector2d current_linear_velocity_;  // Linear Body Velocity //TBD put in model?
     double current_angular_velocity_;  // Angular Body Velocity
 
     double maximum_body_height_;
 
     int legs_at_correct_phase_ = 0;
     int legs_completed_first_step_ = 0; 
-    
-    Pose pose_;  // DEBUGGING
 };
 
 /***********************************************************************************************************************
@@ -68,7 +92,7 @@ class WalkController
 class LegStepper
 {
   public:
-    LegStepper::LegStepper(WalkController* walker, Vector3d identity_tip_position);    
+    LegStepper(WalkController* walker, Leg* leg, Vector3d identity_tip_position);    
     
     //Accessors
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };    
@@ -76,9 +100,11 @@ class LegStepper
     inline StepState getStepState(void) { return step_state_; };
     inline int getPhase(void) { return phase_; };    
     inline int getPhaseOffset(void) { return phase_offset_; };    
-    inline Vector3d getStrideVector(void) { return stride_vector_; };
+    inline Vector2d getStrideVector(void) { return stride_vector_; };
     inline double getSwingHeight(void) { return swing_height_; };
-    inline double getStanceDepth(void) { return stance_depth_; };    
+    inline double getStanceDepth(void) { return stance_depth_; };  
+    inline double getSwingProgress(void) { return swing_progress_; };
+    inline double getStanceProgress(void) { return stance_progress_; };
     inline bool hasCompletedFirstStep(void) { return completed_first_step_; };    
     inline bool isAtCorrectPhase(void) { return at_correct_phase_; };    
     
@@ -87,7 +113,7 @@ class LegStepper
     inline void setStepState(StepState stepState) { step_state_ = stepState; };
     inline void setPhase(int phase) { phase_ = phase; };
     inline void setPhaseOffset(int phase_offset) { phase_offset_ = phase_offset;};
-    inline void setStrideVector(Vector3d stride_vector) { stride_vector_ = stride_vector; };
+    inline void setStrideVector(Vector2d stride_vector) { stride_vector_ = stride_vector; };
     inline void setCompletedFirstStep(bool completed_first_step) { completed_first_step_ = completed_first_step; };
     inline void setAtCorrectPhase(bool at_correct_phase) { at_correct_phase_ = at_correct_phase; };
     
@@ -99,7 +125,7 @@ class LegStepper
   
   private:
     WalkController* walker_;
-    Leg3DOF* leg_;
+    Leg* leg_;
     
     bool at_correct_phase_ = false;
     bool completed_first_step_ = false;
@@ -123,11 +149,11 @@ class LegStepper
     double swing_height_;
     double stance_depth_;
     
-    Vector3d current_tip_position_;
-    Vector3d current_tip_velocity_;
     Vector3d default_tip_position_;
+    Vector3d current_tip_position_;
+    Vector3d current_tip_velocity_;    
     Vector3d swing_origin_tip_position_;
     Vector3d stance_origin_tip_position_;
 };
-/***********************************************************************************************************************
-***********************************************************************************************************************/
+
+#endif /* SIMPLE_HEXAPOD_CONTROLLER_WALK_CONTROLLER_H */

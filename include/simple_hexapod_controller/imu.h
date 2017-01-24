@@ -1,4 +1,4 @@
-#pragma once
+/*#pragma once
 #include "quat.h"
 #include <Eigen/Dense>
 
@@ -8,3 +8,4 @@ struct ImuData
   Vector3d linear_acceleration;
   Vector3d angular_velocity;
 };
+*/

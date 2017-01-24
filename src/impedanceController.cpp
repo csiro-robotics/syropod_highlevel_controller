@@ -3,101 +3,82 @@
 /***********************************************************************************************************************
  * Constructor
 ***********************************************************************************************************************/
-ImpedanceController::ImpedanceController(const Parameters &p)
-  : tip_forces_(3, std::vector<double>(2)), impedance_state_(3, std::vector<std::vector<double>>(2, std::vector<double>(2)))
+ImpedanceController::ImpedanceController(Model* model, Parameters* params)
+  : model_(model)
+  , params_(params)
 {
-  init(p);
-}
-
-/***********************************************************************************************************************
- * Destructor
-***********************************************************************************************************************/
-ImpedanceController::~ImpedanceController()
-{
+  init();
 }
 
 /***********************************************************************************************************************
  * Initialisation
 ***********************************************************************************************************************/
-void ImpedanceController::init(Parameters p)
+void ImpedanceController::init(void)
 {
-  parameters_ = p;
-  delta_t_ = parameters_.integrator_step_time;
-  force_gain_ = parameters_.force_gain;
-  for (int l = 0; l < 3; l++)
+  delta_t_ = params_->integrator_step_time.data;
+  force_gain_ = params_->force_gain.data;
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    for (int s = 0; s < 2; s++)
-    {
-      virtual_mass_[l][s] = parameters_.virtual_mass;
-      virtualStiffness[l][s] = parameters_.virtual_stiffness;
-      virtual_damping_ratio_[l][s] = parameters_.virtual_damping_ratio;
-
-      zTipPositionError[l][s] = 0;
-      zTipVelocityError[l][s] = 0;
-      zTipAbsementError[l][s] = 0;
-    }
+    Leg* leg = leg_it->second;
+    leg->setVirtualMass(params_->virtual_mass.data);
+    leg->setVirtualStiffness(params_->virtual_stiffness.data);
+    leg->setVirtualDampingRatio(params_->virtual_damping_ratio.data);
   }
-}
-
-/***********************************************************************************************************************
- * Updates change in tip position in z direction (deltaZ) according to tip force value
-***********************************************************************************************************************/
-void ImpedanceController::updateImpedance(int l, int s, double effort[3][2], double deltaZ[3][2])
-{
-  tip_forces_[l][s] = effort[l][s];
-  deltaZ[l][s] = calculateDeltaZ(l, s);
 }
 
 /***********************************************************************************************************************
  * Calculates change in tip position in z direction (deltaZ) according to tip force value
 ***********************************************************************************************************************/
-double ImpedanceController::calculateDeltaZ(int l, int s)
+void ImpedanceController::updateImpedance(Leg* leg, bool use_joint_effort)
 {
-  double virtualDamping = virtual_damping_ratio_[l][s] * 2 * sqrt(virtual_mass_[l][s] * virtualStiffness[l][s]);
+  double force_input;
+  if (use_joint_effort)
+  {
+    Joint* reference_joint = leg->getJointByIDName(leg->getIDName() + "_femur_joint"); //TBD Best method?
+    force_input = leg->getMirrorDir()*reference_joint->current_effort;    
+  }
+  else
+  {
+    force_input = leg->getTipForce();
+  } 
+  
+  double damping = leg->getVirtualDampingRatio();
+  double stiffness = leg->getVirtualStiffness();
+  double mass = leg->getVirtualMass();
+  state_type* impedance_state = leg->getImpedanceState();
+  double virtual_damping = damping * 2 * sqrt(mass * stiffness);
   runge_kutta4<state_type> stepper;
   integrate_const(stepper,
                   [&](const state_type &x, state_type &dxdt, double t)
                   {
                     dxdt[0] = x[1];
-                    dxdt[1] = -tip_forces_[l][s] / virtual_mass_[l][s] * force_gain_ -
-                              virtualDamping / virtual_mass_[l][s] * x[1] -
-                              virtualStiffness[l][s] / virtual_mass_[l][s] * x[0];
+                    dxdt[1] = -force_input/mass*force_gain_ - virtual_damping/mass*x[1] - stiffness/mass*x[0];
                   },
-                  impedance_state_[l][s], 0.0, delta_t_, delta_t_ / 30);
-  return impedance_state_[l][s][0];
-}
-
-/***********************************************************************************************************************
- * Sets input matrix to zero
-***********************************************************************************************************************/
-void ImpedanceController::zeroLegMatrix(double inputMatrix[3][2])
-{
-  inputMatrix[0][0] = 0;
-  inputMatrix[0][1] = 0;
-  inputMatrix[1][0] = 0;
-  inputMatrix[1][1] = 0;
-  inputMatrix[2][0] = 0;
-  inputMatrix[2][1] = 0;
+                  *impedance_state, 0.0, delta_t_, delta_t_ / 30);
+  double delta_z = (*impedance_state)[0];
+  leg->setDeltaZ(delta_z);
 }
 
 /***********************************************************************************************************************
  * Scales virtual stiffness value of given and adjacent legs according to reference
 ***********************************************************************************************************************/
-void ImpedanceController::updateStiffness(double stepReference, int l, int s)
+void ImpedanceController::updateStiffness(Leg* leg, double step_reference)
 {
-  // Get adjacent leg references
-  int adjacent1Leg = (l == 1) ? (l + 1) : l;
-  int adjacent1Side = (l == 1) ? s : !s;
-  int adjacent2Leg = (l == 0) ? (l + 1) : (l - 1);
-  int adjacent2Side = s;
+  int leg_id = leg->getIDNumber();
+  int adjacent_leg_1_id = (leg_id-1)%model_->getLegCount(); 
+  int adjacent_leg_2_id = (leg_id+1)%model_->getLegCount();
+  Leg* adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
+  Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);  
 
   //(X-1)+1 to change range from 0->1 to 1->multiplier
-  virtualStiffness[l][s] = parameters_.virtual_stiffness * (stepReference * (parameters_.swing_stiffness_scaler - 1) + 1);
-
-  virtualStiffness[adjacent1Leg][adjacent1Side] =
-      parameters_.virtual_stiffness * (stepReference * (parameters_.load_stiffness_scaler - 1) + 1);
-  virtualStiffness[adjacent2Leg][adjacent2Side] =
-      parameters_.virtual_stiffness * (stepReference * (parameters_.load_stiffness_scaler - 1) + 1);
+  double virtual_stiffness = params_->virtual_stiffness.data;
+  double swing_stiffness = virtual_stiffness*(step_reference*(params_->swing_stiffness_scaler.data-1)+1);
+  double load_stiffness = virtual_stiffness*(step_reference*(params_->load_stiffness_scaler.data-1)+1);
+  
+  leg->setVirtualStiffness(swing_stiffness);
+  adjacent_leg_1->setVirtualStiffness(load_stiffness);
+  adjacent_leg_2->setVirtualStiffness(load_stiffness);
 }
 
 /***********************************************************************************************************************
@@ -108,74 +89,39 @@ void ImpedanceController::updateStiffness(double stepReference, int l, int s)
 void ImpedanceController::updateStiffness(WalkController *walker)
 {
   // Reset virtual Stiffness each cycle
-  for (int l = 0; l < 3; l++)
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    for (int s = 0; s < 2; s++)
-    {
-      virtualStiffness[l][s] = parameters_.virtual_stiffness;
-    }
+    Leg* leg = leg_it->second;
+    leg->setVirtualStiffness(params_->virtual_stiffness.data);
   }
 
   // Calculate dynamic virtual stiffness
-  for (int l = 0; l < 3; l++)
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    for (int s = 0; s < 2; s++)
+    Leg* leg = leg_it->second;
+    LegStepper* leg_stepper = leg->getLegStepper();
+    if (leg_stepper->getStepState() == SWING)
     {
-      if (walker->legSteppers[l][s].step_state_ == SWING)
-      {
-        // Get adjacent leg references
-        int adjacent1Leg = (l == 1) ? (l + 1) : l;
-        int adjacent1Side = (l == 1) ? s : !s;
-        int adjacent2Leg = (l == 0) ? (l + 1) : (l - 1);
-        int adjacent2Side = s;
+      double z_diff = leg_stepper->getCurrentTipPosition()[2] - leg_stepper->getDefaultTipPosition()[2];
+      double step_reference = 0;
+      step_reference += abs(z_diff / (walker->getStepClearance() * walker->getMaxBodyHeight()));
 
-        double zDiff =
-            walker->legSteppers[l][s].current_tip_position_[2] - walker->legSteppers[l][s].default_tip_position_[2];
-        double stepReference = 0;
-        stepReference += abs(zDiff / (walker->step_clearance_ * walker->maximum_body_height_));
-
-        //(X-1)+1 to change range from 0->1 to 1->multiplier
-        virtualStiffness[l][s] = parameters_.virtual_stiffness * (stepReference * (parameters_.swing_stiffness_scaler - 1) + 1);
-
-        virtualStiffness[adjacent1Leg][adjacent1Side] +=
-            parameters_.virtual_stiffness * ((parameters_.load_stiffness_scaler - 1) * stepReference);
-        virtualStiffness[adjacent2Leg][adjacent2Side] +=
-            parameters_.virtual_stiffness * ((parameters_.load_stiffness_scaler - 1) * stepReference);
-      }
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Scales virtual stiffness value according to current pose offset calculated from IMU readings
-***********************************************************************************************************************/
-void ImpedanceController::updateStiffness(Pose currentPose, Vector3d identityTipPositions[3][2])
-{
-  Vector3d posedTipPositions[3][2];
-  for (int l = 0; l < 3; l++)
-  {
-    for (int s = 0; s < 2; s++)
-    {
-      double proportionalGain = 1000;  // TBD Parameterise
-      double integralGain = 0;  // TBD Parameterise
-      double derivativeGain = 0;  // TBD Parameterise
-
-      posedTipPositions[l][s] = currentPose.inverseTransformVector(identityTipPositions[l][s]);
-
-      double oldTipPositionError = zTipPositionError[l][s];
-      zTipPositionError[l][s] = identityTipPositions[l][s][2] - posedTipPositions[l][s][2];
-      zTipAbsementError[l][s] += zTipPositionError[l][s] * parameters_.time_delta;
-
-      // Low pass filter of IMU angular velocity data
-      double smoothingFactor = 0.15;
-      zTipVelocityError[l][s] = smoothingFactor * (zTipPositionError[l][s] - oldTipPositionError) / parameters_.time_delta +
-                                (1 - smoothingFactor) * zTipVelocityError[l][s];
-
-      double minStiffness = parameters_.virtual_stiffness;
-
-      virtualStiffness[l][s] = max(zTipPositionError[l][s] * proportionalGain + zTipAbsementError[l][s] * integralGain +
-                                       zTipVelocityError[l][s] * derivativeGain,
-                                   minStiffness);
+      int leg_id = leg->getIDNumber();
+      int adjacent_leg_1_id = (leg_id-1)%model_->getLegCount(); 
+      int adjacent_leg_2_id = (leg_id+1)%model_->getLegCount();
+      Leg* adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
+      Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
+      
+      //(X-1)+1 to change range from 0->1 to 1->multiplier
+      double virtual_stiffness = params_->virtual_stiffness.data;
+      double swing_stiffness = virtual_stiffness*(step_reference*(params_->swing_stiffness_scaler.data-1)+1);
+      double load_stiffness = virtual_stiffness*(step_reference*(params_->load_stiffness_scaler.data-1));
+      double current_stiffness_1 = adjacent_leg_1->getVirtualStiffness();
+      double current_stiffness_2 = adjacent_leg_2->getVirtualStiffness();
+      leg->setVirtualStiffness(swing_stiffness);
+      adjacent_leg_1->setVirtualStiffness(current_stiffness_1 + load_stiffness);
+      adjacent_leg_2->setVirtualStiffness(current_stiffness_2 + load_stiffness);
     }
   }
 }

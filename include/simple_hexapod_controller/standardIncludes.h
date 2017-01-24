@@ -1,25 +1,60 @@
-#pragma once
+#ifndef SIMPLE_HEXAPOD_CONTROLLER_STANDARD_INCLUDES_H
+#define SIMPLE_HEXAPOD_CONTROLLER_STANDARD_INCLUDES_H
+/** 
+ *  \file    standard_includes.h
+ *  \brief   Collection of standard libaries and common functions. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   January 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ */
 
-#include <Eigen/Dense>
-#include <vector>
-#include <boost/iterator/iterator_concepts.hpp>
+#include <ros/ros.h>
 #include <ros/console.h>
 #include <ros/assert.h>
+#include <ros/exceptions.h>
+
+#include <tf/transform_broadcaster.h>
+
+#include <std_msgs/Bool.h>
+#include <std_msgs/Int8.h>
+#include <std_msgs/Float32MultiArray.h>
+
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/JointState.h>
+
+#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/Point.h>
+
+#include <Eigen/Eigen>
+
+#include <boost/iterator/iterator_concepts.hpp>
+
 #include <sstream>
 #include <string.h>
+#include <vector>
 #include <stdio.h>
 using namespace Eigen;
 using namespace std;
 
-
-#define NUM_LEGS 6
 #define DEBUGDRAW
+#define UNASSIGNED_VALUE 1e10
 const double pi = M_PI;  //< easier to read
 
 // ifdef because assert(x) is nop on NDEBUG defined, not on 'DEBUG not defined'
 #ifndef DEBUG
-#define ASSERT(x)                                                                                                      \
-  {                                                                                                                    \
+#define ASSERT(x)                                                                                                      
+  {                                                                                                                    
   }
 #define ATTEMPT(x_, y_) x_
 #else
@@ -93,6 +128,71 @@ inline T quarticBezierDot(T *points, double t)
   double s = 1.0 - t;
   return (4.0 * s * s * s * (points[1] - points[0]) + 12.0 * s * s * t * (points[2] - points[1]) +
           12.0 * s * t * t * (points[3] - points[2]) + 4.0 * t * t * t * (points[4] - points[3]));
+}
+
+inline Matrix4d createDHMatrix(double d, double theta, double r, double alpha)
+{
+  Matrix4d m;
+  m << cos(theta), -sin(theta)*cos(alpha),  sin(theta)*sin(alpha), r*cos(theta), 
+       sin(theta),  cos(theta)*cos(alpha), -cos(theta)*sin(alpha), r*sin(theta),
+                0,             sin(alpha),             cos(alpha),            d,
+                0,                      0,                      0,            1;
+  return m;
+}
+
+inline MatrixXd create1DOFJacobian(vector<map<string, double>> dh)
+{
+  double d1 = dh[0]["d"];
+  double r1 = dh[0]["r"];
+  double sT1 = sin(dh[0]["theta"]);
+  double cT1 = cos(dh[0]["theta"]);
+  double sA1 = sin(dh[0]["alpha"]);
+  double cA1 = cos(dh[0]["alpha"]);
+  MatrixXd j(3, 1);
+  j << -r1*sT1,
+        r1*cT1, 
+           0.0;
+  return j;
+}
+
+inline MatrixXd create2DOFJacobian(vector<map<string, double>> dh)
+{
+  double d1 = dh[0]["d"], d2 = dh[1]["d"];
+  double r1 = dh[0]["r"], r2 = dh[1]["r"];
+  double sT1 = sin(dh[0]["theta"]), sT2 = sin(dh[1]["theta"]);
+  double cT1 = cos(dh[0]["theta"]), cT2 = cos(dh[1]["theta"]);
+  double sA1 = sin(dh[0]["alpha"]), sA2 = sin(dh[1]["alpha"]);
+  double cA1 = cos(dh[0]["alpha"]), cA2 = cos(dh[1]["alpha"]);
+  MatrixXd j(3, 2);
+  j << -(sT1*r2*cT2)-(cT1*cA1*r2*sT2)+(cT1*sA1*d2)-(r1*sT1), -(cT1*r2*sT2)-(sT1*cA1*r2*cT2),
+        (cT1*r2*cT2)-(sT1*cA1*r2*sT2)+(sT1*sA1*d2)+(r1*cT1), -(sT1*r2*sT2)+(cT1*cA1*r2*cT2),
+                                                        0.0,                   (sA1*r2*cT2);
+  return j;
+}
+
+inline MatrixXd create3DOFJacobian(vector<map<string, double>> dh)
+{  
+  double d1 = dh[0]["d"], d2 = dh[1]["d"], d3 = dh[2]["d"];
+  double r1 = dh[0]["r"], r2 = dh[1]["r"], r3 = dh[2]["r"];
+  double sT1 = sin(dh[0]["theta"]), sT2 = sin(dh[1]["theta"]), sT3 = sin(dh[2]["theta"]);
+  double cT1 = cos(dh[0]["theta"]), cT2 = cos(dh[1]["theta"]), cT3 = cos(dh[2]["theta"]);
+  double sA1 = sin(dh[0]["alpha"]), sA2 = sin(dh[1]["alpha"]), sA3 = sin(dh[2]["alpha"]);
+  double cA1 = cos(dh[0]["alpha"]), cA2 = cos(dh[1]["alpha"]), cA3 = cos(dh[2]["alpha"]);
+  MatrixXd j(3,3);
+  j << 	-(sT1*cT2*r3*cT3)-(cT1*cA1*sT2*r3*cT3)+(sT1*sT2*cA2*r3*sT3)-(cT1*cA1*cT2*cA2*r3*sT3)+(cT1*sA1*sA2*r3*sT3)
+	-(sT1*sT2*sA2*d3)+(cT1*cA1*cT2*sA2*d3)+(cT1*sA1*cA2*d3)-(sT1*r2*cT2)-(cT1*cA1*r2*sT2)+(cT1*sA1*d2)-(r1*sT1),	
+	-(cT1*sT2*r3*cT3)-(sT1*cA1*cT2*r3*cT3)-(cT1*cT2*cA2*r3*sT3)+(sT1*cA1*sT2*cA2*r3*sT3)
+	+(cT1*cT2*sA2*d3)-(sT1*cA1*sT2*sA2*d3)-(cT1*r2*sT2)-(sT1*cA1*r2*cT2),	
+	-(cT1*cT2*r3*sT3)+(sT1*cA1*sT2*r3*sT3)-(cT1*sT2*cA2*r3*cT3)-(sT1*cA1*cT2*cA2*r3*cT3)+(sT1*sA1*sA2*r3*cT3),	
+	(cT1*cT2*r3*cT3)-(sT1*cA1*sT2*r3*cT3)-(cT1*sT2*cA2*r3*sT3)-(sT1*cA1*cT2*cA2*r3*sT3)+(sT1*sA1*sA2*r3*sT3)
+	+(cT1*sT2*sA2*d3)+(sT1*cA1*cT2*sA2*d3)+(sT1*sA1*cA2*d3)+(cT1*r2*cT2)-(sT1*cA1*r2*sT2)+(sT1*sA1*d2)+(r1*cT1),	
+	-(sT1*sT2*r3*cT3)+(cT1*cA1*cT2*r3*cT3)-(sT1*cT2*cA2*r3*sT3)-(cT1*cA1*sT2*cA2*r3*sT3)
+	+(sT1*cT2*sA2*d3)+(cT1*cA1*sT2*sA2*d3)-(sT1*r2*sT2)+(cT1*cA1*r2*cT2),	
+	-(sT1*cT2*r3*sT3)-(cT1*cA1*sT2*r3*sT3)-(sT1*sT2*cA2*r3*cT3)+(cT1*cA1*cT2*cA2*r3*cT3)-(cT1*sA1*sA2*r3*cT3),	
+	0,	
+	(sA1*cT2*r3*cT3)-(sA1*sT2*cA2*r3*sT3)+(sA1*sT2*sA2*d3)+(sA1*r2*cT2),	
+	-(sA1*sT2*r3*sT3)+(sA1*cT2*cA2*r3*cT3)+(cA1*sA2*r3*cT3);
+  return j;  
 }
 
 inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)
@@ -214,9 +314,4 @@ std::string numberToString ( T number )
   return ss.str();
 }
 
-int stringToInt (std::string str)
-{
-  int i;
-  std::istringstream(str) >> i;
-  return i;
-}
+#endif /* SIMPLE_HEXAPOD_CONTROLLER_STANDARD_INCLUDES_H */

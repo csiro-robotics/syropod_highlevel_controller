@@ -6,42 +6,41 @@
  * finding the largest footprint radius that each leg can achieve for the
  * specified level of clearance.
 ***********************************************************************************************************************/
-WalkController::WalkController(Model *model, Parameters p)
+WalkController::WalkController(Model* model, Parameters* params)
+  : model_(model)
+  , params_(params)
+  , walk_state_(STOPPED)
 {
-  init(model, p);
+  init();
 }
 
 /***********************************************************************************************************************
  * Initialisation
 ***********************************************************************************************************************/
-void WalkController::init(Model *model, Parameters p)
+void WalkController::init()
 {
-  params_ = p;
-  walk_state_ = STOPPED;
+  step_clearance_ = params_->step_clearance.data;
+  step_depth_ = params_->step_depth.data;
+  body_clearance_ = params_->body_clearance.data;
+  time_delta_ = params_->time_delta.data;
 
-  step_clearance_ = params_.step_clearance;
-  step_depth_ = params_.step_depth;
-  body_clearance_ = params_.body_clearance;
-  time_delta_ = params_.time_delta;
-
-  ASSERT(stepClearance >= 0 && stepClearance < 1.0);  
+  //ASSERT(stepClearance >= 0 && stepClearance < 1.0);  
   
   //TBD Assumes universal physical leg characteristics
-  typedef std::map<std::string, Leg*>::iterator it_type;
-  it_type first_leg = model->getLegContainer().begin();
-  Leg3DOF reference_leg = first_leg->second();
+  std::map<int, Leg*>::iterator first_leg_it = model_->getLegContainer()->begin();
+  Leg* reference_leg = first_leg_it->second;
   
-  //Calculate max body height
-  double tibia_length = reference_leg->getTibiaLinkLength();
-  double femur_length = reference_leg->getFemurLinkLength();  
-  double min_tibia_angle = max(0.0, reference_leg->getMinTibiaJointLimit());
-  double max_tibia_angle = reference_leg->getMaxTibiaJointLimit();
-  double min_femur_angle = reference_leg->getMinFemurJointLimit();
+  //Calculate max body height 
+  double tibia_length = 0.0;//reference_leg->getLinkByIDName(reference_leg->getIDName() + "_tibia_link")->length;
+  double femur_length = reference_leg->getLinkByIDName(reference_leg->getIDName() + "_femur_link")->length;
+  double min_tibia_angle = 0.0;//reference_leg->getJointByIDName(reference_leg->getIDName() + "_tibia_joint")->min_position;
+  double max_tibia_angle = 0.0;//reference_leg->getJointByIDName(reference_leg->getIDName() + "_tibia_joint")->max_position;
+  double min_femur_angle = reference_leg->getJointByIDName(reference_leg->getIDName() + "_femur_joint")->min_position;
   double max_femur_angle = min(-min_femur_angle, pi / 2.0 - atan2(tibia_length * sin(min_tibia_angle), femur_length + tibia_length * cos(min_tibia_angle))); //TBD pi/2.0?
 
   maximum_body_height_ = femur_length * sin(max_femur_angle) + tibia_length * sin(max_femur_angle + clamped(pi / 2.0 - max_femur_angle, min_tibia_angle, max_tibia_angle));
 
-  ASSERT(stepClearance * maximumBodyHeight <= 2.0 * model->legs[0][0].femurLength);  // impossible to lift this high
+  //ASSERT(stepClearance * maximumBodyHeight <= 2.0 * model_->legs[0][0].femurLength);  // impossible to lift this high
 
   // If undefined - work out a best value to maximise circular footprint for given step clearance
   if (body_clearance_ == -1)
@@ -49,17 +48,17 @@ void WalkController::init(Model *model, Parameters p)
     // in this case we assume legs have equal characteristics
     body_clearance_ = (reference_leg->getMinLegLength() + step_clearance_ * maximum_body_height_) / maximum_body_height_;
   }
-  ASSERT(bodyClearance >= 0 && bodyClearance < 1.0);
+  //ASSERT(bodyClearance >= 0 && bodyClearance < 1.0);
 
   min_footprint_radius_ = 1e10;
 
-  typedef std::map<std::string, Leg*>::iterator it_type;
-  for (it_type it = model->getLegContainer().begin(); it != model->getLegContainer()->end(); ++it)
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    Leg3DOF* leg = it->second();
-    double coxa_length = leg->getCoxaLinkLength();
-    double tibia_length = leg->getTibiaLinkLength();
-    double femur_length = leg->getFemurLinkLength();
+    Leg* leg = leg_it->second;
+    double coxa_length = leg->getLinkByIDName(leg->getIDName() + "_coxa_link")->length;
+    double tibia_length = 0.0;//leg->getLinkByIDName(leg->getIDName() + "_tibia_link")->length;
+    double femur_length = leg->getLinkByIDName(leg->getIDName() + "_femur_link")->length;
     double min_virtual_leg_length = leg->getMinLegLength();
     double max_virtual_leg_length = leg->getMaxLegLength();
     
@@ -74,7 +73,7 @@ void WalkController::init(Model *model, Parameters p)
     {
       double vertical_body_to_femur_joint = femur_length * sin(-min_femur_angle);
       double vertical_ground_to_tibia_joint = body_clearance_ * maximum_body_height_ - vertical_body_to_femur_joint;
-      ASSERT(extraHeight <= leg->tibiaLength);  // this shouldn't be possible with bodyClearance < 1
+      //ASSERT(extraHeight <= leg->tibiaLength);  // this shouldn't be possible with bodyClearance < 1
       double horizontal_tibia_joint_to_tip = sqrt(sqr(tibia_length) - sqr(vertical_ground_to_tibia_joint));
       horizontal_range = femur_length * cos(-min_femur_angle) + horizontal_tibia_joint_to_tip;
     }
@@ -82,9 +81,10 @@ void WalkController::init(Model *model, Parameters p)
     {
       horizontal_range = sqrt(sqr(max_virtual_leg_length) - sqr(body_clearance_ * maximum_body_height_));
     }
-    horizontal_range *= params_.leg_span_scale; //Scale range according to user defined parameter
+    horizontal_range *= params_->leg_span_scale.data; //Scale range according to user defined parameter
 
-    double half_coxa_joint_range = leg->getMaxCoxaJointLimitAroundDefault();
+    Joint* coxa_joint = leg->getJointByIDName(leg->getIDName() + "_coxa_joint");
+    double half_coxa_joint_range = coxa_joint->max_position;
     //double cotanTheta = tan(0.5 * pi - theta);
     //ALTERNATIVE ALGORITHM FOR RADIUS OF CIRCLE INSCRIBED BY A SECTOR
     //rad = min(rad, solveQuadratic(sqr(cotanTheta), 2.0 * horizontalRange, -sqr(horizontalRange)));
@@ -101,32 +101,30 @@ void WalkController::init(Model *model, Parameters p)
     }
     ASSERT(rad > 0.0);  // cannot have negative radius, step height is too high to allow any footprint
 
-    double foot_spread_distances = coxa_length + horizontal_range - rad;
+    double horizontal_coxa_to_tip = coxa_length + horizontal_range - rad;
 
     // FootprintDownscale scales the tip footprint down as the step cycle sometimes exceeds the ground footprint in
     // order to maintain velocity
-    min_footprint_radius_ = min(min_footprint_radius_, rad * params_.footprint_downscale);
+    min_footprint_radius_ = min(min_footprint_radius_, rad * params_->footprint_downscale.data);
 
-    Vector3d identity_tip_position = leg->getFemurOffset();
-    identity_tip_position[0] += foot_spread_distances*sin(leg->getDefaultCoxaJointPosition());
-    identity_tip_position[1] += foot_spread_distances*-cos(leg->getDefaultCoxaJointPosition());
-    identity_tip_position[2] += -body_clearance_ * maximum_body_height_;
-    identity_tip_position *= leg->getMirrorDir();
-
-    leg->setLegStepper(this, identity_tip_position);
+    Link* base_link = leg->getLinkByIDName(leg->getIDName() + "_base_link");
+    Vector3d identity_tip_position(base_link->length*cos(base_link->angle) + horizontal_coxa_to_tip*cos(leg->getStanceLegYaw()),
+				   base_link->length*sin(base_link->angle) + horizontal_coxa_to_tip*sin(leg->getStanceLegYaw()),
+				   -body_clearance_*maximum_body_height_);
+    leg->setLegStepper(new LegStepper(this, leg, identity_tip_position));
   }
   
   // check for overlapping radii
   double min_gap = 1e10;
   LegStepper* reference_leg_stepper_1 = reference_leg->getLegStepper();
-  LegStepper* reference_leg_stepper_2 = ((first_leg+2)->second())->getLegStepper();
-  LegStepper* reference_leg_stepper_3 = ((first_leg+4)->second())->getLegStepper();
+  LegStepper* reference_leg_stepper_2 = model_->getLegByIDNumber(reference_leg->getIDNumber()+1)->getLegStepper();
+  LegStepper* reference_leg_stepper_3 = model_->getLegByIDNumber(reference_leg->getIDNumber()+2)->getLegStepper();
   
   Vector3d positive_difference = reference_leg_stepper_1->getDefaultTipPosition() - reference_leg_stepper_2->getDefaultTipPosition();
   positive_difference[2] = 0.0;
   min_gap = min(min_gap, positive_difference.norm() - 2.0 * min_footprint_radius_);
   
-  positive_difference = reference_leg_stepper_2->getDefaultTipPosition() - reference_leg_stepper_1->getDefaultTipPosition();
+  positive_difference = reference_leg_stepper_2->getDefaultTipPosition() - reference_leg_stepper_3->getDefaultTipPosition();
   positive_difference[2] = 0.0;
   min_gap = min(min_gap, positive_difference.norm() - 2.0 * min_footprint_radius_);
 
@@ -135,7 +133,7 @@ void WalkController::init(Model *model, Parameters p)
     min_footprint_radius_ += min_gap * 0.5;
   }
 
-  // Stance radius based around front-left leg to ensure positive values (due to coordinate frame system: x=forward,
+  // Stance radius based around front-right leg to ensure positive values (due to coordinate frame system: x=forward,
   // y=left)
   double x_position = reference_leg_stepper_1->getDefaultTipPosition()[0];
   double y_position = reference_leg_stepper_1->getDefaultTipPosition()[1];
@@ -143,49 +141,47 @@ void WalkController::init(Model *model, Parameters p)
 
   current_linear_velocity_ = Vector2d(0, 0);
   current_angular_velocity_ = 0;
-
-  pose_.rotation_ = Quat(1, 0, 0, 0);
-  pose_.position_ = Vector3d(0, 0, body_clearance_ * maximum_body_height_);
   
-  setGaitParams(p);
+  setGaitParams(params_);
 }
 
 /***********************************************************************************************************************
  * Sets parameters associated with gait
 ***********************************************************************************************************************/
-void WalkController::setGaitParams(Model* model, Parameters p)
+void WalkController::setGaitParams(Parameters* p)
 {
   params_ = p;
-  stance_end_ = params_.stance_phase * 0.5;
+  stance_end_ = params_->stance_phase.data * 0.5;
   swing_start_ = stance_end_;
-  swing_end_ = swing_start_ + params_.swing_phase;
+  swing_end_ = swing_start_ + params_->swing_phase.data;
   stance_start_ = swing_end_;
 
-  ROS_ASSERT(params_.stance_phase % 2 == 0);
-  ROS_ASSERT(params_.swing_phase % 2 == 0);
+  //ROS_ASSERT(params_->stance_phase.data % 2 == 0);
+  //ROS_ASSERT(params_->swing_phase.data % 2 == 0);
 
   // Normalises the step phase length to match the total number of iterations over a full step
-  int base_phase_length = params_.stance_phase + params_.swing_phase;
-  double swing_ratio = (params_.swing_phase) / base_phase_length;  // Used to modify stepFreqency based on gait
-  phase_length_ = (roundToInt((1.0 / (2.0 * params_.step_frequency * time_delta_)) / (base_phase_length * swing_ratio)) *
-                 (base_phase_length * swing_ratio)) /
-                swing_ratio;
+  int base_phase_length = params_->stance_phase.data + params_->swing_phase.data;
+  double swing_ratio = double(params_->swing_phase.data) / double(base_phase_length);  // Used to modify stepFreqency based on gait
+  phase_length_ = (roundToInt((1.0 / (2.0 * params_->step_frequency.data * time_delta_))/(base_phase_length * swing_ratio))*(base_phase_length * swing_ratio))/swing_ratio;
+  int test_phase_length = (1.0 / (2.0 * params_->step_frequency.data * time_delta_))/swing_ratio;
+  ROS_WARN_COND(phase_length_ != test_phase_length, "test phase length (%d) != phase length (%d)", test_phase_length, phase_length_);
+  
   step_frequency_ = 1 / (phase_length_ * time_delta_);  // adjust stepFrequency to match corrected phaseLength
-  ASSERT(phaseLength % basePhaseLength == 0);
+  //ASSERT(phaseLength % basePhaseLength == 0);
   int normaliser = phase_length_ / base_phase_length;
   stance_end_ *= normaliser;
   swing_start_ *= normaliser;
   swing_end_ *= normaliser;
   stance_start_ *= normaliser;
 
-  typedef std::map<std::string, Leg*>::iterator it_type;
-  for (it_type it = model->getLegContainer().begin(); it != model->getLegContainer()->end(); ++it)
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    Leg3DOF* leg = it->second();
+    Leg* leg = leg_it->second;
     int index = leg->getIDNumber();
-    int multiplier = params_.offset_multiplier[index];
+    int multiplier = params_->offset_multiplier.data[index];
     LegStepper* leg_stepper = leg->getLegStepper();
-    leg_stepper->setPhaseOffset((int(params_.phase_offset * normaliser) * multiplier) % phase_length_);
+    leg_stepper->setPhaseOffset((int(params_->phase_offset.data * normaliser) * multiplier) % phase_length_);
   }
 }
 
@@ -193,8 +189,10 @@ void WalkController::setGaitParams(Model* model, Parameters p)
  * Calculates body and stride velocities and uses velocities in body and leg state machines
  * to update tip positions and apply inverse kinematics
 ***********************************************************************************************************************/
-void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_velocity_input, Model *model)
+void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_velocity_input)
 {
+  std::map<int, Leg*>::iterator leg_it;
+  
   double on_ground_ratio = double(phase_length_ - (swing_end_ - swing_start_)) / double(phase_length_);
 
   Vector2d new_linear_velocity;
@@ -207,7 +205,7 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   // Get new angular/linear velocities according to input mode
   if (walk_state_ != STOPPING)
   {
-    if (params_.velocity_input_mode == "throttle")
+    if (params_->velocity_input_mode.data == "throttle")
     {
       new_linear_velocity = clamped(linear_velocity_input, 1.0) * max_linear_speed;  // Forces input between -1.0/1.0
       new_angular_velocity = clamped(angular_velocity_input, -1.0, 1.0) * max_angular_speed;
@@ -215,7 +213,7 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
       // Scale linear velocity according to angular velocity (% of max) to keep stride velocities within limits
       new_linear_velocity *= (1 - abs(angular_velocity_input));  
     }
-    else if (params_.velocity_input_mode == "real")
+    else if (params_->velocity_input_mode.data == "real")
     {
       new_linear_velocity = clamped(linear_velocity_input, max_linear_speed);
       new_angular_velocity = clamped(angular_velocity_input, -max_angular_speed, max_angular_speed);
@@ -226,12 +224,12 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
       if (linear_velocity_input.norm() > max_linear_speed)
       {
         ROS_WARN_THROTTLE(10, "Input linear speed (%f) exceeds maximum linear speed (%f) and has been clamped.",
-                          linearVelocityInput.norm(), maxLinearSpeed);
+                          linear_velocity_input.norm(), max_linear_speed);
       }
       if (abs(angular_velocity_input) > max_angular_speed)
       {
         ROS_WARN_THROTTLE(10, "Input angular velocity (%f) exceeds maximum angular speed (%f) and has been clamped.",
-                          abs(angularVelocityInput), maxAngularSpeed);
+                          abs(angular_velocity_input), max_angular_speed);
       }
     }
   }
@@ -244,45 +242,44 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   double angular_acceleration = new_angular_velocity - current_angular_velocity_;
   
   // Calculate max angular acceleration if specified by parameter
-  if (params_.max_angular_acceleration == -1.0)
+  if (params_->max_angular_acceleration.data == -1.0)
   {
     // Ensures tip of last leg to make first swing does not move further than 
     // footprint radius before starting first swing (s=0.5*a*(t^2))
     double theta = acos(1 - (sqr(min_footprint_radius_) / (2.0 * sqr(stance_radius_))));  // Max angle within footprint
-    params_.max_angular_acceleration = 2.0 * theta / sqr(((phase_length_ - (swing_end_ - swing_start_) * 0.5) * time_delta_));
+    params_->max_angular_acceleration.data = 2.0 * theta / sqr(((phase_length_ - (swing_end_ - swing_start_) * 0.5) * time_delta_));
   }
   // Update angular velocity according to acceleration limits
   if (abs(angular_acceleration) > 0.0)
   {
     current_angular_velocity_ +=
-        angular_acceleration * min(1.0, params_.max_angular_acceleration * time_delta_ / abs(angular_acceleration));
+        angular_acceleration * min(1.0, params_->max_angular_acceleration.data * time_delta_ / abs(angular_acceleration));
   }
 
   // Linear Acceleration Control
   Vector2d linear_acceleration = new_linear_velocity - current_linear_velocity_;
   // Calculate max acceleration if specified by parameter
-  if (params_.max_linear_acceleration == -1.0)
+  if (params_->max_linear_acceleration.data == -1.0)
   {
     // Ensures tip of last leg to make first swing does not move further than
     // footprint radius before starting first swing (s=0.5*a*(t^2))
-    params_.max_linear_acceleration =
+    params_->max_linear_acceleration.data =
         2.0 * min_footprint_radius_ / sqr(((phase_length_ - (swing_end_ - swing_start_) * 0.5) * time_delta_));
   }
   // Update linear velocity according to acceleration limits
   if (linear_acceleration.norm() > 0.0)
   {
     current_linear_velocity_ +=
-        linear_acceleration * min(1.0, params_.max_linear_acceleration * time_delta_ / linear_acceleration.norm());
+        linear_acceleration * min(1.0, params_->max_linear_acceleration.data * time_delta_ / linear_acceleration.norm());
   }
 
   bool has_velocity_command = linear_velocity_input.norm() || angular_velocity_input;
 
   // Check that all legs are in WALKING state
-  typedef std::map<std::string, Leg*>::iterator it_type;
-  for (it_type it = model->getLegContainer().begin(); it != model->getLegContainer()->end(); ++it)
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    Leg3DOF leg = it->second();
-    if (has_velocity_command && leg->getState() != WALKING)
+    Leg* leg = leg_it->second;
+    if (has_velocity_command && leg->getLegState() != WALKING)
     {
       has_velocity_command = false;
       if (angular_velocity_input == 0)
@@ -295,13 +292,14 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
 
   // State transitions for robot state machine.
   // State transition: STOPPED->STARTING
-  int num_legs = model->getLegCount();
+  int num_legs = model_->getLegCount();
   if (walk_state_ == STOPPED && has_velocity_command)
   {
     walk_state_ = STARTING;
-    for (it_type it = model->getLegContainer().begin(); it != model->getLegContainer()->end(); ++it)
+    std::map<int, Leg*>::iterator leg_it;
+    for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
     {
-      Leg3DOF* leg = it->second();
+      Leg* leg = leg_it->second;
       LegStepper* leg_stepper = leg->getLegStepper();
       leg_stepper->setPhase(leg_stepper->getPhaseOffset() - 1);
     }
@@ -326,18 +324,19 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   }
 
   // Robot State Machine
-  for (it_type it = model->getLegContainer().begin(); it != model->getLegContainer()->end(); ++it)
+    
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    Leg3DOF* leg = it->second();
+    Leg* leg = leg_it->second;
     LegStepper* leg_stepper = leg->getLegStepper(); 
     
     Vector3d local_tip_position = leg->getLocalTipPosition();
-    Vector3d stride_vector = on_ground_ratio * (current_linear_velocity_ + current_angular_velocity_ * Vector2d(-local_tip_position[1], local_tip_position[0])) / step_frequency_;
+    Vector2d stride_vector = on_ground_ratio * (current_linear_velocity_ + current_angular_velocity_ * Vector2d(-local_tip_position[1], local_tip_position[0])) / step_frequency_;
     leg_stepper->setStrideVector(stride_vector);    
 
     if (walk_state_ == STARTING)
     {
-      leg_stepper->iteratePhase(this);
+      leg_stepper->iteratePhase();
 
       // Check if all legs have completed one step
       if (legs_at_correct_phase_ == num_legs)
@@ -415,12 +414,12 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   }
 
   // Step State Machine
-  for (it_type it = model->getLegContainer().begin(); it != model->getLegContainer()->end(); ++it)
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    Leg3DOF* leg = it->second();
+    Leg* leg = leg_it->second;
     LegStepper* leg_stepper = leg->getLegStepper(); 
     int phase = leg_stepper->getPhase();
-    StepState step_state = leg_stepper.getStepState();
+    StepState step_state = leg_stepper->getStepState();
 
     // Force leg state as STANCE for STARTING robot state
     if (step_state == FORCE_STANCE)
@@ -443,28 +442,19 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   }
 
   // Update tip positions and apply inverse kinematics
-  for (it_type it = model->getLegContainer().begin(); it != model->getLegContainer()->end(); ++it)
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    Leg3DOF* leg = it->second();
+    Leg* leg = leg_it->second;
     LegStepper* leg_stepper = leg->getLegStepper(); 
 
     if (leg->getLegState() == WALKING)
     {
       if (walk_state_ != STOPPED)
       {
-	leg_stepper.updatePosition();  // updates current tip position through step cycle
+	leg_stepper->updatePosition();  // updates current tip position through step cycle
       }
     }
   }
-
-  // RVIZ
-  if (walk_state_ != STOPPED)
-  {
-    Vector2d push = current_linear_velocity_ * time_delta_;
-    pose_.position_ += pose_.rotation_.rotateVector(Vector3d(push[0], push[1], 0));
-    pose_.rotation_ *= Quat(Vector3d(0.0, 0.0, current_angular_velocity_ * time_delta_));
-  }
-  // RVIZ
 }
 
 /***********************************************************************************************************************
@@ -473,13 +463,12 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
 ***********************************************************************************************************************/
 
 void WalkController::updateManual(int primary_leg_selection_ID, Vector3d primary_tip_velocity_input,
-                                  int secondary_leg_selection_ID, Vector3d secondary_tip_velocity_input,
-				  Model* model)
+                                  int secondary_leg_selection_ID, Vector3d secondary_tip_velocity_input)
 {
-  typedef std::map<std::string, Leg*>::iterator it_type;
-  for (it_type it = model->getLegContainer().begin(); it != model->getLegContainer()->end(); ++it)
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    Leg3DOF* leg = it->second();
+    Leg* leg = leg_it->second;
     LegStepper* leg_stepper = leg->getLegStepper();  
     if (leg->getLegState() == MANUAL)
     {
@@ -494,20 +483,20 @@ void WalkController::updateManual(int primary_leg_selection_ID, Vector3d primary
 	tipVelocityInput = secondary_tip_velocity_input;
       }
 
-      if (params_.leg_manipulation_mode == "joint_control")  // HACK Below
+      if (params_->leg_manipulation_mode.data == "joint_control")  // HACK Below
       {
-	double coxa_joint_velocity = tipVelocityInput[0] * params_.max_rotation_velocity * time_delta_;
-	double femur_joint_velocity = tipVelocityInput[1] * params_.max_rotation_velocity * time_delta_;
-	double tibia_joint_velocity = tipVelocityInput[2] * params_.max_rotation_velocity * time_delta_;
-	double new_coxa_angle = leg.getCoxaJointPosition() += coxa_joint_velocity;
-	double new_femur_angle = leg.getFemurJointPosition() += femur_joint_velocity;
-	double new_tibia_angle = leg.getTibiaJointPosition() += tibia_joint_velocity;
-	Vector3d new_tip_position = leg.calculateFK(new_coxa_angle, new_femur_angle, new_tibia_angle);
+	double coxa_joint_velocity = tipVelocityInput[0] * params_->max_rotation_velocity.data * time_delta_;
+	double femur_joint_velocity = tipVelocityInput[1] * params_->max_rotation_velocity.data * time_delta_;
+	double tibia_joint_velocity = 0.0;//tipVelocityInput[2] * params_->max_rotation_velocity.data * time_delta_;
+	leg->getJointByIDName(leg->getIDName() + "_coxa_joint")->desired_position += coxa_joint_velocity;
+	leg->getJointByIDName(leg->getIDName() + "_femur_joint")->desired_position += femur_joint_velocity;
+	//leg->getJointByIDName(leg->getIDName() + "_tibia_joint")->desired_position += tibia_joint_velocity;	
+	Vector3d new_tip_position = leg->applyFK(false);
 	leg_stepper->setCurrentTipPosition(new_tip_position);
       }
-      else if (params_.leg_manipulation_mode == "tip_control")
+      else if (params_->leg_manipulation_mode.data == "tip_control")
       {
-	Vector3d tip_position_change = tipVelocityInput * params_.max_translation_velocity * time_delta_;
+	Vector3d tip_position_change = tipVelocityInput * params_->max_translation_velocity.data * time_delta_;
 	Vector3d new_tip_position = leg_stepper->getCurrentTipPosition() + tip_position_change;
 	leg_stepper->setCurrentTipPosition(new_tip_position);
       }
@@ -518,7 +507,7 @@ void WalkController::updateManual(int primary_leg_selection_ID, Vector3d primary
 /***********************************************************************************************************************
  * Leg stepper object constructor
 ***********************************************************************************************************************/
-LegStepper::LegStepper(WalkController* walker, Leg3DOF* leg, Vector3d identity_tip_position) 
+LegStepper::LegStepper(WalkController* walker, Leg* leg, Vector3d identity_tip_position) 
   : walker_(walker)
   , leg_(leg)
   , default_tip_position_(identity_tip_position)
@@ -532,7 +521,7 @@ LegStepper::LegStepper(WalkController* walker, Leg3DOF* leg, Vector3d identity_t
 /***********************************************************************************************************************
  * Iterates the step phase and updates the progress variables
 ***********************************************************************************************************************/
-void LegStepper::iteratePhase()
+void LegStepper::iteratePhase(void)
 {
   int phase_length = walker_->getPhaseLength();
   int swing_start = walker_->getSwingStart();
@@ -598,7 +587,7 @@ void LegStepper::updatePosition()
     {
       // Update values of NEXT stance curve for use in calculation of secondary swing control nodes
       int stance_length = mod(stance_end - stance_start, phase_length);
-      stance_delta_t_ = calculateDeltaT(STANCE, stance_length);
+      stance_delta_t_ = calculateDeltaT(stance_length);
       stance_origin_tip_position_ = default_tip_position_ + 0.5 * stride_vector_3d;
       generateStanceControlNodes(stride_vector_3d);
 
@@ -621,7 +610,16 @@ void LegStepper::updatePosition()
 
     if (leg_->getIDNumber() == 0)
     {
-      ROS_DEBUG_COND(params->debug_swing_trajectory, "SWING TRAJECTORY_DEBUG - ITERATION: %d\t\tTIME: %f:%f\t\tORIGIN: %f:%f:%f\t\tPOS: %f:%f:%f\t\tTARGET: %f:%f:%f\n", iteration, t1, t2, swing_origin_tip_position_[0], swing_origin_tip_position_[1], swing_origin_tip_position_[2], current_tip_position_[0], current_tip_position_[1], current_tip_position_[2], swing_2_control_nodes_[4][0], swing_2_control_nodes_[4][1], swing_2_control_nodes_[4][2]);
+      ROS_DEBUG_COND(walker_->getParameters()->debug_swing_trajectory.data, 
+		     "SWING TRAJECTORY_DEBUG - ITERATION: %d\t\t"
+		     "TIME: %f:%f\t\t"
+		     "ORIGIN: %f:%f:%f\t\t"
+		     "POS: %f:%f:%f\t\t"
+		     "TARGET: %f:%f:%f\n", 
+		     iteration, t1, t2, 
+		     swing_origin_tip_position_[0], swing_origin_tip_position_[1], swing_origin_tip_position_[2], 
+		     current_tip_position_[0], current_tip_position_[1], current_tip_position_[2], 
+		     swing_2_nodes_[4][0], swing_2_nodes_[4][1], swing_2_nodes_[4][2]);
     }      
   }
   // Stance phase
@@ -631,7 +629,7 @@ void LegStepper::updatePosition()
     int stance_start = completed_first_step_ ? walker_->getStanceStart() : phase_offset_;
     int stance_end = walker_->getStanceEnd();
     int stance_length = mod(stance_end - stance_start, phase_length);
-    stance_delta_t_ = calculateDeltaT(STANCE, stance_length);
+    stance_delta_t_ = calculateDeltaT(stance_length);
 
     int iteration = mod(phase_ + (phase_length - stance_start), phase_length) + 1;
 
@@ -663,7 +661,16 @@ void LegStepper::updatePosition()
     
     if (leg_->getIDNumber() == 0)
     {
-      ROS_DEBUG_COND(params->debug_stance_trajectory, "STANCE TRAJECTORY_DEBUG - ITERATION: %d\t\tTIME: %f\t\tORIGIN: %f:%f:%f\t\tPOS: %f:%f:%f\t\tTARGET: %f:%f:%f\n", iteration, t, stance_origin_tip_position_[0], stance_origin_tip_position_[1], stance_origin_tip_position_[2], current_tip_position_[0], current_tip_position_[1], current_tip_position_[2], stance_control_nodes_[4][0], stance_control_nodes_[4][1], stance_control_nodes_[4][2]);      
+      ROS_DEBUG_COND(walker_->getParameters()->debug_stance_trajectory.data,
+		     "STANCE TRAJECTORY_DEBUG - ITERATION: %d\t\t"
+		     "TIME: %f\t\t"
+		     "ORIGIN: %f:%f:%f\t\t"
+		     "POS: %f:%f:%f\t\t"
+		     "TARGET: %f:%f:%f\n", 
+		     iteration, t, 
+		     stance_origin_tip_position_[0], stance_origin_tip_position_[1], stance_origin_tip_position_[2], 
+		     current_tip_position_[0], current_tip_position_[1], current_tip_position_[2], 
+		     stance_nodes_[4][0], stance_nodes_[4][1], stance_nodes_[4][2]);      
     }
   }
 }

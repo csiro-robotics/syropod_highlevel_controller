@@ -1,58 +1,50 @@
-#ifndef IMPEDANCECONTROLLER_H_
-#define IMPEDANCECONTROLLER_H_
+#ifndef SIMPLE_HEXAPOD_CONTROLLER_IMPEDANCE_CONTROLLER_H
+#define SIMPLE_HEXAPOD_CONTROLLER_IMPEDANCE_CONTROLLER_H
+/** 
+ *  \file    impedance_controller.h
+ *  \brief   Impedance controller. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   January 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ */
 
 #include "standardIncludes.h"
 #include "parametersAndStates.h"
 #include <boost/numeric/odeint.hpp>
+
+#include "model.h"
 #include "walkController.h"
 
 using namespace boost::numeric::odeint;
 
-typedef std::vector<double> state_type;
-
 class ImpedanceController
 {
 public:
-  ImpedanceController(const Parameters &p);
-  ~ImpedanceController();
+  ImpedanceController(Model* model, Parameters* params);
+  void init(void);
 
-  Parameters parameters_;
-
-  void init(Parameters p);
-
-  // Calculate and return adapted position of the feet in z-direction
-  void updateImpedance(int l, int s, double effort[3][2], double delta_z[3][2]);
-
-  // Zero leg position for inititialzing
-  void zeroLegMatrix(double input_matrix[3][2]);
-
-  void updateStiffness(double step_reference, int l, int s);
+  // Solve ODE of the impedance controller and update delta_z value for leg
+  void updateImpedance(Leg* leg, bool use_joint_effort);
+  
+  void updateStiffness(Leg*, double step_reference);
   void updateStiffness(WalkController *walker);
-  void updateStiffness(Pose current_pose, Vector3d identity_tip_positions[3][2]);
-
-  double virtualStiffness[3][2];
-
-  double zTipPositionError[3][2];
-  double zTipVelocityError[3][2];
-  double zTipAbsementError[3][2];
 
 private:
-  std::vector<std::vector<double> > tip_forces_;
-  std::vector<std::vector<state_type> > impedance_state_;
-
-  int load_phase_start_;
-  int load_phase_end_;
-
+  Model* model_;
+  Parameters* params_;
   double delta_t_;
-  double virtual_mass_[3][2];
-
-  double virtual_damping_ratio_[3][2];
   double force_gain_;
-
-  int phase_[3][2];
-
-  // Solve ODE of the impedance controller
-  double calculateDeltaZ(int side, int leg);
 };
 
-#endif /* IMPEDANCECONTROLLER_H_ */
+#endif /* SIMPLE_HEXAPOD_CONTROLLER_IMPEDANCE_CONTROLLER_H */
