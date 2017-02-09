@@ -202,9 +202,7 @@ void WalkController::setGaitParams(Parameters* p)
   
   stance_length_ = mod(stance_end_ - stance_start_, phase_length_);
   swing_length_ = swing_end_ - swing_start_;
-  double bezier_scaler = swing_length_ / (2.0*stance_length_);
-  max_stride_length_ = 2.0 * workspace_radius_ * (1.0 / (1.0 + 0.5*bezier_scaler)); // Based of trajectory engine
-
+  
   std::map<int, Leg*>::iterator leg_it;
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
@@ -219,17 +217,20 @@ void WalkController::setGaitParams(Parameters* p)
     if (phase_offset > swing_start_ && phase_offset < swing_end_)  // SWING STATE
     {
       max_forced_stance_length_ = max(max_forced_stance_length_, swing_end_ - phase_offset);
-    }    
-    
-    if (phase_offset < swing_start_)
-    {
-      min_starting_stance_length_ = min( min_starting_stance_length_, swing_start_ - phase_offset);
-    }  
+    }     
   }
   
-  // Calculate max accelerations to prevent exceeding workspace limits whilst forcing stance in 'starting' step cycle
-  double starting_time = (max_forced_stance_length_ + 2*stance_length_ + swing_length_)*time_delta_;
+  double starting_time = (max_forced_stance_length_ + stance_length_ + swing_length_)*time_delta_;
   double on_ground_ratio = double(stance_length_) / double(phase_length_);
+  double a = 2*workspace_radius_/((on_ground_ratio/step_frequency_)*starting_time);
+  double d1 = 0.5*a*sqr(swing_length_*time_delta_);
+  double d2 = 0.5*a*sqr((stance_length_+swing_length_)*time_delta_);
+  double overshoot = d1 + d2 - workspace_radius_*2.0;
+  double test_max_stride_length_ = (workspace_radius_/(workspace_radius_ + overshoot))*workspace_radius_*2.0;
+  
+  // Calculate max accelerations to prevent exceeding workspace limits whilst forcing stance in 'starting' step cycle
+  double bezier_scaler = swing_length_ / (2.0*stance_length_);
+  max_stride_length_ = 2.0 * workspace_radius_ * (1.0 / (1.0 + 0.5*bezier_scaler)); // Based of trajectory engine
   double max_linear_acceleration = max_stride_length_ / ((on_ground_ratio/step_frequency_)*starting_time);
   double max_angular_acceleration = max_linear_acceleration/stance_radius_;
   
