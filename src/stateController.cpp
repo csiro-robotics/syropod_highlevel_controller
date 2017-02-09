@@ -58,10 +58,9 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   translation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/hexapod/translation_pose_error", 1000);
   
   // Set up leg state publishers within leg objects
-  std::map<int, Leg*>::iterator leg_it;
-  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it->second;
+    Leg* leg = leg_it_->second;
     std::string leg_name = leg->getIDName();
     leg->setStatePublisher(n_.advertise<simple_hexapod_controller::legState>("/hexapod/"+leg_name+"/state", 1000));
     leg->setASCStatePublisher(n_.advertise<std_msgs::Bool>("/leg_state_"+leg_name+"_bool", 1));
@@ -107,8 +106,8 @@ void StateController::init()
   }
 
   // Create controller objects
-  walker_ = new WalkController(model_, &params_);
   poser_ = new PoseController(model_, &params_);
+  walker_ = new WalkController(model_, &params_);
   impedance_ = new ImpedanceController(model_, &params_);
   
   system_state_ = UNKNOWN;
@@ -140,7 +139,6 @@ void StateController::loop()
   {
     runningState();
   }
-  model_->clampToLimits();
 }
 
 /***********************************************************************************************************************
@@ -154,10 +152,9 @@ void StateController::impedanceControl()
     impedance_->updateStiffness(walker_);
   }
   // Get current force value on leg and run impedance calculations to get a vertical tip offset (deltaZ)  
-  std::map<int, Leg*>::iterator leg_it;
-  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it->second;
+    Leg* leg = leg_it_->second;
     if (leg->getLegState() == WALKING) //TBD Needed?
     {
       impedance_->updateImpedance(leg, params_.use_joint_effort.data);
@@ -174,10 +171,9 @@ void StateController::transitionSystemState()
   if (system_state_ == UNKNOWN)
   {
     int check_packed = 0;
-    std::map<int, Leg*>::iterator leg_it;
-    for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      Leg* leg = leg_it->second;
+      Leg* leg = leg_it_->second;
       std::map<int, Joint*>::iterator joint_it;
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
@@ -218,9 +214,10 @@ void StateController::transitionSystemState()
   {
     // OFF -> RUNNING (Direct startup)
     if (new_system_state_ == RUNNING && !params_.start_up_sequence.data)
-    {
-      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning directly to RUNNING state . . .\n");
-      bool complete = (poser_->directStartup() == 1.0);
+    {      
+      int progress = int(poser_->directStartup()*100);
+      bool complete = (progress == 100);
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning directly to RUNNING state (%d%%). . .\n", progress);
       if (complete)
       {
         system_state_ = RUNNING;
@@ -311,22 +308,7 @@ void StateController::transitionSystemState()
  * Running state
 ***********************************************************************************************************************/
 void StateController::runningState()
-{
-  // Cruise control (constant velocity input)
-  if (cruise_control_mode_ == CRUISE_CONTROL_ON)
-  {
-    if (params_.force_cruise_velocity.data)
-    {
-      linear_velocity_input_[0] = params_.linear_cruise_velocity.data["x"];
-      linear_cruise_velocity_[1] = params_.linear_cruise_velocity.data["y"];
-      angular_velocity_input_ = params_.angular_cruise_velocity.data;
-    }
-    else
-    {
-      linear_velocity_input_ = linear_cruise_velocity_;
-      angular_velocity_input_ = angular_cruise_velocity_;
-    }
-  }
+{ 
   // Switch gait and update walker parameters
   if (gait_change_flag_)
   {
@@ -341,32 +323,39 @@ void StateController::runningState()
   else if (toggle_primary_leg_state_ || toggle_secondary_leg_state_)
   {
     legStateToggle();
+  }  
+  // Cruise control (constant velocity input)
+  else if (cruise_control_mode_ == CRUISE_CONTROL_ON)
+  {
+    linear_velocity_input_ = linear_cruise_velocity_;
+    angular_velocity_input_ = angular_cruise_velocity_;
   }
+  
   // Update tip positions unless hexapod is undergoing gait switch, parameter adjustment or leg state transition
   //(which all only occur once the hexapod has stopped walking)
   if (!((gait_change_flag_ || parameter_adjust_flag_ || toggle_primary_leg_state_ || toggle_secondary_leg_state_) &&
         walker_->getWalkState() == STOPPED))
-  {    
+  {        
     // Update tip positions for walking legs
     walker_->updateWalk(linear_velocity_input_, angular_velocity_input_);
+
     // Update tip positions for manually controlled legs
     walker_->updateManual(primary_leg_selection_, primary_tip_velocity_input_, 
 			  secondary_leg_selection_, secondary_tip_velocity_input_);
     // Pose controller takes current tip positions from walker and applies pose compensation
     poser_->updateStance();
     // Model uses posed tip positions, adds deltaZ from impedance controller and applies inverse kinematics on each leg
-    std::map<int, Leg*>::iterator leg_it;
-    for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      Leg* leg = leg_it->second;
+      Leg* leg = leg_it_->second;
       LegPoser* leg_poser = leg->getLegPoser();
-      Vector3d target_tip_position = leg_poser->getCurrentTipPosition();
+      Vector3d target_tip_position = leg_poser->getCurrentTipPosition();      
       if (leg->getLegState() != MANUAL)  // Don't apply delta Z to manually manipulated legs
       {
 	target_tip_position[2] -= leg->getDeltaZ();
       }
       leg->setDesiredTipPosition(target_tip_position);
-      leg->applyLocalIK(params_.time_delta.data);
+      leg->applyIK(true, params_.debug_IK.data);
     }
   }
 }
@@ -382,7 +371,7 @@ void StateController::adjustParameter()
     if (!new_parameter_set_)
     {      
       p->current_value = clamped(p->current_value + p->adjust_step, p->min_value, p->max_value);
-      walker_->init();
+      //walker_->init();
       impedance_->init();
       new_parameter_set_ = true;      
       ROS_INFO("Attempting to adjust '%s' parameter to %f. (Default: %f, Min: %f, Max: %f) . . .\n", 
@@ -419,6 +408,8 @@ void StateController::changeGait(void)
   {
     initGaitParameters(gait_selection_);
     walker_->setGaitParams(&params_);
+    params_.max_linear_acceleration.data = -1.0;
+    params_.max_angular_acceleration.data = -1.0;
     ROS_INFO("Now using %s mode.\n", params_.gait_type.data.c_str());
     gait_change_flag_ = false;
   }
@@ -529,10 +520,9 @@ void StateController::legStateToggle()
 ***********************************************************************************************************************/
 void StateController::publishDesiredJointState(void)
 {
-  std::map<int, Leg*>::iterator leg_it;
-  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it->second;
+    Leg* leg = leg_it_->second;
     std::map<int, Joint*>::iterator joint_it;
     for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
     {
@@ -562,10 +552,9 @@ void StateController::publishDesiredJointState(void)
 void StateController::publishLegState()
 {
   simple_hexapod_controller::legState msg;
-  std::map<int, Leg*>::iterator leg_it;
-  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it->second;
+    Leg* leg = leg_it_->second;
     LegStepper* leg_stepper = leg->getLegStepper();
     LegPoser* leg_poser = leg->getLegPoser();
     msg.header.stamp = ros::Time::now();
@@ -614,9 +603,15 @@ void StateController::publishBodyVelocity()
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(walker_->getCurrentLinearVelocity()[0]);
-  msg.data.push_back(walker_->getCurrentLinearVelocity()[1]);
-  msg.data.push_back(walker_->getCurrentAngularVelocity());
+  msg.data.push_back(walker_->getDesiredLinearVelocity()[0]);
+  msg.data.push_back(walker_->getDesiredLinearVelocity()[1]);
+  msg.data.push_back(walker_->getDesiredAngularVelocity());
+  msg.data.push_back(-model_->getLegByIDNumber(0)->getDesiredTipVelocity()[0]);
+  msg.data.push_back(-model_->getLegByIDNumber(1)->getDesiredTipVelocity()[0]);
+  msg.data.push_back(-model_->getLegByIDNumber(2)->getDesiredTipVelocity()[0]);
+  msg.data.push_back(-model_->getLegByIDNumber(3)->getDesiredTipVelocity()[0]);
+  msg.data.push_back(-model_->getLegByIDNumber(4)->getDesiredTipVelocity()[0]);
+  msg.data.push_back(-model_->getLegByIDNumber(5)->getDesiredTipVelocity()[0]);
   body_velocity_publisher_.publish(msg);
 }
 
@@ -697,11 +692,15 @@ void StateController::publishTranslationPoseError()
 ***********************************************************************************************************************/
 void StateController::RVIZDebugging(bool static_display)
 {
-  std::map<int, Leg*>::iterator leg_it;
-  debug_.updatePose(walker_->getCurrentLinearVelocity() * params_.time_delta.data,
-		    walker_->getCurrentAngularVelocity() * params_.time_delta.data);
-  debug_.drawRobot(model_, Vector4d(1, 1, 1, 1), static_display);
-  debug_.drawPoints(model_, Vector4d(1, 0, 0, 1), static_display);
+  Vector2d linear_velocity = walker_->getDesiredLinearVelocity(); //TBD Implement calculation of actual body velocity
+  linear_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
+  double angular_velocity =walker_->getDesiredAngularVelocity();
+  angular_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
+  
+  debug_.updatePose(linear_velocity, angular_velocity, walker_->getBodyHeight());
+  debug_.drawRobot(model_);
+  debug_.drawPoints(model_, static_display, walker_->getWorkspaceRadius(),
+		    walker_->getMaxBodyHeight()*params_.step_clearance.data);
 }
 
 /***********************************************************************************************************************
@@ -838,9 +837,19 @@ void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
       cruise_control_mode_ = new_cruise_control_mode;
       if (new_cruise_control_mode == CRUISE_CONTROL_ON)
       {
-        // Save current velocity input as cruise input
-        linear_cruise_velocity_ = linear_velocity_input_;
-        angular_cruise_velocity_ = angular_velocity_input_;
+	if (params_.force_cruise_velocity.data)
+	{
+	  // Set cruise velocity according to parameters
+	  linear_cruise_velocity_[0] = params_.linear_cruise_velocity.data["x"];
+	  linear_cruise_velocity_[1] = params_.linear_cruise_velocity.data["y"];
+	  angular_cruise_velocity_ = params_.angular_cruise_velocity.data;
+	}
+	else
+	{
+	  // Save current velocity input as cruise input
+	  linear_cruise_velocity_ = linear_velocity_input_;
+	  angular_cruise_velocity_ = angular_velocity_input_;
+	}
         ROS_INFO("Cruise control ON - Input velocity set to constant: Linear(X:Y): %f:%f, Angular(Z): %f\n",
                  linear_cruise_velocity_[0], linear_cruise_velocity_[1], angular_cruise_velocity_);
       }
@@ -863,10 +872,9 @@ void StateController::autoNavigationCallback(const std_msgs::Int8 &input)
     if (new_auto_navigation_mode != auto_navigation_mode_)
     {
       auto_navigation_mode_ = new_auto_navigation_mode;
-      ROS_INFO_COND(auto_navigation_mode_ == AUTO_NAVIGATION_ON, "Auto Navigation mode ON. User input is being "
-                                                              "ignored.\n");
-      ROS_INFO_COND(auto_navigation_mode_ == AUTO_NAVIGATION_OFF, "Auto Navigation mode OFF. Control returned to user "
-                                                               "input.\n");
+      bool auto_navigation_on = (auto_navigation_mode_ == AUTO_NAVIGATION_ON);
+      ROS_INFO_COND(auto_navigation_on, "Auto Navigation mode ON. User input is being ignored.\n");
+      ROS_INFO_COND(!auto_navigation_on, "Auto Navigation mode OFF. Control returned to user input.\n");
     }
   }
 }
@@ -1081,10 +1089,9 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_s
   // Iterate through message and assign found state values to joint objects
   for (uint i = 0; i < joint_states.name.size(); ++i)
   {
-    std::map<int, Leg*>::iterator leg_it;
-    for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      Leg* leg = leg_it->second;
+      Leg* leg = leg_it_->second;
       std::string joint_name(joint_states.name[i]);
       Joint* joint = leg->getJointByIDName(joint_name);
       joint->current_position = joint_states.position[i] - joint->position_offset;
@@ -1102,10 +1109,9 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_s
   if (!joint_positions_initialised)
   {
     joint_positions_initialised = true;
-    std::map<int, Leg*>::iterator leg_it;
-    for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      Leg* leg = leg_it->second;
+      Leg* leg = leg_it_->second;
       std::map<int, Joint*>::iterator joint_it;
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
@@ -1124,10 +1130,9 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_s
 ***********************************************************************************************************************/
 void StateController::tipForceCallback(const sensor_msgs::JointState &raw_tip_forces) //TBD redesign
 {
-  std::map<int, Leg*>::iterator leg_it;
-  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it->second;
+    Leg* leg = leg_it_->second;
     double force_offset = 1255.0;
     double max_force = 1000.0;
     double min_force = 0.0;
@@ -1206,15 +1211,16 @@ void StateController::initParameters(void)
   params_.debug_stepToPosition.init(n_, "debug_step_to_position");
   params_.debug_swing_trajectory.init(n_, "debug_swing_trajectory");
   params_.debug_stance_trajectory.init(n_, "debug_stance_trajectory");
+  params_.debug_IK.init(n_, "debug_ik");
   
   // Init all joint and link parameters per leg
   if (params_.leg_id.initialised && params_.joint_id.initialised && params_.link_id.initialised)
   {
-    std::vector<std::string>::iterator leg_it;
+    std::vector<std::string>::iterator leg_name_it;
     int leg_id_num = 0;
-    for (leg_it = params_.leg_id.data.begin(); leg_it != params_.leg_id.data.end(); ++leg_it, ++leg_id_num)
+    for (leg_name_it = params_.leg_id.data.begin(); leg_name_it != params_.leg_id.data.end(); ++leg_name_it, ++leg_id_num)
     {
-      std::string leg_id_name = *leg_it;
+      std::string leg_id_name = *leg_name_it;
       params_.link_parameters[leg_id_num][0].init(n_, leg_id_name + "_base_link_parameters");
       int num_joints = params_.leg_DOF.data[leg_id_name];
       for (int i=1; i<num_joints+1; ++i)

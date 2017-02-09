@@ -24,6 +24,9 @@
 #include "pose.h"
 
 #include "model.h"
+#include "poseController.h"
+#include "dynamixelMotorInterface.h"
+#include "debugOutput.h"
 
 /***********************************************************************************************************************
  * Top level controller that calculates walk characteristics and coordinates leg specific walk controllers
@@ -44,10 +47,13 @@ class WalkController
     inline double getStepClearance(void) { return step_clearance_; };
     inline double getMaxBodyHeight(void) { return maximum_body_height_; };
     inline double getStepDepth(void) { return step_depth_; };
-    inline double getBodyHeight(void) { return body_clearance_ * maximum_body_height_; };
+    inline double getBodyHeight(void) { return body_clearance_; };
+    inline double getWorkspaceRadius(void) { return workspace_radius_; };
+    inline double getStanceRadius(void) { return stance_radius_; };
+    inline Vector2d getDesiredLinearVelocity(void) { return desired_linear_velocity_; };
+    inline double getDesiredAngularVelocity(void) { return desired_angular_velocity_; };
     inline WalkState getWalkState(void) { return walk_state_; };
-    inline Vector2d getCurrentLinearVelocity(void) { return current_linear_velocity_; };
-    inline double getCurrentAngularVelocity(void) { return current_angular_velocity_; };
+    inline void resetJointOrientationTracking(void) { joint_twist_ = 0.0, ground_bearing_ = 1.57; };
     
     void init(void);
     void setGaitParams(Parameters* p);
@@ -59,7 +65,12 @@ class WalkController
     Model* model_;
     Parameters* params_;
     WalkState walk_state_;
-    double time_delta_;
+    double time_delta_;        
+    double time_elapsed_=0;
+    
+    //Joint orientation tracking variables
+    double joint_twist_;
+    double ground_bearing_;
 
     // Walk parameters
     double step_frequency_;
@@ -68,22 +79,35 @@ class WalkController
     double body_clearance_;
 
     int phase_length_;
+    int swing_length_;
+    int stance_length_;
     int stance_end_;
     int swing_start_;
     int swing_end_;
     int stance_start_;
 
     Vector3d foot_spread_distances_;
-    double min_footprint_radius_;
+    double workspace_radius_;
+    double max_stride_length_;
     double stance_radius_;
+    
+    int  min_starting_stance_length_ = 0;
+    int max_forced_stance_length_ = 0;
 
-    Vector2d current_linear_velocity_;  // Linear Body Velocity //TBD put in model?
-    double current_angular_velocity_;  // Angular Body Velocity
+    Vector2d desired_linear_velocity_;  // Desired linear body velocity
+    double desired_angular_velocity_;  // Angular Body Velocity
+    double max_linear_acceleration_;
+    double max_angular_acceleration_;
 
-    double maximum_body_height_;
+    double maximum_body_height_ = UNASSIGNED_VALUE;
 
     int legs_at_correct_phase_ = 0;
     int legs_completed_first_step_ = 0; 
+    
+    map<int, Leg*>::iterator leg_it;
+    map<int, Joint*>::iterator joint_it;
+    map<int, Link*>::iterator link_it;
+  
 };
 
 /***********************************************************************************************************************
@@ -94,34 +118,43 @@ class LegStepper
   public:
     LegStepper(WalkController* walker, Leg* leg, Vector3d identity_tip_position);    
     
-    //Accessors
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };    
     inline Vector3d getDefaultTipPosition(void) { return default_tip_position_;};    
     inline StepState getStepState(void) { return step_state_; };
     inline int getPhase(void) { return phase_; };    
     inline int getPhaseOffset(void) { return phase_offset_; };    
-    inline Vector2d getStrideVector(void) { return stride_vector_; };
+    inline Vector2d getStrideVector(void) { return Vector2d(stride_vector_[0], stride_vector_[1]); };
     inline double getSwingHeight(void) { return swing_height_; };
     inline double getStanceDepth(void) { return stance_depth_; };  
     inline double getSwingProgress(void) { return swing_progress_; };
     inline double getStanceProgress(void) { return stance_progress_; };
     inline bool hasCompletedFirstStep(void) { return completed_first_step_; };    
-    inline bool isAtCorrectPhase(void) { return at_correct_phase_; };    
+    inline bool isAtCorrectPhase(void) { return at_correct_phase_; }; 
+    inline Vector3d getTipVelocity(void) { return current_tip_velocity_; };
+    inline double getStanceRadius(void) { return walker_->getStanceRadius(); };
     
-    //Mutators
+    inline Vector3d getSwing1ControlNode(int i) { return swing_1_nodes_[i]; };
+    inline Vector3d getSwing2ControlNode(int i) { return swing_2_nodes_[i]; };
+    inline Vector3d getStanceControlNode(int i) { return stance_nodes_[i]; };
+    
     inline void setCurrentTipPosition(Vector3d current_tip_position) { current_tip_position_ = current_tip_position; };
     inline void setStepState(StepState stepState) { step_state_ = stepState; };
     inline void setPhase(int phase) { phase_ = phase; };
     inline void setPhaseOffset(int phase_offset) { phase_offset_ = phase_offset;};
-    inline void setStrideVector(Vector2d stride_vector) { stride_vector_ = stride_vector; };
     inline void setCompletedFirstStep(bool completed_first_step) { completed_first_step_ = completed_first_step; };
     inline void setAtCorrectPhase(bool at_correct_phase) { at_correct_phase_ = at_correct_phase; };
     
+    inline void updateStride(Vector2d stride_vector) 
+    { 
+      delta_stride_length_ = stride_vector.norm() - Vector2d(stride_vector_[0], stride_vector_[1]).norm();
+      stride_vector_ = Vector3d(stride_vector[0], stride_vector[1], 0.0); 
+    };
+    
     void updatePosition(void);
-    void generateSwingControlNodes(Vector3d stride_vector);
+    void generateSwingControlNodes(double bezier_scaler);
     void generateStanceControlNodes(Vector3d stride_vector);
     void iteratePhase(void);
-    double calculateDeltaT(int length);
+    double calculateDeltaT(StepState step_state, int length);
   
   private:
     WalkController* walker_;
@@ -145,7 +178,8 @@ class LegStepper
     double swing_delta_t_;
     double stance_delta_t_;
 
-    Vector2d stride_vector_;  // length gives stride length  
+    Vector3d stride_vector_;  // Length gives stride length  
+    double delta_stride_length_ = 0.0; // Change in stride length
     double swing_height_;
     double stance_depth_;
     

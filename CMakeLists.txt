@@ -90,7 +90,7 @@ catkin_package(
   CATKIN_DEPENDS roscpp rospy message_runtime std_msgs sensor_msgs geometry_msgs dynamixel_msgs dynamixel_controllers 
 #  DEPENDS system_lib
 )
-add_definitions(-DEIGEN2_SUPPORT -DDEBUG -std=c++11 -Wall -g -ggdb -O0 -fopenmp -fPIC)
+add_definitions(-DEIGEN3_SUPPORT -DDEBUG -std=c++11 -Wall -g -ggdb -O0 -fopenmp -fPIC)
 
 ###########
 ## Build ##

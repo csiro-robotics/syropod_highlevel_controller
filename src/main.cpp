@@ -108,14 +108,14 @@ int main(int argc, char* argv[])
   {
     state.loop();
     state.publishLegState();
-    state.publishPose();
-    state.publishIMUData();
+    //state.publishPose();
+    //state.publishIMUData();
     state.publishBodyVelocity();
-    state.publishRotationPoseError();
-    state.publishTranslationPoseError();
+    //state.publishRotationPoseError();
+    //state.publishTranslationPoseError();
     if (params->debug_rviz.data)
     {
-      state.RVIZDebugging();
+      state.RVIZDebugging(true);
     }
     state.publishDesiredJointState();
     ros::spinOnce();

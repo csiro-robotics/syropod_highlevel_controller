@@ -173,7 +173,9 @@ private:
   Vector3d primary_tip_velocity_input_;
   Vector3d secondary_tip_velocity_input_;
   Vector2d linear_cruise_velocity_;
-  double angular_cruise_velocity_;   
+  double angular_cruise_velocity_; 
+
+  std::map<int, Leg*>::iterator leg_it_;  
 };
 
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H */

@@ -19,24 +19,27 @@
  *
  */
 #include "standardIncludes.h"
+#include <visualization_msgs/Marker.h>
 #include "pose.h"
 #include "model.h"
+#include "walkController.h"
 
 class DebugOutput
 {
 public:
   DebugOutput();
-  void drawPoints(Model* model, const Vector4d &colour, bool static_display = false);
-  void drawRobot(Model* model, const Vector4d &colour, bool static_display = false);
+  void drawPoints(Model* model, bool debug_trajectory, double workspace_radius, double workspace_height);
+  void drawRobot(Model* model);
   inline void reset()
   {
     robot_ID_ = 0;
     plot_ID_ = 0;
   }
-  inline void updatePose(Vector2d linear_body_velocity, double angular_body_velocity)
+  inline void updatePose(Vector2d linear_body_velocity, double angular_body_velocity, double height)
   {
     odometry_pose_.position_ += odometry_pose_.rotation_.rotateVector(Vector3d(linear_body_velocity[0], linear_body_velocity[1], 0));
-    odometry_pose_.rotation_ *= Quat(Vector3d(0.0,0.0,-angular_body_velocity));
+    odometry_pose_.position_[2] = height;
+    odometry_pose_.rotation_ *= Quat(Vector3d(0.0,0.0,angular_body_velocity));
   }
 
 private:
@@ -44,8 +47,9 @@ private:
   int plot_ID_;
   ros::NodeHandle n;
   ros::Publisher robot_publisher_;
-  ros::Publisher points_publisher_;
+  ros::Publisher visualization_publisher_;
   Pose odometry_pose_;
+  vector<Vector3d> tip_position_history_;
 };
 
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_DEBUG_OUTPUT_H */

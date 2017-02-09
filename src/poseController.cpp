@@ -53,8 +53,8 @@ void PoseController::updateStance(void)
 	compensation_pose.rotation_ *= auto_pose_.rotation_.inverse();	
       }
       
-      // Apply compensation pose to default walking tip position to calculate new 'posed' tip position
-      Vector3d new_tip_position = compensation_pose.inverseTransformVector(leg_stepper->getDefaultTipPosition());
+      // Apply compensation pose to current walking tip position to calculate new 'posed' tip position
+      Vector3d new_tip_position = compensation_pose.inverseTransformVector(leg_stepper->getCurrentTipPosition());
       leg_poser->setCurrentTipPosition(new_tip_position);
     }
     else if (leg_state == MANUAL || leg_state == WALKING_TO_MANUAL)
@@ -263,16 +263,17 @@ bool PoseController::shutDownSequence(void)
 double PoseController::directStartup(void) //Simultaneous leg coordination
 {
   double res;
-  //for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  //{
-    Leg* leg = model_->getLegContainer()->begin()->second;  
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    Leg* leg = leg_it_->second;  
     LegPoser* leg_poser = leg->getLegPoser();
     LegStepper* leg_stepper = leg->getLegStepper();
     double time_to_start = params_->time_to_start.data;
     res = leg_poser->stepToPosition(leg_stepper->getDefaultTipPosition(), model_->getCurrentPose(), 0.0, time_to_start);
-    leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
-    leg->applyLocalIK(params_->time_delta.data);
-  //}
+    leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+    //leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
+    leg->applyIK(true, params_->debug_IK.data);
+  }
   return res;
 }
 
@@ -572,6 +573,12 @@ Pose PoseController::autoCompensation(void)
   int calculate_pitch = int(params_->gait_type.data != "tripod_gait" && params_->gait_type.data != "amble_gait");
   int calculate_z_trans = int(params_->gait_type.data == "tripod_gait");
 
+  //Calculate reference body length/width
+  double reference_base_link_length = model_->getLegByIDNumber(0)->getLinkByIDNumber(0)->length;
+  double reference_base_link_angle = model_->getLegByIDNumber(0)->getLinkByIDNumber(0)->angle;
+  double body_length = reference_base_link_length*cos(reference_base_link_angle);
+  double body_width = reference_base_link_length*sin(reference_base_link_angle);
+  
   //For each leg calculate compensation values for roll, pitch & z_translation according to progress of swing
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -582,13 +589,14 @@ Pose PoseController::autoCompensation(void)
       //Progress of currrent vertical tip position towards max swing height (0.0 @ initial -> 1.0 @ max swing height -> 0.0 @ final)
       swing_height_progress = abs(leg_stepper->getCurrentTipPosition()[2] - leg_stepper->getDefaultTipPosition()[2]) / (leg_stepper->getSwingHeight());
 
-      int invert_roll = -leg->getMirrorDir(); //Inverting for right side
-      int invert_pitch = (leg->getIDNumber() / 2) - 1; //Inverting for front legs, zeroing for middle legs
-      double roll_amplitude = params_->auto_compensation_parameters.data["roll"];
-      double pitch_amplitude = params_->auto_compensation_parameters.data["pitch"];
+      Link* base_link = leg->getLinkByIDNumber(0);      
+      double roll_scaler = -base_link->length*sin(base_link->angle)/body_width;
+      double pitch_scaler = -base_link->length*cos(base_link->angle)/body_length;
+      double roll_amplitude = params_->auto_compensation_parameters.data["roll"] * roll_scaler;
+      double pitch_amplitude = params_->auto_compensation_parameters.data["pitch"] * pitch_scaler;
       double z_translation_amplitude = params_->auto_compensation_parameters.data["z_trans"];
-      roll_values.push_back(swing_height_progress * roll_amplitude * calculate_roll * invert_roll);
-      pitch_values.push_back(swing_height_progress * pitch_amplitude * calculate_pitch * invert_pitch);
+      roll_values.push_back(swing_height_progress * roll_amplitude * calculate_roll);
+      pitch_values.push_back(swing_height_progress * pitch_amplitude * calculate_pitch);
       z_trans_values.push_back(swing_height_progress * z_translation_amplitude * calculate_z_trans);
     }
     else
@@ -756,6 +764,7 @@ void PoseController::calculateDefaultPose(void)
 LegPoser::LegPoser(PoseController* poser, Leg* leg) 
   : poser_(poser)
   , leg_(leg)
+  , current_tip_position_(Vector3d(0,0,0))
 {
 }
 
@@ -836,6 +845,7 @@ double LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose, 
     first_iteration_ = false;
     master_iteration_count_ = 0;
     origin_tip_position_ = leg_->getLocalTipPosition();
+    current_tip_position_ = origin_tip_position_;
     //origin_tip_position_[2] += delta_z;  // Remove deltaZ offset temporarily //TBD
   }
 
@@ -846,7 +856,7 @@ double LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose, 
   
   double completion_ratio = (double(master_iteration_count_ - 1) / double(num_iterations));
   
-  // Applies required posing slowly over course of transition
+//   // Applies required posing slowly over course of transition
   // Scales position vector by 0->1.0
   target_pose.position_ *= completion_ratio;  
   // Scales rotation quat by 0.0->1.0 (https://en.wikipedia.org/wiki/Slerp)

@@ -237,6 +237,7 @@ struct Parameters
   Parameter<bool> 				debug_stepToPosition;
   Parameter<bool> 				debug_swing_trajectory;
   Parameter<bool> 				debug_stance_trajectory;
+  Parameter<bool>				debug_IK;
 };
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H */
   

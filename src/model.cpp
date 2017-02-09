@@ -6,6 +6,9 @@
 ***********************************************************************************************************************/
 Model::Model(Parameters* params)
   : leg_count_(params->leg_id.data.size())
+  , time_delta_(params->time_delta.data)
+  , current_pose_(Pose::identity())
+  , linear_velocity_(Vector2d(0,0))
 {
   for (int i=0; i < leg_count_; ++i)
   {   
@@ -26,41 +29,6 @@ void Model::initLegs(bool use_default_joint_positions)
     Leg* leg = leg_it->second;
     leg->init(use_default_joint_positions);
   } 
-}
-
-/***********************************************************************************************************************
- * Restrict joint angles to limits
-***********************************************************************************************************************/
-void Model::clampToLimits(void)
-{
-  // Clamp desired joint positions and alert if a limit has been hit
-  std::map<int, Leg*>::iterator leg_it;
-  for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
-  {
-    Leg* leg = leg_it->second;    
-    std::map<int, Joint*>::iterator joint_it;
-    for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
-    {
-      Joint* joint = joint_it->second;
-      double message_tolerance = 0.01;
-      if (joint->desired_position < joint->min_position)
-      {
-	joint->desired_position = joint->min_position;
-	double diff = abs(joint->desired_position - joint->min_position);
-	ROS_WARN_COND(diff > message_tolerance, 
-		      "%s leg has tried to exceed %s min joint limit: %f by %f. Clamping joint to limit.\n", 
-		      leg->getIDName().c_str(), joint->name.c_str(), joint->min_position, diff);
-      }      
-      else if (joint->desired_position > joint->max_position)
-      {
-	joint->desired_position = joint->max_position;
-	double diff = abs(joint->desired_position - joint->max_position);
-	ROS_WARN_COND(diff > message_tolerance, 
-		      "%s leg has tried to exceed %s max joint limit: %f by %f. Clamping joint to limit.\n", 
-		      leg->getIDName().c_str(), joint->name.c_str(), joint->max_position, diff);
-      }      
-    }
-  }
 }
 
 /***********************************************************************************************************************
@@ -93,24 +61,30 @@ Leg::Leg(Model* model, int id_number, Parameters* params)
   } 
   tip_ = new Tip(this, prev_link);
   
-  if (num_joints_ == 2)
+  Vector3d unassigned_vector(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
+  local_tip_position_ = unassigned_vector;
+  desired_tip_position_ = unassigned_vector;
+  desired_tip_velocity_ = Vector3d(0,0,0);
+  
+  //Calculate max "virtual" leg length
+  Matrix4d transform = Matrix4d::Identity();
+  //Starting at link after base_link
+  map<int, Link*>::iterator link_it;
+  for (link_it = link_container_.find(1); link_it != link_container_.end(); ++link_it)
   {
-    Link* femur_link = getLinkByIDName(id_name_ + "_femur_link");
-    min_leg_length_ = 0.0;
-    max_leg_length_ = femur_link->length;
+    Link* link = link_it->second;
+    double angle = clamped(0.0, link->actuating_joint->min_position, link->actuating_joint->max_position);
+    transform = transform * createDHMatrix(link->offset,
+					  angle,
+					  link->length,
+					  link->twist); 
   }
-  else if (num_joints_ == 3)
-  {
-    Link* femur_link = getLinkByIDName(id_name_ + "_femur_link");
-    Link* tibia_link = getLinkByIDName(id_name_ + "_tibia_link");
-    Joint* tibia_joint = getJointByIDName(id_name_ + "_tibia_joint");  
-    min_leg_length_ = sqrt(sqr(tibia_link->length) + sqr(femur_link->length) -
-                      2.0 * femur_link->length * tibia_link->length * cos(max(0.0, pi - tibia_joint->max_position)));
-    max_leg_length_ = sqrt(sqr(tibia_link->length) + sqr(femur_link->length) -
-			2.0 * femur_link->length * tibia_link->length * cos(pi - max(0.0, tibia_joint->min_position)));
-    
-    tripod_group_ = (id_number > 1) ? abs(id_number%2-1):id_number; //(0,3,5 -> 0) && (1,2,4 -> 1)    
-  }  
+  Vector4d result = transform*Vector4d(0,0,0,1);
+  max_virtual_leg_length_ = Vector3d(result[0], result[1], result[2]).norm();
+  
+  min_virtual_leg_length_ = 0.0;
+  tripod_group_ = (id_number > 1) ? abs(id_number%2-1):id_number; //(0,3,5 -> 0) && (1,2,4 -> 1) 
+  
   ROS_DEBUG("Leg %s has been initialised as a %d degree of freedom leg with %lu links and %lu joints.",
 	   id_name_.c_str(), num_joints_, link_container_.size(), joint_container_.size());  
 }
@@ -134,6 +108,7 @@ void Leg::init(bool use_default_joint_positions)
     joint->prev_desired_position = joint->desired_position;
   }
   applyFK();
+  desired_tip_position_ = local_tip_position_;
 }
 
 /***********************************************************************************************************************
@@ -185,13 +160,13 @@ void Leg::applyDeltaZ(Vector3d tip_position)
 /***********************************************************************************************************************
  * Applies inverse kinematics to achieve target tip position
 ***********************************************************************************************************************/
-void Leg::applyLocalIK(double time_delta)
+bool Leg::applyIK(bool clamp_to_limits, bool debug)
 {
   vector<map<string, double>> dh_parameters;
-  std::map<int, Joint*>::iterator joint_it = joint_container_.begin();
-  joint_it++; //Skip first joint dh parameters since it is a fixed transformation
+  std::map<int, Joint*>::iterator joint_it;
   map<string, double> dh_map;
-  for (; joint_it != joint_container_.end(); ++joint_it)
+  //Skip first joint dh parameters since it is a fixed transformation
+  for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
     Joint* joint = joint_it->second;    
     dh_map.insert(map<string, double>::value_type("d", joint->reference_link->offset));
@@ -209,49 +184,67 @@ void Leg::applyLocalIK(double time_delta)
   dh_parameters.push_back(dh_map);   
 
   MatrixXd j(3,num_joints_);
-  switch(num_joints_)
-  {
-    case(1):
-      j = create1DOFJacobian(dh_parameters);
-      break;
-    case(2):
-      j = create2DOFJacobian(dh_parameters);
-      break;
-    case(3):
-      j = create3DOFJacobian(dh_parameters);
-      break;
-  };
+  j = createJacobian(dh_parameters, num_joints_);
   
-  //cout << j << endl;
-  
-  double dls_cooeficient = 0.5;
-  MatrixXd identity = MatrixXd::Identity(3, 3);
+  double dls_cooeficient = 0.02;
+  MatrixXd identity = Matrix3d::Identity();
   MatrixXd ik_matrix(num_joints_, 3);
-  //ik_matrix = ((j.transpose()*j).inverse())*j.transpose();
-  ik_matrix = j.transpose()*((j*j.transpose() + sqr(dls_cooeficient)*identity).inverse());  
-  //cout << ik_matrix << endl;
+  //ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
+  ik_matrix = j.transpose()*((j*j.transpose() + sqr(dls_cooeficient)*identity).inverse()); //DLS Method
   
-  Vector3d tip_delta_pos = desired_tip_position_ - local_tip_position_;
+  Joint* base_joint = joint_container_.begin()->second;
+  Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(desired_tip_position_);
+  Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(local_tip_position_);
+  Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
   VectorXd joint_delta_pos(num_joints_);
-  joint_delta_pos = ik_matrix*tip_delta_pos;
+  
+  joint_delta_pos = ik_matrix*leg_frame_tip_position_delta;
   
   int index = 0;
-  for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
+  for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
   {
     Joint* joint = joint_it->second;
     joint->desired_position = joint->prev_desired_position+joint_delta_pos[index];
-    /*
-    if (joint->name == "AR_tibia_joint")
-    {
-      cout << joint->desired_position << endl;
+    
+    if (clamp_to_limits)
+    {    
+      if (joint->desired_position < joint->min_position)
+      {
+	joint->desired_position = joint->min_position;
+	ROS_WARN("%s leg has tried to exceed %s min joint limit: %f. Clamping joint to limit.\n",
+		 id_name_.c_str(), joint->name.c_str(), joint->min_position);
+      }      
+      else if (joint->desired_position > joint->max_position)
+      {
+	joint->desired_position = joint->max_position;
+	ROS_WARN("%s leg has tried to exceed %s max joint limit: %f. Clamping joint to limit.\n",
+		 id_name_.c_str(), joint->name.c_str(), joint->max_position);
+      }
     }
-    */
-  }
+  }  
+  
   Vector3d result = applyFK();
-  if (id_name_ == "AR")
+  
+  ROS_DEBUG_COND(id_number_ == 0 && debug, "Leg %s:\n\tDesired tip position from trajectory engine: %f:%f:%f\n\t"
+  "Resultant tip position from inverse/forward kinematics: %f:%f:%f", id_name_.c_str(),
+  desired_tip_position_[0], desired_tip_position_[1], desired_tip_position_[2],
+  result[0], result[1], result[2]); 
+  
+  bool desired_tip_position_within_workspace = true;
+  Vector3d IK_tolerance(0.001,0.001,0.001);
+  std::string axis_label[3] = {"x", "y", "z"};
+  for (int i=0; i<3; ++i)
   {
-    cout << desired_tip_position_[0] << " " << result[0] << endl;
+    if (abs(result[i] - desired_tip_position_[i]) > IK_tolerance[i])
+    {
+      double error_percentage = abs((result[i] - desired_tip_position_[i])/desired_tip_position_[i])*100;
+      ROS_WARN_COND(true, 
+		    "Inverse kinematics error! Calculated tip %s position of leg %s (%s: %f) differs from desired tip "
+		    "position (%s: %f) by %f%%", axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), 
+		    result[i], axis_label[i].c_str(), desired_tip_position_[i], error_percentage);
+    }    
   }
+  return desired_tip_position_within_workspace;  
 }
 
 /***********************************************************************************************************************
@@ -259,39 +252,8 @@ void Leg::applyLocalIK(double time_delta)
 ***********************************************************************************************************************/
 Vector3d Leg::applyFK(bool set_local)
 {
-  
-  Vector4d tip_position_4d(0,0,0,1);  
-  Joint* femur_joint = getJointByIDName(id_name_ + "_femur_joint");
-  Joint* coxa_joint = getJointByIDName(id_name_ + "_coxa_joint");
-  coxa_joint->desired_position = -0.785;
-  femur_joint->desired_position = 0.785;
-  updateTransforms();
-  Matrix4d transform = tip_->getBaseTransform();
-  cout << transform << endl;
-  tip_position_4d = transform*tip_position_4d;
-  Vector3d tip_position(tip_position_4d[0], tip_position_4d[1], tip_position_4d[2]);
-  /*
-  Joint* femur_joint = getJointByIDName(id_name_ + "_femur_joint");
-  Matrix4d transform_femur = femur_joint->getBaseTransform();
-  Matrix4d transform = tip_->getBaseTransform();
-  cout << transform << endl;
-  tip_position_4d = transform*tip_position_4d;
-  Vector3d tip_position(tip_position_4d[0], tip_position_4d[1], tip_position_4d[2]);
-  */
-  if (set_local)
-  {
-    local_tip_position_ = tip_position;
-  }
-  return tip_position;
-}
-
-/***********************************************************************************************************************
- * Updates joint state transforms using current joint positions
-***********************************************************************************************************************/
-void Leg::updateTransforms(void)
-{
-  std::map<int, Joint*>::iterator joint_it;  
-  //Skip first joint since it's transform is constant
+  //Update joint transforms - skip first joint since it's transform is constant  
+  map<int, Joint*>::iterator joint_it;  
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
     Joint* joint = joint_it->second;
@@ -300,13 +262,24 @@ void Leg::updateTransforms(void)
 				      reference_link->actuating_joint->desired_position,
 				      reference_link->length,
 				      reference_link->twist); 
-    cout << joint->transform << endl;
   } 
   const Link* reference_link = tip_->reference_link;
   tip_->transform = createDHMatrix(reference_link->offset,
 				   reference_link->actuating_joint->desired_position,
 				   reference_link->length,
 				   reference_link->twist); 
+  
+  //Get world frame position of tip
+  Vector3d tip_position = tip_->getPositionWorldFrame();
+  if (set_local)
+  {
+    if (local_tip_position_[0] != UNASSIGNED_VALUE)
+    {
+      desired_tip_velocity_ = (tip_position - local_tip_position_) / model_->getTimeDelta();
+    }
+    local_tip_position_ = tip_position;
+  }
+  return tip_position;
 }
 
 /***********************************************************************************************************************

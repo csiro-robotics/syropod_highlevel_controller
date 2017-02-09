@@ -17,130 +17,156 @@ WalkController::WalkController(Model* model, Parameters* params)
 /***********************************************************************************************************************
  * Initialisation
 ***********************************************************************************************************************/
-void WalkController::init()
-{
+void WalkController::init(void)
+{  
   step_clearance_ = params_->step_clearance.data;
   step_depth_ = params_->step_depth.data;
   body_clearance_ = params_->body_clearance.data;
-  time_delta_ = params_->time_delta.data;
-
-  //ASSERT(stepClearance >= 0 && stepClearance < 1.0);  
+  time_delta_ = params_->time_delta.data;  
   
-  //TBD Assumes universal physical leg characteristics
-  std::map<int, Leg*>::iterator first_leg_it = model_->getLegContainer()->begin();
-  Leg* reference_leg = first_leg_it->second;
-  
-  //Calculate max body height 
-  double tibia_length = 0.0;//reference_leg->getLinkByIDName(reference_leg->getIDName() + "_tibia_link")->length;
-  double femur_length = reference_leg->getLinkByIDName(reference_leg->getIDName() + "_femur_link")->length;
-  double min_tibia_angle = 0.0;//reference_leg->getJointByIDName(reference_leg->getIDName() + "_tibia_joint")->min_position;
-  double max_tibia_angle = 0.0;//reference_leg->getJointByIDName(reference_leg->getIDName() + "_tibia_joint")->max_position;
-  double min_femur_angle = reference_leg->getJointByIDName(reference_leg->getIDName() + "_femur_joint")->min_position;
-  double max_femur_angle = min(-min_femur_angle, pi / 2.0 - atan2(tibia_length * sin(min_tibia_angle), femur_length + tibia_length * cos(min_tibia_angle))); //TBD pi/2.0?
-
-  maximum_body_height_ = femur_length * sin(max_femur_angle) + tibia_length * sin(max_femur_angle + clamped(pi / 2.0 - max_femur_angle, min_tibia_angle, max_tibia_angle));
-
-  //ASSERT(stepClearance * maximumBodyHeight <= 2.0 * model_->legs[0][0].femurLength);  // impossible to lift this high
-
-  // If undefined - work out a best value to maximise circular footprint for given step clearance
-  if (body_clearance_ == -1)
-  {
-    // in this case we assume legs have equal characteristics
-    body_clearance_ = (reference_leg->getMinLegLength() + step_clearance_ * maximum_body_height_) / maximum_body_height_;
-  }
-  //ASSERT(bodyClearance >= 0 && bodyClearance < 1.0);
-
-  min_footprint_radius_ = 1e10;
-
-  std::map<int, Leg*>::iterator leg_it;
+  //Find the maximum body height by finding the min possible vertical tip position for each leg 
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
+    resetJointOrientationTracking();
     Leg* leg = leg_it->second;
-    double coxa_length = leg->getLinkByIDName(leg->getIDName() + "_coxa_link")->length;
-    double tibia_length = 0.0;//leg->getLinkByIDName(leg->getIDName() + "_tibia_link")->length;
-    double femur_length = leg->getLinkByIDName(leg->getIDName() + "_femur_link")->length;
-    double min_virtual_leg_length = leg->getMinLegLength();
-    double max_virtual_leg_length = leg->getMaxLegLength();
-    
-    // find biggest circle footprint inside the pie segment defined by the body clearance and the yaw limits
-    
-    // Downward angle of virtual leg from zero position
-    double virtual_leg_angle = asin((body_clearance_ * maximum_body_height_) / leg->getMaxLegLength());
-    double horizontal_range = 0;
-    double rad = 1e10;
-
-    if (virtual_leg_angle > -min_femur_angle)  //Straight leg can't reach reach ground for desired body clearance without exceeding min femur angle
+    Matrix4d transform = Matrix4d::Identity();
+    for (link_it = leg->getLinkContainer()->begin(); link_it != leg->getLinkContainer()->end(); ++link_it)
     {
-      double vertical_body_to_femur_joint = femur_length * sin(-min_femur_angle);
-      double vertical_ground_to_tibia_joint = body_clearance_ * maximum_body_height_ - vertical_body_to_femur_joint;
-      //ASSERT(extraHeight <= leg->tibiaLength);  // this shouldn't be possible with bodyClearance < 1
-      double horizontal_tibia_joint_to_tip = sqrt(sqr(tibia_length) - sqr(vertical_ground_to_tibia_joint));
-      horizontal_range = femur_length * cos(-min_femur_angle) + horizontal_tibia_joint_to_tip;
+      // If joint is twisted such that actuation increases vertical tip displacement
+      // set joint angle toward ground bearing (within limits) and update transform
+      Link* link = link_it->second;
+      double angle = 0.0;      
+      if (link->id_number != 0)
+      {
+	if (joint_twist_ < 0)
+	{
+	  angle = min(link->actuating_joint->max_position, ground_bearing_);
+	}
+	else if (joint_twist_ > 0)
+	{
+	  angle = max(link->actuating_joint->min_position, -ground_bearing_);	
+	}
+	ground_bearing_ -= abs(angle);
+      }
+      else
+      {
+	angle = link->angle;
+      }
+      transform = transform*createDHMatrix(link->offset, angle, link->length, link->twist);
+      joint_twist_ += link->twist;
+    }
+    Vector4d result = transform*Vector4d(0,0,0,1);
+    Vector3d min_vertical_tip_position = Vector3d(result[0], result[1], result[2]);
+    maximum_body_height_ = min(maximum_body_height_, -min_vertical_tip_position[2]);
+  }
+  
+  //Check that required body height is possible
+  body_clearance_ = min(params_->body_clearance.data, maximum_body_height_);    
+  
+  //Find workspace radius of tip on ground by finding maximum horizontal distance of each tip 
+  double min_horizontal_range = UNASSIGNED_VALUE;
+  double min_half_stance_yaw_range = UNASSIGNED_VALUE;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  {
+    resetJointOrientationTracking();
+    Leg* leg = leg_it->second;
+    double half_stance_yaw_range = UNASSIGNED_VALUE;
+    double distance_to_ground = body_clearance_;
+    double horizontal_range = 0.0;
+    for (link_it = ++leg->getLinkContainer()->begin(); link_it != leg->getLinkContainer()->end(); ++link_it)
+    {
+      Link* link = link_it->second;
+      const Joint* joint = link->actuating_joint;   
+      joint_twist_ += joint->reference_link->twist;  
+      
+      if (abs(joint_twist_) != pi/2 && half_stance_yaw_range == UNASSIGNED_VALUE)
+      {
+	half_stance_yaw_range = min(abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->min_position)),
+				    abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->max_position)));
+      }      
+      
+      if (joint_twist_ != 0.0)
+      {
+	Tip* tip = leg->getTip();   
+	double distance_to_tip = joint->getPositionJointFrame(tip->getPositionWorldFrame()).norm();
+	double joint_angle;
+	double virtual_link_length;
+	if (abs(distance_to_tip*sin(joint_twist_)) > distance_to_ground)
+	{	  
+	  double required_joint_angle = asin(distance_to_ground/(abs(distance_to_tip*sin(joint_twist_))));
+	  joint_angle = clamped(required_joint_angle, joint->min_position, joint->max_position);
+	  virtual_link_length = (joint_angle == required_joint_angle) ? distance_to_tip : link->length;
+	}
+	else if (joint_twist_ > 0.0)
+	{
+	  joint_angle = joint->min_position;
+	  virtual_link_length = link->length;
+	}
+	else if (joint_twist_ < 0.0)
+	{
+	  joint_angle = joint->max_position;
+	  virtual_link_length = link->length;
+	}
+	horizontal_range += virtual_link_length*cos(joint_angle);
+	distance_to_ground -= abs(virtual_link_length*sin(joint_angle)*sin(joint_twist_));
+      }
+      else
+      {
+	horizontal_range += link->length;
+      }
+      
+      if (distance_to_ground <= 0.0)
+      {
+	break;
+      }
+    }
+    
+    min_horizontal_range = min(min_horizontal_range, horizontal_range);
+    min_half_stance_yaw_range = min(min_half_stance_yaw_range, half_stance_yaw_range);
+  }
+  
+  min_horizontal_range *= params_->leg_span_scale.data;
+  
+  // Fitting largest circle within sector defined by yaw ranges and horizontal range
+  workspace_radius_ = min_horizontal_range*sin(min_half_stance_yaw_range)/(1+sin(min_half_stance_yaw_range));
+  
+  // Calculate default stance tip positions as centre of workspace circle on the ground at required body height
+  Vector3d previous_identity_position(0,0,0);
+  leg_it = model_->getLegContainer()->begin();
+  while (leg_it != model_->getLegContainer()->end())
+  {
+    Leg* leg = leg_it->second;
+    Link* base_link = leg->getLinkByIDName(leg->getIDName() + "_base_link");
+    double x_position = base_link->length*cos(base_link->angle); // First joint world position (x)
+    double y_position = base_link->length*sin(base_link->angle); // First joint world position (y)
+    x_position += (min_horizontal_range - workspace_radius_)*cos(leg->getStanceLegYaw()); 
+    y_position += (min_horizontal_range - workspace_radius_)*sin(leg->getStanceLegYaw());
+    Vector3d identity_tip_position(x_position, y_position, -body_clearance_);
+    
+    double distance_to_previous_tip_position = (identity_tip_position - previous_identity_position).norm();
+    previous_identity_position = identity_tip_position;
+    if (2*workspace_radius_ > distance_to_previous_tip_position)
+    {
+      workspace_radius_ = distance_to_previous_tip_position/2.0; //Workspace radius ammended to prevent overlapping
+      leg_it = model_->getLegContainer()->begin(); //Restart leg identity tip position calculation with new radius
+      previous_identity_position = Vector3d(0,0,0);
     }
     else
     {
-      horizontal_range = sqrt(sqr(max_virtual_leg_length) - sqr(body_clearance_ * maximum_body_height_));
-    }
-    horizontal_range *= params_->leg_span_scale.data; //Scale range according to user defined parameter
+      leg->setLegStepper(new LegStepper(this, leg, identity_tip_position));
+      leg_it++;
+    }    
+  }  
 
-    Joint* coxa_joint = leg->getJointByIDName(leg->getIDName() + "_coxa_joint");
-    double half_coxa_joint_range = coxa_joint->max_position;
-    //double cotanTheta = tan(0.5 * pi - theta);
-    //ALTERNATIVE ALGORITHM FOR RADIUS OF CIRCLE INSCRIBED BY A SECTOR
-    //rad = min(rad, solveQuadratic(sqr(cotanTheta), 2.0 * horizontalRange, -sqr(horizontalRange)));
-    rad = horizontal_range*sin(half_coxa_joint_range)/(1+sin(half_coxa_joint_range)); 
-    ASSERT(rad > 0.0);  // cannot have negative radius
-
-    // we should also take into account the stepClearance not getting too high for the leg to reach
-    double leg_tip_body_clearance = max(0.0, body_clearance_ - step_clearance_) * maximum_body_height_;
-
-    // if footprint radius due to lift is smaller due to yaw limits, reduce this minimum radius
-    if (leg_tip_body_clearance < min_virtual_leg_length)
-    {
-      rad = min(rad, (horizontal_range - sqrt(sqr(min_virtual_leg_length) - sqr(leg_tip_body_clearance))) / 2.0);
-    }
-    ASSERT(rad > 0.0);  // cannot have negative radius, step height is too high to allow any footprint
-
-    double horizontal_coxa_to_tip = coxa_length + horizontal_range - rad;
-
-    // FootprintDownscale scales the tip footprint down as the step cycle sometimes exceeds the ground footprint in
-    // order to maintain velocity
-    min_footprint_radius_ = min(min_footprint_radius_, rad * params_->footprint_downscale.data);
-
-    Link* base_link = leg->getLinkByIDName(leg->getIDName() + "_base_link");
-    Vector3d identity_tip_position(base_link->length*cos(base_link->angle) + horizontal_coxa_to_tip*cos(leg->getStanceLegYaw()),
-				   base_link->length*sin(base_link->angle) + horizontal_coxa_to_tip*sin(leg->getStanceLegYaw()),
-				   -body_clearance_*maximum_body_height_);
-    leg->setLegStepper(new LegStepper(this, leg, identity_tip_position));
-  }
-  
-  // check for overlapping radii
-  double min_gap = 1e10;
-  LegStepper* reference_leg_stepper_1 = reference_leg->getLegStepper();
-  LegStepper* reference_leg_stepper_2 = model_->getLegByIDNumber(reference_leg->getIDNumber()+1)->getLegStepper();
-  LegStepper* reference_leg_stepper_3 = model_->getLegByIDNumber(reference_leg->getIDNumber()+2)->getLegStepper();
-  
-  Vector3d positive_difference = reference_leg_stepper_1->getDefaultTipPosition() - reference_leg_stepper_2->getDefaultTipPosition();
-  positive_difference[2] = 0.0;
-  min_gap = min(min_gap, positive_difference.norm() - 2.0 * min_footprint_radius_);
-  
-  positive_difference = reference_leg_stepper_2->getDefaultTipPosition() - reference_leg_stepper_3->getDefaultTipPosition();
-  positive_difference[2] = 0.0;
-  min_gap = min(min_gap, positive_difference.norm() - 2.0 * min_footprint_radius_);
-
-  if (min_gap < 0.0)
-  {
-    min_footprint_radius_ += min_gap * 0.5;
-  }
-
-  // Stance radius based around front-right leg to ensure positive values (due to coordinate frame system: x=forward,
-  // y=left)
-  double x_position = reference_leg_stepper_1->getDefaultTipPosition()[0];
-  double y_position = reference_leg_stepper_1->getDefaultTipPosition()[1];
+  // Stance radius based around front right leg to ensure positive values
+  Leg* reference_leg = model_->getLegByIDNumber(0);
+  LegStepper* reference_leg_stepper = reference_leg->getLegStepper();
+  double x_position = reference_leg_stepper->getDefaultTipPosition()[0];
+  double y_position = reference_leg_stepper->getDefaultTipPosition()[1];
   stance_radius_ = Vector2d(x_position, y_position).norm();
 
-  current_linear_velocity_ = Vector2d(0, 0);
-  current_angular_velocity_ = 0;
+  desired_linear_velocity_ = Vector2d(0, 0);
+  desired_angular_velocity_ = 0;
   
   setGaitParams(params_);
 }
@@ -173,6 +199,11 @@ void WalkController::setGaitParams(Parameters* p)
   swing_start_ *= normaliser;
   swing_end_ *= normaliser;
   stance_start_ *= normaliser;
+  
+  stance_length_ = mod(stance_end_ - stance_start_, phase_length_);
+  swing_length_ = swing_end_ - swing_start_;
+  double bezier_scaler = swing_length_ / (2.0*stance_length_);
+  max_stride_length_ = 2.0 * workspace_radius_ * (1.0 / (1.0 + 0.5*bezier_scaler)); // Based of trajectory engine
 
   std::map<int, Leg*>::iterator leg_it;
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
@@ -181,8 +212,33 @@ void WalkController::setGaitParams(Parameters* p)
     int index = leg->getIDNumber();
     int multiplier = params_->offset_multiplier.data[index];
     LegStepper* leg_stepper = leg->getLegStepper();
-    leg_stepper->setPhaseOffset((int(params_->phase_offset.data * normaliser) * multiplier) % phase_length_);
+    int phase_offset = (int(params_->phase_offset.data * normaliser) * multiplier) % phase_length_;
+    leg_stepper->setPhaseOffset(phase_offset);
+    // Check if leg starts in swing phase (i.e. forced to stance for the 1st step cycle) 
+    // and finds this max 'forced stance' phase length used in acceleration calculations
+    if (phase_offset > swing_start_ && phase_offset < swing_end_)  // SWING STATE
+    {
+      max_forced_stance_length_ = max(max_forced_stance_length_, swing_end_ - phase_offset);
+    }    
+    
+    if (phase_offset < swing_start_)
+    {
+      min_starting_stance_length_ = min( min_starting_stance_length_, swing_start_ - phase_offset);
+    }  
   }
+  
+  // Calculate max accelerations to prevent exceeding workspace limits whilst forcing stance in 'starting' step cycle
+  double starting_time = (max_forced_stance_length_ + 2*stance_length_ + swing_length_)*time_delta_;
+  double on_ground_ratio = double(stance_length_) / double(phase_length_);
+  double max_linear_acceleration = max_stride_length_ / ((on_ground_ratio/step_frequency_)*starting_time);
+  double max_angular_acceleration = max_linear_acceleration/stance_radius_;
+  
+  // Check to use workspace/user defined max accelerations
+  bool user_defined;
+  user_defined = !(params_->max_linear_acceleration.data == -1.0);
+  max_linear_acceleration_ = (user_defined) ? params_->max_linear_acceleration.data : max_linear_acceleration;
+  user_defined = !(params_->max_angular_acceleration.data == -1.0);
+  max_angular_acceleration_ = (user_defined) ? params_->max_angular_acceleration.data : max_angular_acceleration;
 }
 
 /***********************************************************************************************************************
@@ -193,13 +249,13 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
 {
   std::map<int, Leg*>::iterator leg_it;
   
-  double on_ground_ratio = double(phase_length_ - (swing_end_ - swing_start_)) / double(phase_length_);
+  double on_ground_ratio = double(stance_length_) / double(phase_length_);
 
   Vector2d new_linear_velocity;
   double new_angular_velocity;
 
   // Distance: 2.0*minFootprintRadius, Time: onGroundratio*(1/stepFrequency) where stepFrequency is FULL step cycles/s)
-  double max_linear_speed = 2.0 * min_footprint_radius_ * step_frequency_ / on_ground_ratio;                                            
+  double max_linear_speed = max_stride_length_ * step_frequency_ / on_ground_ratio;                                            
   double max_angular_speed = max_linear_speed / stance_radius_;
 
   // Get new angular/linear velocities according to input mode
@@ -237,41 +293,27 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   {
     new_linear_velocity = Vector2d(0.0, 0.0);
   }
-
-  // Angular Acceleration Control
-  double angular_acceleration = new_angular_velocity - current_angular_velocity_;
   
-  // Calculate max angular acceleration if specified by parameter
-  if (params_->max_angular_acceleration.data == -1.0)
-  {
-    // Ensures tip of last leg to make first swing does not move further than 
-    // footprint radius before starting first swing (s=0.5*a*(t^2))
-    double theta = acos(1 - (sqr(min_footprint_radius_) / (2.0 * sqr(stance_radius_))));  // Max angle within footprint
-    params_->max_angular_acceleration.data = 2.0 * theta / sqr(((phase_length_ - (swing_end_ - swing_start_) * 0.5) * time_delta_));
-  }
-  // Update angular velocity according to acceleration limits
-  if (abs(angular_acceleration) > 0.0)
-  {
-    current_angular_velocity_ +=
-        angular_acceleration * min(1.0, params_->max_angular_acceleration.data * time_delta_ / abs(angular_acceleration));
-  }
-
   // Linear Acceleration Control
-  Vector2d linear_acceleration = new_linear_velocity - current_linear_velocity_;
+  Vector2d linear_acceleration = new_linear_velocity - desired_linear_velocity_;
   // Calculate max acceleration if specified by parameter
-  if (params_->max_linear_acceleration.data == -1.0)
-  {
-    // Ensures tip of last leg to make first swing does not move further than
-    // footprint radius before starting first swing (s=0.5*a*(t^2))
-    params_->max_linear_acceleration.data =
-        2.0 * min_footprint_radius_ / sqr(((phase_length_ - (swing_end_ - swing_start_) * 0.5) * time_delta_));
-  }
+
   // Update linear velocity according to acceleration limits
   if (linear_acceleration.norm() > 0.0)
   {
-    current_linear_velocity_ +=
-        linear_acceleration * min(1.0, params_->max_linear_acceleration.data * time_delta_ / linear_acceleration.norm());
+    desired_linear_velocity_ +=
+        linear_acceleration * min(1.0, max_linear_acceleration_  * time_delta_ / linear_acceleration.norm());
   }
+
+  // Angular Acceleration Control
+  double angular_acceleration = new_angular_velocity - desired_angular_velocity_;
+
+  // Update angular velocity according to acceleration limits
+  if (abs(angular_acceleration) > 0.0)
+  {
+    desired_angular_velocity_ +=
+        angular_acceleration * min(1.0, max_angular_acceleration_ * time_delta_ / abs(angular_acceleration));
+  }  
 
   bool has_velocity_command = linear_velocity_input.norm() || angular_velocity_input;
 
@@ -323,16 +365,11 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
     walk_state_ = STOPPED;
   }
 
-  // Robot State Machine
-    
+  // Robot State Machine    
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
     Leg* leg = leg_it->second;
-    LegStepper* leg_stepper = leg->getLegStepper(); 
-    
-    Vector3d local_tip_position = leg->getLocalTipPosition();
-    Vector2d stride_vector = on_ground_ratio * (current_linear_velocity_ + current_angular_velocity_ * Vector2d(-local_tip_position[1], local_tip_position[0])) / step_frequency_;
-    leg_stepper->setStrideVector(stride_vector);    
+    LegStepper* leg_stepper = leg->getLegStepper();    
 
     if (walk_state_ == STARTING)
     {
@@ -412,7 +449,7 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
       leg_stepper->setStepState(STANCE);
     }
   }
-
+  
   // Step State Machine
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
@@ -438,7 +475,7 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
     else if (phase < stance_end_ || phase >= stance_start_)
     {
       leg_stepper->setStepState(STANCE);
-    }
+    }    
   }
 
   // Update tip positions and apply inverse kinematics
@@ -446,6 +483,12 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   {
     Leg* leg = leg_it->second;
     LegStepper* leg_stepper = leg->getLegStepper(); 
+        
+    Vector3d tip_position = leg->getLocalTipPosition(); //TBD Should be walker tip positions?
+    Vector2d rotation_normal = Vector2d(-tip_position[1], tip_position[0]);
+    Vector2d stride_vector = desired_linear_velocity_ + desired_angular_velocity_ * rotation_normal;
+    stride_vector *= (on_ground_ratio / step_frequency_);
+    leg_stepper->updateStride(stride_vector); 
 
     if (leg->getLegState() == WALKING)
     {
@@ -472,31 +515,31 @@ void WalkController::updateManual(int primary_leg_selection_ID, Vector3d primary
     LegStepper* leg_stepper = leg->getLegStepper();  
     if (leg->getLegState() == MANUAL)
     {
-      Vector3d tipVelocityInput;
+      Vector3d tip_velocity_input;
       int selected_leg_ID = leg->getIDNumber();
       if (selected_leg_ID == primary_leg_selection_ID)
       {
-	tipVelocityInput = primary_tip_velocity_input;
+	tip_velocity_input = primary_tip_velocity_input;
       }
       else if (selected_leg_ID == secondary_leg_selection_ID)
       {
-	tipVelocityInput = secondary_tip_velocity_input;
+	tip_velocity_input = secondary_tip_velocity_input;
       }
 
       if (params_->leg_manipulation_mode.data == "joint_control")  // HACK Below
       {
-	double coxa_joint_velocity = tipVelocityInput[0] * params_->max_rotation_velocity.data * time_delta_;
-	double femur_joint_velocity = tipVelocityInput[1] * params_->max_rotation_velocity.data * time_delta_;
-	double tibia_joint_velocity = 0.0;//tipVelocityInput[2] * params_->max_rotation_velocity.data * time_delta_;
+	double coxa_joint_velocity = tip_velocity_input[0] * params_->max_rotation_velocity.data * time_delta_;
+	double femur_joint_velocity = tip_velocity_input[1] * params_->max_rotation_velocity.data * time_delta_;
+	double tibia_joint_velocity = tip_velocity_input[2] * params_->max_rotation_velocity.data * time_delta_;
 	leg->getJointByIDName(leg->getIDName() + "_coxa_joint")->desired_position += coxa_joint_velocity;
 	leg->getJointByIDName(leg->getIDName() + "_femur_joint")->desired_position += femur_joint_velocity;
-	//leg->getJointByIDName(leg->getIDName() + "_tibia_joint")->desired_position += tibia_joint_velocity;	
+	leg->getJointByIDName(leg->getIDName() + "_tibia_joint")->desired_position += tibia_joint_velocity;	
 	Vector3d new_tip_position = leg->applyFK(false);
 	leg_stepper->setCurrentTipPosition(new_tip_position);
       }
       else if (params_->leg_manipulation_mode.data == "tip_control")
       {
-	Vector3d tip_position_change = tipVelocityInput * params_->max_translation_velocity.data * time_delta_;
+	Vector3d tip_position_change = tip_velocity_input * params_->max_translation_velocity.data * time_delta_;
 	Vector3d new_tip_position = leg_stepper->getCurrentTipPosition() + tip_position_change;
 	leg_stepper->setCurrentTipPosition(new_tip_position);
       }
@@ -511,9 +554,9 @@ LegStepper::LegStepper(WalkController* walker, Leg* leg, Vector3d identity_tip_p
   : walker_(walker)
   , leg_(leg)
   , default_tip_position_(identity_tip_position)
-  , current_tip_position_(identity_tip_position)
+  , current_tip_position_(default_tip_position_)
 {
-  stride_vector_ = Vector2d(0.0,0.0);
+  stride_vector_ = Vector3d(0.0,0.0,0.0);
   swing_height_ = walker->getStepClearance() * walker->getMaxBodyHeight();
   stance_depth_ = walker->getStepDepth() * walker->getMaxBodyHeight();
 };
@@ -551,53 +594,58 @@ void LegStepper::iteratePhase(void)
 ***********************************************************************************************************************/
 void LegStepper::updatePosition()
 {
-  int phase_length = walker_->getPhaseLength();
-  int swing_start = walker_->getSwingStart();
-  int swing_end = walker_->getSwingEnd();
-  int stance_start = walker_->getStanceStart();
-  int stance_end = walker_->getStanceEnd();
+  double step_frequency = walker_->getStepFrequency();
+  double time_delta = walker_->getTimeDelta(); 
   
   // Swing Phase
   if (step_state_ == SWING)
   {
+    int phase_length = walker_->getPhaseLength();
+    int swing_start = walker_->getSwingStart();
+    int swing_end = walker_->getSwingEnd();		
+    int swing_length = swing_end - swing_start;
+    int stance_start = walker_->getStanceStart();
+    int stance_end = walker_->getStanceEnd();  
+    int stance_length = mod(stance_end - stance_start, phase_length);
+
+    swing_delta_t_ = 2.0 / (roundToInt((double(swing_length) / phase_length) / (step_frequency * time_delta) / 2.0) * 2.0);
+
+    // Used to scale the distance between control nodes for the stance/swing curves which have differing delta time values
+    double bezier_scaler = swing_length / (2.0*stance_length);
+    
     int iteration = phase_ - swing_start + 1;
-    double swing_length = swing_end - swing_start;
-    swing_delta_t_ = calculateDeltaT(swing_length);
     int num_iterations = 2.0 / swing_delta_t_;
 
     // Save initial tip position at beginning of swing
     if (iteration == 1)
     {
       swing_origin_tip_position_ = current_tip_position_;
+      generateSwingControlNodes(bezier_scaler);
     }
 
     // Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
     Vector3d delta_pos;
     double t1 = 0;
     double t2 = 0;
-    Vector3d stride_vector_3d = Vector3d(stride_vector_[0], stride_vector_[1], 0.0);
 
     if (iteration <= num_iterations / 2)
     {
-      generateSwingControlNodes(stride_vector_3d);
       t1 = iteration * swing_delta_t_;
-      delta_pos = swing_delta_t_ * quarticBezierDot(swing_1_nodes_, t1);  //
+      //delta_pos = swing_delta_t_ * quarticBezierDot(swing_1_nodes_, t1);
+      current_tip_position_ = quarticBezier(swing_1_nodes_, t1);
     }
     else
     {
-      // Update values of NEXT stance curve for use in calculation of secondary swing control nodes
-      int stance_length = mod(stance_end - stance_start, phase_length);
-      stance_delta_t_ = calculateDeltaT(stance_length);
-      stance_origin_tip_position_ = default_tip_position_ + 0.5 * stride_vector_3d;
-      generateStanceControlNodes(stride_vector_3d);
-
-      generateSwingControlNodes(stride_vector_3d);
+      stance_origin_tip_position_ = default_tip_position_ + 0.5 * stride_vector_;
+      generateStanceControlNodes(stride_vector_);
+      generateSwingControlNodes(bezier_scaler);
       t2 = (iteration - num_iterations / 2) * swing_delta_t_;
-      delta_pos = swing_delta_t_ * quarticBezierDot(swing_2_nodes_, t2);
+      //delta_pos = swing_delta_t_ * quarticBezierDot(swing_2_nodes_, t2);
+      current_tip_position_ = quarticBezier(swing_2_nodes_, t2);
     }
 
-    current_tip_position_ += delta_pos;
-    current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
+    //current_tip_position_ += delta_pos;
+    //current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
 
     if (t1 < swing_delta_t_)
     {
@@ -627,10 +675,9 @@ void LegStepper::updatePosition()
   {
     int phase_length = walker_->getPhaseLength();
     int stance_start = completed_first_step_ ? walker_->getStanceStart() : phase_offset_;
-    int stance_end = walker_->getStanceEnd();
+    int stance_end = walker_->getStanceEnd();  
     int stance_length = mod(stance_end - stance_start, phase_length);
-    stance_delta_t_ = calculateDeltaT(stance_length);
-
+    
     int iteration = mod(phase_ + (phase_length - stance_start), phase_length) + 1;
 
     // Save initial tip position at beginning of swing
@@ -644,11 +691,13 @@ void LegStepper::updatePosition()
     double t;
 
     // Scales stride vector according to stance length specifically for STARTING state of walker
-    Vector3d stride_vector_3d = Vector3d(stride_vector_[0], stride_vector_[1], 0.0);
-    stride_vector_3d *= double(stance_length) / (mod(swing_start - swing_end, phase_length));
-
-    generateStanceControlNodes(stride_vector_3d);
+    double stride_scaler = double(stance_length) / (mod(stance_end - walker_->getStanceStart(), phase_length));
+    Vector3d scaled_strid_vector = stride_vector_ * stride_scaler;
+    generateStanceControlNodes(scaled_strid_vector);
+    stance_delta_t_ = 1.0 / (roundToInt((double(stance_length) / phase_length) / (step_frequency * time_delta) / 2.0) * 2.0);
+    
     t = iteration * stance_delta_t_;
+    //current_tip_position_ = quarticBezier(stance_nodes_, t);
     delta_pos = stance_delta_t_ * quarticBezierDot(stance_nodes_, t);
 
     current_tip_position_ += delta_pos;
@@ -659,7 +708,7 @@ void LegStepper::updatePosition()
       t = 0.0;
     }
     
-    if (leg_->getIDNumber() == 0)
+    if (leg_->getIDNumber() == 1)
     {
       ROS_DEBUG_COND(walker_->getParameters()->debug_stance_trajectory.data,
 		     "STANCE TRAJECTORY_DEBUG - ITERATION: %d\t\t"
@@ -676,35 +725,10 @@ void LegStepper::updatePosition()
 }
 
 /***********************************************************************************************************************
- * Calculates time deltas for use in quartic bezier curve tip trajectory calculations
-***********************************************************************************************************************/
-double LegStepper::calculateDeltaT(int length)
-{
-  int phase_length = walker_->getPhaseLength();
-  double step_frequency = walker_->getStepFrequency();
-  double time_delta = walker_->getTimeDelta();
-  
-  // Ensure compatible number of iterations
-  int numIterations = roundToInt((double(length) / phase_length) / (step_frequency * time_delta) / 2.0) * 2.0;  
-  if (step_state_ == SWING)
-  {
-    return 2.0 / numIterations;
-  }
-  else
-  {
-    return 1.0 / numIterations;
-  }
-}
-
-/***********************************************************************************************************************
  * Generates control nodes for each quartic bezier curve of swing tip trajectory calculation
 ***********************************************************************************************************************/
-void LegStepper::generateSwingControlNodes(Vector3d stride_vector)
+void LegStepper::generateSwingControlNodes(double bezier_scaler)
 {
-  // Used to scale the difference between control nodes for the stance curve which has differing delta time values to
-  // swing curves
-  double bezier_scaler = stance_delta_t_ / swing_delta_t_;
-
   // Control nodes for swing quartic bezier curves - horizontal plane
   // Set for horizontal position continuity at transition between stance and primary swing curves (C0 Smoothness)
   swing_1_nodes_[0] = swing_origin_tip_position_;  
@@ -754,12 +778,12 @@ void LegStepper::generateSwingControlNodes(Vector3d stride_vector)
  * Generates control nodes for quartic bezier curve of stance tip trajectory calculation
 ***********************************************************************************************************************/
 void LegStepper::generateStanceControlNodes(Vector3d stride_vector)
-{
+{  
   // Control nodes for stance quartic bezier curve - horizontal plane
   // Set as initial horizontal tip position
   stance_nodes_[0] = stance_origin_tip_position_;  
   // Set as target horizontal tip position
-  stance_nodes_[4] = stance_origin_tip_position_ - stride_vector;  
+  stance_nodes_[4] = /*default_tip_position_ - stride_vector*0.5;*/stance_origin_tip_position_ - stride_vector;
   // Set for constant horizontal velocity in stance phase
   stance_nodes_[1] = stance_nodes_[4] + 0.75 * (stance_nodes_[0] - stance_nodes_[4]);  
   // Set for constant horizontal velocity in stance phase

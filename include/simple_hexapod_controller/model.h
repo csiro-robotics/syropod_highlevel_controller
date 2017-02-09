@@ -49,21 +49,27 @@ class Model
     inline std::map<int, Leg*>* getLegContainer(void) { return &leg_container_;};
     inline int getLegCount(void) { return leg_count_; };
     inline Pose getCurrentPose(void) { return current_pose_; };
+    inline double getTimeDelta(void) { return time_delta_;}
+    inline Vector2d getLinearVelocity(void) { return linear_velocity_; };
+    inline double getAngularVelocity(void) { return angular_velocity_; };
     
     inline void setCurrentPose(Pose pose) { current_pose_ = pose; };
+    inline void setLinearVelocity(Vector2d velocity) { linear_velocity_ = velocity; };
+    inline void setAngularVelocity(double velocity) { angular_velocity_ = velocity; };
     
     void initLegs(bool use_default_joint_positions);
     vector<Vector3d> getJointPositions(const Pose &pose);
-    void clampToLimits(void);
-    void updateLocal(Vector3d );
     
     Leg* getLegByIDNumber(int leg_id_num) { return leg_container_[leg_id_num]; };
     Leg* getLegByIDName(std::string leg_id_name);  
     
   private:
     std::map<int, Leg*> leg_container_;
+    double time_delta_;
     int leg_count_;    
     Pose current_pose_;  // Current pose of body including all compensation posing
+    Vector2d linear_velocity_;
+    double angular_velocity_ = 0.0;
 };
 
 //Base leg class
@@ -78,10 +84,10 @@ class Leg
     inline int getNumJoints(void) { return num_joints_; };
     inline int getTripodGroup(void) { return tripod_group_; }; //3DOF only
     inline LegState getLegState(void) { return leg_state_; };
-    inline double getMirrorDir(void) { return mirror_dir_; };  
+    inline double getMirrorDir(void) { return mirror_dir_; }; 
     inline double getStanceLegYaw(void) { return stance_leg_yaw_; };
-    inline double getMinLegLength(void) { return min_leg_length_; };
-    inline double getMaxLegLength(void) { return max_leg_length_; };
+    inline double getMinLegLength(void) { return min_virtual_leg_length_; };
+    inline double getMaxLegLength(void) { return max_virtual_leg_length_; };
     inline double getTipForce(void) { return tip_force_; };
     inline double getDeltaZ(void) { return delta_z_; };
     inline double getVirtualMass(void) { return virtual_mass_; };
@@ -94,6 +100,8 @@ class Leg
     inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};    
     inline LegPoser* getLegPoser(void) { return leg_poser_ ;};
     inline Vector3d getLocalTipPosition(void) { return local_tip_position_; };
+    inline Vector3d getDesiredTipVelocity(void) { return desired_tip_velocity_; };
+    inline double getWorkspaceRadius(void) { return workspace_radius_; };
     
     inline void setLegState(LegState leg_state) { leg_state_ = leg_state; };  
     inline void setStatePublisher(ros::Publisher publisher) { leg_state_publisher_ = publisher; };
@@ -106,12 +114,13 @@ class Leg
     inline void setVirtualStiffness(double stiffness) { virtual_stiffness_ = stiffness; };
     inline void setVirtualDampingRatio(double damping_ratio) { virtual_damping_ratio_ = damping_ratio; };
     inline void setDesiredTipPosition(Vector3d tip_position) { desired_tip_position_ = tip_position; };
+    inline void setDesiredTipVelocity(Vector3d tip_velocity) { desired_tip_velocity_ = tip_velocity; };
+    inline void setWorkspaceRadius(double radius) { workspace_radius_ = radius; };
     
     void init(bool use_default_joint_positions);
     void applyDeltaZ(Vector3d tip_position);
-    void applyLocalIK(double time_delta); // sets angles to reach local position relative to root    
+    bool applyIK(bool clamp_to_limits = true, bool debug = false); // sets angles to reach local position relative to root    
     Vector3d applyFK(bool set_local = true); // works out local tip position from angles
-    void updateTransforms(void);
     
     void publishState(simple_hexapod_controller::legState msg) { leg_state_publisher_.publish(msg); };
     void publishASCState(std_msgs::Bool msg) { asc_leg_state_publisher_.publish(msg); };
@@ -149,9 +158,11 @@ class Leg
     
     Vector3d desired_tip_position_;
     Vector3d local_tip_position_;  // actual tip position relative to root
+    Vector3d desired_tip_velocity_;
+    double workspace_radius_;
     
-    double min_leg_length_;
-    double max_leg_length_;
+    double min_virtual_leg_length_;
+    double max_virtual_leg_length_;
     int tripod_group_;
     
     double tip_force_ = 0.0;
@@ -160,7 +171,7 @@ class Leg
 struct Link
 {
   public:
-    Link(Leg* leg, Joint* actuating_joint, int id, Parameters* params);    
+    Link(Leg* leg, Joint* actuating_joint, int id, Parameters* params);      
     const Leg* parent_leg;
     const Joint* actuating_joint;
     const int id_number;
@@ -179,13 +190,20 @@ struct Joint
     inline Matrix4d getBaseTransform(void) const
     { 
       return (id_number == 1) ? transform : reference_link->actuating_joint->getBaseTransform()*transform;
-    };
-    
-    inline Vector3d getCartesianOffset(Vector3d origin = Vector3d(0,0,0)) const
+    };    
+    inline Vector3d getPositionWorldFrame(Vector3d joint_frame_position = Vector3d(0,0,0)) const
     {
-      Vector4d result = transform*Vector4d(origin[0],origin[1],origin[2],1);
+      Vector4d result(joint_frame_position[0],joint_frame_position[1],joint_frame_position[2],1);
+      result = getBaseTransform()*result;
       return Vector3d(result[0], result[1], result[2]);
-    }
+    };
+    inline Vector3d getPositionJointFrame(Vector3d world_frame_position = Vector3d(0,0,0)) const
+    {
+      MatrixXd transform = getBaseTransform();
+      Vector4d result(world_frame_position[0], world_frame_position[1], world_frame_position[2], 1);
+      result = transform.inverse()*result;
+      return Vector3d(result[0], result[1], result[2]);
+    };
     
     const Leg* parent_leg;
     const Link* reference_link;
@@ -201,7 +219,7 @@ struct Joint
     const double max_angular_speed;     
     
     double desired_position = 0.0;
-    double desired_velocity = 0.0; 
+    double desired_velocity = 0.0;
     double desired_effort = 0.0;    
     double prev_desired_position = 0.0;   
     double prev_desired_velocity = 0.0;    
@@ -217,14 +235,29 @@ struct Tip
 {
   public: 
     Tip(Leg* leg, Link* reference_link);    
-    inline Matrix4d getBaseTransform(void) 
+    inline Matrix4d getBaseTransform(void) const
     { 
       return reference_link->actuating_joint->getBaseTransform()*transform; 
     };    
+    inline Vector3d getPositionWorldFrame(Vector3d tip_frame_position = Vector3d(0,0,0)) const
+    {
+      Vector4d result(tip_frame_position[0],tip_frame_position[1],tip_frame_position[2],1);
+      result = getBaseTransform()*result;
+      return Vector3d(result[0], result[1], result[2]);
+    };
+    inline Vector3d getPositionTipFrame(Vector3d world_frame_position = Vector3d(0,0,0)) const
+    {
+      MatrixXd transform = getBaseTransform();
+      Vector4d result(world_frame_position[0], world_frame_position[1], world_frame_position[2], 1);
+      result = transform.inverse()*result;
+      return Vector3d(result[0], result[1], result[2]);
+    };
+    
     const Leg* parent_leg;
     const Link* reference_link;
     const std::string name;   
     Matrix4d transform;
+    Vector3d relative_body_position;
 };
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_MODEL_H */
 
