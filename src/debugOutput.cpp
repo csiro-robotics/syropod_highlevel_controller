@@ -96,7 +96,7 @@ void DebugOutput::drawRobot(Model* model)
 #endif
 }
 
-void DebugOutput::drawPoints(Model* model, bool debug_trajectory, double workspace_radius, double workspace_height)
+void DebugOutput::drawPoints(Model* model, bool debug_trajectory, double workspace_radius, double workspace_height, double stride_length)
 {
 #if defined(DEBUGDRAW) 
 
@@ -175,14 +175,31 @@ void DebugOutput::drawPoints(Model* model, bool debug_trajectory, double workspa
       workspace.pose.position.x = pose.transformVector(leg_stepper->getDefaultTipPosition())[0];
       workspace.pose.position.y = pose.transformVector(leg_stepper->getDefaultTipPosition())[1];
       workspace.pose.position.z = workspace_height/2.0;
-      workspace.scale.x = workspace_radius*2;
-      workspace.scale.y = workspace_radius*2;
+      workspace.scale.x = workspace_radius*2.0;
+      workspace.scale.y = workspace_radius*2.0;
       workspace.scale.z = workspace_height;
       workspace.color.g = 1; //TRANSPARENT CYAN
       workspace.color.b = 1;
       workspace.color.a = 0.1;    
       workspace.lifetime = ros::Duration();
       visualization_publisher_.publish(workspace);  
+      
+      visualization_msgs::Marker stride;
+      stride.header.frame_id = "/my_frame";
+      stride.header.stamp = ros::Time::now();
+      stride.ns = "max_stride_markers";
+      stride.id = leg->getIDNumber()+4;
+      stride.type = visualization_msgs::Marker::CYLINDER;
+      stride.action = visualization_msgs::Marker::ADD;
+      stride.pose.position.x = pose.transformVector(leg_stepper->getDefaultTipPosition())[0];
+      stride.pose.position.y = pose.transformVector(leg_stepper->getDefaultTipPosition())[1];
+      stride.scale.x = stride_length;
+      stride.scale.y = stride_length;
+      stride.scale.z = 0.0;
+      stride.color.g = 1; //TRANSPARENT GREEN
+      stride.color.a = 0.1;    
+      stride.lifetime = ros::Duration();
+      visualization_publisher_.publish(stride);  
     
       for (int i=0; i < 5; ++i)
       {

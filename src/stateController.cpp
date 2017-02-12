@@ -700,7 +700,7 @@ void StateController::RVIZDebugging(bool static_display)
   debug_.updatePose(linear_velocity, angular_velocity, walker_->getBodyHeight());
   debug_.drawRobot(model_);
   debug_.drawPoints(model_, static_display, walker_->getWorkspaceRadius(),
-		    walker_->getMaxBodyHeight()*params_.step_clearance.data);
+		    walker_->getMaxBodyHeight()*params_.step_clearance.data, walker_->getStrideLength());
 }
 
 /***********************************************************************************************************************

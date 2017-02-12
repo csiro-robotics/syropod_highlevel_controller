@@ -28,7 +28,7 @@ class DebugOutput
 {
 public:
   DebugOutput();
-  void drawPoints(Model* model, bool debug_trajectory, double workspace_radius, double workspace_height);
+  void drawPoints(Model* model, bool debug_trajectory, double workspace_radius, double workspace_height, double max_stride_length);
   void drawRobot(Model* model);
   inline void reset()
   {

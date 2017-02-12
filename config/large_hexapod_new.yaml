@@ -82,8 +82,8 @@ hexapod:
     footprint_downscale: 0.8    
     velocity_input_mode: throttle #real    
     force_cruise_velocity: true
-    linear_cruise_velocity: {x: 0.0, y: 0.0}
-    angular_cruise_velocity: 1.0
+    linear_cruise_velocity: {x: 1.0, y: 0.0}
+    angular_cruise_velocity: 0.0
 
 ########################################################################################################################
     # Poser parameters

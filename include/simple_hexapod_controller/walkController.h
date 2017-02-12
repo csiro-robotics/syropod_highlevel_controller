@@ -52,6 +52,7 @@ class WalkController
     inline double getStanceRadius(void) { return stance_radius_; };
     inline Vector2d getDesiredLinearVelocity(void) { return desired_linear_velocity_; };
     inline double getDesiredAngularVelocity(void) { return desired_angular_velocity_; };
+    inline double getStrideLength(void) { return stride_length_; };
     inline WalkState getWalkState(void) { return walk_state_; };
     inline void resetJointOrientationTracking(void) { joint_twist_ = 0.0, ground_bearing_ = 1.57; };
     
@@ -88,7 +89,7 @@ class WalkController
 
     Vector3d foot_spread_distances_;
     double workspace_radius_;
-    double max_stride_length_;
+    double stride_length_ = 0.0;
     double stance_radius_;
     
     int  min_starting_stance_length_ = 0;
@@ -96,17 +97,20 @@ class WalkController
 
     Vector2d desired_linear_velocity_;  // Desired linear body velocity
     double desired_angular_velocity_;  // Angular Body Velocity
-    double max_linear_acceleration_;
-    double max_angular_acceleration_;
+    
+    double max_linear_speed_ = 0.0;
+    double max_angular_speed_ = 0.0;
+    double max_linear_acceleration_ = 0.0;
+    double max_angular_acceleration_ = 0.0;
 
     double maximum_body_height_ = UNASSIGNED_VALUE;
 
     int legs_at_correct_phase_ = 0;
     int legs_completed_first_step_ = 0; 
     
-    map<int, Leg*>::iterator leg_it;
-    map<int, Joint*>::iterator joint_it;
-    map<int, Link*>::iterator link_it;
+    map<int, Leg*>::iterator leg_it_;
+    map<int, Joint*>::iterator joint_it_;
+    map<int, Link*>::iterator link_it_;
   
 };
 
