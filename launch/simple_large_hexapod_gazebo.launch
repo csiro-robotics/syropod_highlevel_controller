@@ -1,5 +1,6 @@
 <launch>
-        <include file="$(find hexapod_large_gazebo)/launch/gazebo_max_tf.launch" />
+	<remap from="/hokuyo_nose/first" to="/laser_yaw/scan"/>
+        <include file="$(find hexapod_large_gazebo)/launch/gazebo_hokuyo.launch" />
 	<include file="$(find hexapod_remote)/launch/hexapod_remote.launch" />
 	<rosparam file="$(find simple_hexapod_controller)/config/large_hexapod.yaml" command="load"/>
 	<rosparam file="$(find simple_hexapod_controller)/config/gait.yaml" command="load"/>
@@ -9,6 +10,5 @@
         <param name="/hexapod/parameters/pose_controller/time_to_start" value="1.0"/>
         <!--param name="/hexapod/parameters/impedance_controller/impedance_control" value="false"/-->
         <param name="/hexapod/parameters/impedance_controller/impedance_input" value="joint_effort"/>
-        <param name="/hexapod/parameters/impedance_controller/force_gain" value="0.1"/>
-        
+        <param name="/hexapod/parameters/impedance_controller/force_gain" value="0.1"/>       
 </launch>
