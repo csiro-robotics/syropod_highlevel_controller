@@ -59,7 +59,7 @@ void PoseController::updateStance(void)
     }
     else if (leg_state == MANUAL || leg_state == WALKING_TO_MANUAL)
     {
-      leg_poser->setCurrentTipPosition(leg_stepper->getDefaultTipPosition()); //TBD May be redundant, consider cutting
+      leg_poser->setCurrentTipPosition(leg_stepper->getCurrentTipPosition()); //TBD May be redundant, consider cutting
     }
   }
 }
@@ -336,7 +336,16 @@ double PoseController::poseForLegManipulation(void) //Simultaneous leg coordinat
       targetPose.position_ += default_pose_.position_;      
     }
     Vector3d target_tip_position = targetPose.inverseTransformVector(leg_stepper->getDefaultTipPosition());
+    
+    if (leg->getLegState() == WALKING_TO_MANUAL)
+    {
+      leg_stepper->setCurrentTipPosition(target_tip_position);
+    }
+    
     progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), step_height, step_time);
+    leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+    //leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
+    leg->applyIK(true, params_->debug_IK.data);
   }
   return progress;
 }

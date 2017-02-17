@@ -565,6 +565,11 @@ void WalkController::updateManual(int primary_leg_selection_ID, Vector3d primary
 	leg_stepper->setCurrentTipPosition(new_tip_position);
       }
     }
+    else if (leg->getLegState() == WALKING)
+    {
+      Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
+      leg_stepper->setCurrentTipPosition(default_tip_position);
+    }
   }
 }
 

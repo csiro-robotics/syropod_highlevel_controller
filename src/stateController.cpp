@@ -470,7 +470,7 @@ void StateController::legStateToggle()
       poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       double res = poser_->poseForLegManipulation();
 
-      if (params_.dynamic_stiffness.data)
+      if (false)//params_.dynamic_stiffness.data)
       {
         impedance_->updateStiffness(transitioning_leg, res);
       }
@@ -490,7 +490,7 @@ void StateController::legStateToggle()
       poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       double res = poser_->poseForLegManipulation();
 
-      if (params_.dynamic_stiffness.data)
+      if (false)//params_.dynamic_stiffness.data)
       {
         impedance_->updateStiffness(transitioning_leg, res);
       }
