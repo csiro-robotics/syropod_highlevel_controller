@@ -33,7 +33,7 @@ hexapod:
       swing_phase: 2
       phase_offset: 1  
 
-      offset_multiplier: [2,5,4,1,0,3]
+      offset_multiplier: [2,5,0,3,4,1] #[2,5,4,1,0,3]
   
 ######################################################################
 
