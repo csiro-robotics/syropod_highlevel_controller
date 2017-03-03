@@ -24,6 +24,9 @@
 #include <ros/assert.h>
 #include <ros/exceptions.h>
 
+#include <dynamic_reconfigure/server.h>
+#include <simple_hexapod_controller/DynamicConfig.h>
+
 #include <tf/transform_broadcaster.h>
 
 #include <std_msgs/Bool.h>
@@ -44,10 +47,8 @@
 #include <string.h>
 #include <vector>
 #include <stdio.h>
-using namespace Eigen;
-using namespace std;
+#include <stdlib.h>
 
-#define DEBUGDRAW
 #define UNASSIGNED_VALUE 1e10
 const double pi = M_PI;  //< easier to read
 
@@ -61,6 +62,9 @@ const double pi = M_PI;  //< easier to read
 #define ASSERT(x) assert(x)
 #define ATTEMPT(x_, y_) assert(x_ y_)
 #endif
+
+using namespace Eigen;
+using namespace std;
 
 template <class T>
 T mod(const T &a, int &b)
@@ -146,12 +150,12 @@ inline MatrixXd createJacobian(vector<map<string, double>> dh, int degrees_of_fr
   {
     case(1):
     {
-      double d1 = dh[0]["d"];
+      //double d1 = dh[0]["d"]; //Unused
       double r1 = dh[0]["r"];
       double sT1 = sin(dh[0]["theta"]);
       double cT1 = cos(dh[0]["theta"]);
-      double sA1 = sin(dh[0]["alpha"]);
-      double cA1 = cos(dh[0]["alpha"]);
+      //double sA1 = sin(dh[0]["alpha"]); //Unused
+      //double cA1 = cos(dh[0]["alpha"]); //Unused
       MatrixXd j(3, 1);
       j << -r1*sT1,
 	    r1*cT1, 
@@ -160,26 +164,44 @@ inline MatrixXd createJacobian(vector<map<string, double>> dh, int degrees_of_fr
     }
     case(2):
     {
-      double d1 = dh[0]["d"], d2 = dh[1]["d"];
-      double r1 = dh[0]["r"], r2 = dh[1]["r"];
-      double sT1 = sin(dh[0]["theta"]), sT2 = sin(dh[1]["theta"]);
-      double cT1 = cos(dh[0]["theta"]), cT2 = cos(dh[1]["theta"]);
-      double sA1 = sin(dh[0]["alpha"]), sA2 = sin(dh[1]["alpha"]);
-      double cA1 = cos(dh[0]["alpha"]), cA2 = cos(dh[1]["alpha"]);
+      //double d1 = dh[0]["d"]; //Unused
+			double d2 = dh[1]["d"];
+      double r1 = dh[0]["r"];
+			double r2 = dh[1]["r"];
+      double sT1 = sin(dh[0]["theta"]);
+			double sT2 = sin(dh[1]["theta"]);
+      double cT1 = cos(dh[0]["theta"]);
+			double cT2 = cos(dh[1]["theta"]);
+      double sA1 = sin(dh[0]["alpha"]);
+			//double sA2 = sin(dh[1]["alpha"]); //Unused
+      double cA1 = cos(dh[0]["alpha"]);
+			//double cA2 = cos(dh[1]["alpha"]); //Unused
       MatrixXd j(3, 2);
       j << -(sT1*r2*cT2)-(cT1*cA1*r2*sT2)+(cT1*sA1*d2)-(r1*sT1), -(cT1*r2*sT2)-(sT1*cA1*r2*cT2),
 	    (cT1*r2*cT2)-(sT1*cA1*r2*sT2)+(sT1*sA1*d2)+(r1*cT1), -(sT1*r2*sT2)+(cT1*cA1*r2*cT2),
 							    0.0,                   (sA1*r2*cT2);
-      return j;      
+      return j;
     }
     case(3):
     {
-      double d1 = dh[0]["d"], d2 = dh[1]["d"], d3 = dh[2]["d"];
-      double r1 = dh[0]["r"], r2 = dh[1]["r"], r3 = dh[2]["r"];
-      double sT1 = sin(dh[0]["theta"]), sT2 = sin(dh[1]["theta"]), sT3 = sin(dh[2]["theta"]);
-      double cT1 = cos(dh[0]["theta"]), cT2 = cos(dh[1]["theta"]), cT3 = cos(dh[2]["theta"]);
-      double sA1 = sin(dh[0]["alpha"]), sA2 = sin(dh[1]["alpha"]), sA3 = sin(dh[2]["alpha"]);
-      double cA1 = cos(dh[0]["alpha"]), cA2 = cos(dh[1]["alpha"]), cA3 = cos(dh[2]["alpha"]);
+      //double d1 = dh[0]["d"]; //Unused
+			double d2 = dh[1]["d"];
+			double d3 = dh[2]["d"];
+      double r1 = dh[0]["r"];
+			double r2 = dh[1]["r"];
+			double r3 = dh[2]["r"];
+      double sT1 = sin(dh[0]["theta"]);
+			double sT2 = sin(dh[1]["theta"]);
+			double sT3 = sin(dh[2]["theta"]);
+      double cT1 = cos(dh[0]["theta"]);
+			double cT2 = cos(dh[1]["theta"]);
+			double cT3 = cos(dh[2]["theta"]);
+      double sA1 = sin(dh[0]["alpha"]);
+			double sA2 = sin(dh[1]["alpha"]);
+			//double sA3 = sin(dh[2]["alpha"]); //Unused
+      double cA1 = cos(dh[0]["alpha"]);
+			double cA2 = cos(dh[1]["alpha"]);
+			//double cA3 = cos(dh[2]["alpha"]); //Unused
       MatrixXd j(3,3);
       j << 	-(sT1*cT2*r3*cT3)-(cT1*cA1*sT2*r3*cT3)+(sT1*sT2*cA2*r3*sT3)-(cT1*cA1*cT2*cA2*r3*sT3)+(cT1*sA1*sA2*r3*sT3)
 	    -(sT1*sT2*sA2*d3)+(cT1*cA1*cT2*sA2*d3)+(cT1*sA1*cA2*d3)-(sT1*r2*cT2)-(cT1*cA1*r2*sT2)+(cT1*sA1*d2)-(r1*sT1),	
@@ -241,8 +263,16 @@ T clamped(const T &value, double magnitude)
 inline int roundToInt(double x)
 {
   if (x >= 0)
+	{
     return int(x + 0.5);
+	}
   return -int(0.5 - x);
+}
+
+inline int roundToEvenInt(double x)
+{
+	int x_int = int(x);
+  return (x_int % 2 == 0) ? x_int : x_int + 1; 
 }
 
 /// Uniform distribution within range

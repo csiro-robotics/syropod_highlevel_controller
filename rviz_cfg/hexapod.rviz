@@ -52,7 +52,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: robot
+      Marker Topic: hexapod/robot_visualisation
       Name: Robot
       Namespaces:
         trajectory_polyline_0: true
@@ -60,7 +60,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: points
+      Marker Topic: hexapod/walking_debug_visualisation
       Name: Contact Points
       Namespaces:
         point_marker: true

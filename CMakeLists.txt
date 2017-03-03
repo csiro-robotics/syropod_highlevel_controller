@@ -13,7 +13,10 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   dynamixel_controllers
   dynamixel_msgs
+  dynamic_reconfigure
  )
+
+generate_dynamic_reconfigure_options(config/dynamic_parameter.cfg)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -111,7 +114,7 @@ include_directories(
 # )
 
 ## Declare a cpp executable
-add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/walkController.cpp src/poseController.cpp src/debugOutput.cpp src/dynamixelMotorInterface.cpp src/dynamixelProMotorInterface.cpp src/impedanceController.cpp src/stateController.cpp)#${simple_hexapod_controller_sources})
+add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/walkController.cpp src/poseController.cpp src/debugOutput.cpp src/dynamixelMotorInterface.cpp src/dynamixelProMotorInterface.cpp src/impedanceController.cpp src/stateController.cpp)
 add_executable(simple_diagnostics_node src/simpleDiagnostics.cpp)
 
 ## Add cmake target dependencies of the executable/library
@@ -121,7 +124,7 @@ add_executable(simple_diagnostics_node src/simpleDiagnostics.cpp)
  target_link_libraries(simple_hexapod_controller_node ${catkin_LIBRARIES} -fopenmp)
  target_link_libraries(simple_diagnostics_node ${catkin_LIBRARIES})
  
-add_dependencies(simple_hexapod_controller_node simple_hexapod_controller_cpp simple_hexapod_controller_generate_messages_cpp)
+add_dependencies(simple_hexapod_controller_node simple_hexapod_controller_cpp simple_hexapod_controller_generate_messages_cpp simple_hexapod_controller_gencfg)
 
 
 #############

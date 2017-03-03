@@ -131,15 +131,12 @@ enum ParameterSelection
 template <typename T>
 struct Parameter
 {
-  std::string name; 
+  string name; 
   T data;
   bool required = true;
   bool initialised = false;
   
-  void init(ros::NodeHandle n, 
-	    std::string name_input,
-	    std::string base_parameter_name = "/hexapod/parameters/",
-	    bool required_input = true)
+  void init(ros::NodeHandle n, string name_input, string base_parameter_name = "/hexapod/parameters/", bool required_input = true)
   {
     name = name_input;
     required = required_input;
@@ -156,88 +153,108 @@ struct Parameter
   }
 };
 
-struct AdjustableParameter : public Parameter<double>
+struct AdjustableParameter : public Parameter<map<string, double>>
 {
-  double current_value;
-  double max_value;
-  double min_value;
-  double default_value;
-  double adjust_step;
+	double current_value;
+	double max_value;
+	double min_value;
+	double default_value;
+	double adjust_step;
+
+	void init(ros::NodeHandle n, 
+			string name_input,
+			string base_parameter_name = "/hexapod/parameters/",
+			bool required_input = true)
+	{
+		name = name_input;
+		required = required_input;
+		bool parameter_found = n.getParam(base_parameter_name + name_input, data);
+		if (!parameter_found && required)
+		{
+			ROS_ERROR("Error reading parameter/s %s from rosparam. Check config file is loaded and type is correct\n", name.c_str());
+		}
+		else
+		{
+			current_value = data["default"];
+			default_value = data["default"];
+			max_value = data["max"];
+			min_value = data["min"];
+			adjust_step = data["step"];
+			initialised = true;
+		}
+	}
 };
 
-typedef std::map<ParameterSelection, AdjustableParameter*> AdjustableParamMapType;
+typedef map<ParameterSelection, AdjustableParameter*> AdjustableMapType;
 
 struct Parameters
 {      
-  AdjustableParamMapType map;
-  
-  // Control parameters
-  Parameter<double> 				time_delta;
-  Parameter<bool> 				imu_compensation;
-  Parameter<bool> 				auto_compensation;
-  Parameter<bool> 				manual_compensation;
-  Parameter<bool> 				inclination_compensation;
-  Parameter<bool> 				impedance_control;
-  Parameter<vector<double>> 			imu_rotation_offset;
-  Parameter<double> 				interface_setup_speed;
-  // Model parameters
-  Parameter<std::string> 			hexapod_type;
-  Parameter<std::vector<std::string>>	 	leg_id;
-  Parameter<std::vector<std::string>> 		joint_id;
-  Parameter<std::vector<std::string>> 		link_id;
-  Parameter<std::map<std::string, int>> 	leg_DOF;
-  Parameter<std::map<std::string, double>>	leg_stance_yaws;
-  Parameter<std::map<std::string, double>>	joint_parameters[8][6]; //Max 8 legs with 6 joints
-  Parameter<std::map<std::string, double>>	link_parameters[8][7];
-  // Walk controller parameters
-  Parameter<std::string> 			gait_type;
-  AdjustableParameter 				step_frequency;
-  AdjustableParameter 				step_clearance;
-  Parameter<double> 				step_depth;
-  AdjustableParameter 				body_clearance;
-  AdjustableParameter 				leg_span_scale;
-  Parameter<double> 				max_linear_acceleration;
-  Parameter<double> 				max_angular_acceleration;
-  Parameter<double> 				footprint_downscale; 
-  Parameter<std::string>			velocity_input_mode;
-  Parameter<bool> 				force_cruise_velocity;
-  Parameter<std::map<std::string, double>> 	linear_cruise_velocity;
-  Parameter<double> 				angular_cruise_velocity;
-  // Pose controller parameters
-  Parameter<bool> 				start_up_sequence;
-  Parameter<double> 				time_to_start;
-  Parameter<std::map<std::string, double>>	rotation_pid_gains;
-  Parameter<std::map<std::string, double>>	translation_pid_gains;
-  Parameter<std::map<std::string, double>>	auto_compensation_parameters;
-  Parameter<std::map<std::string, double>>	max_translation;
-  Parameter<double> 				max_translation_velocity;
-  Parameter<std::map<std::string, double>> 	max_rotation;
-  Parameter<double> 				max_rotation_velocity;
-  Parameter<std::string> 			leg_manipulation_mode;
-  // Impedance controller parameters  
-  Parameter<bool> 				dynamic_stiffness;
-  Parameter<bool> 				use_joint_effort;
-  Parameter<double> 				integrator_step_time;
-  AdjustableParameter 				virtual_mass;
-  AdjustableParameter 				virtual_stiffness;
-  Parameter<double> 				load_stiffness_scaler;
-  Parameter<double> 				swing_stiffness_scaler;
-  AdjustableParameter 				virtual_damping_ratio;
-  AdjustableParameter 				force_gain;
+	AdjustableMapType adjustable_map;
 
-  // Gait parameters
-  Parameter<int> 				stance_phase;
-  Parameter<int> 				swing_phase;
-  Parameter<int> 				phase_offset;
-  Parameter<vector<int>> 			offset_multiplier;
-  // Debug Parameters
-  Parameter<bool> 				debug_rviz;
-  Parameter<std::string>			console_verbosity;
-  Parameter<bool> 				debug_moveToJointPosition;
-  Parameter<bool> 				debug_stepToPosition;
-  Parameter<bool> 				debug_swing_trajectory;
-  Parameter<bool> 				debug_stance_trajectory;
-  Parameter<bool>				debug_IK;
+	// Control parameters
+	Parameter<double> time_delta;
+	Parameter<bool> imu_compensation;
+	Parameter<bool> auto_compensation;
+	Parameter<bool> manual_compensation;
+	Parameter<bool> inclination_compensation;
+	Parameter<bool> impedance_control;
+	Parameter<vector<double>> imu_rotation_offset;
+	Parameter<double> interface_setup_speed;
+	// Model parameters
+	Parameter<string> 	hexapod_type;
+	Parameter<vector<string>> leg_id;
+	Parameter<vector<string>> joint_id;
+	Parameter<vector<string>> link_id;
+	Parameter<map<string, int>> leg_DOF;
+	Parameter<map<string, double>> leg_stance_yaws;
+	Parameter<map<string, double>> joint_parameters[8][6]; //Max 8 legs with 6 joints
+	Parameter<map<string, double>> link_parameters[8][7];
+	// Walk controller parameters
+	Parameter<string> gait_type;
+	AdjustableParameter step_frequency;
+	AdjustableParameter step_clearance;
+	Parameter<double> step_depth;
+	AdjustableParameter body_clearance;
+	AdjustableParameter leg_span_scale;
+	Parameter<string> velocity_input_mode;
+	Parameter<bool> force_cruise_velocity;
+	Parameter<map<string, double>> linear_cruise_velocity;
+	Parameter<double> angular_cruise_velocity;
+	// Pose controller parameters
+	Parameter<bool> start_up_sequence;
+	Parameter<double> time_to_start;
+	Parameter<map<string, double>> rotation_pid_gains;
+	Parameter<map<string, double>> translation_pid_gains;
+	Parameter<map<string, double>> auto_compensation_parameters;
+	Parameter<map<string, double>> max_translation;
+	Parameter<double> max_translation_velocity;
+	Parameter<map<string, double>> max_rotation;
+	Parameter<double> max_rotation_velocity;
+	Parameter<string> leg_manipulation_mode;
+	// Impedance controller parameters  
+	Parameter<bool> dynamic_stiffness;
+	Parameter<bool> use_joint_effort;
+	Parameter<double> integrator_step_time;
+	AdjustableParameter virtual_mass;
+	AdjustableParameter virtual_stiffness;
+	Parameter<double> load_stiffness_scaler;
+	Parameter<double> swing_stiffness_scaler;
+	AdjustableParameter virtual_damping_ratio;
+	AdjustableParameter force_gain;
+
+	// Gait parameters
+	Parameter<int> stance_phase;
+	Parameter<int> swing_phase;
+	Parameter<int> phase_offset;
+	Parameter<vector<int>> offset_multiplier;
+	// Debug Parameters
+	Parameter<bool> debug_rviz;
+	Parameter<string> console_verbosity;
+	Parameter<bool> debug_moveToJointPosition;
+	Parameter<bool> debug_stepToPosition;
+	Parameter<bool> debug_swing_trajectory;
+	Parameter<bool> debug_stance_trajectory;
+	Parameter<bool> debug_IK;
 };
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H */
   

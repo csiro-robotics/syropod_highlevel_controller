@@ -1,6 +1,6 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_DEBUG_OUTPUT_H
 #define SIMPLE_HEXAPOD_CONTROLLER_DEBUG_OUTPUT_H
-/** 
+/*******************************************************************************************************************//**
  *  \file    debug_output.h
  *  \brief   Handles publishing of hexapod info for debugging in RVIZ. Part of simple hexapod controller.
  *
@@ -17,7 +17,8 @@
  *  All rights reserved, no part of this program may be used
  *  without explicit permission of CSIRO
  *
- */
+***********************************************************************************************************************/
+
 #include "standardIncludes.h"
 #include <visualization_msgs/Marker.h>
 #include "pose.h"
@@ -27,29 +28,24 @@
 class DebugOutput
 {
 public:
-  DebugOutput();
-  void drawPoints(Model* model, bool debug_trajectory, double workspace_radius, double workspace_height, double max_stride_length);
-  void drawRobot(Model* model);
-  inline void reset()
-  {
-    robot_ID_ = 0;
-    plot_ID_ = 0;
-  }
-  inline void updatePose(Vector2d linear_body_velocity, double angular_body_velocity, double height)
-  {
-    odometry_pose_.position_ += odometry_pose_.rotation_.rotateVector(Vector3d(linear_body_velocity[0], linear_body_velocity[1], 0));
-    odometry_pose_.position_[2] = height;
-    odometry_pose_.rotation_ *= Quat(Vector3d(0.0,0.0,angular_body_velocity));
-  }
+	DebugOutput();
+	void drawPoints(Model* model, WalkController* walker, bool debug_trajectory);
+	void drawRobot(Model* model);
+	void updatePose(Vector2d linear_body_velocity, double angular_body_velocity, double height);
+	inline void reset()
+	{
+		robot_ID_ = 0;
+		plot_ID_ = 0;
+	}
 
 private:
-  int robot_ID_;
-  int plot_ID_;
-  ros::NodeHandle n;
-  ros::Publisher robot_publisher_;
-  ros::Publisher visualization_publisher_;
-  Pose odometry_pose_;
-  vector<Vector3d> tip_position_history_;
+	int robot_ID_;
+	int plot_ID_;
+	ros::NodeHandle n;
+	ros::Publisher robot_publisher_;
+	ros::Publisher visualization_publisher_;
+	Pose odometry_pose_;
+	vector<Vector3d> tip_position_history_;
 };
 
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_DEBUG_OUTPUT_H */

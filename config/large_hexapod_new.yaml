@@ -72,14 +72,11 @@ hexapod:
 ########################################################################################################################
     # Walker parameters
     gait_type: wave_gait
-    step_frequency: 0.125
-    step_clearance: 0.125
+    step_frequency: {default: 0.09, min: 0.001, max: 0.200, step: 0.01} #Reconfigurable
+    step_clearance: {default: 0.3, min: 0.05, max: 1.0, step: 0.01} #Reconfigurable
     step_depth: 0.0 #0.025
-    body_clearance: 1.2
-    leg_span_scale: 0.7
-    max_linear_acceleration: -1.0
-    max_angular_acceleration: -1.0
-    footprint_downscale: 0.8    
+    body_clearance: {default: 1.2, min: 0.5, max: 2.0, step: 0.1} #Reconfigurable
+    leg_span_scale: {default: 0.7, min: 0.7, max: 0.8, step: 0.01} #Reconfigurable
     velocity_input_mode: throttle #real    
     force_cruise_velocity: true
     linear_cruise_velocity: {x: 1.0, y: 0.0}
@@ -102,13 +99,13 @@ hexapod:
     # Impedance controller parameters
     dynamic_stiffness: true
     use_joint_effort: false
-    virtual_mass: 100.0
+    virtual_mass: {default: 100, min: 10, max: 1000, step: 10} #Reconfigurable
     integrator_step_time: 0.075
-    virtual_stiffness: 50
+    virtual_stiffness: {default: 50, min: 1, max: 1000, step: 10} #Reconfigurable
     load_stiffness_scaler: 5.0
     swing_stiffness_scaler: 0.1
-    virtual_damping_ratio: 4.0
-    force_gain: 0.1  
+    virtual_damping_ratio: {default: 4.0, min: 0.1, max: 10.0, step: 0.05} #Reconfigurable
+    force_gain: {default: 0.1, min: 0.001, max: 100, step: 1.0} #Reconfigurable
     
 ########################################################################################################################
     # Debug parameters

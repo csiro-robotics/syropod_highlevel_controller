@@ -16,14 +16,14 @@ ImpedanceController::ImpedanceController(Model* model, Parameters* params)
 void ImpedanceController::init(void)
 {
   delta_t_ = params_->integrator_step_time.data;
-  force_gain_ = params_->force_gain.data;
+  force_gain_ = params_->force_gain.current_value;
   std::map<int, Leg*>::iterator leg_it;
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
     Leg* leg = leg_it->second;
-    leg->setVirtualMass(params_->virtual_mass.data);
-    leg->setVirtualStiffness(params_->virtual_stiffness.data);
-    leg->setVirtualDampingRatio(params_->virtual_damping_ratio.data);
+    leg->setVirtualMass(params_->virtual_mass.current_value);
+    leg->setVirtualStiffness(params_->virtual_stiffness.current_value);
+    leg->setVirtualDampingRatio(params_->virtual_damping_ratio.current_value);
   }
 }
 
@@ -72,7 +72,7 @@ void ImpedanceController::updateStiffness(Leg* leg, double step_reference)
   Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);  
 
   //(X-1)+1 to change range from 0->1 to 1->multiplier
-  double virtual_stiffness = params_->virtual_stiffness.data;
+  double virtual_stiffness = params_->virtual_stiffness.current_value;
   double swing_stiffness = virtual_stiffness*(step_reference*(params_->swing_stiffness_scaler.data-1)+1);
   double load_stiffness = virtual_stiffness*(step_reference*(params_->load_stiffness_scaler.data-1)+1);
   
@@ -93,7 +93,7 @@ void ImpedanceController::updateStiffness(WalkController *walker)
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
     Leg* leg = leg_it->second;
-    leg->setVirtualStiffness(params_->virtual_stiffness.data);
+    leg->setVirtualStiffness(params_->virtual_stiffness.current_value);
   }
 
   // Calculate dynamic virtual stiffness
@@ -105,7 +105,7 @@ void ImpedanceController::updateStiffness(WalkController *walker)
     {
       double z_diff = leg_stepper->getCurrentTipPosition()[2] - leg_stepper->getDefaultTipPosition()[2];
       double step_reference = 0;
-      step_reference += abs(z_diff / (walker->getStepClearance() * walker->getMaxBodyHeight()));
+      step_reference += abs(z_diff / walker->getStepClearance());
 
       int leg_id = leg->getIDNumber();
       int adjacent_leg_1_id = (leg_id-1)%model_->getLegCount(); 
@@ -114,7 +114,7 @@ void ImpedanceController::updateStiffness(WalkController *walker)
       Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
       
       //(X-1)+1 to change range from 0->1 to 1->multiplier
-      double virtual_stiffness = params_->virtual_stiffness.data;
+      double virtual_stiffness = params_->virtual_stiffness.current_value;
       double swing_stiffness = virtual_stiffness*(step_reference*(params_->swing_stiffness_scaler.data-1)+1);
       double load_stiffness = virtual_stiffness*(step_reference*(params_->load_stiffness_scaler.data-1));
       double current_stiffness_1 = adjacent_leg_1->getVirtualStiffness();

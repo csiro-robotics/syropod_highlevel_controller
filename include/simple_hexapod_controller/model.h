@@ -65,8 +65,8 @@ class Model
     
   private:
     std::map<int, Leg*> leg_container_;
+		int leg_count_;
     double time_delta_;
-    int leg_count_;    
     Pose current_pose_;  // Current pose of body including all compensation posing
     Vector2d linear_velocity_;
     double angular_velocity_ = 0.0;
@@ -76,96 +76,96 @@ class Model
 typedef std::vector<double> state_type; //Impedance state used in impedance controller
 class Leg
 {
-  public:
-    Leg(Model* model, int id_number, Parameters* params);
-    
-    inline std::string getIDName(void) { return id_name_; };
-    inline int getIDNumber(void) { return id_number_; };
-    inline int getNumJoints(void) { return num_joints_; };
-    inline int getTripodGroup(void) { return tripod_group_; }; //3DOF only
-    inline LegState getLegState(void) { return leg_state_; };
-    inline double getMirrorDir(void) { return mirror_dir_; }; 
-    inline double getStanceLegYaw(void) { return stance_leg_yaw_; };
-    inline double getMinLegLength(void) { return min_virtual_leg_length_; };
-    inline double getMaxLegLength(void) { return max_virtual_leg_length_; };
-    inline double getTipForce(void) { return tip_force_; };
-    inline double getDeltaZ(void) { return delta_z_; };
-    inline double getVirtualMass(void) { return virtual_mass_; };
-    inline double getVirtualStiffness(void) { return virtual_stiffness_; };
-    inline double getVirtualDampingRatio(void) { return virtual_damping_ratio_; };
-    inline state_type* getImpedanceState(void) { return &impedance_state_; };
-    inline std::map<int, Joint*>* getJointContainer(void) { return &joint_container_; };
-    inline std::map<int, Link*>* getLinkContainer(void) { return &link_container_; };
-    inline Tip* getTip(void) { return tip_; };
-    inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};    
-    inline LegPoser* getLegPoser(void) { return leg_poser_ ;};
-    inline Vector3d getLocalTipPosition(void) { return local_tip_position_; };
-    inline Vector3d getDesiredTipVelocity(void) { return desired_tip_velocity_; };
-    inline double getWorkspaceRadius(void) { return workspace_radius_; };
-    
-    inline void setLegState(LegState leg_state) { leg_state_ = leg_state; };  
-    inline void setStatePublisher(ros::Publisher publisher) { leg_state_publisher_ = publisher; };
-    inline void setASCStatePublisher(ros::Publisher publisher) { asc_leg_state_publisher_ = publisher; };
-    inline void setLegStepper(LegStepper* leg_stepper) { leg_stepper_ = leg_stepper; };
-    inline void setLegPoser(LegPoser* leg_poser) { leg_poser_ = leg_poser; };
-    inline void setTipForce(double tip_force) { tip_force_ = tip_force; };
-    inline void setDeltaZ(double dz) { delta_z_ = dz; };
-    inline void setVirtualMass(double mass) { virtual_mass_ = mass; };
-    inline void setVirtualStiffness(double stiffness) { virtual_stiffness_ = stiffness; };
-    inline void setVirtualDampingRatio(double damping_ratio) { virtual_damping_ratio_ = damping_ratio; };
-    inline void setDesiredTipPosition(Vector3d tip_position) { desired_tip_position_ = tip_position; };
-    inline void setDesiredTipVelocity(Vector3d tip_velocity) { desired_tip_velocity_ = tip_velocity; };
-    inline void setWorkspaceRadius(double radius) { workspace_radius_ = radius; };
-    
-    void init(bool use_default_joint_positions);
-    void applyDeltaZ(Vector3d tip_position);
-    bool applyIK(bool clamp_to_limits = true, bool debug = false); // sets angles to reach local position relative to root    
-    Vector3d applyFK(bool set_local = true); // works out local tip position from angles
-    
-    void publishState(simple_hexapod_controller::legState msg) { leg_state_publisher_.publish(msg); };
-    void publishASCState(std_msgs::Bool msg) { asc_leg_state_publisher_.publish(msg); };
-    
-    Joint* getJointByIDNumber(int joint_id_num) { return joint_container_[joint_id_num]; };
-    Link* getLinkByIDNumber(int link_id_num) { return link_container_[link_id_num]; };
-    Joint* getJointByIDName(std::string joint_id_name);    
-    Link* getLinkByIDName(std::string link_name);
-  
-  protected:
-    Model* model_;
-    std::map<int, Joint*> joint_container_;
-    std::map<int, Link*> link_container_;
-    Tip* tip_;
-    
-    const int id_number_;
-    const std::string id_name_;
-    
-    const int num_joints_;
-    const double mirror_dir_;  // 1 or -1 for mirrored
-    const double stance_leg_yaw_;    
-    
-    LegState leg_state_;
-    ros::Publisher leg_state_publisher_;
-    ros::Publisher asc_leg_state_publisher_;
-    
-    LegStepper* leg_stepper_;
-    LegPoser* leg_poser_;
-    
-    double delta_z_ = 0.0;
-    double virtual_mass_;
-    double virtual_stiffness_;
-    double virtual_damping_ratio_;
-    state_type impedance_state_;
-    
-    Vector3d desired_tip_position_;
-    Vector3d local_tip_position_;  // actual tip position relative to root
-    Vector3d desired_tip_velocity_;
-    double workspace_radius_;
-    
-    double min_virtual_leg_length_;
-    double max_virtual_leg_length_;
-    int tripod_group_;
-    
-    double tip_force_ = 0.0;
+public:
+	Leg(Model* model, int id_number, Parameters* params);
+
+	inline std::string getIDName(void) { return id_name_; };
+	inline int getIDNumber(void) { return id_number_; };
+	inline int getNumJoints(void) { return num_joints_; };
+	inline int getGroup(void) { return group_; };
+	inline LegState getLegState(void) { return leg_state_; };
+	inline double getMirrorDir(void) { return mirror_dir_; }; 
+	inline double getStanceLegYaw(void) { return stance_leg_yaw_; };
+	inline double getMinLegLength(void) { return min_virtual_leg_length_; };
+	inline double getMaxLegLength(void) { return max_virtual_leg_length_; };
+	inline double getTipForce(void) { return tip_force_; };
+	inline double getDeltaZ(void) { return delta_z_; };
+	inline double getVirtualMass(void) { return virtual_mass_; };
+	inline double getVirtualStiffness(void) { return virtual_stiffness_; };
+	inline double getVirtualDampingRatio(void) { return virtual_damping_ratio_; };
+	inline state_type* getImpedanceState(void) { return &impedance_state_; };
+	inline std::map<int, Joint*>* getJointContainer(void) { return &joint_container_; };
+	inline std::map<int, Link*>* getLinkContainer(void) { return &link_container_; };
+	inline Tip* getTip(void) { return tip_; };
+	inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};    
+	inline LegPoser* getLegPoser(void) { return leg_poser_ ;};
+	inline Vector3d getLocalTipPosition(void) { return local_tip_position_; };
+	inline Vector3d getDesiredTipVelocity(void) { return desired_tip_velocity_; };
+	inline double getWorkspaceRadius(void) { return workspace_radius_; };
+
+	inline void setLegState(LegState leg_state) { leg_state_ = leg_state; };  
+	inline void setStatePublisher(ros::Publisher publisher) { leg_state_publisher_ = publisher; };
+	inline void setASCStatePublisher(ros::Publisher publisher) { asc_leg_state_publisher_ = publisher; };
+	inline void setLegStepper(LegStepper* leg_stepper) { leg_stepper_ = leg_stepper; };
+	inline void setLegPoser(LegPoser* leg_poser) { leg_poser_ = leg_poser; };
+	inline void setTipForce(double tip_force) { tip_force_ = tip_force; };
+	inline void setDeltaZ(double dz) { delta_z_ = dz; };
+	inline void setVirtualMass(double mass) { virtual_mass_ = mass; };
+	inline void setVirtualStiffness(double stiffness) { virtual_stiffness_ = stiffness; };
+	inline void setVirtualDampingRatio(double damping_ratio) { virtual_damping_ratio_ = damping_ratio; };
+	inline void setDesiredTipPosition(Vector3d tip_position) { desired_tip_position_ = tip_position; };
+	inline void setDesiredTipVelocity(Vector3d tip_velocity) { desired_tip_velocity_ = tip_velocity; };
+	inline void setWorkspaceRadius(double radius) { workspace_radius_ = radius; };
+
+	void init(bool use_default_joint_positions);
+	void applyDeltaZ(Vector3d tip_position);
+	bool applyIK(bool clamp_to_limits = true, bool debug = false); // sets angles to reach local position relative to root    
+	Vector3d applyFK(bool set_local = true); // works out local tip position from angles
+
+	void publishState(simple_hexapod_controller::legState msg) { leg_state_publisher_.publish(msg); };
+	void publishASCState(std_msgs::Bool msg) { asc_leg_state_publisher_.publish(msg); };
+
+	Joint* getJointByIDNumber(int joint_id_num) { return joint_container_[joint_id_num]; };
+	Link* getLinkByIDNumber(int link_id_num) { return link_container_[link_id_num]; };
+	Joint* getJointByIDName(std::string joint_id_name);    
+	Link* getLinkByIDName(std::string link_name);
+
+protected:
+	Model* model_;
+	std::map<int, Joint*> joint_container_;
+	std::map<int, Link*> link_container_;
+	Tip* tip_;
+
+	const int id_number_;
+	const std::string id_name_;
+
+	const int num_joints_;
+	const double mirror_dir_;  // 1 or -1 for mirrored
+	const double stance_leg_yaw_;
+
+	LegState leg_state_;
+	ros::Publisher leg_state_publisher_;
+	ros::Publisher asc_leg_state_publisher_;
+
+	LegStepper* leg_stepper_;
+	LegPoser* leg_poser_;
+
+	double delta_z_ = 0.0;
+	double virtual_mass_;
+	double virtual_stiffness_;
+	double virtual_damping_ratio_;
+	state_type impedance_state_;
+
+	Vector3d desired_tip_position_;
+	Vector3d local_tip_position_;  // actual tip position relative to root
+	Vector3d desired_tip_velocity_;
+	double workspace_radius_;
+
+	double min_virtual_leg_length_;
+	double max_virtual_leg_length_;
+	int group_;
+
+	double tip_force_ = 0.0;
 };
 
 struct Link

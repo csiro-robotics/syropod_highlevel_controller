@@ -83,7 +83,7 @@ Leg::Leg(Model* model, int id_number, Parameters* params)
   max_virtual_leg_length_ = Vector3d(result[0], result[1], result[2]).norm();
   
   min_virtual_leg_length_ = 0.0;
-  tripod_group_ = (id_number > 1) ? abs(id_number%2-1):id_number; //(0,3,5 -> 0) && (1,2,4 -> 1) 
+    group_ = (id_number%2); //Even/odd groups
   
   ROS_DEBUG("Leg %s has been initialised as a %d degree of freedom leg with %lu links and %lu joints.",
 	   id_name_.c_str(), num_joints_, link_container_.size(), joint_container_.size());  

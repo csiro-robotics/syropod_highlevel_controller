@@ -1,7 +1,7 @@
 
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H
 #define SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H
-/** 
+/*******************************************************************************************************************//**
  *  \file    state_controller.h
  *  \brief   Top level controller that handles state of hexapod. Part of simple hexapod controller.
  *
@@ -18,7 +18,7 @@
  *  All rights reserved, no part of this program may be used
  *  without explicit permission of CSIRO
  *
- */
+ **********************************************************************************************************************/
 #include "standardIncludes.h"
 #include "parametersAndStates.h"
 
@@ -95,6 +95,7 @@ public:
   void autoNavigationCallback(const std_msgs::Int8 &input);
   void parameterSelectionCallback(const std_msgs::Int8 &input);
   void parameterAdjustCallback(const std_msgs::Int8 &input);
+	void dynamicParameterCallback(simple_hexapod_controller::DynamicConfig &config, uint32_t level);
   void primaryLegSelectionCallback(const std_msgs::Int8 &input);
   void secondaryLegSelectionCallback(const std_msgs::Int8 &input);
   void primaryLegStateCallback(const std_msgs::Int8 &input);
@@ -130,6 +131,8 @@ private:
   ros::Publisher body_velocity_publisher_;
   ros::Publisher rotation_pose_error_publisher_;
   ros::Publisher translation_pose_error_publisher_;
+	boost::recursive_mutex mutex_;
+	dynamic_reconfigure::Server<simple_hexapod_controller::DynamicConfig>* dynamic_reconfigure_server_;
   
   Model* model_;
   DynamixelMotorInterface* interface_;
@@ -148,7 +151,8 @@ private:
   AutoNavigationMode auto_navigation_mode_ = AUTO_NAVIGATION_OFF;
 
   ParameterSelection parameter_selection_ = NO_PARAMETER_SELECTION;
-  AdjustableParameter* parameter_being_adjusted_;
+  AdjustableParameter* dynamic_param_;
+	double new_parameter_value_ = 0.0;
 
   LegDesignation primary_leg_selection_ = LEG_UNDESIGNATED;
   LegDesignation secondary_leg_selection_ = LEG_UNDESIGNATED;
