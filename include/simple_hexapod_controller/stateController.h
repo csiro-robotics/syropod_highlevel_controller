@@ -30,17 +30,6 @@
 #include "dynamixelMotorInterface.h"
 #include "impedanceController.h"
 
-//#include "std_msgs/Bool.h"
-//#include "std_msgs/Int8.h"
-//#include "std_msgs/Float32MultiArray.h"
-//#include "geometry_msgs/Twist.h"
-//#include "geometry_msgs/Vector3.h"
-//#include "geometry_msgs/Point.h"
-//#include "sensor_msgs/JointState.h"
-//#include "sensor_msgs/Joy.h"
-//#include "sensor_msgs/Imu.h"
-//#include "simple_hexapod_controller/legState.h"
-
 #define MAX_MANUAL_LEGS 2
 
 class StateController
@@ -179,7 +168,8 @@ private:
   Vector2d linear_cruise_velocity_;
   double angular_cruise_velocity_; 
 
-  std::map<int, Leg*>::iterator leg_it_;  
+  map<int, Leg*>::iterator leg_it_;
+	map<int, Joint*>::iterator joint_it_;
 };
 
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H */

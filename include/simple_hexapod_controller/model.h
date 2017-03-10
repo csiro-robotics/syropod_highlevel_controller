@@ -44,7 +44,7 @@ class LegPoser;
 class Model
 {
   public:
-    Model(Parameters* parameters);    
+    Model(Parameters* parameters);
     
     inline std::map<int, Leg*>* getLegContainer(void) { return &leg_container_;};
     inline int getLegCount(void) { return leg_count_; };
@@ -88,7 +88,7 @@ public:
 	inline double getStanceLegYaw(void) { return stance_leg_yaw_; };
 	inline double getMinLegLength(void) { return min_virtual_leg_length_; };
 	inline double getMaxLegLength(void) { return max_virtual_leg_length_; };
-	inline double getTipForce(void) { return tip_force_; };
+	inline Vector3d getTipForce(void) { return tip_force_; };
 	inline double getDeltaZ(void) { return delta_z_; };
 	inline double getVirtualMass(void) { return virtual_mass_; };
 	inline double getVirtualStiffness(void) { return virtual_stiffness_; };
@@ -108,7 +108,7 @@ public:
 	inline void setASCStatePublisher(ros::Publisher publisher) { asc_leg_state_publisher_ = publisher; };
 	inline void setLegStepper(LegStepper* leg_stepper) { leg_stepper_ = leg_stepper; };
 	inline void setLegPoser(LegPoser* leg_poser) { leg_poser_ = leg_poser; };
-	inline void setTipForce(double tip_force) { tip_force_ = tip_force; };
+	inline void setTipForce(Vector3d tip_force) { tip_force_ = tip_force; };
 	inline void setDeltaZ(double dz) { delta_z_ = dz; };
 	inline void setVirtualMass(double mass) { virtual_mass_ = mass; };
 	inline void setVirtualStiffness(double stiffness) { virtual_stiffness_ = stiffness; };
@@ -119,6 +119,7 @@ public:
 
 	void init(bool use_default_joint_positions);
 	void applyDeltaZ(Vector3d tip_position);
+	bool updateTipForce(bool debug);
 	bool applyIK(bool clamp_to_limits = true, bool debug = false); // sets angles to reach local position relative to root    
 	Vector3d applyFK(bool set_local = true); // works out local tip position from angles
 
@@ -165,7 +166,7 @@ protected:
 	double max_virtual_leg_length_;
 	int group_;
 
-	double tip_force_ = 0.0;
+	Vector3d tip_force_;
 };
 
 struct Link
@@ -210,6 +211,7 @@ struct Joint
     const int id_number;
     const std::string name;
     Matrix4d transform;    
+		ros::Publisher gazebo_publisher;
     
     const double position_offset;
     const double min_position;

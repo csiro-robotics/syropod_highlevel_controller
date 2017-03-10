@@ -158,93 +158,129 @@ void Leg::applyDeltaZ(Vector3d tip_position)
 }
 
 /***********************************************************************************************************************
+ * Update tip force
+***********************************************************************************************************************/
+bool Leg::updateTipForce(bool debug)
+{
+	vector<map<string, double>> dh_parameters;
+	map<int, Joint*>::iterator joint_it;
+	map<string, double> dh_map;
+	//Skip first joint dh parameters since it is a fixed transformation
+	for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
+	{
+		Joint* joint = joint_it->second;
+		dh_map.insert(map<string, double>::value_type("d", joint->reference_link->offset));
+		dh_map.insert(map<string, double>::value_type("theta", joint->reference_link->actuating_joint->desired_position));
+		dh_map.insert(map<string, double>::value_type("r", joint->reference_link->length));
+		dh_map.insert(map<string, double>::value_type("alpha", joint->reference_link->twist));
+		dh_parameters.push_back(dh_map);  
+		dh_map.clear();
+	}
+	//Add tip dh params
+	dh_map.insert(map<string, double>::value_type("d", tip_->reference_link->offset));
+	dh_map.insert(map<string, double>::value_type("theta", tip_->reference_link->actuating_joint->desired_position));
+	dh_map.insert(map<string, double>::value_type("r", tip_->reference_link->length));
+	dh_map.insert(map<string, double>::value_type("alpha", tip_->reference_link->twist));
+	dh_parameters.push_back(dh_map);
+	
+	MatrixXd j(3,num_joints_);
+  j = createJacobian(dh_parameters, num_joints_);
+	
+	VectorXd joint_torques(num_joints_);
+	
+	int index = 0;
+	for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
+	{
+		Joint* joint = joint_it->second;
+		joint_torques[index] = joint->current_effort;
+	}
+	
+	tip_force_ = j*joint_torques; // Estimate force at the tip in frame of first joint
+
+	ROS_DEBUG_COND(id_number_ == 0 && debug, "Leg: %s\n\tEstimated tip force:\t%f:%f:%f\n", id_name_.c_str(), tip_force_[0], tip_force_[1], tip_force_[2]);
+}
+/***********************************************************************************************************************
  * Applies inverse kinematics to achieve target tip position
 ***********************************************************************************************************************/
 bool Leg::applyIK(bool clamp_to_limits, bool debug)
 {
-  vector<map<string, double>> dh_parameters;
-  std::map<int, Joint*>::iterator joint_it;
-  map<string, double> dh_map;
-  //Skip first joint dh parameters since it is a fixed transformation
-  for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
-  {
-    Joint* joint = joint_it->second;    
-    dh_map.insert(map<string, double>::value_type("d", joint->reference_link->offset));
-    dh_map.insert(map<string, double>::value_type("theta", joint->reference_link->actuating_joint->desired_position));
-    dh_map.insert(map<string, double>::value_type("r", joint->reference_link->length));
-    dh_map.insert(map<string, double>::value_type("alpha", joint->reference_link->twist));
-    dh_parameters.push_back(dh_map);  
-    dh_map.clear();
-  }
-  //Add tip dh params
-  dh_map.insert(map<string, double>::value_type("d", tip_->reference_link->offset));
-  dh_map.insert(map<string, double>::value_type("theta", tip_->reference_link->actuating_joint->desired_position));
-  dh_map.insert(map<string, double>::value_type("r", tip_->reference_link->length));
-  dh_map.insert(map<string, double>::value_type("alpha", tip_->reference_link->twist));
-  dh_parameters.push_back(dh_map);   
+	vector<map<string, double>> dh_parameters;
+	map<int, Joint*>::iterator joint_it;
+	map<string, double> dh_map;
+	//Skip first joint dh parameters since it is a fixed transformation
+	for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
+	{
+		Joint* joint = joint_it->second;    
+		dh_map.insert(map<string, double>::value_type("d", joint->reference_link->offset));
+		dh_map.insert(map<string, double>::value_type("theta", joint->reference_link->actuating_joint->desired_position));
+		dh_map.insert(map<string, double>::value_type("r", joint->reference_link->length));
+		dh_map.insert(map<string, double>::value_type("alpha", joint->reference_link->twist));
+		dh_parameters.push_back(dh_map);  
+		dh_map.clear();
+	}
+	//Add tip dh params
+	dh_map.insert(map<string, double>::value_type("d", tip_->reference_link->offset));
+	dh_map.insert(map<string, double>::value_type("theta", tip_->reference_link->actuating_joint->desired_position));
+	dh_map.insert(map<string, double>::value_type("r", tip_->reference_link->length));
+	dh_map.insert(map<string, double>::value_type("alpha", tip_->reference_link->twist));
+	dh_parameters.push_back(dh_map);   
 
-  MatrixXd j(3,num_joints_);
-  j = createJacobian(dh_parameters, num_joints_);
-  
-  double dls_cooeficient = 0.02;
-  MatrixXd identity = Matrix3d::Identity();
-  MatrixXd ik_matrix(num_joints_, 3);
-  //ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
-  ik_matrix = j.transpose()*((j*j.transpose() + sqr(dls_cooeficient)*identity).inverse()); //DLS Method
-  
-  Joint* base_joint = joint_container_.begin()->second;
-  Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(desired_tip_position_);
-  Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(local_tip_position_);
-  Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
-  VectorXd joint_delta_pos(num_joints_);
-  
-  joint_delta_pos = ik_matrix*leg_frame_tip_position_delta;
-  
-  int index = 0;
-  for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
-  {
-    Joint* joint = joint_it->second;
-    joint->desired_position = joint->prev_desired_position+joint_delta_pos[index];
-    
-    if (clamp_to_limits)
-    {    
-      if (joint->desired_position < joint->min_position)
-      {
-	joint->desired_position = joint->min_position;
-	ROS_WARN("%s leg has tried to exceed %s min joint limit: %f. Clamping joint to limit.\n",
-		 id_name_.c_str(), joint->name.c_str(), joint->min_position);
-      }      
-      else if (joint->desired_position > joint->max_position)
-      {
-	joint->desired_position = joint->max_position;
-	ROS_WARN("%s leg has tried to exceed %s max joint limit: %f. Clamping joint to limit.\n",
-		 id_name_.c_str(), joint->name.c_str(), joint->max_position);
-      }
-    }
-  }  
-  
-  Vector3d result = applyFK();
-  
-  ROS_DEBUG_COND(id_number_ == 0 && debug, "Leg %s:\n\tDesired tip position from trajectory engine: %f:%f:%f\n\t"
-  "Resultant tip position from inverse/forward kinematics: %f:%f:%f", id_name_.c_str(),
-  desired_tip_position_[0], desired_tip_position_[1], desired_tip_position_[2],
-  result[0], result[1], result[2]); 
-  
-  bool desired_tip_position_within_workspace = true;
-  Vector3d IK_tolerance(0.001,0.001,0.001);
-  std::string axis_label[3] = {"x", "y", "z"};
-  for (int i=0; i<3; ++i)
-  {
-    if (abs(result[i] - desired_tip_position_[i]) > IK_tolerance[i])
-    {
-      double error_percentage = abs((result[i] - desired_tip_position_[i])/desired_tip_position_[i])*100;
-      ROS_WARN_COND(true, 
-		    "Inverse kinematics error! Calculated tip %s position of leg %s (%s: %f) differs from desired tip "
-		    "position (%s: %f) by %f%%", axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), 
-		    result[i], axis_label[i].c_str(), desired_tip_position_[i], error_percentage);
-    }    
-  }
-  return desired_tip_position_within_workspace;  
+	MatrixXd j(3,num_joints_);
+	j = createJacobian(dh_parameters, num_joints_);
+
+	double dls_cooeficient = 0.02; //TBD calculate optimal value (this value currently works sufficiently)
+	MatrixXd identity = Matrix3d::Identity();
+	MatrixXd ik_matrix(num_joints_, 3);
+	//ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
+	ik_matrix = j.transpose()*((j*j.transpose() + sqr(dls_cooeficient)*identity).inverse()); //DLS Method
+
+	Joint* base_joint = joint_container_.begin()->second;
+	Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(desired_tip_position_);
+	Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(local_tip_position_);
+	Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
+	VectorXd joint_delta_pos(num_joints_);
+
+	joint_delta_pos = ik_matrix*leg_frame_tip_position_delta;
+
+	int index = 0;
+	for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
+	{
+		Joint* joint = joint_it->second;
+		joint->desired_position = joint->prev_desired_position+joint_delta_pos[index];
+		
+		if (clamp_to_limits)
+		{
+			if (joint->desired_position < joint->min_position)
+			{
+				joint->desired_position = joint->min_position;
+				ROS_WARN("%s leg has tried to exceed %s min joint limit: %f. Clamping joint to limit.\n", id_name_.c_str(), joint->name.c_str(), joint->min_position);
+			}
+			else if (joint->desired_position > joint->max_position)
+			{
+				joint->desired_position = joint->max_position;
+				ROS_WARN("%s leg has tried to exceed %s max joint limit: %f. Clamping joint to limit.\n", id_name_.c_str(), joint->name.c_str(), joint->max_position);
+			}
+		}
+	}
+
+	Vector3d result = applyFK();
+
+	ROS_DEBUG_COND(id_number_ == 0 && debug, "Leg %s:\n\tDesired tip position from trajectory engine: %f:%f:%f\n\t Resultant tip position from inverse/forward kinematics: %f:%f:%f", id_name_.c_str(),
+	desired_tip_position_[0], desired_tip_position_[1], desired_tip_position_[2],
+	result[0], result[1], result[2]); 
+
+	bool desired_tip_position_within_workspace = true;
+	Vector3d IK_tolerance(0.001,0.001,0.001);
+	std::string axis_label[3] = {"x", "y", "z"};
+	for (int i=0; i<3; ++i)
+	{
+		if (abs(result[i] - desired_tip_position_[i]) > IK_tolerance[i])
+		{
+			double error_percentage = abs((result[i] - desired_tip_position_[i])/desired_tip_position_[i])*100;
+			ROS_WARN_COND(true, "Inverse kinematics error! Calculated tip %s position of leg %s (%s: %f) differs from desired tip position (%s: %f) by %f%%", axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), result[i], axis_label[i].c_str(), desired_tip_position_[i], error_percentage);
+		}
+	}
+	return desired_tip_position_within_workspace;
 }
 
 /***********************************************************************************************************************
@@ -312,7 +348,7 @@ Joint::Joint(Leg* leg, Link* link, int id, Parameters* params)
   {
     ROS_FATAL("Model initialisation error for %s", name.c_str());
     ros::shutdown();
-  }  
+  }
 }
 
 /***********************************************************************************************************************

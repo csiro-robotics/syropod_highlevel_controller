@@ -17,157 +17,158 @@ WalkController::WalkController(Model* model, Parameters* params)
  * Initialisation
 ***********************************************************************************************************************/
 void WalkController::init(void)
-{  
-  step_clearance_ = params_->step_clearance.current_value;
-  step_depth_ = params_->step_depth.data;
-  body_clearance_ = params_->body_clearance.current_value;
-  time_delta_ = params_->time_delta.data;  
-  
-  //Find the maximum body height by finding the min possible vertical tip position for each leg 
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    resetJointOrientationTracking();
-    Leg* leg = leg_it_->second;
-    Matrix4d transform = Matrix4d::Identity();
-    for (link_it_ = leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
-    {
-      // If joint is twisted such that actuation increases vertical tip displacement
-      // set joint angle toward ground bearing (within limits) and update transform
-      Link* link = link_it_->second;
-      double angle = 0.0;      
-      if (link->id_number != 0)
-      {
-	if (joint_twist_ < 0)
-	{
-	  angle = min(link->actuating_joint->max_position, ground_bearing_);
-	}
-	else if (joint_twist_ > 0)
-	{
-	  angle = max(link->actuating_joint->min_position, -ground_bearing_);	
-	}
-	ground_bearing_ -= abs(angle);
-      }
-      else
-      {
-	angle = link->angle;
-      }
-      transform = transform*createDHMatrix(link->offset, angle, link->length, link->twist);
-      joint_twist_ += link->twist;
-    }
-    Vector4d result = transform*Vector4d(0,0,0,1);
-    Vector3d min_vertical_tip_position = Vector3d(result[0], result[1], result[2]);
-    maximum_body_height_ = min(maximum_body_height_, -min_vertical_tip_position[2]);
-  }
-  
-  //Check that required body height is possible
-  body_clearance_ = min(params_->body_clearance.current_value, maximum_body_height_);    
-  
-  //Find workspace radius of tip on ground by finding maximum horizontal distance of each tip 
-  double min_horizontal_range = UNASSIGNED_VALUE;
-  double min_half_stance_yaw_range = UNASSIGNED_VALUE;
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    resetJointOrientationTracking();
-    Leg* leg = leg_it_->second;
-    double half_stance_yaw_range = UNASSIGNED_VALUE;
-    double distance_to_ground = body_clearance_;
-    double horizontal_range = 0.0;
-    for (link_it_ = ++leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
-    {
-      Link* link = link_it_->second;
-      const Joint* joint = link->actuating_joint;   
-      joint_twist_ += joint->reference_link->twist;  
-      
-      if (abs(joint_twist_) != pi/2 && half_stance_yaw_range == UNASSIGNED_VALUE)
-      {
-	half_stance_yaw_range = min(abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->min_position)),
-				    abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->max_position)));
-      }      
-      
-      if (joint_twist_ != 0.0)
-      {
-	Tip* tip = leg->getTip();   
-	double distance_to_tip = joint->getPositionJointFrame(tip->getPositionWorldFrame()).norm();
-	double joint_angle;
-	double virtual_link_length;
-	if (abs(distance_to_tip*sin(joint_twist_)) > distance_to_ground)
-	{	  
-	  double required_joint_angle = asin(distance_to_ground/(abs(distance_to_tip*sin(joint_twist_))));
-	  joint_angle = clamped(required_joint_angle, joint->min_position, joint->max_position);
-	  virtual_link_length = (joint_angle == required_joint_angle) ? distance_to_tip : link->length;
-	}
-	else if (joint_twist_ > 0.0)
-	{
-	  joint_angle = joint->min_position;
-	  virtual_link_length = link->length;
-	}
-	else if (joint_twist_ < 0.0)
-	{
-	  joint_angle = joint->max_position;
-	  virtual_link_length = link->length;
-	}
-	horizontal_range += virtual_link_length*cos(joint_angle);
-	distance_to_ground -= abs(virtual_link_length*sin(joint_angle)*sin(joint_twist_));
-      }
-      else
-      {
-	horizontal_range += link->length;
-      }
-      
-      if (distance_to_ground <= 0.0)
-      {
-	break;
-      }
-    }
-    
-    min_horizontal_range = min(min_horizontal_range, horizontal_range);
-    min_half_stance_yaw_range = min(min_half_stance_yaw_range, half_stance_yaw_range);
-  }
-  
-  min_horizontal_range *= params_->leg_span_scale.current_value;
-  
-  // Fitting largest circle within sector defined by yaw ranges and horizontal range
-  workspace_radius_ = min_horizontal_range*sin(min_half_stance_yaw_range)/(1+sin(min_half_stance_yaw_range));
-  
-  // Calculate default stance tip positions as centre of workspace circle on the ground at required body height
-  Vector3d previous_identity_position(0,0,0);
-  leg_it_ = model_->getLegContainer()->begin();
-  while (leg_it_ != model_->getLegContainer()->end())
-  {
-    Leg* leg = leg_it_->second;
-    Link* base_link = leg->getLinkByIDName(leg->getIDName() + "_base_link");
-    double x_position = base_link->length*cos(base_link->angle); // First joint world position (x)
-    double y_position = base_link->length*sin(base_link->angle); // First joint world position (y)
-    x_position += (min_horizontal_range - workspace_radius_)*cos(leg->getStanceLegYaw()); 
-    y_position += (min_horizontal_range - workspace_radius_)*sin(leg->getStanceLegYaw());
-    Vector3d identity_tip_position(x_position, y_position, -body_clearance_);
-    
-    double distance_to_previous_tip_position = (identity_tip_position - previous_identity_position).norm();
-    previous_identity_position = identity_tip_position;
-    if (2*workspace_radius_ > distance_to_previous_tip_position)
-    {
-      workspace_radius_ = distance_to_previous_tip_position/2.0; //Workspace radius ammended to prevent overlapping
-      leg_it_ = model_->getLegContainer()->begin(); //Restart leg identity tip position calculation with new radius
-      previous_identity_position = Vector3d(0,0,0);
-    }
-    else
-    {
-      leg->setLegStepper(new LegStepper(this, leg, identity_tip_position));
-      leg_it_++;
-    }    
-  }  
+{
+	step_clearance_ = params_->step_clearance.current_value;
+	step_depth_ = params_->step_depth.data;
+	body_clearance_ = params_->body_clearance.current_value;
+	time_delta_ = params_->time_delta.data;  
 
-  // Stance radius based around front right leg to ensure positive values
-  Leg* reference_leg = model_->getLegByIDNumber(0);
-  LegStepper* reference_leg_stepper = reference_leg->getLegStepper();
-  double x_position = reference_leg_stepper->getDefaultTipPosition()[0];
-  double y_position = reference_leg_stepper->getDefaultTipPosition()[1];
-  stance_radius_ = Vector2d(x_position, y_position).norm();
+	//Find the maximum body height by finding the min possible vertical tip position for each leg 
+	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+	{
+		resetJointOrientationTracking();
+		Leg* leg = leg_it_->second;
+		Matrix4d transform = Matrix4d::Identity();
+		for (link_it_ = leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
+		{
+			// If joint is twisted such that actuation increases vertical tip displacement
+			// set joint angle toward ground bearing (within limits) and update transform
+			Link* link = link_it_->second;
+			double angle = 0.0;
+			if (link->id_number != 0)
+			{
+				if (joint_twist_ < 0)
+				{
+					angle = min(link->actuating_joint->max_position, ground_bearing_);
+				}
+				else if (joint_twist_ > 0)
+				{
+					angle = max(link->actuating_joint->min_position, -ground_bearing_);	
+				}
+				ground_bearing_ -= abs(angle);
+			}
+			else
+			{
+				angle = link->angle;
+			}
+			transform = transform*createDHMatrix(link->offset, angle, link->length, link->twist);
+			joint_twist_ += link->twist;
+		}
+		Vector4d result = transform*Vector4d(0,0,0,1);
+		Vector3d min_vertical_tip_position = Vector3d(result[0], result[1], result[2]);
+		maximum_body_height_ = min(maximum_body_height_, -min_vertical_tip_position[2]);
+	}
 
-  desired_linear_velocity_ = Vector2d(0, 0);
-  desired_angular_velocity_ = 0;
-  
-  setGaitParams(params_);
+	//Check that required body height is possible
+	body_clearance_ = min(params_->body_clearance.current_value, maximum_body_height_);    
+
+	//Find workspace radius of tip on ground by finding maximum horizontal distance of each tip 
+	double min_horizontal_range = UNASSIGNED_VALUE;
+	double min_half_stance_yaw_range = UNASSIGNED_VALUE;
+	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+	{
+		resetJointOrientationTracking();
+		Leg* leg = leg_it_->second;
+		double half_stance_yaw_range = UNASSIGNED_VALUE;
+		double distance_to_ground = body_clearance_;
+		double horizontal_range = 0.0;
+		for (link_it_ = ++leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
+		{
+			Link* link = link_it_->second;
+			const Joint* joint = link->actuating_joint;   
+			joint_twist_ += joint->reference_link->twist;  
+			
+			// Find first joint able to move in x/y plane and assign a half yaw range value for the leg
+			if (abs(joint_twist_) != pi/2 && half_stance_yaw_range == UNASSIGNED_VALUE)
+			{
+				half_stance_yaw_range = min(abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->min_position)),
+				abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->max_position)));
+			}
+			
+			if (joint_twist_ != 0.0)
+			{
+				Tip* tip = leg->getTip();   
+				double distance_to_tip = joint->getPositionJointFrame(tip->getPositionWorldFrame()).norm();
+				double joint_angle;
+				double virtual_link_length;
+				if (abs(distance_to_tip*sin(joint_twist_)) > distance_to_ground)
+				{	  
+					double required_joint_angle = asin(distance_to_ground/(abs(distance_to_tip*sin(joint_twist_))));
+					joint_angle = clamped(required_joint_angle, joint->min_position, joint->max_position);
+					virtual_link_length = (joint_angle == required_joint_angle) ? distance_to_tip : link->length;
+				}
+				else if (joint_twist_ > 0.0)
+				{
+					joint_angle = joint->min_position;
+					virtual_link_length = link->length;
+				}
+				else if (joint_twist_ < 0.0)
+				{
+					joint_angle = joint->max_position;
+					virtual_link_length = link->length;
+				}
+				horizontal_range += virtual_link_length*cos(joint_angle);
+				distance_to_ground -= abs(virtual_link_length*sin(joint_angle)*sin(joint_twist_));
+			}
+			else
+			{
+				horizontal_range += link->length;
+			}
+			
+			if (distance_to_ground <= 0.0)
+			{
+				break;
+			}
+		}
+		
+		min_horizontal_range = min(min_horizontal_range, horizontal_range);
+		min_half_stance_yaw_range = min(min_half_stance_yaw_range, half_stance_yaw_range);
+	}
+
+	min_horizontal_range *= params_->leg_span_scale.current_value;
+
+	// Fitting largest circle within sector defined by yaw ranges and horizontal range
+	workspace_radius_ = min_horizontal_range*sin(min_half_stance_yaw_range)/(1+sin(min_half_stance_yaw_range));
+
+	// Calculate default stance tip positions as centre of workspace circle on the ground at required body height
+	Vector3d previous_identity_position(0,0,0);
+	leg_it_ = model_->getLegContainer()->begin();
+	while (leg_it_ != model_->getLegContainer()->end())
+	{
+		Leg* leg = leg_it_->second;
+		Link* base_link = leg->getLinkByIDName(leg->getIDName() + "_base_link");
+		double x_position = base_link->length*cos(base_link->angle); // First joint world position (x)
+		double y_position = base_link->length*sin(base_link->angle); // First joint world position (y)
+		x_position += (min_horizontal_range - workspace_radius_)*cos(leg->getStanceLegYaw()); 
+		y_position += (min_horizontal_range - workspace_radius_)*sin(leg->getStanceLegYaw());
+		Vector3d identity_tip_position(x_position, y_position, -body_clearance_);
+		
+		double distance_to_previous_tip_position = (identity_tip_position - previous_identity_position).norm();
+		previous_identity_position = identity_tip_position;
+		if (2*workspace_radius_ > distance_to_previous_tip_position)
+		{
+			workspace_radius_ = distance_to_previous_tip_position/2.0; //Workspace radius ammended to prevent overlapping
+			leg_it_ = model_->getLegContainer()->begin(); //Restart leg identity tip position calculation with new radius
+			previous_identity_position = Vector3d(0,0,0);
+		}
+		else
+		{
+			leg->setLegStepper(new LegStepper(this, leg, identity_tip_position));
+			leg_it_++;
+		}    
+	}  
+
+	// Stance radius based around front right leg to ensure positive values
+	Leg* reference_leg = model_->getLegByIDNumber(0);
+	LegStepper* reference_leg_stepper = reference_leg->getLegStepper();
+	double x_position = reference_leg_stepper->getDefaultTipPosition()[0];
+	double y_position = reference_leg_stepper->getDefaultTipPosition()[1];
+	stance_radius_ = Vector2d(x_position, y_position).norm();
+
+	desired_linear_velocity_ = Vector2d(0, 0);
+	desired_angular_velocity_ = 0;
+
+	setGaitParams(params_);
 }
 
 /***********************************************************************************************************************

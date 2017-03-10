@@ -67,7 +67,7 @@ using namespace Eigen;
 using namespace std;
 
 template <class T>
-T mod(const T &a, int &b)
+T mod(const T &a, const T &b)
 {
   return (a % b + b) % b;
 }

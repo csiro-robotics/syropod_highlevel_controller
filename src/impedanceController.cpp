@@ -32,32 +32,28 @@ void ImpedanceController::init(void)
 ***********************************************************************************************************************/
 void ImpedanceController::updateImpedance(Leg* leg, bool use_joint_effort)
 {
-  double force_input;
-  if (use_joint_effort)
-  {
-    Joint* reference_joint = leg->getJointByIDName(leg->getIDName() + "_femur_joint"); //TBD Best method?
-    force_input = leg->getMirrorDir()*reference_joint->current_effort;    
-  }
-  else
-  {
-    force_input = leg->getTipForce();
-  } 
-  
-  double damping = leg->getVirtualDampingRatio();
-  double stiffness = leg->getVirtualStiffness();
-  double mass = leg->getVirtualMass();
-  state_type* impedance_state = leg->getImpedanceState();
-  double virtual_damping = damping * 2 * sqrt(mass * stiffness);
-  runge_kutta4<state_type> stepper;
-  integrate_const(stepper,
-                  [&](const state_type &x, state_type &dxdt, double t)
-                  {
-                    dxdt[0] = x[1];
-                    dxdt[1] = -force_input/mass*force_gain_ - virtual_damping/mass*x[1] - stiffness/mass*x[0];
-                  },
-                  *impedance_state, 0.0, delta_t_, delta_t_ / 30);
-  double delta_z = (*impedance_state)[0];
-  leg->setDeltaZ(delta_z);
+	if (use_joint_effort)
+	{
+		leg->updateTipForce(false);
+	}
+	
+	double force_input = abs(min(leg->getTipForce()[2], 0.0));
+
+	double damping = leg->getVirtualDampingRatio();
+	double stiffness = leg->getVirtualStiffness();
+	double mass = leg->getVirtualMass();
+	state_type* impedance_state = leg->getImpedanceState();
+	double virtual_damping = damping * 2 * sqrt(mass * stiffness);
+	runge_kutta4<state_type> stepper;
+	integrate_const(stepper,
+	                [&](const state_type &x, state_type &dxdt, double t)
+	                {
+	                  dxdt[0] = x[1];
+	                  dxdt[1] = -force_input/mass*force_gain_ - virtual_damping/mass*x[1] - stiffness/mass*x[0];
+	                },
+	                *impedance_state, 0.0, delta_t_, delta_t_ / 30);
+	double delta_z = -(*impedance_state)[0];
+	leg->setDeltaZ(delta_z);
 }
 
 /***********************************************************************************************************************
@@ -66,8 +62,8 @@ void ImpedanceController::updateImpedance(Leg* leg, bool use_joint_effort)
 void ImpedanceController::updateStiffness(Leg* leg, double step_reference)
 {
   int leg_id = leg->getIDNumber();
-  int adjacent_leg_1_id = (leg_id-1)%model_->getLegCount(); 
-  int adjacent_leg_2_id = (leg_id+1)%model_->getLegCount();
+  int adjacent_leg_1_id = mod(leg_id-1, model_->getLegCount()); 
+  int adjacent_leg_2_id = mod(leg_id+1, model_->getLegCount());
   Leg* adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
   Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);  
 
@@ -108,8 +104,8 @@ void ImpedanceController::updateStiffness(WalkController *walker)
       step_reference += abs(z_diff / walker->getStepClearance());
 
       int leg_id = leg->getIDNumber();
-      int adjacent_leg_1_id = (leg_id-1)%model_->getLegCount(); 
-      int adjacent_leg_2_id = (leg_id+1)%model_->getLegCount();
+      int adjacent_leg_1_id = mod(leg_id-1,model_->getLegCount()); 
+      int adjacent_leg_2_id = mod(leg_id+1,model_->getLegCount());
       Leg* adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
       Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
       

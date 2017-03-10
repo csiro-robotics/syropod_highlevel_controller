@@ -1,0 +1,11 @@
+<launch>
+	<include file="$(find hexapod_large_gazebo)/launch/gazebo_max_tf.launch" />
+	<include file="$(find hexapod_remote)/launch/hexapod_remote.launch" />
+	<rosparam file="$(find simple_hexapod_controller)/config/max.yaml" command="load"/>
+	<rosparam file="$(find simple_hexapod_controller)/config/gait.yaml" command="load"/>
+	<node name="simple_hexapod_controller" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node" output="screen"/>	
+
+	<param name="/hexapod/parameters/debug_rviz" value="false"/>
+	<param name="/hexapod/parameters/use_joint_effort" value="true"/>
+	<param name="/hexapod/parameters/force_gain/default" value="0.1"/>
+</launch>

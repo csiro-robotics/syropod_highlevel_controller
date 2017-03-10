@@ -8,6 +8,6 @@ geometry_msgs/Point walker_tip_positions
 std_msgs/Float64 stance_progress
 std_msgs/Float64 swing_progress
 
-std_msgs/Float64 tip_force
+geometry_msgs/Vector3 tip_force
 std_msgs/Float64 delta_z
 std_msgs/Float64 virtual_stiffness

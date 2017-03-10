@@ -638,9 +638,11 @@ Pose PoseController::autoCompensation(void)
   auto_pose_ = Pose::identity();  
   for (int i = 0; i < (6 / legs_in_phase); i++)
   {
-    auto_pose_.rotation_[1] += roll_values[i];
-    auto_pose_.rotation_[2] += pitch_values[i];
-    auto_pose_.position_[2] += z_trans_values[i];
+		auto_pose_.position_[0] += pitch_values[i];
+		auto_pose_.position_[1] += roll_values[i];
+    //auto_pose_.rotation_[1] += roll_values[i];
+    //auto_pose_.rotation_[2] += pitch_values[i];
+    //auto_pose_.position_[2] += z_trans_values[i];
   }
   
   return auto_pose_;
