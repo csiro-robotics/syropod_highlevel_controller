@@ -69,15 +69,15 @@ class PoseController
     void updateStance(void);
 
     //Coordinated leg movements - tip position
-    double directStartup(void);
-    double stepToNewStance(void);
-    double poseForLegManipulation(void);
-    bool shutDownSequence(void);
-    bool startUpSequence(void);    
+    int directStartup(void);
+    int stepToNewStance(void);
+    int poseForLegManipulation(void);
+    int shutDownSequence(void);
+    int startUpSequence(void);    
     
     //Coordinated leg movements - joint position
-    bool packLegs(double time_to_pack);
-    bool unpackLegs(double time_to_unpack);
+    int packLegs(double time_to_pack);
+    int unpackLegs(double time_to_unpack);
     
     // Compensation functions
     void updateCurrentPose(double body_height);
@@ -100,7 +100,7 @@ class PoseController
     Vector3d rotation_velocity_input_;
     
     //Tripod coordination variables
-    int legs_completed_task_ = 0;
+    int legs_completed_step_ = 0;
     int current_group_ = 0;
     
     bool recalculate_offset_ = true;
@@ -140,8 +140,8 @@ class LegPoser
     inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
     
     //updatePosition(void); //apply current pose to generate new tip position
-    bool moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
-    double stepToPosition(Vector3d targetTipPosition, Pose targetPose, double lift_height, double time_to_step);
+    int moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
+    int stepToPosition(Vector3d targetTipPosition, Pose targetPose, double lift_height, double time_to_step);
     
   private:
     PoseController* poser_;

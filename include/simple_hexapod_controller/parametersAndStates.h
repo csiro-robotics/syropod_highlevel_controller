@@ -215,7 +215,7 @@ struct Parameters
 	AdjustableParameter step_clearance;
 	Parameter<double> step_depth;
 	AdjustableParameter body_clearance;
-	AdjustableParameter leg_span_scale;
+	AdjustableParameter leg_span;
 	Parameter<string> velocity_input_mode;
 	Parameter<bool> force_cruise_velocity;
 	Parameter<map<string, double>> linear_cruise_velocity;

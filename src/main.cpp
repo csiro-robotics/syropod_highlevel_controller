@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
 	if (!state.receivingJointStates())
 	{
 		ROS_WARN("Failed to subscribe to joint_states topic! - check to see if topic is being published.\n");
-		params->start_up_sequence.data = false;
+		//params->start_up_sequence.data = false;
 	}
 	else if ((params->imu_compensation.data || params->inclination_compensation.data) 
 		&& !state.receivingImuData())
@@ -91,13 +91,13 @@ int main(int argc, char* argv[])
 	{
 		start_message = "Failed to initialise joint position values!\n Press 'Start' to run controller initialising unknown joint positions to defaults . . .\n";
 		use_default_joint_positions = true;
-		params->start_up_sequence.data = false;
+		//params->start_up_sequence.data = false;
 	}
 
 	// Loop waiting for start button press
 	while (!state.getUserInputFlag())
 	{
-		ROS_WARN_THROTTLE(THROTTLE_PERIOD, "%s", start_message.c_str());
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "%s", start_message.c_str());
 		ros::spinOnce();
 		r.sleep();
 	}

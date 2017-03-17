@@ -37,7 +37,7 @@ void ImpedanceController::updateImpedance(Leg* leg, bool use_joint_effort)
 		leg->updateTipForce(false);
 	}
 	
-	double force_input = abs(min(leg->getTipForce()[2], 0.0));
+	double force_input = abs(max(leg->getTipForce()[0], 0.0));
 
 	double damping = leg->getVirtualDampingRatio();
 	double stiffness = leg->getVirtualStiffness();

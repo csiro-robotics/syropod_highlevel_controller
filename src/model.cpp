@@ -82,7 +82,7 @@ Leg::Leg(Model* model, int id_number, Parameters* params)
   Vector4d result = transform*Vector4d(0,0,0,1);
   max_virtual_leg_length_ = Vector3d(result[0], result[1], result[2]).norm();
   
-  min_virtual_leg_length_ = 0.0;
+  min_virtual_leg_length_ = 0.2;
     group_ = (id_number%2); //Even/odd groups
   
   ROS_DEBUG("Leg %s has been initialised as a %d degree of freedom leg with %lu links and %lu joints.",
@@ -186,14 +186,13 @@ bool Leg::updateTipForce(bool debug)
 	MatrixXd j(3,num_joints_);
   j = createJacobian(dh_parameters, num_joints_);
 	
-	VectorXd joint_torques(num_joints_);
-	
+	VectorXd joint_torques(num_joints_);	
 	int index = 0;
 	for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
 	{
 		Joint* joint = joint_it->second;
 		joint_torques[index] = joint->current_effort;
-	}
+	}	
 	
 	tip_force_ = j*joint_torques; // Estimate force at the tip in frame of first joint
 
@@ -235,8 +234,8 @@ bool Leg::applyIK(bool clamp_to_limits, bool debug)
 	ik_matrix = j.transpose()*((j*j.transpose() + sqr(dls_cooeficient)*identity).inverse()); //DLS Method
 
 	Joint* base_joint = joint_container_.begin()->second;
-	Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(desired_tip_position_);
-	Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(local_tip_position_);
+	Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(false, desired_tip_position_);
+	Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(false, local_tip_position_);
 	Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
 	VectorXd joint_delta_pos(num_joints_);
 
@@ -288,34 +287,28 @@ bool Leg::applyIK(bool clamp_to_limits, bool debug)
 ***********************************************************************************************************************/
 Vector3d Leg::applyFK(bool set_local)
 {
-  //Update joint transforms - skip first joint since it's transform is constant  
-  map<int, Joint*>::iterator joint_it;  
-  for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
-  {
-    Joint* joint = joint_it->second;
-    const Link* reference_link = joint->reference_link;
-    joint->transform = createDHMatrix(reference_link->offset,
-				      reference_link->actuating_joint->desired_position,
-				      reference_link->length,
-				      reference_link->twist); 
-  } 
-  const Link* reference_link = tip_->reference_link;
-  tip_->transform = createDHMatrix(reference_link->offset,
-				   reference_link->actuating_joint->desired_position,
-				   reference_link->length,
-				   reference_link->twist); 
-  
-  //Get world frame position of tip
-  Vector3d tip_position = tip_->getPositionWorldFrame();
-  if (set_local)
-  {
-    if (local_tip_position_[0] != UNASSIGNED_VALUE)
-    {
-      desired_tip_velocity_ = (tip_position - local_tip_position_) / model_->getTimeDelta();
-    }
-    local_tip_position_ = tip_position;
-  }
-  return tip_position;
+	//Update joint transforms - skip first joint since it's transform is constant  
+	map<int, Joint*>::iterator joint_it;  
+	for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
+	{
+		Joint* joint = joint_it->second;
+		const Link* reference_link = joint->reference_link;
+		joint->current_transform = createDHMatrix(reference_link->offset, reference_link->actuating_joint->desired_position, reference_link->length, reference_link->twist); 
+	}
+	const Link* reference_link = tip_->reference_link;
+	tip_->current_transform = createDHMatrix(reference_link->offset, reference_link->actuating_joint->desired_position, reference_link->length, reference_link->twist); 
+
+	//Get world frame position of tip
+	Vector3d tip_position = tip_->getPositionWorldFrame();
+	if (set_local)
+	{
+		if (local_tip_position_[0] != UNASSIGNED_VALUE)
+		{
+			desired_tip_velocity_ = (tip_position - local_tip_position_) / model_->getTimeDelta();
+		}
+		local_tip_position_ = tip_position;
+	}
+	return tip_position;
 }
 
 /***********************************************************************************************************************
@@ -333,22 +326,20 @@ Joint::Joint(Leg* leg, Link* link, int id, Parameters* params)
   , unpacked_position(params->joint_parameters[leg->getIDNumber()][id_number-1].data["unpacked"])
   , max_angular_speed(params->joint_parameters[leg->getIDNumber()][id_number-1].data["max_vel"])
 {
-  if (params->joint_parameters[leg->getIDNumber()][id_number-1].initialised)
-  {
-    transform = createDHMatrix(reference_link->offset,
-			       reference_link->angle,
-			       reference_link->length,
-			       reference_link->twist);
-    ROS_DEBUG("%s has been initialised with parameters:"
-	    "offset: %f, min: %f, max: %f, packed: %f, unpacked: %f, max_vel: %f.",
-	    name.c_str(), position_offset, min_position, max_position,
-	    packed_position, unpacked_position, max_angular_speed);
-  }
-  else
-  {
-    ROS_FATAL("Model initialisation error for %s", name.c_str());
-    ros::shutdown();
-  }
+	if (params->joint_parameters[leg->getIDNumber()][id_number-1].initialised)
+	{
+		identity_transform = createDHMatrix(reference_link->offset, reference_link->angle, reference_link->length, reference_link->twist);
+		current_transform = identity_transform;
+		ROS_DEBUG("%s has been initialised with parameters:"
+			"offset: %f, min: %f, max: %f, packed: %f, unpacked: %f, max_vel: %f.",
+			name.c_str(), position_offset, min_position, max_position,
+			packed_position, unpacked_position, max_angular_speed);
+	}
+	else
+	{
+		ROS_FATAL("Model initialisation error for %s", name.c_str());
+		ros::shutdown();
+	}
 }
 
 /***********************************************************************************************************************
@@ -382,12 +373,10 @@ Link::Link(Leg* leg, Joint* joint, int id, Parameters* params)
 Tip::Tip(Leg* leg, Link* link)
   : parent_leg(leg)
   , reference_link(link)
-  , name(leg->getIDName() + "_tip")  
-{    
-  transform = createDHMatrix(reference_link->offset,
-			     reference_link->angle,
-			     reference_link->length,
-			     reference_link->twist);
+  , name(leg->getIDName() + "_tip")
+{
+	identity_transform = createDHMatrix(reference_link->offset, reference_link->angle, reference_link->length, reference_link->twist);
+	current_transform = identity_transform;
 }
 
 /***********************************************************************************************************************

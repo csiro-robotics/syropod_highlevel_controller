@@ -57,7 +57,7 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
 			{
 				Joint* joint = joint_it_->second;
 				string joint_name = joint->name;
-				joint_name.erase(joint_name.end()-6, joint_name.end());
+				//joint_name.erase(joint_name.end()-6, joint_name.end());
 				joint->gazebo_publisher = n_.advertise<std_msgs::Float64>("/hexapod/" + joint_name + "/command", 1000);
 			}
 		}
@@ -167,19 +167,21 @@ void StateController::transitionSystemState()
 	// UNKNOWN -> OFF/PACKED/READY/RUNNING  if (systemState == UNKNOWN)
 	if (system_state_ == UNKNOWN)
 	{
-		int check_packed = 0;
+		int legs_packed = 0;
 		for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
 		{
 			Leg* leg = leg_it_->second;
 			map<int, Joint*>::iterator joint_it;
+			int joints_packed = 0;
 			for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
 			{
 				Joint* joint = joint_it->second;
 				double joint_tolerance = 0.01;
-				check_packed += int(abs(joint->current_position - joint->packed_position) < joint_tolerance);
+				joints_packed += int(abs(joint->current_position - joint->packed_position) < joint_tolerance);
 			}
+			legs_packed += int(joints_packed == leg->getNumJoints());
 		}
-		if (check_packed == model_->getLegCount())  // All joints in each leg are approximately in the packed position
+		if (legs_packed == model_->getLegCount())  // All joints in each leg are approximately in the packed position
 		{
 			if (!params_.start_up_sequence.data)
 			{
@@ -209,10 +211,9 @@ void StateController::transitionSystemState()
 		// OFF -> RUNNING (Direct startup)
 		if (new_system_state_ == RUNNING && !params_.start_up_sequence.data)
 		{
-			int progress = int(poser_->directStartup()*100);
-			bool complete = (progress == 100);
+			int progress = poser_->directStartup();
 			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning directly to RUNNING state (%d%%). . .\n", progress);
-			if (complete)
+			if (progress == 100)
 			{
 				system_state_ = RUNNING;
 				ROS_INFO("Direct startup sequence complete. Ready to walk.\n");
@@ -234,9 +235,9 @@ void StateController::transitionSystemState()
 	// PACKED -> READY/RUNNING (Unpack Hexapod)
 	else if (system_state_ == PACKED && (new_system_state_ == READY || new_system_state_ == RUNNING))
 	{
-		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state . . .\n");
-		bool complete = poser_->unpackLegs(2.0 / params_.step_frequency.current_value);
-		if (complete)
+		int progress = poser_->unpackLegs(2.0 / params_.step_frequency.current_value);
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state (%d%%). . .\n", progress);
+		if (progress == 100) //100% complete
 		{
 			system_state_ = READY;
 			ROS_INFO("State transition complete. Hexapod is in READY state.\n");
@@ -244,10 +245,10 @@ void StateController::transitionSystemState()
 	}
 	// READY -> PACKED/OFF (Pack Hexapod)
 	else if (system_state_ == READY && (new_system_state_ == PACKED || new_system_state_ == OFF))
-	{
-		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to PACKED state . . .\n");
-		bool complete = poser_->packLegs(2.0 / params_.step_frequency.current_value);
-		if (complete)
+	{		
+		int progress = poser_->packLegs(2.0 / params_.step_frequency.current_value);
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to PACKED state (%d%%). . .\n", progress);
+		if (progress == 100) //100% complete
 		{
 			system_state_ = PACKED;
 			ROS_INFO("State transition complete. Hexapod is in PACKED state.\n");
@@ -255,10 +256,10 @@ void StateController::transitionSystemState()
 	}
 	// READY -> RUNNING (Initate start up sequence to step to walking stance)
 	else if (system_state_ == READY && new_system_state_ == RUNNING)
-	{
-		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to RUNNING state . . .\n");
-		bool complete = poser_->startUpSequence();
-		if (complete)
+	{		
+		int progress = poser_->startUpSequence();
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to RUNNING state (%d%%). . .\n", progress);
+		if (progress == 100) //100% complete
 		{
 			system_state_ = RUNNING;
 			ROS_INFO("State transition complete. Hexapod is in RUNNING state. Ready to walk.\n");
@@ -275,9 +276,9 @@ void StateController::transitionSystemState()
 		}
 		else
 		{
-			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state . . .\n");
-			bool complete = poser_->shutDownSequence();
-			if (complete)
+			int progress = poser_->shutDownSequence();
+			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state (%d%%). . .\n", progress);
+			if (progress == 100) //100% complete
 			{
 				system_state_ = READY;
 				ROS_INFO("State transition complete. Hexapod is in READY state.\n");
@@ -371,8 +372,8 @@ void StateController::adjustParameter()
 		else
 		{
 			// Update tip Positions for new parameter value
-			bool complete = (poser_->stepToNewStance() == 1.0);
-			if (complete)
+			int progress = poser_->stepToNewStance();
+			if (progress == 100)
 			{
 				ROS_INFO("Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",	p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
 				parameter_adjust_flag_ = false;
@@ -752,15 +753,18 @@ void StateController::systemStateCallback(const std_msgs::Int8 &input)
     user_input_flag_ = true;
   }  
   // If startUpSequence parameter is false then skip READY and PACKED states
-  else if (system_state_ != WAITING_FOR_USER && !params_.start_up_sequence.data)
-  {
+  else if (system_state_ != WAITING_FOR_USER)
+  {		
     new_system_state_ = input_state;
-    if (new_system_state_ == READY || new_system_state_ == PACKED)
-    {
-      new_system_state_ = OFF;
-    }
+		if (!params_.start_up_sequence.data)
+		{
+			if (new_system_state_ == READY || new_system_state_ == PACKED)
+			{
+				new_system_state_ = OFF;
+			}
+		}
   }
-  
+
   if (new_system_state_ != system_state_ && system_state_ != WAITING_FOR_USER)
   {
     transition_state_flag_ = true;
@@ -912,6 +916,7 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
 				parameter_adjustment *= -1; //Change direction
 			}
 			new_parameter_value_ = dynamic_param_->current_value + parameter_adjustment;
+			new_parameter_value_ = clamped(new_parameter_value_, dynamic_param_->min_value, dynamic_param_->max_value);
 			parameter_adjust_flag_ = true;
 		}
 	}
@@ -943,9 +948,9 @@ void StateController::dynamicParameterCallback(simple_hexapod_controller::Dynami
 			new_parameter_value_ = clamped(config.body_clearance, dynamic_param_->min_value, dynamic_param_->max_value);
 			config.body_clearance = new_parameter_value_;
 		}
-		else if (config.leg_span != params_.leg_span_scale.current_value)
+		else if (config.leg_span != params_.leg_span.current_value)
 		{
-			dynamic_param_ = &params_.leg_span_scale;
+			dynamic_param_ = &params_.leg_span;
 			new_parameter_value_ = clamped(config.leg_span, dynamic_param_->min_value, dynamic_param_->max_value);
 			config.leg_span = new_parameter_value_;
 		}
@@ -1164,7 +1169,8 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_s
 				{
 					// Low pass filter of joint effort values
 					double smoothing_factor = (joint->current_effort == UNASSIGNED_VALUE) ? 1.0 : 0.05; // Handles first iteration
-					joint->current_effort = smoothing_factor*joint_states.effort[i] + (1 - smoothing_factor)*joint->current_effort;
+					double scaled_effort = joint_states.effort[i] * (joint->id_number == 2 ? 15.6882 : 5.6168);
+					joint->current_effort = smoothing_factor*scaled_effort + (1 - smoothing_factor)*joint->current_effort;
 				}
 			}
 		}
@@ -1240,7 +1246,7 @@ void StateController::initParameters(void)
 	params_.step_clearance.init(n_, "step_clearance");
 	params_.step_depth.init(n_, "step_depth");
 	params_.body_clearance.init(n_, "body_clearance");
-	params_.leg_span_scale.init(n_, "leg_span_scale");
+	params_.leg_span.init(n_, "leg_span");
 	params_.velocity_input_mode.init(n_, "velocity_input_mode");
 	params_.force_cruise_velocity.init(n_, "force_cruise_velocity");
 	params_.linear_cruise_velocity.init(n_, "linear_cruise_velocity");
@@ -1301,7 +1307,7 @@ void StateController::initParameters(void)
 	params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_FREQUENCY, &params_.step_frequency));
 	params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_CLEARANCE, &params_.step_clearance));
 	params_.adjustable_map.insert(AdjustableMapType::value_type(BODY_CLEARANCE, &params_.body_clearance));
-	params_.adjustable_map.insert(AdjustableMapType::value_type(LEG_SPAN_SCALE, &params_.leg_span_scale));
+	params_.adjustable_map.insert(AdjustableMapType::value_type(LEG_SPAN_SCALE, &params_.leg_span));
 	params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_MASS, &params_.virtual_mass));
 	params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_STIFFNESS, &params_.virtual_stiffness));
 	params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_DAMPING, &params_.virtual_damping_ratio));
@@ -1324,9 +1330,9 @@ void StateController::initParameters(void)
 	config_max.body_clearance = params_.body_clearance.max_value;
 	config_min.body_clearance = params_.body_clearance.min_value;
 	config_default.body_clearance = params_.body_clearance.default_value;
-	config_max.leg_span = params_.leg_span_scale.max_value;
-	config_min.leg_span = params_.leg_span_scale.min_value;
-	config_default.leg_span = params_.leg_span_scale.default_value;
+	config_max.leg_span = params_.leg_span.max_value;
+	config_min.leg_span = params_.leg_span.min_value;
+	config_default.leg_span = params_.leg_span.default_value;
 	config_max.virtual_mass = params_.virtual_mass.max_value;
 	config_min.virtual_mass = params_.virtual_mass.min_value;
 	config_default.virtual_mass = params_.virtual_mass.default_value;

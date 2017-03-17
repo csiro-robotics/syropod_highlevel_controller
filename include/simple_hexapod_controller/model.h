@@ -30,10 +30,10 @@
 //#include <Eigen/src/Core/Matrix.h>
 //#include <boost/concept_check.hpp>
 
-class Leg;
-class Joint;
-class Link;
-class Tip;
+struct Leg;
+struct Joint;
+struct Link;
+struct Tip;
 
 class WalkController;
 class LegStepper;
@@ -185,81 +185,85 @@ struct Link
 
 struct Joint
 {
-  public:
-    Joint(Leg* leg, Link* reference_link, int id_number, Parameters* params);
-    
-    inline Matrix4d getBaseTransform(void) const
-    { 
-      return (id_number == 1) ? transform : reference_link->actuating_joint->getBaseTransform()*transform;
-    };    
-    inline Vector3d getPositionWorldFrame(Vector3d joint_frame_position = Vector3d(0,0,0)) const
-    {
-      Vector4d result(joint_frame_position[0],joint_frame_position[1],joint_frame_position[2],1);
-      result = getBaseTransform()*result;
-      return Vector3d(result[0], result[1], result[2]);
-    };
-    inline Vector3d getPositionJointFrame(Vector3d world_frame_position = Vector3d(0,0,0)) const
-    {
-      MatrixXd transform = getBaseTransform();
-      Vector4d result(world_frame_position[0], world_frame_position[1], world_frame_position[2], 1);
-      result = transform.inverse()*result;
-      return Vector3d(result[0], result[1], result[2]);
-    };
-    
-    const Leg* parent_leg;
-    const Link* reference_link;
-    const int id_number;
-    const std::string name;
-    Matrix4d transform;    
-		ros::Publisher gazebo_publisher;
-    
-    const double position_offset;
-    const double min_position;
-    const double max_position;
-    const double packed_position;
-    const double unpacked_position;
-    const double max_angular_speed;     
-    
-    double desired_position = 0.0;
-    double desired_velocity = 0.0;
-    double desired_effort = 0.0;    
-    double prev_desired_position = 0.0;   
-    double prev_desired_velocity = 0.0;    
-    double prev_desired_effort = 0.0;     
-    
-    // Current joint state from joint state publisher
-    double current_position = UNASSIGNED_VALUE;
-    double current_velocity = UNASSIGNED_VALUE;
-    double current_effort = UNASSIGNED_VALUE;
+public:
+	Joint(Leg* leg, Link* reference_link, int id_number, Parameters* params);
+	
+	inline Matrix4d getBaseTransform(bool zero = false) const
+	{
+		Matrix4d transform = zero ? identity_transform : current_transform;
+		return (id_number == 1) ? transform : reference_link->actuating_joint->getBaseTransform(zero)*transform;
+	};
+	inline Vector3d getPositionWorldFrame(bool zero = false, Vector3d joint_frame_position = Vector3d(0,0,0)) const
+	{
+		Vector4d result(joint_frame_position[0],joint_frame_position[1],joint_frame_position[2],1);
+		result = getBaseTransform(zero)*result;
+		return Vector3d(result[0], result[1], result[2]);
+	};
+	inline Vector3d getPositionJointFrame(bool zero = false, Vector3d world_frame_position = Vector3d(0,0,0)) const
+	{
+		MatrixXd transform = getBaseTransform(zero);
+		Vector4d result(world_frame_position[0], world_frame_position[1], world_frame_position[2], 1);
+		result = transform.inverse()*result;
+		return Vector3d(result[0], result[1], result[2]);
+	};
+	
+	const Leg* parent_leg;
+	const Link* reference_link;
+	const int id_number;
+	const std::string name;
+	Matrix4d current_transform;
+	Matrix4d identity_transform;
+	ros::Publisher gazebo_publisher;
+	
+	const double position_offset;
+	const double min_position;
+	const double max_position;
+	const double packed_position;
+	const double unpacked_position;
+	const double max_angular_speed;     
+	
+	double desired_position = 0.0;
+	double desired_velocity = 0.0;
+	double desired_effort = 0.0;    
+	double prev_desired_position = 0.0;   
+	double prev_desired_velocity = 0.0;    
+	double prev_desired_effort = 0.0;     
+	
+	// Current joint state from joint state publisher
+	double current_position = UNASSIGNED_VALUE;
+	double current_velocity = UNASSIGNED_VALUE;
+	double current_effort = UNASSIGNED_VALUE;
 };
 
 struct Tip
 {
-  public: 
-    Tip(Leg* leg, Link* reference_link);    
-    inline Matrix4d getBaseTransform(void) const
-    { 
-      return reference_link->actuating_joint->getBaseTransform()*transform; 
-    };    
-    inline Vector3d getPositionWorldFrame(Vector3d tip_frame_position = Vector3d(0,0,0)) const
-    {
-      Vector4d result(tip_frame_position[0],tip_frame_position[1],tip_frame_position[2],1);
-      result = getBaseTransform()*result;
-      return Vector3d(result[0], result[1], result[2]);
-    };
-    inline Vector3d getPositionTipFrame(Vector3d world_frame_position = Vector3d(0,0,0)) const
-    {
-      MatrixXd transform = getBaseTransform();
-      Vector4d result(world_frame_position[0], world_frame_position[1], world_frame_position[2], 1);
-      result = transform.inverse()*result;
-      return Vector3d(result[0], result[1], result[2]);
-    };
-    
-    const Leg* parent_leg;
-    const Link* reference_link;
-    const std::string name;   
-    Matrix4d transform;
-    Vector3d relative_body_position;
+public:
+	Tip(Leg* leg, Link* reference_link);
+	inline Matrix4d getBaseTransform(bool zero = false) const
+	{ 
+		MatrixXd transform = zero ? identity_transform : current_transform;
+		return reference_link->actuating_joint->getBaseTransform()*transform; 
+	};    
+	inline Vector3d getPositionWorldFrame(bool zero = false, Vector3d tip_frame_position = Vector3d(0,0,0)) const
+	{
+		Vector4d result(tip_frame_position[0],tip_frame_position[1],tip_frame_position[2],1);
+		result = getBaseTransform(zero)*result;
+		return Vector3d(result[0], result[1], result[2]);
+	};
+	inline Vector3d getPositionTipFrame(bool zero = false, Vector3d world_frame_position = Vector3d(0,0,0)) const
+	{
+		MatrixXd transform = getBaseTransform(zero);
+		Vector4d result(world_frame_position[0], world_frame_position[1], world_frame_position[2], 1);
+		result = transform.inverse()*result;
+		return Vector3d(result[0], result[1], result[2]);
+	};
+	
+	const Leg* parent_leg;
+	const Link* reference_link;
+	const std::string name;
+	Matrix4d current_transform;
+	Matrix4d identity_transform;
+	Vector3d relative_body_position;
 };
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_MODEL_H */
 

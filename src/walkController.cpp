@@ -87,8 +87,9 @@ void WalkController::init(void)
 			
 			if (joint_twist_ != 0.0)
 			{
-				Tip* tip = leg->getTip();   
-				double distance_to_tip = joint->getPositionJointFrame(tip->getPositionWorldFrame()).norm();
+				Tip* tip = leg->getTip();
+				Vector3d tip_position = tip->getPositionWorldFrame(true);
+				double distance_to_tip = joint->getPositionJointFrame(true, tip_position).norm();
 				double joint_angle;
 				double virtual_link_length;
 				if (abs(distance_to_tip*sin(joint_twist_)) > distance_to_ground)
@@ -125,7 +126,7 @@ void WalkController::init(void)
 		min_half_stance_yaw_range = min(min_half_stance_yaw_range, half_stance_yaw_range);
 	}
 
-	min_horizontal_range *= params_->leg_span_scale.current_value;
+	min_horizontal_range *= params_->leg_span.current_value;
 
 	// Fitting largest circle within sector defined by yaw ranges and horizontal range
 	workspace_radius_ = min_horizontal_range*sin(min_half_stance_yaw_range)/(1+sin(min_half_stance_yaw_range));

@@ -69,221 +69,297 @@ void PoseController::updateStance(void)
 /***********************************************************************************************************************
  * Startup sequence
 ***********************************************************************************************************************/
-bool PoseController::startUpSequence(void)
+int PoseController::startUpSequence(void)
 {
-	double res;
+	int progress = 0;
+	// Step to raise position OR step to default position if raise has already completed
 	if (!step_complete_)
-	{
-		// Step to raise position OR step to default position if raise has already completed
-		// Tripod step syncronisation
+	{		
+		// Set stepping target
+		if (set_target_)
+		{
+			for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+			{
+				Leg* leg = leg_it_->second;
+				LegPoser* leg_poser = leg->getLegPoser();
+				LegStepper* leg_stepper = leg->getLegStepper();
+				Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
+				if (!raise_complete_)
+				{					
+					//Set step target as close to default whilst allowing full body raising (i.e. > min leg length)
+					Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
+					default_tip_position[2] = 0; //Ignore vertical
+					double horizontal_target_length = max(leg->getMinLegLength(), default_tip_position.norm());
+					double tip_target_bearing = atan2(default_tip_position[1], default_tip_position[0]);
+					double new_x_position = horizontal_target_length*cos(tip_target_bearing);
+					double new_y_position = horizontal_target_length*sin(tip_target_bearing);
+					double new_z_position = !raise_complete_ ? 0.0 : leg->getLocalTipPosition()[2];
+					leg_poser->setTargetTipPosition(Vector3d(new_x_position, new_y_position, new_z_position));
+				}
+				else
+				{
+					//Set step target as walking default position
+					Vector3d target_tip_position = default_tip_position;
+					target_tip_position[2] = leg->getLocalTipPosition()[2];
+					leg_poser->setTargetTipPosition(target_tip_position);
+				}
+			}
+			set_target_ = false;
+		}
+		
+		// Step to target
 		for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
 		{
 			Leg* leg = leg_it_->second;
 			LegPoser* leg_poser = leg->getLegPoser();
 			LegStepper* leg_stepper = leg->getLegStepper();
-			if (set_target_)
+			if (leg->getGroup() == current_group_)
 			{
-				Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
-				if (raise_complete_)
-				{
-					//Set step target as walking default position (on ground)
-					Vector3d target_tip_position = default_tip_position;
-					target_tip_position[2] = leg->getLocalTipPosition()[2];
-					leg_poser->setTargetTipPosition(target_tip_position);
-				}
-				else
-				{
-					//Set step target as min leg length distance along walking default tip position vector (on ground)
-					double gradient = default_tip_position[1] / default_tip_position[0];
-					double new_x_position = sqrt(sqr(leg->getMinLegLength()) / (1 + sqr(gradient)));
-					double new_y_position = sqrt(sqr(leg->getMinLegLength()) / (1 + sqr(1 / gradient)));
-					leg_poser->setTargetTipPosition(Vector3d(new_x_position, new_y_position, leg->getLocalTipPosition()[2]));
-				}
+				double step_height = !raise_complete_ ? 0.0 : leg_stepper->getSwingHeight();
+				double time_to_step = 1.0 / params_->step_frequency.current_value;
+				Vector3d target_tip_position = leg_poser->getTargetTipPosition();
+				progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), step_height, time_to_step);
+				leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+				//leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
+				leg->applyIK(true, params_->debug_IK.data);
+				legs_completed_step_ += int(progress == 100);
 			}
+		}
+		
+		// Check if next target new stepping/raising target is to be set
+		set_target_ = (progress == 100);
+		
+		// Normalise progress in terms of total start up procedure
+		progress = progress/5 + current_group_*20;
+		progress += (!raise_complete_ ? 0 : 60);
+		
+		// Coordinate leg stepping groups
+		int num_legs = model_->getLegCount();
+		if (legs_completed_step_ == num_legs/2)
+		{
+			current_group_ = 1;
+		}
+		else if (legs_completed_step_ == num_legs)
+		{
+			step_complete_ = true;
+			legs_completed_step_ = 0;
+			current_group_ = 0;
+		}
+	}
+	// Raise body to default position
+	else
+	{
+		// Set raising target
+		if (set_target_)
+		{
+			for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+			{
+				Leg* leg = leg_it_->second;
+				LegPoser* leg_poser = leg->getLegPoser();
+				LegStepper* leg_stepper = leg->getLegStepper();				
+				Vector3d current_tip_position = leg->getLocalTipPosition();
+				double raise_height = leg_stepper->getDefaultTipPosition()[2];
+				leg_poser->setTargetTipPosition(Vector3d(current_tip_position[0], current_tip_position[1], raise_height));
+			}
+			set_target_ = false;
+		}
+		// Raise to target
+		else
+		{
+			for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+			{
+				Leg* leg = leg_it_->second;
+				LegPoser* leg_poser = leg->getLegPoser();			
+				Vector3d target_tip_position = leg_poser->getTargetTipPosition();
+				double time_to_step = 1.0 / params_->step_frequency.current_value;
+				progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), 0.0, time_to_step);
+				leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+				//leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
+				leg->applyIK(true, params_->debug_IK.data);
+			}
+		}
+		
+		// Check if raise is complete and order another stepping task
+		raise_complete_ = (progress == 100);
+		step_complete_ = !raise_complete_;
+		
+		// Check if next target new stepping/raising target is to be set
+		set_target_ = (progress == 100);
+		
+		// Normalise progress in terms of total start up procedure
+		progress = progress/5 + 40;
+	}
+	
+	// Check if all steps and raises have completed and reset
+	if (step_complete_ && raise_complete_)
+	{
+		step_complete_ = false;
+		raise_complete_ = false;
+		set_target_ = true;
+	}
+	
+	return progress;
+}
+
+/***********************************************************************************************************************
+ * Shutdown sequence
+***********************************************************************************************************************/
+int PoseController::shutDownSequence(void)
+{ 
+	int progress = 0;
+	// Lower body
+	if (!lower_complete_)
+	{
+		//Set target positions for lowering of body
+		if (set_target_)
+		{
+			//Find the smallest body height all legs can achieve
+			double target_body_height = 0; // On ground
+			for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+			{
+				Leg* leg = leg_it_->second;
+
+				//Calculate the minimum body height that this leg can lower the body to, along a vertical trajectory
+				double min_body_height = 0; // Assume leg can lower body to ground
+				Vector3d current_tip_position = leg->getLocalTipPosition();
+				double horizontal_distance_to_tip = sqrt(sqr(current_tip_position[0]) + sqr(current_tip_position[1]));
+				double min_leg_length = leg->getMinLegLength();
+				if (min_leg_length > horizontal_distance_to_tip)
+				{
+					min_body_height = sqrt(sqr(min_leg_length) - sqr(horizontal_distance_to_tip));
+				}
+				target_body_height = max(target_body_height, min_body_height);
+			}
+			// Set leg target position for calculated body height
+			for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+			{
+				Leg* leg = leg_it_->second;
+				LegPoser* leg_poser = leg->getLegPoser();
+				Vector3d current_tip_position = leg->getLocalTipPosition();
+				Vector3d target_tip_position(current_tip_position[0], current_tip_position[1], -target_body_height);
+				leg_poser->setTargetTipPosition(target_tip_position);
+			}
+		}
+		set_target_ = false;
+		
+		// Lower body as much as possible from current position
+		for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+		{
+			Leg* leg = leg_it_->second;
+			LegPoser* leg_poser = leg->getLegPoser();
+			double time_to_step = 1.0 / params_->step_frequency.current_value;
+			Vector3d target_tip_position = leg_poser->getTargetTipPosition();
+			progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), 0.0, time_to_step);
+			leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+			//leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
+			leg->applyIK(true, params_->debug_IK.data);
+			lower_complete_ = (progress == 100);
+		}
+		
+		// Check if next target new stepping/raising target is to be set
+		set_target_ = (progress == 100);
+		
+		// Normalise progress in terms of total start up procedure
+		progress = progress/4;
+		progress += (!step_complete_ ? 0 : 75);
+	}
+	// Step to optimal lower position
+	else
+	{
+		if (set_target_)
+		{
+			for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+			{
+				Leg* leg = leg_it_->second;
+				LegPoser* leg_poser = leg->getLegPoser();
+				LegStepper* leg_stepper = leg->getLegStepper();
+				Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
+				//Set step target as min leg length distance along walking default tip position bearing
+				double tip_target_bearing = atan2(default_tip_position[1], default_tip_position[0]);
+				double new_x_position = leg->getMinLegLength()*cos(tip_target_bearing);
+				double new_y_position = leg->getMinLegLength()*sin(tip_target_bearing);
+				leg_poser->setTargetTipPosition(Vector3d(new_x_position, new_y_position, leg->getLocalTipPosition()[2]));
+			}
+			set_target_ = false;
+		}
+		
+		// Step to optmial lowering position
+		for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+		{
+			Leg* leg = leg_it_->second;
+			LegPoser* leg_poser = leg->getLegPoser();
+			LegStepper* leg_stepper = leg->getLegStepper();
 			
 			if (leg->getGroup() == current_group_)
 			{
 				double step_height = leg_stepper->getSwingHeight();
 				double time_to_step = 1.0 / params_->step_frequency.current_value;
 				Vector3d target_tip_position = leg_poser->getTargetTipPosition();
-				res = leg_poser->stepToPosition(target_tip_position, Pose::identity(), time_to_step, step_height);
-				legs_completed_task_ += int(res == 1.0);
+				progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), step_height, time_to_step);
+				leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+				//leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
+				leg->applyIK(true, params_->debug_IK.data);
+				legs_completed_step_ += int(progress == 100);
 			}
 		}
-		if (legs_completed_task_ == 3)
+		
+		// Check if next target new stepping/raising target is to be set
+		set_target_ = (progress == 100);
+		
+		// Normalise progress in terms of total start up procedure
+		progress = progress/4 + current_group_*25;
+		
+		// Coordinate leg stepping groups
+		int num_legs = model_->getLegCount();
+		if (legs_completed_step_ == num_legs/2)
 		{
 			current_group_ = 1;
-		}
-		else if (legs_completed_task_ == model_->getLegCount())
+		}   
+		else if (legs_completed_step_ == num_legs)
 		{
-			legs_completed_task_ = 0;
 			step_complete_ = true;
+			lower_complete_ = false;
+			legs_completed_step_ = 0;
 		}
 	}
-	else
-	{
-		// Raise body to default position
-		for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-		{
-			Leg* leg = leg_it_->second;
-			LegPoser* leg_poser = leg->getLegPoser();
-			LegStepper* leg_stepper = leg->getLegStepper();
-			if (set_target_)
-			{
-				Vector3d current_tip_position = leg->getLocalTipPosition();
-				//double horizontal_distance_to_tip = sqrt(sqr(current_tip_position[0]) + sqr(current_tip_position[1]));
-				double raise_height = leg_stepper->getDefaultTipPosition()[2];
-				leg_poser->setTargetTipPosition(Vector3d(current_tip_position[0], current_tip_position[1], raise_height));
-			}
-			Vector3d target_tip_position = leg_poser->getTargetTipPosition();
-			double time_to_step = 1.0 / params_->step_frequency.current_value;
-			res = leg_poser->stepToPosition(target_tip_position, Pose::identity(), 0.0, time_to_step);
-		}
-		raise_complete_ = (res == 1.0);
-		step_complete_ = !raise_complete_;
-	}
-	set_target_ = (res == 1.0);  
-	if (step_complete_ && raise_complete_)
+
+	// Check if all steps and lowers have completed and reset
+	if (step_complete_ && lower_complete_)
 	{
 		step_complete_ = false;
-		raise_complete_ = false;
+		lower_complete_ = false;
 		set_target_ = true;
-		return true;
 	}
-	else
-	{
-		return false;
-	}
-}
 
-/***********************************************************************************************************************
- * Shutdown sequence
-***********************************************************************************************************************/
-bool PoseController::shutDownSequence(void)
-{ 
-  double res;
-  if (!lower_complete_)
-  {
-    //Set target positions for lowering of body
-    if (set_target_)
-    {      
-      //Find the smallest body height all legs can achieve
-      double target_body_height = 0; // On ground
-      for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-      {
-	Leg* leg = leg_it_->second;
-	
-	//Calculate the minimum body height that this leg can lower the body to, along a vertical trajectory
-	double min_body_height = 0; // Assume leg can lower body to ground
-	Vector3d current_tip_position = leg->getLocalTipPosition();
-	double horizontal_distance_to_tip = sqrt(sqr(current_tip_position[0]) + sqr(current_tip_position[1]));
-	double min_leg_length = leg->getMinLegLength();
-	if (min_leg_length > horizontal_distance_to_tip)
-	{
-	  min_body_height = sqrt(sqr(min_leg_length) - sqr(horizontal_distance_to_tip));
-	}
-	target_body_height = max(target_body_height, min_body_height);
-      }
-      // Set leg target position for calculated body height
-      for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-      {
-	Leg* leg = leg_it_->second;
-	LegPoser* leg_poser = leg->getLegPoser();
-	Vector3d current_tip_position = leg->getLocalTipPosition();
-	Vector3d target_tip_position(current_tip_position[0], current_tip_position[1], -target_body_height);
-	leg_poser->setTargetTipPosition(target_tip_position);
-      }
-    }
-    
-    // Lower body as much as possible from current position
-    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-    {
-      Leg* leg = leg_it_->second;
-      LegPoser* leg_poser = leg->getLegPoser();
-      double time_to_step = 1.0 / params_->step_frequency.current_value;
-      Vector3d target_tip_position = leg_poser->getTargetTipPosition();
-      res = leg_poser->stepToPosition(target_tip_position, Pose::identity(), 0.0, time_to_step);
-      lower_complete_ = (res == 1.0);
-    }
-  }
-  else
-  {
-    // Step to optmial lowering position
-    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-    {
-      Leg* leg = leg_it_->second;
-      LegPoser* leg_poser = leg->getLegPoser();
-      LegStepper* leg_stepper = leg->getLegStepper();
-      double min_leg_length = leg->getMinLegLength();
-      if (set_target_)
-      {
-	//Find new tip position if stepping a distance of min_leg_length, along same direction out from body centre
-	Vector3d current_tip_position = leg->getLocalTipPosition();
-	double gradient = current_tip_position[1] / current_tip_position[0];
-	double new_x_position = sqrt(sqr(min_leg_length) / (1 + sqr(gradient)));
-	double new_y_position = sqrt(sqr(min_leg_length) / (1 + sqr(1 / gradient)));
-	leg_poser->setTargetTipPosition(Vector3d(new_x_position, new_y_position, current_tip_position[2]));
-      }
-      
-      if (leg->getGroup() == current_group_)
-      {
-	double step_height = leg_stepper->getSwingHeight();
-	double time_to_step = 1.0 / params_->step_frequency.current_value;
-	Vector3d target_tip_position = leg_poser->getTargetTipPosition();
-	res = leg_poser->stepToPosition(target_tip_position, Pose::identity(), step_height, time_to_step);
-	legs_completed_task_ += int(res == 1.0);
-      }
-    }
-    if (legs_completed_task_ == 3)
-    {
-      current_group_ = 1;
-    }   
-    else if (legs_completed_task_ == model_->getLegCount())
-    {
-      legs_completed_task_ = 0;
-      step_complete_ = true;
-      lower_complete_ = false;
-    }
-  }
-  set_target_ = (res == 1.0);  
-  if (step_complete_ && lower_complete_)
-  {
-    step_complete_ = false;
-    lower_complete_ = false;
-    set_target_ = true;
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+	return progress;
 }
 
 /***********************************************************************************************************************
  * Moves tip positions along direct straight path from origin position to target walking stance position
 ***********************************************************************************************************************/ 
-double PoseController::directStartup(void) //Simultaneous leg coordination
+int PoseController::directStartup(void) //Simultaneous leg coordination
 {
-  double res;
+  int progress = 0; //Percentage progress (0%->100%)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     Leg* leg = leg_it_->second;  
     LegPoser* leg_poser = leg->getLegPoser();
     LegStepper* leg_stepper = leg->getLegStepper();
     double time_to_start = params_->time_to_start.data;
-    res = leg_poser->stepToPosition(leg_stepper->getDefaultTipPosition(), model_->getCurrentPose(), 0.0, time_to_start);
+    progress = leg_poser->stepToPosition(leg_stepper->getDefaultTipPosition(), model_->getCurrentPose(), 0.0, time_to_start);
     leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
     //leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
     leg->applyIK(true, params_->debug_IK.data);
   }
-  return res;
+  return progress;
 }
 
 /***********************************************************************************************************************
  * 
 ***********************************************************************************************************************/ 
-double PoseController::stepToNewStance(void) //Tripod leg coordination
-{    
+int PoseController::stepToNewStance(void) //Tripod leg coordination
+{
+	int progress = 0;
 	int num_legs = model_->getLegCount();
 	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
 	{
@@ -295,42 +371,42 @@ double PoseController::stepToNewStance(void) //Tripod leg coordination
 			double step_height = leg_stepper->getSwingHeight();  
 			double step_time = 1.0 / params_->step_frequency.current_value;
 			Vector3d target_tip_position = leg_stepper->getDefaultTipPosition();      
-			double result = leg_poser->stepToPosition(target_tip_position, model_->getCurrentPose(), step_height, step_time);
+			progress = leg_poser->stepToPosition(target_tip_position, model_->getCurrentPose(), step_height, step_time);
 			leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
 			//leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
 			leg->applyIK(true, params_->debug_IK.data);
-			legs_completed_task_ += int(result == 1.0);
+			legs_completed_step_ += int(progress == 100);
 		}
 	}
+	
+	// Normalise progress in terms of total procedure
+	progress = progress/2 + current_group_*50;
 
-	current_group_ = legs_completed_task_ / (num_legs/2);
+	current_group_ = legs_completed_step_ / (num_legs/2);
 
-	if (legs_completed_task_ == num_legs)
+	if (legs_completed_step_ == num_legs)
 	{
-		legs_completed_task_ = 0;
+		legs_completed_step_ = 0;
 		current_group_ = 0;
-		return true;
 	}
-	else
-	{
-		return false;
-	}
+
+	return progress;
 }
 
 /***********************************************************************************************************************
  * Steps tip positions into correct pose for leg manipulation
 ***********************************************************************************************************************/
-double PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
+int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
 {
 	Pose targetPose;
-	double progress = 0;
+	int progress = 0; //Percentage progress (0%->100%)
 	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
 	{
 		Leg* leg = leg_it_->second;
 		LegStepper* leg_stepper = leg->getLegStepper();
 		LegPoser* leg_poser = leg->getLegPoser();
 		double step_height = leg_stepper->getSwingHeight();
-		double step_time = 1.0 / params_->step_frequency.current_value;    
+		double step_time = 1.0 / params_->step_frequency.current_value;
 		if (leg->getLegState() == WALKING_TO_MANUAL)
 		{
 			targetPose = Pose::identity();
@@ -342,7 +418,7 @@ double PoseController::poseForLegManipulation(void) //Simultaneous leg coordinat
 		{
 			targetPose = model_->getCurrentPose();
 			targetPose.position_ -= manual_pose_.position_;
-			targetPose.position_ += default_pose_.position_;      
+			targetPose.position_ += default_pose_.position_;
 		}
 		Vector3d target_tip_position = targetPose.inverseTransformVector(leg_stepper->getDefaultTipPosition());
 
@@ -367,9 +443,9 @@ double PoseController::poseForLegManipulation(void) //Simultaneous leg coordinat
 /***********************************************************************************************************************
  * Unpack legs by directly moving leg joint positions simultaneously to the packed joint positions defined by parameters
 ***********************************************************************************************************************/
-bool PoseController::packLegs(double time_to_pack) //Simultaneous leg coordination
+int PoseController::packLegs(double time_to_pack) //Simultaneous leg coordination
 {
-  double progress = 0.0;
+  int progress = 0; //Percentage progress (0%->100%)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     Leg* leg = leg_it_->second;
@@ -382,15 +458,15 @@ bool PoseController::packLegs(double time_to_pack) //Simultaneous leg coordinati
     }
     progress = leg_poser->moveToJointPosition(target_joint_positions, time_to_pack);
   }
-  return progress == 1.0;
+  return progress;
 }
 
 /***********************************************************************************************************************
  * Unpack legs by directly moving leg joint positions simultaneously to the packed joint positions defined by parameters
 ***********************************************************************************************************************/
-bool PoseController::unpackLegs(double time_to_unpack) //Simultaneous leg coordination
+int PoseController::unpackLegs(double time_to_unpack) //Simultaneous leg coordination
 {
-  double progress = 0.0;
+  int progress = 0; //Percentage progress (0%->100%)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     Leg* leg = leg_it_->second;
@@ -403,7 +479,7 @@ bool PoseController::unpackLegs(double time_to_unpack) //Simultaneous leg coordi
     }
     progress = leg_poser->moveToJointPosition(target_joint_positions, time_to_unpack);
   }
-  return progress == 1.0;
+  return progress;
 }
 
 /***********************************************************************************************************************
@@ -638,11 +714,11 @@ Pose PoseController::autoCompensation(void)
   auto_pose_ = Pose::identity();  
   for (int i = 0; i < (6 / legs_in_phase); i++)
   {
-		auto_pose_.position_[0] += pitch_values[i];
-		auto_pose_.position_[1] += roll_values[i];
-    //auto_pose_.rotation_[1] += roll_values[i];
-    //auto_pose_.rotation_[2] += pitch_values[i];
-    //auto_pose_.position_[2] += z_trans_values[i];
+		//auto_pose_.position_[0] += pitch_values[i];
+		//auto_pose_.position_[1] += roll_values[i];
+    auto_pose_.rotation_[1] += roll_values[i];
+    auto_pose_.rotation_[2] += pitch_values[i];
+    auto_pose_.position_[2] += z_trans_values[i];
   }
   
   return auto_pose_;
@@ -796,7 +872,7 @@ LegPoser::LegPoser(PoseController* poser, Leg* leg)
 /***********************************************************************************************************************
  * Move joints of leg to target positions
 ***********************************************************************************************************************/
-bool LegPoser::moveToJointPosition(vector<double> target_joint_positions, double time_to_move)
+int LegPoser::moveToJointPosition(vector<double> target_joint_positions, double time_to_move)
 {
   // Setup origin and target joint positions for bezier curve
   if (first_iteration_)
@@ -847,23 +923,23 @@ bool LegPoser::moveToJointPosition(vector<double> target_joint_positions, double
 			  target_joint_positions[0], target_joint_positions[1], target_joint_positions[2]);
   }
   
-  //Return ratio of completion (1.0 when fully complete)
-  double completion_ratio = (double(master_iteration_count_ - 1) / double(num_iterations));
+  //Return percentage of progress completion (1.0 when fully complete)
+  int progress = int((double(master_iteration_count_ - 1) / double(num_iterations))*100);
   if (master_iteration_count_ >= num_iterations)
   {
     first_iteration_ = true;
-    return 1.0;
+    return 100;
   }
   else
   {
-    return completion_ratio;  
+    return progress;
   }
 }
 
 /***********************************************************************************************************************
  * Step leg tip position to target tip position
 ***********************************************************************************************************************/
-double LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose, double lift_height, double time_to_step)
+int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose, double lift_height, double time_to_step)
 {
   if (first_iteration_)
   {
@@ -948,11 +1024,11 @@ double LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose, 
   if (master_iteration_count_ >= num_iterations)
   {
     first_iteration_ = true;
-    return 1.0;
+    return 100;
   }
   else
   {
-    return completion_ratio;
+    return int(completion_ratio*100);
   }
 }
 
