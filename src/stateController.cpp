@@ -455,14 +455,15 @@ void StateController::legStateToggle()
 		else if (leg->getLegState() == WALKING_TO_MANUAL)
 		{
 			poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
-			double res = poser_->poseForLegManipulation();
-
+			int progress = poser_->poseForLegManipulation();
+			/*
 			if (params_.dynamic_stiffness.data)
 			{
 				impedance_->updateStiffness(leg, res);
 			}
+			*/
 
-			if (res == 1.0)
+			if (progress == 100)
 			{
 				leg->setLegState(MANUAL);
 				ROS_INFO("%s leg set to state: MANUAL.\n", leg->getIDName().c_str());
@@ -475,14 +476,14 @@ void StateController::legStateToggle()
 		else if (leg->getLegState() == MANUAL_TO_WALKING)
 		{
 			poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
-			double res = poser_->poseForLegManipulation();			
-
+			int progress = poser_->poseForLegManipulation();			
+			/*
 			if (params_.dynamic_stiffness.data)
 			{
 				impedance_->updateStiffness(leg, res);
 			}
-
-			if (res == 1.0)
+			*/
+			if (progress == 100)
 			{
 				leg->setLegState(WALKING);
 				ROS_INFO("%s leg set to state: WALKING.\n", leg->getIDName().c_str());
@@ -601,12 +602,6 @@ void StateController::publishBodyVelocity()
   msg.data.push_back(walker_->getDesiredLinearVelocity()[0]);
   msg.data.push_back(walker_->getDesiredLinearVelocity()[1]);
   msg.data.push_back(walker_->getDesiredAngularVelocity());
-  msg.data.push_back(-model_->getLegByIDNumber(0)->getDesiredTipVelocity()[0]);
-  msg.data.push_back(-model_->getLegByIDNumber(1)->getDesiredTipVelocity()[0]);
-  msg.data.push_back(-model_->getLegByIDNumber(2)->getDesiredTipVelocity()[0]);
-  msg.data.push_back(-model_->getLegByIDNumber(3)->getDesiredTipVelocity()[0]);
-  msg.data.push_back(-model_->getLegByIDNumber(4)->getDesiredTipVelocity()[0]);
-  msg.data.push_back(-model_->getLegByIDNumber(5)->getDesiredTipVelocity()[0]);
   body_velocity_publisher_.publish(msg);
 }
 
@@ -1273,6 +1268,7 @@ void StateController::initParameters(void)
 	params_.virtual_damping_ratio.init(n_, "virtual_damping_ratio");
 	params_.force_gain.init(n_, "force_gain");
 	params_.debug_rviz.init(n_, "debug_rviz");
+	params_.debug_rviz_static_display.init(n_, "debug_rviz_static_display");
 	params_.console_verbosity.init(n_, "console_verbosity");
 	params_.debug_moveToJointPosition.init(n_, "debug_move_to_joint_position");
 	params_.debug_stepToPosition.init(n_, "debug_step_to_position");

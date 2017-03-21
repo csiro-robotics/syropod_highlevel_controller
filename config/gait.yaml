@@ -11,9 +11,9 @@ hexapod:
     
     wave_gait:
     
-      stance_phase: 10 #16
-      swing_phase: 2 #2
-      phase_offset: 2 #3
+      stance_phase: 10
+      swing_phase: 2
+      phase_offset: 2
 
       offset_multiplier: [2,3,4,1,0,5]
 
@@ -41,9 +41,9 @@ hexapod:
 
     amble_gait:
       
-      stance_phase: 2 #7
-      swing_phase: 1 #1
-      phase_offset: 1 #3
+      stance_phase: 2
+      swing_phase: 1
+      phase_offset: 1
       
       offset_multiplier: [1,2,0,1,2,0]
       

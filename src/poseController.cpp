@@ -35,35 +35,42 @@ PoseController::PoseController(Model* model, Parameters* params)
 ***********************************************************************************************************************/
 void PoseController::updateStance(void)
 {
-  bool exclude_swinging_legs = params_->auto_compensation.data && !params_->imu_compensation.data; 
-  
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    Leg* leg = leg_it_->second;
-    LegStepper* leg_stepper = leg->getLegStepper();
-    LegPoser* leg_poser = leg->getLegPoser();
-    Pose compensation_pose = model_->getCurrentPose();
-    LegState leg_state = leg->getLegState();
-    StepState step_state = leg_stepper->getStepState();
-    
-    if (leg_state == WALKING || leg_state == MANUAL_TO_WALKING)
-    {
-      // Remove posing compensation from auto_pose for swinging legs under correct conditions
-      if (exclude_swinging_legs && step_state == SWING)
-      {
-	compensation_pose.position_ -= auto_pose_.position_;
-	compensation_pose.rotation_ *= auto_pose_.rotation_.inverse();	
-      }
-      
-      // Apply compensation pose to current walking tip position to calculate new 'posed' tip position
-      Vector3d new_tip_position = compensation_pose.inverseTransformVector(leg_stepper->getCurrentTipPosition());
-      leg_poser->setCurrentTipPosition(new_tip_position);
-    }
-    else if (leg_state == MANUAL || leg_state == WALKING_TO_MANUAL)
-    {
-      leg_poser->setCurrentTipPosition(leg_stepper->getCurrentTipPosition()); //TBD May be redundant, consider cutting
-    }
-  }
+	bool exclude_swinging_legs = params_->auto_compensation.data && !params_->imu_compensation.data; 
+
+	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+	{
+		Leg* leg = leg_it_->second;
+		LegStepper* leg_stepper = leg->getLegStepper();
+		LegPoser* leg_poser = leg->getLegPoser();
+		Pose compensation_pose = model_->getCurrentPose();
+		LegState leg_state = leg->getLegState();
+		StepState step_state = leg_stepper->getStepState();
+		
+		if (leg_state == WALKING || leg_state == MANUAL_TO_WALKING)
+		{
+			// Remove posing compensation from auto_pose for swinging legs under correct conditions
+			if (exclude_swinging_legs && step_state == SWING)
+			{
+				// Remove auto pose compensation contribution from swinging leg, on swinging leg
+				Pose modified_auto_pose = auto_pose_;
+				modified_auto_pose.position_ -= leg_poser->getSwingAutoPose().position_;
+				modified_auto_pose.rotation_ *= leg_poser->getSwingAutoPose().rotation_.inverse();
+				
+				compensation_pose.position_ -= auto_pose_.position_;
+				compensation_pose.rotation_ *= auto_pose_.rotation_.inverse();
+				compensation_pose.position_ += modified_auto_pose.position_;
+				compensation_pose.rotation_ *= modified_auto_pose.rotation_;
+			}
+			
+			// Apply compensation pose to current walking tip position to calculate new 'posed' tip position
+			Vector3d new_tip_position = compensation_pose.inverseTransformVector(leg_stepper->getCurrentTipPosition());
+			leg_poser->setCurrentTipPosition(new_tip_position);
+		}
+		else if (leg_state == MANUAL || leg_state == WALKING_TO_MANUAL)
+		{
+			leg_poser->setCurrentTipPosition(leg_stepper->getCurrentTipPosition()); //TBD May be redundant, consider cutting
+		}
+	}
 }
 
 /***********************************************************************************************************************
@@ -662,66 +669,72 @@ Pose PoseController::manualCompensation(void)
 ***********************************************************************************************************************/
 Pose PoseController::autoCompensation(void)
 {
-  double swing_height_progress = 1.0;
-  vector<double> roll_values;
-  vector<double> pitch_values;
-  vector<double> z_trans_values;
-  
-  // Turn on/off the calculation of roll/pitch/ztrans based on curent gait
-  int calculate_roll = int(params_->gait_type.data != "amble_gait");
-  int calculate_pitch = int(params_->gait_type.data != "tripod_gait" && params_->gait_type.data != "amble_gait");
-  int calculate_z_trans = int(params_->gait_type.data == "tripod_gait");
+	double swing_height_progress = 1.0;
+	vector<double> roll_values;
+	vector<double> pitch_values;
+	vector<double> z_trans_values;
 
-  //Calculate reference body length/width
-  double reference_base_link_length = model_->getLegByIDNumber(0)->getLinkByIDNumber(0)->length;
-  double reference_base_link_angle = model_->getLegByIDNumber(0)->getLinkByIDNumber(0)->angle;
-  double body_length = reference_base_link_length*cos(reference_base_link_angle);
-  double body_width = reference_base_link_length*sin(reference_base_link_angle);
-  
-  //For each leg calculate compensation values for roll, pitch & z_translation according to progress of swing
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    Leg* leg = leg_it_->second;
-    LegStepper* leg_stepper = leg->getLegStepper();
-    if (leg_stepper->getStepState() == SWING)
-    {
-      //Progress of currrent vertical tip position towards max swing height (0.0 @ initial -> 1.0 @ max swing height -> 0.0 @ final)
-      swing_height_progress = abs(leg_stepper->getCurrentTipPosition()[2] - leg_stepper->getDefaultTipPosition()[2]) / (leg_stepper->getSwingHeight());
+	// Turn on/off the calculation of roll/pitch/ztrans based on curent gait
+	int calculate_roll = int(params_->gait_type.data != "amble_gait");
+	int calculate_pitch = int(params_->gait_type.data != "tripod_gait" && params_->gait_type.data != "amble_gait");
+	int calculate_z_trans = int(params_->gait_type.data == "tripod_gait");
 
-      Link* base_link = leg->getLinkByIDNumber(0);      
-      double roll_scaler = -base_link->length*sin(base_link->angle)/body_width;
-      double pitch_scaler = -base_link->length*cos(base_link->angle)/body_length;
-      double roll_amplitude = params_->auto_compensation_parameters.data["roll"] * roll_scaler;
-      double pitch_amplitude = params_->auto_compensation_parameters.data["pitch"] * pitch_scaler;
-      double z_translation_amplitude = params_->auto_compensation_parameters.data["z_trans"];
-      roll_values.push_back(swing_height_progress * roll_amplitude * calculate_roll);
-      pitch_values.push_back(swing_height_progress * pitch_amplitude * calculate_pitch);
-      z_trans_values.push_back(swing_height_progress * z_translation_amplitude * calculate_z_trans);
-    }
-    else
-    {
-      roll_values.push_back(0.0);
-      pitch_values.push_back(0.0);
-      z_trans_values.push_back(0.0);
-    }
-  }
+	//Calculate reference body length/width
+	double reference_base_link_length = model_->getLegByIDNumber(0)->getLinkByIDNumber(0)->length;
+	double reference_base_link_angle = model_->getLegByIDNumber(0)->getLinkByIDNumber(0)->angle;
+	double body_length = reference_base_link_length*cos(reference_base_link_angle);
+	double body_width = reference_base_link_length*sin(reference_base_link_angle);
 
-  // Calculates how many legs are in phase.
-  std::vector<int> offset_multiplier = params_->offset_multiplier.data;
-  int legs_in_phase = model_->getLegCount() / (1 + *max_element(offset_multiplier.begin(), offset_multiplier.end()));
+	//For each leg calculate compensation values for roll, pitch & z_translation according to progress of swing
+	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+	{
+		Leg* leg = leg_it_->second;
+		LegStepper* leg_stepper = leg->getLegStepper();
+		LegPoser* leg_poser = leg->getLegPoser();
+		if (leg_stepper->getStepState() == SWING)
+		{
+			//Progress of currrent vertical tip position towards max swing height (0.0 @ initial -> 1.0 @ max swing height -> 0.0 @ final)
+			swing_height_progress = abs(leg_stepper->getCurrentTipPosition()[2] - leg_stepper->getDefaultTipPosition()[2]) / (leg_stepper->getSwingHeight());
 
-  // Only adds pitch/roll/zTrans values from 'lead' legs (this ensures value from 'in phase' legs is only added once).
-  auto_pose_ = Pose::identity();  
-  for (int i = 0; i < (6 / legs_in_phase); i++)
-  {
-		//auto_pose_.position_[0] += pitch_values[i];
-		//auto_pose_.position_[1] += roll_values[i];
-    auto_pose_.rotation_[1] += roll_values[i];
-    auto_pose_.rotation_[2] += pitch_values[i];
-    auto_pose_.position_[2] += z_trans_values[i];
-  }
-  
-  return auto_pose_;
+			Link* base_link = leg->getLinkByIDNumber(0);
+			double roll_scaler = -base_link->length*sin(base_link->angle)/body_width;
+			double pitch_scaler = -base_link->length*cos(base_link->angle)/body_length;
+			double roll_amplitude = params_->auto_compensation_parameters.data["roll"] * roll_scaler;
+			double pitch_amplitude = params_->auto_compensation_parameters.data["pitch"] * pitch_scaler;
+			double z_translation_amplitude = params_->auto_compensation_parameters.data["z_trans"];
+			
+			double roll_value = swing_height_progress * roll_amplitude * calculate_roll;
+			double pitch_value = swing_height_progress * pitch_amplitude * calculate_pitch;
+			double z_trans_value = swing_height_progress * z_translation_amplitude * calculate_z_trans;
+			roll_values.push_back(roll_value);
+			pitch_values.push_back(pitch_value);
+			z_trans_values.push_back(z_trans_value);
+			
+			// Store swinging leg contribution of auto_pose
+			Pose swing_auto_pose(Vector3d(0,0,z_trans_value), Quat(1.0, roll_value, pitch_value, 0.0));
+			leg_poser->setSwingAutoPose(swing_auto_pose);
+		}
+		else
+		{
+			roll_values.push_back(0.0);
+			pitch_values.push_back(0.0);
+			z_trans_values.push_back(0.0);
+		}
+	}
+
+	// Calculates how many legs are in phase.
+	std::vector<int> offset_multiplier = params_->offset_multiplier.data;
+	int legs_in_phase = model_->getLegCount() / (1 + *max_element(offset_multiplier.begin(), offset_multiplier.end()));
+
+	// Only adds pitch/roll/zTrans values from 'lead' legs (this ensures value from 'in phase' legs are only added once).
+	auto_pose_ = Pose::identity();
+	for (int i = 0; i < (6 / legs_in_phase); i++)
+	{
+		auto_pose_.rotation_[1] += roll_values[i];
+		auto_pose_.rotation_[2] += pitch_values[i];
+		auto_pose_.position_[2] += z_trans_values[i];
+	}
+	return auto_pose_;
 }
 
 /***********************************************************************************************************************
@@ -867,6 +880,8 @@ LegPoser::LegPoser(PoseController* poser, Leg* leg)
   , leg_(leg)
   , current_tip_position_(Vector3d(0,0,0))
 {
+	swing_auto_pose_.position_ = Vector3d(0,0,0);
+	swing_auto_pose_.rotation_ = Quat(1,0,0,0);
 }
 
 /***********************************************************************************************************************

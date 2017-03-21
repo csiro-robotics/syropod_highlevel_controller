@@ -75,8 +75,9 @@ void WalkController::init(void)
 		for (link_it_ = ++leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
 		{
 			Link* link = link_it_->second;
-			const Joint* joint = link->actuating_joint;   
-			joint_twist_ += joint->reference_link->twist;  
+			const Joint* joint = link->actuating_joint;
+			joint_twist_ += joint->reference_link->twist;
+			distance_to_ground += link->offset*cos(joint_twist_);
 			
 			// Find first joint able to move in x/y plane and assign a half yaw range value for the leg
 			if (abs(joint_twist_) != pi/2 && half_stance_yaw_range == UNASSIGNED_VALUE)

@@ -250,6 +250,7 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
 					point.x = stance_node[0];
 					point.y = stance_node[1];
 					point.z = stance_node[2];
+					ROS_ASSERT(point.x + point.y + point.z < 1e3); //Check that point has valid values
 					stance_nodes.points.push_back(point);
 				}
 				else if (leg_stepper->getStepState() == SWING)
@@ -258,11 +259,13 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
 					point.x = swing_1_node[0];
 					point.y = swing_1_node[1];
 					point.z = swing_1_node[2];
+					ROS_ASSERT(point.x + point.y + point.z < 1e3); //Check that point has valid values
 					swing_1_nodes.points.push_back(point);
 					Vector3d swing_2_node = odometry_pose_.transformVector(leg_stepper->getSwing2ControlNode(i));
 					point.x = swing_2_node[0];
 					point.y = swing_2_node[1];
 					point.z = swing_2_node[2];
+					ROS_ASSERT(point.x + point.y + point.z < 1e3); //Check that point has valid values
 					swing_2_nodes.points.push_back(point);
 				}
 			}
@@ -284,6 +287,7 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
 		point.x = tip_position[0];
 		point.y = tip_position[1];
 		point.z = tip_position[2];
+		ROS_ASSERT(point.x + point.y + point.z < 1e3); //Check that point has valid values
 		tip_position_history.points.push_back(point);
 	}
 	visualization_publisher_.publish(tip_position_history);

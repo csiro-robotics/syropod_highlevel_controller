@@ -249,6 +249,7 @@ struct Parameters
 	Parameter<vector<int>> offset_multiplier;
 	// Debug Parameters
 	Parameter<bool> debug_rviz;
+	Parameter<bool> debug_rviz_static_display;
 	Parameter<string> console_verbosity;
 	Parameter<bool> debug_moveToJointPosition;
 	Parameter<bool> debug_stepToPosition;

@@ -135,9 +135,11 @@ class LegPoser
     LegPoser(PoseController* poser, Leg* leg);
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
     inline Vector3d getTargetTipPosition(void) { return target_tip_position_; };
+		inline Pose getSwingAutoPose(void) { return swing_auto_pose_; };
     
     inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
     inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
+		inline void setSwingAutoPose(Pose pose) { swing_auto_pose_ = pose; };
     
     //updatePosition(void); //apply current pose to generate new tip position
     int moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
@@ -151,6 +153,8 @@ class LegPoser
     int master_iteration_count_ = 0;
     
     vector<double> origin_joint_positions_;
+		
+		Pose swing_auto_pose_;
     
     Vector3d origin_tip_position_;
     Vector3d current_tip_position_;

@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
 		//state.publishTranslationPoseError();
 		if (params->debug_rviz.data)
 		{
-			state.RVIZDebugging(true);
+			state.RVIZDebugging(params->debug_rviz_static_display.data);
 		}
 		state.publishDesiredJointState();
 		ros::spinOnce();
