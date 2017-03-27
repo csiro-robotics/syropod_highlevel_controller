@@ -24,12 +24,17 @@
 
 enum SystemState
 {
-  OFF,
+	SUSPENDED,
+	OPERATIONAL,
+};
+
+enum RobotState 
+{
+	OFF,
   PACKED,
   READY,
   RUNNING,
-  UNKNOWN = -1,
-  WAITING_FOR_USER = -2,
+	UNKNOWN = -1,
 };
 
 enum GaitDesignation

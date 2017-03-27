@@ -42,12 +42,6 @@ int main(int argc, char* argv[])
 	// Set ros rate from params
 	ros::Rate r(roundToInt(1.0 / params->time_delta.data));
 
-	// RVIZ simulation warning message
-	if (params->debug_rviz.data)
-	{
-		ROS_WARN("DEBUGGING USING RVIZ - CODE IS CPU INTENSIVE.\n");
-	}
-
 	//Check topics are correctly subscribed
 	if (!state.receivingJointStates())
 	{
@@ -72,9 +66,10 @@ int main(int argc, char* argv[])
 	}
 
 	// Wait specified time to aquire all published joint positions via callback //TBD Still needed?, consider cutting
-	int spin = 10.0 / params->time_delta.data;  // Max ros spin cycles to find joint positions
+	int spin = 5.0 / params->time_delta.data;  // Max ros spin cycles to find joint positions
 	while (spin--)
 	{
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Communicating with hardware . . .\n");
 		ros::spinOnce();
 		r.sleep();
 	}
@@ -84,41 +79,50 @@ int main(int argc, char* argv[])
 	bool use_default_joint_positions;
 	if (state.areJointPostionsInitialised())
 	{
-		start_message = "Press 'Start' to run controller . . .\n";
+		start_message = "Press 'Logitech' button to start controller . . .\n";
 		use_default_joint_positions = false;
 	}
 	else
 	{
-		start_message = "Failed to initialise joint position values!\n Press 'Start' to run controller initialising unknown joint positions to defaults . . .\n";
+		start_message = "Failed to initialise joint position values!\n Press 'Logitech' button to run controller initialising unknown joint positions to defaults . . .\n";
 		use_default_joint_positions = true;
 		//params->start_up_sequence.data = false;
 	}
 
 	// Loop waiting for start button press
-	while (!state.getUserInputFlag())
+	while (state.getSystemState() == SUSPENDED)
 	{
 		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "%s", start_message.c_str());
 		ros::spinOnce();
 		r.sleep();
 	}
+	
+	ROS_INFO("Controller started. Press START/BACK buttons to transition state of robot.\n");
 
 	state.init(); // Must be initialised before initialising model with current joint state
 	state.initModel(use_default_joint_positions);
 
 	while (ros::ok())
 	{
-		state.loop();
-		state.publishLegState();
-		state.publishPose();
-		//state.publishIMUData();
-		state.publishBodyVelocity();
-		//state.publishRotationPoseError();
-		//state.publishTranslationPoseError();
-		if (params->debug_rviz.data)
+		if  (state.getSystemState() != SUSPENDED)
 		{
-			state.RVIZDebugging(params->debug_rviz_static_display.data);
+			state.loop();
+			state.publishLegState();
+			state.publishPose();
+			//state.publishIMUData();
+			state.publishBodyVelocity();
+			//state.publishRotationPoseError();
+			//state.publishTranslationPoseError();
+			if (params->debug_rviz.data)
+			{
+				state.RVIZDebugging(params->debug_rviz_static_display.data);
+			}
+			state.publishDesiredJointState();
 		}
-		state.publishDesiredJointState();
+		else
+		{
+			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Controller suspended. Press Logitech button to resume . . .\n");
+		}
 		ros::spinOnce();
 		r.sleep();
 		state.resetDebug();

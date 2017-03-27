@@ -170,8 +170,8 @@ class LegStepper
     int phase_ = 0;
     int phase_offset_;
 
-    double swing_progress_;
-    double stance_progress_;
+    double swing_progress_ = -1.0;
+    double stance_progress_ = -1.0;
 
     StepState step_state_ = STANCE;
 

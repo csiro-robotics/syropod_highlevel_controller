@@ -40,6 +40,7 @@ public:
   
   inline Parameters* getParameters(void) { return &params_; };
   inline bool getUserInputFlag(void) { return user_input_flag_; }
+  inline SystemState getSystemState(void) { return system_state_; };
   
   inline bool receivingImuData(void) { return imu_data_subscriber_; };
   inline bool receivingTipForces(void) { return tip_force_subscriber_; };
@@ -78,6 +79,7 @@ public:
   void secondaryTipVelocityInputCallback(const geometry_msgs::Point &input);
   void bodyPoseInputCallback(const geometry_msgs::Twist &input);
   void systemStateCallback(const std_msgs::Int8 &input);
+	void robotStateCallback(const std_msgs::Int8 &input);
   void gaitSelectionCallback(const std_msgs::Int8 &input);
   void posingModeCallback(const std_msgs::Int8 &input);
   void cruiseControlCallback(const std_msgs::Int8 &input);
@@ -101,6 +103,7 @@ private:
   ros::Subscriber secondary_tip_velocity_subscriber_;
   ros::Subscriber desired_pose_subscriber_;
   ros::Subscriber system_state_subscriber_;
+	ros::Subscriber robot_state_subscriber_;
   ros::Subscriber gait_selection_subscriber_;
   ros::Subscriber posing_mode_subscriber_;
   ros::Subscriber cruise_control_mode_subscriber_;
@@ -131,8 +134,11 @@ private:
   DebugOutput debug_;
   Parameters params_;
 
-  SystemState system_state_ = WAITING_FOR_USER;
-  SystemState new_system_state_ = WAITING_FOR_USER;
+  SystemState system_state_ = SUSPENDED;
+	SystemState new_system_state_ = SUSPENDED;
+	
+	RobotState robot_state_ = UNKNOWN;
+  RobotState new_robot_state_ = UNKNOWN;
 
   GaitDesignation gait_selection_ = GAIT_UNDESIGNATED;
   PosingMode posing_mode_ = NO_POSING;

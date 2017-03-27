@@ -74,7 +74,7 @@ hexapod:
     gait_type: wave_gait
     step_frequency: {default: 0.09, min: 0.001, max: 0.200, step: 0.01} #Reconfigurable
     step_clearance: {default: 0.15, min: 0.05, max: 1.0, step: 0.01} #Reconfigurable
-    step_depth: 0.00 #0.025
+    step_depth: 0.025 #0.025
     body_clearance: {default: 1.0, min: 0.5, max: 2.0, step: 0.1} #Reconfigurable
     leg_span: {default: 1.0, min: 0.7, max: 0.8, step: 0.01} #Reconfigurable
     velocity_input_mode: throttle #real    

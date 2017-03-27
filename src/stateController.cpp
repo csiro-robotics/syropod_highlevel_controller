@@ -17,6 +17,7 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
 	secondary_tip_velocity_subscriber_ = n_.subscribe("hexapod_remote/secondary_tip_velocity", 1, &StateController::secondaryTipVelocityInputCallback, this);
 	desired_pose_subscriber_ = n_.subscribe("hexapod_remote/desired_pose", 1, &StateController::bodyPoseInputCallback, this);
 	system_state_subscriber_ = n_.subscribe("hexapod_remote/system_state", 1, &StateController::systemStateCallback, this);
+	robot_state_subscriber_ = n.subscribe("hexapod_remote/robot_state", 1, &StateController::robotStateCallback, this);
 	gait_selection_subscriber_ = n_.subscribe("hexapod_remote/gait_selection", 1, &StateController::gaitSelectionCallback, this);
 	posing_mode_subscriber_ = n_.subscribe("hexapod_remote/posing_mode", 1, &StateController::posingModeCallback, this);
 	cruise_control_mode_subscriber_ = n_.subscribe("hexapod_remote/cruise_control_mode", 1, &StateController::cruiseControlCallback, this);
@@ -107,7 +108,7 @@ void StateController::init()
 	walker_ = new WalkController(model_, &params_);
 	impedance_ = new ImpedanceController(model_, &params_);
 
-	system_state_ = UNKNOWN;
+	robot_state_ = UNKNOWN;
 }
 
 /***********************************************************************************************************************
@@ -116,7 +117,7 @@ void StateController::init()
 void StateController::loop()
 {
 	// Compensation - updates currentPose for body compensation
-	if (system_state_ != UNKNOWN)
+	if (robot_state_ != UNKNOWN)
 	{
 		poser_->updateCurrentPose(walker_->getBodyHeight());
 
@@ -132,7 +133,7 @@ void StateController::loop()
 	{
 		transitionSystemState();
 	}
-	else if (system_state_ == RUNNING)
+	else if (robot_state_ == RUNNING)
 	{
 		runningState();
 	}
@@ -165,7 +166,7 @@ void StateController::impedanceControl()
 void StateController::transitionSystemState()
 {
 	// UNKNOWN -> OFF/PACKED/READY/RUNNING  if (systemState == UNKNOWN)
-	if (system_state_ == UNKNOWN)
+	if (robot_state_ == UNKNOWN)
 	{
 		int legs_packed = 0;
 		for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -190,88 +191,88 @@ void StateController::transitionSystemState()
 			}
 			else
 			{
-				system_state_ = PACKED;
+				robot_state_ = PACKED;
 				ROS_INFO("Hexapod currently packed.\n");
 			}
 		}
 		else if (!params_.start_up_sequence.data)
 		{
 			ROS_WARN("start_up_sequence parameter is set to false, ensure hexapod is off the ground before transitioning system state.\n");
-			system_state_ = OFF;
+			robot_state_ = OFF;
 		}
 		else
 		{
-			system_state_ = PACKED;
+			robot_state_ = OFF;
 			ROS_WARN("Hexapod state is unknown. Future state transitions may be undesireable, recommend ensuring hexapod is off the ground before proceeding.\n");
 		}
 	}
 	// OFF -> !OFF (Start controller or directly transition to walking stance)
-	else if (system_state_ == OFF && new_system_state_ != OFF)
+	else if (robot_state_ == OFF && new_robot_state_ != OFF)
 	{
 		// OFF -> RUNNING (Direct startup)
-		if (new_system_state_ == RUNNING && !params_.start_up_sequence.data)
+		if (new_robot_state_ == RUNNING && !params_.start_up_sequence.data)
 		{
 			int progress = poser_->directStartup();
 			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning directly to RUNNING state (%d%%). . .\n", progress);
 			if (progress == 100)
 			{
-				system_state_ = RUNNING;
+				robot_state_ = RUNNING;
 				ROS_INFO("Direct startup sequence complete. Ready to walk.\n");
 			}
 		}
 		// OFF -> PACKED/READY/RUNNING (Start controller)
 		else
 		{
-			system_state_ = PACKED;
+			robot_state_ = PACKED;
 			ROS_INFO("Controller running.\n");
 		}
 	}
 	// PACKED -> OFF (Suspend controller)
-	else if (system_state_ == PACKED && new_system_state_ == OFF)
+	else if (robot_state_ == PACKED && new_robot_state_ == OFF)
 	{
-		system_state_ = OFF;
+		robot_state_ = OFF;
 		ROS_INFO("Controller suspended.\n");
 	}
 	// PACKED -> READY/RUNNING (Unpack Hexapod)
-	else if (system_state_ == PACKED && (new_system_state_ == READY || new_system_state_ == RUNNING))
+	else if (robot_state_ == PACKED && (new_robot_state_ == READY || new_robot_state_ == RUNNING))
 	{
 		int progress = poser_->unpackLegs(2.0 / params_.step_frequency.current_value);
 		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state (%d%%). . .\n", progress);
 		if (progress == 100) //100% complete
 		{
-			system_state_ = READY;
+			robot_state_ = READY;
 			ROS_INFO("State transition complete. Hexapod is in READY state.\n");
 		}
 	}
 	// READY -> PACKED/OFF (Pack Hexapod)
-	else if (system_state_ == READY && (new_system_state_ == PACKED || new_system_state_ == OFF))
+	else if (robot_state_ == READY && (new_robot_state_ == PACKED || new_robot_state_ == OFF))
 	{		
 		int progress = poser_->packLegs(2.0 / params_.step_frequency.current_value);
 		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to PACKED state (%d%%). . .\n", progress);
 		if (progress == 100) //100% complete
 		{
-			system_state_ = PACKED;
+			robot_state_ = PACKED;
 			ROS_INFO("State transition complete. Hexapod is in PACKED state.\n");
 		}
 	}
 	// READY -> RUNNING (Initate start up sequence to step to walking stance)
-	else if (system_state_ == READY && new_system_state_ == RUNNING)
+	else if (robot_state_ == READY && new_robot_state_ == RUNNING)
 	{		
 		int progress = poser_->startUpSequence();
 		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to RUNNING state (%d%%). . .\n", progress);
 		if (progress == 100) //100% complete
 		{
-			system_state_ = RUNNING;
+			robot_state_ = RUNNING;
 			ROS_INFO("State transition complete. Hexapod is in RUNNING state. Ready to walk.\n");
 		}
 	}
 	// RUNNING -> !RUNNING (Initiate shut down sequence to step from walking stance to ready stance or suspend controller)
-	else if (system_state_ == RUNNING && new_system_state_ != RUNNING)
+	else if (robot_state_ == RUNNING && new_robot_state_ != RUNNING)
 	{
 		// RUNNING -> OFF (Suspend controller)
-		if (new_system_state_ == OFF && !params_.start_up_sequence.data)
+		if (new_robot_state_ == OFF && !params_.start_up_sequence.data)
 		{
-			system_state_ = OFF;
+			robot_state_ = OFF;
 			ROS_INFO("Controller suspended.\n");
 		}
 		else
@@ -280,7 +281,7 @@ void StateController::transitionSystemState()
 			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state (%d%%). . .\n", progress);
 			if (progress == 100) //100% complete
 			{
-				system_state_ = READY;
+				robot_state_ = READY;
 				ROS_INFO("State transition complete. Hexapod is in READY state.\n");
 			}
 		}
@@ -293,7 +294,7 @@ void StateController::transitionSystemState()
 	}
 
 	// Transition complete
-	if (system_state_ == new_system_state_)
+	if (robot_state_ == new_robot_state_)
 	{
 		transition_state_flag_ = false;
 	}
@@ -722,7 +723,7 @@ void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Poi
 ***********************************************************************************************************************/
 void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &input)
 {
-  if (system_state_ != WAITING_FOR_USER)
+  if (system_state_ != SUSPENDED && poser_ != NULL)
   {
     Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
     Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
@@ -735,32 +736,40 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &input)
 ***********************************************************************************************************************/
 void StateController::systemStateCallback(const std_msgs::Int8 &input)
 {
-  SystemState input_state = static_cast<SystemState>(int(input.data));
-  //Get initial system state from input and don't update until new state received
-  if (new_system_state_ == WAITING_FOR_USER)
-  {
-    new_system_state_ = input_state; 
-  }  
-  // Wait for user input (start button = new state received)
-  else if (system_state_ == WAITING_FOR_USER && new_system_state_ != input_state)
-  {
-    new_system_state_ = input_state; //Update 
-    user_input_flag_ = true;
-  }  
-  // If startUpSequence parameter is false then skip READY and PACKED states
-  else if (system_state_ != WAITING_FOR_USER)
-  {		
-    new_system_state_ = input_state;
-		if (!params_.start_up_sequence.data)
+  new_system_state_ = static_cast<SystemState>(int(input.data));
+	if (system_state_ != new_system_state_)
+	{
+		system_state_ = new_system_state_;
+		if (system_state_ == OPERATIONAL && robot_state_ != UNKNOWN)
 		{
-			if (new_system_state_ == READY || new_system_state_ == PACKED)
-			{
-				new_system_state_ = OFF;
-			}
+			ROS_INFO("Controller operation resumed.");
 		}
-  }
+	}
+}
 
-  if (new_system_state_ != system_state_ && system_state_ != WAITING_FOR_USER)
+/***********************************************************************************************************************
+ * System state callback handling desired system state from hexapod_remote
+***********************************************************************************************************************/
+void StateController::robotStateCallback(const std_msgs::Int8 &input)
+{
+  RobotState input_state = static_cast<RobotState>(int(input.data));
+  // If startUpSequence parameter is false then skip READY and PACKED states
+	new_robot_state_ = input_state;
+	if (!params_.start_up_sequence.data)
+	{
+		if (new_robot_state_ == READY)
+		{
+			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSystem not able to transition to READY state, parameter start_up_sequence is false.\nPress START to skip this state and attempt to transition to the next.\n");
+			new_robot_state_ = OFF;
+		}
+		else if (new_robot_state_ == PACKED)
+		{
+			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSystem not able to transition to PACKED state, parameter start_up_sequence is false.\nPress START to skip this state and attempt to transition to the next.\n");
+			new_robot_state_ = OFF;			
+		}
+	}
+
+  if (new_robot_state_ != robot_state_)
   {
     transition_state_flag_ = true;
   }
@@ -771,7 +780,7 @@ void StateController::systemStateCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ == RUNNING)
+  if (robot_state_ == RUNNING)
   {
     GaitDesignation new_gait_selection = static_cast<GaitDesignation>(int(input.data));
     if (new_gait_selection != gait_selection_ && new_gait_selection != GAIT_UNDESIGNATED)
@@ -787,7 +796,7 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::posingModeCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ == RUNNING)
+  if (robot_state_ == RUNNING)
   {
     PosingMode new_posing_mode = static_cast<PosingMode>(int(input.data));
     if (new_posing_mode != posing_mode_)
@@ -821,7 +830,7 @@ void StateController::posingModeCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ == RUNNING)
+  if (robot_state_ == RUNNING)
   {
     CruiseControlMode new_cruise_control_mode = static_cast<CruiseControlMode>(int(input.data));
     if (new_cruise_control_mode != cruise_control_mode_)
@@ -858,7 +867,7 @@ void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::autoNavigationCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ == RUNNING)
+  if (robot_state_ == RUNNING)
   {
     AutoNavigationMode new_auto_navigation_mode = static_cast<AutoNavigationMode>(int(input.data));
     if (new_auto_navigation_mode != auto_navigation_mode_)
@@ -876,7 +885,7 @@ void StateController::autoNavigationCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ == RUNNING)
+  if (robot_state_ == RUNNING)
   {
     ParameterSelection new_parameter_selection = static_cast<ParameterSelection>(int(input.data));
     if (new_parameter_selection != parameter_selection_)
@@ -900,7 +909,7 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
 {
-	if (system_state_ == RUNNING)
+	if (robot_state_ == RUNNING)
 	{
 		int adjust_direction = input.data; // -1 || 0 || 1 (Increase, no adjustment, decrease)
 		if (adjust_direction != 0.0 && !parameter_adjust_flag_ && parameter_selection_ != NO_PARAMETER_SELECTION)
@@ -922,7 +931,7 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::dynamicParameterCallback(simple_hexapod_controller::DynamicConfig &config, uint32_t level)
 {
-	if (system_state_ == RUNNING)
+	if (robot_state_ == RUNNING)
 	{		
 		parameter_adjust_flag_ = true;
 		if (config.step_frequency != params_.step_frequency.current_value)
@@ -986,7 +995,7 @@ void StateController::dynamicParameterCallback(simple_hexapod_controller::Dynami
 ***********************************************************************************************************************/
 void StateController::poseResetCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ != WAITING_FOR_USER)
+  if (system_state_ != SUSPENDED && poser_ != NULL)
   {
     if (poser_->getPoseResetMode() != IMMEDIATE_ALL_RESET)
     {
@@ -1000,7 +1009,7 @@ void StateController::poseResetCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::primaryLegSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ == RUNNING)
+  if (robot_state_ == RUNNING)
   {
     LegDesignation new_primary_leg_selection = static_cast<LegDesignation>(input.data);
     if (primary_leg_selection_ != new_primary_leg_selection)
@@ -1024,23 +1033,23 @@ void StateController::primaryLegSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::secondaryLegSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ == RUNNING)
-  {
-    LegDesignation new_secondary_leg_selection = static_cast<LegDesignation>(input.data);
-    if (secondary_leg_selection_ != new_secondary_leg_selection)
-    {
-      secondary_leg_selection_ = new_secondary_leg_selection;
-      if (new_secondary_leg_selection != LEG_UNDESIGNATED)
-      {
-	secondary_leg_ = model_->getLegByIDNumber(secondary_leg_selection_);
-	ROS_INFO("%s leg selected for secondary control.\n", secondary_leg_->getIDName().c_str());        
-      }
-      else
-      {
-	ROS_INFO("No leg currently selected for secondary control.\n");        
-      }      
-    }
-  }
+	if (robot_state_ == RUNNING)
+	{
+		LegDesignation new_secondary_leg_selection = static_cast<LegDesignation>(input.data);
+		if (secondary_leg_selection_ != new_secondary_leg_selection)
+		{
+			secondary_leg_selection_ = new_secondary_leg_selection;
+			if (new_secondary_leg_selection != LEG_UNDESIGNATED)
+			{
+				secondary_leg_ = model_->getLegByIDNumber(secondary_leg_selection_);
+				ROS_INFO("%s leg selected for secondary control.\n", secondary_leg_->getIDName().c_str());
+			}
+			else
+			{
+				ROS_INFO("No leg currently selected for secondary control.\n");
+			}
+		}
+	}
 }
 
 /***********************************************************************************************************************
@@ -1048,7 +1057,7 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ == RUNNING)
+  if (robot_state_ == RUNNING)
   {
     LegState newPrimaryLegState = static_cast<LegState>(int(input.data));
     if (newPrimaryLegState != primary_leg_state_)
@@ -1078,7 +1087,7 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
 ***********************************************************************************************************************/
 void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ == RUNNING)
+  if (robot_state_ == RUNNING)
   {
     LegState newSecondaryLegState = static_cast<LegState>(int(input.data));
     if (newSecondaryLegState != secondary_leg_state_)

@@ -691,6 +691,7 @@ Pose PoseController::autoCompensation(void)
 		Leg* leg = leg_it_->second;
 		LegStepper* leg_stepper = leg->getLegStepper();
 		LegPoser* leg_poser = leg->getLegPoser();
+		
 		if (leg_stepper->getStepState() == SWING)
 		{
 			//Progress of currrent vertical tip position towards max swing height (0.0 @ initial -> 1.0 @ max swing height -> 0.0 @ final)
