@@ -1,0 +1,89 @@
+######################################################################
+# Auto Pose Compensation Parameters
+######################################################################
+
+hexapod:
+  auto_pose_parameters:
+
+######################################################################
+
+    wave_gait_pose:
+
+      pose_frequency: -1.0 # sync with step cycle
+      pose_phase_length: 12
+      pose_phase_starts: [5, 7, 9, 11, 1, 3] #Per phase (step order: AR,CL,BL,AL,CR,BR)
+      pose_phase_ends:   [7, 9, 11, 1, 3, 5]
+
+      #Per leg (leg order: AR,BR,CR,CL,BL,AL)
+      pose_negation_phase_starts: [5, 3, 1, 7, 9, 11]
+      pose_negation_phase_ends:   [7, 5, 3, 9, 11, 1]
+
+      x_amplitudes:     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      y_amplitudes:     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      z_amplitudes:     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      roll_amplitudes:  [-0.015, 0.015, 0.015, 0.015, -0.015, -0.015]
+      pitch_amplitudes: [-0.02, 0.02, 0.00, -0.02, 0.02, 0.00]
+      yaw_amplitudes:   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+######################################################################
+
+    tripod_gait_pose:
+
+      pose_frequency: -1.0 # sync with step cycle
+      pose_phase_length: 4
+      pose_phase_starts: [1, 3] #Per phase (step order: AR/BL/CR,AL/BR/CL)
+      pose_phase_ends: [3, 1]
+
+      #Per leg (leg order: AR,BR,CR,CL,BL,AL)
+      pose_negation_phase_starts: [1, 3, 1, 3, 1, 3]
+      pose_negation_phase_ends: [3, 1, 3, 1, 3, 1]
+
+      x_amplitudes: [0.0, 0.0]
+      y_amplitudes: [0.0, 0.0]
+      z_amplitudes: [0.02, 0.02]
+      roll_amplitudes: [-0.015, 0.015]
+      pitch_amplitudes: [0.0, 0.0]
+      yaw_amplitudes: [0.0, 0.0]
+
+######################################################################
+
+    ripple_gait_pose:
+
+      pose_frequency: -1.0 # sync with step cycle
+      pose_phase_length: 6
+      pose_phase_starts: [2, 3, 4, 5, 0, 1] #Per phase (step order: AR,CL,BR,AL,CR,BL)
+      pose_phase_ends: [4, 5, 0, 1, 2, 3]
+
+      #Per leg (leg order: AR,BR,CR,CL,BL,AL)
+      pose_negation_phase_starts: [2, 4, 0, 3, 1, 5]
+      pose_negation_phase_ends: [4, 0, 2, 5, 3, 1]
+
+      x_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      y_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      z_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      roll_amplitudes: [-0.015, 0.015, -0.015, 0.015, -0.015, 0.015]
+      pitch_amplitudes: [-0.02, 0.02, 0.00, -0.02, 0.02, 0.0]
+      yaw_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+######################################################################
+
+    amble_gait_pose:
+
+      pose_frequency: -1.0 # sync with step cycle
+      pose_phase_length: 3
+      pose_phase_starts: [1, 2, 0] #Per phase (step order: AR/CL,BR/BL,AL/CR)
+      pose_phase_ends: [2, 0, 1]
+
+      #Per leg (leg order: AR,BR,CR,CL,BL,AL)
+      pose_negation_phase_starts: [1, 2, 0, 1, 2, 0]
+      pose_negation_phase_ends: [2, 0, 1, 2, 0, 1]
+
+      x_amplitudes: [0.0, 0.0, 0.0]
+      y_amplitudes: [0.0, 0.0, 0.0]
+      z_amplitudes: [0.0, 0.0, 0.0]
+      roll_amplitudes: [0.0, 0.0, 0.0]
+      pitch_amplitudes: [0.0, 0.0, 0.0]
+      yaw_amplitudes: [0.0, 0.0, 0.0]
+
+######################################################################
+######################################################################
