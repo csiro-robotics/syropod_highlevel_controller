@@ -6,46 +6,54 @@
 
 hexapod:
   gait_parameters:
-  
+
 ######################################################################
-    
+
+    # Step order: AR,CL,BL,AL,CR,BR
     wave_gait:
-    
+
       stance_phase: 10
       swing_phase: 2
       phase_offset: 2
 
+      #In leg order (AR,BR,CR,CL,BL,AL)
       offset_multiplier: [2,3,4,1,0,5]
 
 ######################################################################
 
+    # Step order: AR/BL/CR,AL/BR/CL
     tripod_gait:
-    
+
       stance_phase: 2
       swing_phase: 2
       phase_offset: 2
 
+      #In leg order (AR,BR,CR,CL,BL,AL)
       offset_multiplier: [0,1,0,1,0,1]
 
 ######################################################################
 
+    # Step order: AR,CL,BR,AL,CR,BL (overlapping)
     ripple_gait:
-    
+
       stance_phase: 4
       swing_phase: 2
-      phase_offset: 1  
+      phase_offset: 1 
 
+      #In leg order (AR,BR,CR,CL,BL,AL)
       offset_multiplier: [2,0,4,1,3,5]
-  
+
 ######################################################################
 
+    # Step order: AR/CL,BR/BL,AL/CR
     amble_gait:
-      
+
       stance_phase: 2
       swing_phase: 1
       phase_offset: 1
-      
+
+      #In leg order (AR,BR,CR,CL,BL,AL)
       offset_multiplier: [1,2,0,1,2,0]
-      
+
 ######################################################################
 ######################################################################

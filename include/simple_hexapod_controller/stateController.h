@@ -50,7 +50,8 @@ public:
   // Initialisation functions  
   void init(void);
   void initParameters(void);
-  void initGaitParameters(GaitDesignation gaitSelection);  
+  void initGaitParameters(GaitDesignation gaitSelection);
+	void initAutoPoseParameters(void);
   void initModel(bool use_default_joint_positions = false);
   void resetDebug(void) { debug_.reset(); };
 

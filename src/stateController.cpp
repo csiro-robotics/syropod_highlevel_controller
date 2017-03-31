@@ -104,8 +104,8 @@ void StateController::init()
 	}
 
 	// Create controller objects
-	poser_ = new PoseController(model_, &params_);
 	walker_ = new WalkController(model_, &params_);
+	poser_ = new PoseController(model_, &params_);
 	impedance_ = new ImpedanceController(model_, &params_);
 
 	robot_state_ = UNKNOWN;
@@ -119,7 +119,7 @@ void StateController::loop()
 	// Compensation - updates currentPose for body compensation
 	if (robot_state_ != UNKNOWN)
 	{
-		poser_->updateCurrentPose(walker_->getBodyHeight());
+		poser_->updateCurrentPose(walker_->getBodyHeight(), walker_->getWalkState());
 
 		// Impedance control - updates deltaZ values
 		if (params_.impedance_control.data)
@@ -400,6 +400,11 @@ void StateController::changeGait(void)
 	{
 		initGaitParameters(gait_selection_);
 		walker_->setGaitParams(&params_);
+		if (params_.auto_compensation.data && params_.auto_pose_type.data == "auto")
+		{
+			initAutoPoseParameters();
+			poser_->setAutoPoseParams();
+		}		
 		ROS_INFO("Now using %s mode.\n", params_.gait_type.data.c_str());
 		gait_change_flag_ = false;
 	}
@@ -568,6 +573,14 @@ void StateController::publishLegState()
     // Step progress
     msg.swing_progress.data = leg_stepper->getSwingProgress();
     msg.stance_progress.data = leg_stepper->getStanceProgress();
+		
+		// Negation pose
+		msg.negation_pose.linear.x = leg_poser->getNegationPose().position_[0];
+		msg.negation_pose.linear.y = leg_poser->getNegationPose().position_[1];
+		msg.negation_pose.linear.z = leg_poser->getNegationPose().position_[2];
+		msg.negation_pose.angular.x = leg_poser->getNegationPose().rotation_.toEulerAngles()[0];
+		msg.negation_pose.angular.y = leg_poser->getNegationPose().rotation_.toEulerAngles()[1];
+		msg.negation_pose.angular.z = leg_poser->getNegationPose().rotation_.toEulerAngles()[2];
 
     // Impedance controller
     msg.tip_force.x = leg->getTipForce()[0];
@@ -1256,6 +1269,7 @@ void StateController::initParameters(void)
 	params_.linear_cruise_velocity.init(n_, "linear_cruise_velocity");
 	params_.angular_cruise_velocity.init(n_, "angular_cruise_velocity");
 	// Pose controller parameters
+	params_.auto_pose_type.init(n_, "auto_pose_type");
 	params_.start_up_sequence.init(n_, "start_up_sequence");
 	params_.time_to_start.init(n_, "time_to_start");
 	params_.rotation_pid_gains.init(n_, "rotation_pid_gains");
@@ -1266,6 +1280,7 @@ void StateController::initParameters(void)
 	params_.max_rotation.init(n_, "max_rotation");
 	params_.max_rotation_velocity.init(n_, "max_rotation_velocity");
 	params_.leg_manipulation_mode.init(n_, "leg_manipulation_mode");
+	
 	// Impedance controller parameters
 	params_.dynamic_stiffness.init(n_, "dynamic_stiffness");
 	params_.use_joint_effort.init(n_, "use_joint_effort");
@@ -1357,6 +1372,7 @@ void StateController::initParameters(void)
 	dynamic_reconfigure_server_->updateConfig(config_default);
 
 	initGaitParameters(GAIT_UNDESIGNATED);
+	initAutoPoseParameters();
 }
 
 /***********************************************************************************************************************
@@ -1388,6 +1404,35 @@ void StateController::initGaitParameters(GaitDesignation gaitSelection)
 	params_.swing_phase.init(n_, "swing_phase", base_gait_parameters_name + params_.gait_type.data + "/");
 	params_.phase_offset.init(n_, "phase_offset", base_gait_parameters_name + params_.gait_type.data + "/");
 	params_.offset_multiplier.init(n_, "offset_multiplier", base_gait_parameters_name + params_.gait_type.data + "/");
+}
+
+/***********************************************************************************************************************
+ * Gets hexapod auto pose parameters from rosparam server
+***********************************************************************************************************************/
+void StateController::initAutoPoseParameters(void)
+{
+	string base_auto_pose_parameters_name = "/hexapod/auto_pose_parameters/";
+	if (params_.auto_pose_type.data == "auto")
+	{
+		base_auto_pose_parameters_name += (params_.gait_type.data + "_pose/");
+	}
+	else
+	{
+		base_auto_pose_parameters_name += params_.auto_pose_type.data;
+	}
+
+	params_.pose_frequency.init(n_, "pose_frequency", base_auto_pose_parameters_name);
+	params_.pose_phase_length.init(n_, "pose_phase_length", base_auto_pose_parameters_name);
+	params_.pose_phase_starts.init(n_, "pose_phase_starts", base_auto_pose_parameters_name);
+	params_.pose_phase_ends.init(n_, "pose_phase_ends", base_auto_pose_parameters_name);
+	params_.pose_negation_phase_starts.init(n_, "pose_negation_phase_starts", base_auto_pose_parameters_name);
+	params_.pose_negation_phase_ends.init(n_, "pose_negation_phase_ends", base_auto_pose_parameters_name);
+	params_.x_amplitudes.init(n_, "x_amplitudes", base_auto_pose_parameters_name);
+	params_.y_amplitudes.init(n_, "y_amplitudes", base_auto_pose_parameters_name);
+	params_.z_amplitudes.init(n_, "z_amplitudes", base_auto_pose_parameters_name);
+	params_.roll_amplitudes.init(n_, "roll_amplitudes", base_auto_pose_parameters_name);
+	params_.pitch_amplitudes.init(n_, "pitch_amplitudes", base_auto_pose_parameters_name);
+	params_.yaw_amplitudes.init(n_, "yaw_amplitudes", base_auto_pose_parameters_name);
 }
 /***********************************************************************************************************************
 ***********************************************************************************************************************/

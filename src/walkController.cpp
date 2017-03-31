@@ -353,12 +353,14 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   if (walk_state_ == STOPPED && has_velocity_command)
   {
     walk_state_ = STARTING;
-    std::map<int, Leg*>::iterator leg_it_;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
       Leg* leg = leg_it_->second;
       LegStepper* leg_stepper = leg->getLegStepper();
       leg_stepper->setPhase(leg_stepper->getPhaseOffset() - 1);
+			leg_stepper->setAtCorrectPhase(false);
+			leg_stepper->setCompletedFirstStep(false);
+			leg_stepper->setStepState(STANCE);
     }
   }
   // State transition: STARTING->MOVING
@@ -380,90 +382,99 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
     walk_state_ = STOPPED;
   }
 
-  // Robot State Machine    
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    Leg* leg = leg_it_->second;
-    LegStepper* leg_stepper = leg->getLegStepper();    
-
-    if (walk_state_ == STARTING)
-    {
-      leg_stepper->iteratePhase();
-
-      // Check if all legs have completed one step
-      if (legs_at_correct_phase_ == num_legs)
-      {
-	if (leg_stepper->getPhase() == swing_end_ && !leg_stepper->hasCompletedFirstStep())
+	// Robot State Machine    
+	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
 	{
-	  leg_stepper->setCompletedFirstStep(true);
-	  legs_completed_first_step_++;
-	}
-      }
+		Leg* leg = leg_it_->second;
+		LegStepper* leg_stepper = leg->getLegStepper();    
 
-      // Force any leg state into STANCE if it starts offset in a mid-swing state
-      if (!leg_stepper->isAtCorrectPhase())
-      {
-	if (leg_stepper->getPhaseOffset() > swing_start_ && leg_stepper->getPhaseOffset() < swing_end_)  // SWING STATE
-	{
-	  if (leg_stepper->getPhase() == swing_end_)
-	  {
-	    legs_at_correct_phase_++;
-	    leg_stepper->setAtCorrectPhase(true);
-	  }
-	  else
-	  {
-	    leg_stepper->setStepState(FORCE_STANCE);
-	  }
-	}
-	else
-	{
-	  legs_at_correct_phase_++;
-	  leg_stepper->setAtCorrectPhase(true);
-	}
-      }
-    }
-    else if (walk_state_ == STOPPING)
-    {
-      if (!leg_stepper->isAtCorrectPhase())
-      {
-	leg_stepper->iteratePhase();
+		if (walk_state_ == STARTING)
+		{
+			leg_stepper->iteratePhase();
 
-	// Reference leg (AL) only "meets target" after completing extra step AND returning to zero phase
-	if (leg->getIDNumber() == 0 && leg_stepper->getStepState() == FORCE_STOP && leg_stepper->getPhase() == 0)
-	{
-	  leg_stepper->setAtCorrectPhase(true);
-	  legs_at_correct_phase_++;
-	  leg_stepper->setStepState(STANCE);
-	}
-      }
+			// Check if all legs have completed one step
+			if (legs_at_correct_phase_ == num_legs)
+			{
+				if (leg_stepper->getPhase() == swing_end_ && !leg_stepper->hasCompletedFirstStep())
+				{
+					leg_stepper->setCompletedFirstStep(true);
+					legs_completed_first_step_++;
+				}
+			}
 
-      // All legs (except reference leg) must make one extra step after receiving stopping signal
-      if (leg_stepper->getStrideVector().norm() == 0 && leg_stepper->getPhase() == swing_end_)
-      {
-	leg_stepper->setStepState(FORCE_STOP);
-	if (leg->getIDNumber() != 0)
-	{
-	  if (!leg_stepper->isAtCorrectPhase())
-	  {
-	    leg_stepper->setAtCorrectPhase(true);
-	    legs_at_correct_phase_++;
-	  }
+			// Force any leg state into STANCE if it starts offset in a mid-swing state
+			if (!leg_stepper->isAtCorrectPhase())
+			{
+				if (leg_stepper->getPhaseOffset() > swing_start_ && leg_stepper->getPhaseOffset() < swing_end_)  // SWING STATE
+				{
+					if (leg_stepper->getPhase() == swing_end_)
+					{
+						legs_at_correct_phase_++;
+						leg_stepper->setAtCorrectPhase(true);
+					}
+					else
+					{
+						leg_stepper->setStepState(FORCE_STANCE);
+					}
+				}
+				else
+				{
+					legs_at_correct_phase_++;
+					leg_stepper->setAtCorrectPhase(true);
+				}
+			}
+		}
+		else if (walk_state_ == STOPPING)
+		{
+			bool perform_final_step = (legs_at_correct_phase_ == num_legs-1);
+			
+			// Reset phase and state for final step
+			if (perform_final_step && leg_stepper->getStepState() == FORCE_STOP && leg->getIDNumber() == 0)
+			{
+				leg_stepper->setPhase(swing_start_);
+				leg_stepper->setStepState(STANCE);
+			}
+			
+			// Iterate phase if correct phase has not been met or if performing final step
+			if (!leg_stepper->isAtCorrectPhase() || perform_final_step)
+			{
+				leg_stepper->iteratePhase();
+			}
+
+			// All legs (except reference leg) must make one extra step after receiving stopping signal
+			if (leg_stepper->getStrideVector().norm() == 0 && leg_stepper->getPhase() == swing_end_)
+			{
+				leg_stepper->setStepState(FORCE_STOP);
+				if (leg->getIDNumber() != 0)
+				{
+					if (!leg_stepper->isAtCorrectPhase())
+					{
+						leg_stepper->setAtCorrectPhase(true);
+						legs_at_correct_phase_++;
+					}
+				}
+				// Only after the final simultaneous step is the reference leg at correct phase
+				else if (perform_final_step)
+				{
+					if (!leg_stepper->isAtCorrectPhase())
+					{
+						leg_stepper->setAtCorrectPhase(true);
+						legs_at_correct_phase_++;
+					}
+				}
+			}
+		}
+		else if (walk_state_ == MOVING)
+		{
+			leg_stepper->iteratePhase();
+			leg_stepper->setAtCorrectPhase(false);
+		}
+		else if (walk_state_ == STOPPED)
+		{
+			leg_stepper->iteratePhase();
+			leg_stepper->setStepState(FORCE_STOP);
+		}
 	}
-      }
-    }
-    else if (walk_state_ == MOVING)
-    {
-      leg_stepper->iteratePhase();
-      leg_stepper->setAtCorrectPhase(false);
-    }
-    else if (walk_state_ == STOPPED)
-    {
-      leg_stepper->setAtCorrectPhase(false);
-      leg_stepper->setCompletedFirstStep(false);
-      leg_stepper->setPhase(0);
-      leg_stepper->setStepState(STANCE);
-    }
-  }
   
   // Step State Machine
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)

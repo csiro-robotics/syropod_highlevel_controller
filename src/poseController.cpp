@@ -21,12 +21,50 @@ PoseController::PoseController(Model* model, Parameters* params)
   translation_acceleration_error_ = Vector3d(0, 0, 0);
   
   inclination_compensation_offset_ = Vector3d(0,0,0);
-  
+
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     Leg* leg = leg_it_->second;
     leg->setLegPoser(new LegPoser(this, leg));
-  }  
+  }
+  
+	setAutoPoseParams();
+}
+
+/***********************************************************************************************************************
+ * Pose controller contructor
+***********************************************************************************************************************/
+void PoseController::setAutoPoseParams(void)
+{
+	double raw_phase_length;
+	int base_phase_length;
+	if (params_->pose_frequency.data == -1.0) //Use step cycle parameters
+	{
+		base_phase_length = params_->stance_phase.data + params_->swing_phase.data;
+		double swing_ratio = double(params_->swing_phase.data) / base_phase_length;
+		raw_phase_length = ((1.0 / params_->step_frequency.current_value) / params_->time_delta.data) / swing_ratio;
+	}
+	else
+	{
+		base_phase_length = params_->pose_phase_length.data;
+		raw_phase_length = ((1.0 / params_->pose_frequency.data) / params_->time_delta.data);
+	}
+	pose_phase_length_ = roundToEvenInt(raw_phase_length/base_phase_length)*base_phase_length;
+	normaliser_ = pose_phase_length_ / base_phase_length;
+	start_posing_.clear();
+	
+	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+		Leg* leg = leg_it_->second;
+		LegPoser* leg_poser = leg->getLegPoser();
+		leg_poser->setPoseNegationPhaseStart(params_->pose_negation_phase_starts.data[leg->getIDNumber()]);
+		leg_poser->setPoseNegationPhaseEnd(params_->pose_negation_phase_ends.data[leg->getIDNumber()]);
+	}
+	
+	for (int i=0; i < params_->pose_phase_starts.data.size(); ++i)
+	{
+		start_posing_.push_back(false);
+	}
 }
 
 /***********************************************************************************************************************
@@ -35,32 +73,21 @@ PoseController::PoseController(Model* model, Parameters* params)
 ***********************************************************************************************************************/
 void PoseController::updateStance(void)
 {
-	bool exclude_swinging_legs = params_->auto_compensation.data && !params_->imu_compensation.data; 
-
 	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
 	{
 		Leg* leg = leg_it_->second;
 		LegStepper* leg_stepper = leg->getLegStepper();
 		LegPoser* leg_poser = leg->getLegPoser();
 		Pose compensation_pose = model_->getCurrentPose();
-		LegState leg_state = leg->getLegState();
-		StepState step_state = leg_stepper->getStepState();
+		LegState leg_state = leg->getLegState();		
 		
 		if (leg_state == WALKING || leg_state == MANUAL_TO_WALKING)
 		{
-			// Remove posing compensation from auto_pose for swinging legs under correct conditions
-			if (exclude_swinging_legs && step_state == SWING)
-			{
-				// Remove auto pose compensation contribution from swinging leg, on swinging leg
-				Pose modified_auto_pose = auto_pose_;
-				modified_auto_pose.position_ -= leg_poser->getSwingAutoPose().position_;
-				modified_auto_pose.rotation_ *= leg_poser->getSwingAutoPose().rotation_.inverse();
-				
-				compensation_pose.position_ -= auto_pose_.position_;
-				compensation_pose.rotation_ *= auto_pose_.rotation_.inverse();
-				compensation_pose.position_ += modified_auto_pose.position_;
-				compensation_pose.rotation_ *= modified_auto_pose.rotation_;
-			}
+			// Remove posing compensation from auto_pose under correct conditions
+			compensation_pose.position_ -= auto_pose_.position_;
+			compensation_pose.rotation_ *= auto_pose_.rotation_.inverse();
+			compensation_pose.position_ += leg_poser->getNegationPose().position_;
+			compensation_pose.rotation_ *= leg_poser->getNegationPose().rotation_;
 			
 			// Apply compensation pose to current walking tip position to calculate new 'posed' tip position
 			Vector3d new_tip_position = compensation_pose.inverseTransformVector(leg_stepper->getCurrentTipPosition());
@@ -492,9 +519,9 @@ int PoseController::unpackLegs(double time_to_unpack) //Simultaneous leg coordin
 /***********************************************************************************************************************
  * Compensation - updates currentPose for body compensation
 ***********************************************************************************************************************/
-void PoseController::updateCurrentPose(double body_height)
+void PoseController::updateCurrentPose(double body_height, WalkState walk_state)
 {
-  Pose new_pose = Pose::identity();  
+  Pose new_pose = Pose::identity();
   // Manually set (joystick controlled) body compensation
   if (params_->manual_compensation.data)
   {
@@ -668,7 +695,204 @@ Pose PoseController::manualCompensation(void)
  * Calculates pitch/roll for smooth auto body compensation from offset pose
 ***********************************************************************************************************************/
 Pose PoseController::autoCompensation(void)
-{
+{	
+	auto_pose_ = Pose::identity();
+	Leg* leg = model_->getLegByIDNumber(0); //Reference leg
+	LegStepper* leg_stepper = leg->getLegStepper();
+	int master_phase = 0;
+	
+	if (params_->pose_frequency.data == -1.0)
+	{		
+		master_phase = leg_stepper->getPhase();
+	}
+	else
+	{
+		master_phase = pose_phase_;
+		pose_phase_ = (pose_phase_ + 1) % pose_phase_length_; // Iterate pose phase
+	}	
+	
+	int num_phases = params_->pose_phase_starts.data.size();
+	for (int i=0; i < num_phases; ++i)
+	{
+		int phase_start = params_->pose_phase_starts.data[i]*normaliser_;
+		int phase_end = params_->pose_phase_ends.data[i]*normaliser_;
+		int phase = master_phase;
+		
+		//Handles phase overlapping master phase start/end
+		if (phase_start > phase_end)
+		{
+			phase_end += pose_phase_length_;
+			if (phase < phase_start)
+			{
+				phase += pose_phase_length_;
+			}
+		}
+		
+		// Stops posing starting from mid phase
+		if (params_->pose_frequency.data == -1.0)
+		{
+			bool starting = leg_stepper->getWalkState() == STARTING || leg_stepper->getWalkState() == MOVING;
+			bool stopping = leg_stepper->getWalkState() == STOPPING || leg_stepper->getWalkState() == STOPPED;
+			if (!start_posing_[i] && phase == phase_start && starting) 
+			{
+				start_posing_[i] = true;
+			}
+			else if (start_posing_[i] && phase == phase_end && stopping)
+			{
+				start_posing_[i] = false;
+			}
+		}
+		else if (!start_posing_[i] && phase == phase_start)
+		{
+			start_posing_[i] = true;
+		}
+		
+		// Pose if in correct phase
+		if (phase >= phase_start && phase < phase_end && start_posing_[i])
+		{
+			int iteration = phase - phase_start + 1;
+			int num_iterations = phase_end - phase_start;
+			
+			Vector3d zero(0.0,0.0,0.0);
+			Vector3d position_amplitudes(params_->x_amplitudes.data[i], params_->y_amplitudes.data[i], params_->z_amplitudes.data[i]);
+			Vector3d rotation_amplitudes(params_->roll_amplitudes.data[i], params_->pitch_amplitudes.data[i], params_->yaw_amplitudes.data[i]);
+			Vector3d position_control_nodes[5] = {zero, zero, zero, zero, zero};
+			Vector3d rotation_control_nodes[5] = {zero, zero, zero, zero, zero};
+			if (iteration <= num_iterations/2)
+			{
+				position_control_nodes[3] = position_amplitudes;
+				position_control_nodes[4] = position_amplitudes;
+				rotation_control_nodes[3] = rotation_amplitudes;
+				rotation_control_nodes[4] = rotation_amplitudes;
+			}
+			else
+			{
+				position_control_nodes[0] = position_amplitudes;
+				position_control_nodes[1] = position_amplitudes;
+				rotation_control_nodes[0] = rotation_amplitudes;
+				rotation_control_nodes[1] = rotation_amplitudes;
+			}
+			
+			double delta_t = 2.0 / num_iterations;
+			double time_input = (iteration%(1+num_iterations/2)) * delta_t;
+			
+			Vector3d position = quarticBezier(position_control_nodes, time_input);
+			Vector3d rotation = quarticBezier(rotation_control_nodes, time_input);
+			
+			auto_pose_.position_ += position;
+			auto_pose_.rotation_ *= Quat(rotation);
+			// BUG: ^Adding pitch and roll simultaneously adds unwanted yaw
+			
+			ROS_DEBUG_COND(false,
+				"AUTO_COMPENSATION DEBUG - "
+				"PHASE: %d\t\t"
+				"ITERATION: %d\t\t"
+				"TIME INPUT: %f\t\t"
+				"X: %f\tY: %f\tZ: %f\t\t"
+				"ROLL: %f\tPITCH: %f\tYAW: %f\t\t",
+				i,
+				iteration, 
+				time_input,
+				position[0], position[1], position[2], 
+				rotation[0], rotation[1], rotation[2]);
+		}
+	}
+	
+	// Generate pose to negate auto posing during leg defined period (eg: during swing)
+	for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    Leg* leg = leg_it_->second;  
+    LegPoser* leg_poser = leg->getLegPoser();
+		int phase_start = leg_poser->getPoseNegationPhaseStart()*normaliser_;
+		int phase_end = leg_poser->getPoseNegationPhaseEnd()*normaliser_;
+		int phase = master_phase;
+		
+		//Handles phase overlapping master phase start/end
+		if (phase_start > phase_end)
+		{
+			phase_end += pose_phase_length_;
+			if (phase < phase_start)
+			{
+				phase += pose_phase_length_;
+			}
+		}
+		
+		if (phase >= phase_start && phase < phase_end)
+		{
+			int iteration = phase - phase_start + 1;
+			int num_iterations = phase_end - phase_start;
+			
+			if (iteration == 1)
+			{
+				leg_poser->setOriginPose(auto_pose_); 
+			}
+			else if (iteration == 50)
+			{
+				int stop = 1;
+			}
+			
+			Vector3d zero(0.0,0.0,0.0);
+			Vector3d position_amplitude = auto_pose_.position_;
+			Vector3d rotation_amplitude = auto_pose_.rotation_.toEulerAngles();
+			Vector3d position_control_nodes[5] = {zero, zero, zero, zero, zero};
+			Vector3d rotation_control_nodes[5] = {zero, zero, zero, zero, zero};
+			if (iteration <= num_iterations/2)
+			{
+				//position_control_nodes[1] = position_amplitude;
+				position_control_nodes[2] = position_amplitude;
+				position_control_nodes[3] = position_amplitude;
+				position_control_nodes[4] = position_amplitude;
+				//rotation_control_nodes[1] = rotation_amplitude;
+				rotation_control_nodes[2] = rotation_amplitude;
+				rotation_control_nodes[3] = rotation_amplitude;
+				rotation_control_nodes[4] = rotation_amplitude;
+			}
+			else
+			{
+				position_control_nodes[0] = position_amplitude;
+				position_control_nodes[1] = position_amplitude;
+				position_control_nodes[2] = position_amplitude;
+				//position_control_nodes[3] = position_amplitude;
+				rotation_control_nodes[0] = rotation_amplitude;
+				rotation_control_nodes[1] = rotation_amplitude;
+				rotation_control_nodes[2] = rotation_amplitude;
+				//rotation_control_nodes[3] = rotation_amplitude;
+			}
+			
+			double delta_t = 2.0 / num_iterations;
+			double time_input = (iteration%(1+num_iterations/2)) * delta_t;
+			
+			Vector3d position = quarticBezier(position_control_nodes, time_input);
+			Vector3d rotation = quarticBezier(rotation_control_nodes, time_input);
+			
+			Pose negated_auto_pose = auto_pose_;
+			negated_auto_pose.position_ -= position;
+			negated_auto_pose.rotation_ *= Quat(rotation).inverse();
+			
+			leg_poser->setNegationPose(negated_auto_pose);
+			
+			ROS_DEBUG_COND(false/*leg->getIDNumber() == 0*/,
+				"POSE_NEGATION DEBUG - "
+				"LEG: %d\t\t"
+				"ITERATION: %d\t\t"
+				"TIME INPUT: %f\t\t"
+				"X: %f\tY: %f\tZ: %f\t\t"
+				"ROLL: %f\tPITCH: %f\tYAW: %f\t\t",
+				leg->getIDNumber(),
+				iteration, 
+				time_input,
+				position[0], position[1], position[2],
+				rotation[0], rotation[1], rotation[2]);
+		}
+		else
+		{
+			leg_poser->setNegationPose(auto_pose_);
+		}
+	}	
+	
+	return auto_pose_;
+	/*
+	
 	double swing_height_progress = 1.0;
 	vector<double> roll_values;
 	vector<double> pitch_values;
@@ -735,7 +959,7 @@ Pose PoseController::autoCompensation(void)
 		auto_pose_.rotation_[2] += pitch_values[i];
 		auto_pose_.position_[2] += z_trans_values[i];
 	}
-	return auto_pose_;
+	*/
 }
 
 /***********************************************************************************************************************
@@ -878,11 +1102,11 @@ void PoseController::calculateDefaultPose(void)
 ***********************************************************************************************************************/
 LegPoser::LegPoser(PoseController* poser, Leg* leg) 
   : poser_(poser)
-  , leg_(leg)
-  , current_tip_position_(Vector3d(0,0,0))
+  , leg_(leg)  
+	, origin_pose_(Pose::identity())
+	, negation_pose_(Pose::identity())
+	, current_tip_position_(Vector3d(0,0,0))
 {
-	swing_auto_pose_.position_ = Vector3d(0,0,0);
-	swing_auto_pose_.rotation_ = Quat(1,0,0,0);
 }
 
 /***********************************************************************************************************************

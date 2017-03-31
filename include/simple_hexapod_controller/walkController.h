@@ -123,7 +123,8 @@ class LegStepper
     LegStepper(WalkController* walker, Leg* leg, Vector3d identity_tip_position);    
     
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };    
-    inline Vector3d getDefaultTipPosition(void) { return default_tip_position_;};    
+    inline Vector3d getDefaultTipPosition(void) { return default_tip_position_;};
+		inline WalkState getWalkState(void) { return walker_->getWalkState(); };
     inline StepState getStepState(void) { return step_state_; };
     inline int getPhase(void) { return phase_; };    
     inline int getPhaseOffset(void) { return phase_offset_; };    

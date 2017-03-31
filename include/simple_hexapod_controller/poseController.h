@@ -40,7 +40,7 @@ class PoseController
 {      
   public:
     PoseController(Model* model, Parameters* params);
-    
+    void setAutoPoseParams(void);
     inline PoseResetMode getPoseResetMode(void) { return pose_reset_mode_; };
     inline ImuData getImuData(void) { return imu_data_; };
     inline Parameters* getParameters(void) { return params_; };
@@ -80,10 +80,10 @@ class PoseController
     int unpackLegs(double time_to_unpack);
     
     // Compensation functions
-    void updateCurrentPose(double body_height);
+    void updateCurrentPose(double body_height, WalkState walk_state);
     Pose manualCompensation(void);
-    Pose autoCompensation(void);    
-    Quat imuCompensation(void);
+    Pose autoCompensation(void);
+		Quat imuCompensation(void);
     Vector3d inclinationCompensation(double body_height);
     double impedanceControllerCompensation(void);
     
@@ -116,6 +116,13 @@ class PoseController
     bool lower_complete_ = false;
     bool step_complete_ = false;
     bool raise_complete_ = false;
+		
+		//Auto Compensation cycle variables
+		vector<bool> start_posing_;
+		int pose_phase_ = 0;
+		double pose_frequency_ = 0.0;
+		int pose_phase_length_ = 0;
+		int normaliser_ = 1;
     
     //DEBUGGING
     // Imu compensation PID error vectors
@@ -135,11 +142,17 @@ class LegPoser
     LegPoser(PoseController* poser, Leg* leg);
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
     inline Vector3d getTargetTipPosition(void) { return target_tip_position_; };
-		inline Pose getSwingAutoPose(void) { return swing_auto_pose_; };
+		inline Pose getOriginPose(void) { return origin_pose_; };
+		inline Pose getNegationPose(void) { return negation_pose_; };
+		inline int getPoseNegationPhaseStart() { return pose_negation_phase_start_; };
+		inline int getPoseNegationPhaseEnd() { return pose_negation_phase_end_; };
     
     inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
     inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
-		inline void setSwingAutoPose(Pose pose) { swing_auto_pose_ = pose; };
+		inline void setNegationPose(Pose negation_pose) { negation_pose_ = negation_pose; };
+		inline void setOriginPose(Pose origin_pose) { origin_pose_ = origin_pose; };
+		inline void setPoseNegationPhaseStart(int start) { pose_negation_phase_start_ = start; };
+		inline void setPoseNegationPhaseEnd(int end) { pose_negation_phase_end_ = end; };
     
     //updatePosition(void); //apply current pose to generate new tip position
     int moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
@@ -148,13 +161,16 @@ class LegPoser
   private:
     PoseController* poser_;
     Leg* leg_;
+		
+		Pose origin_pose_; // Set pose used as origin of bezier curve in calculating per leg negation pose 
+		Pose negation_pose_; // Pose used to negate auto posing during defined period
+		int pose_negation_phase_start_ = 0; //Auto pose negation phase start
+		int pose_negation_phase_end_ = 0; //Auto pose negation phase end
     
     bool first_iteration_ = true;
     int master_iteration_count_ = 0;
     
     vector<double> origin_joint_positions_;
-		
-		Pose swing_auto_pose_;
     
     Vector3d origin_tip_position_;
     Vector3d current_tip_position_;

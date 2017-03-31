@@ -226,6 +226,7 @@ struct Parameters
 	Parameter<map<string, double>> linear_cruise_velocity;
 	Parameter<double> angular_cruise_velocity;
 	// Pose controller parameters
+	Parameter<string> auto_pose_type;
 	Parameter<bool> start_up_sequence;
 	Parameter<double> time_to_start;
 	Parameter<map<string, double>> rotation_pid_gains;
@@ -236,7 +237,8 @@ struct Parameters
 	Parameter<map<string, double>> max_rotation;
 	Parameter<double> max_rotation_velocity;
 	Parameter<string> leg_manipulation_mode;
-	// Impedance controller parameters  
+	
+	// Impedance controller parameters
 	Parameter<bool> dynamic_stiffness;
 	Parameter<bool> use_joint_effort;
 	Parameter<double> integrator_step_time;
@@ -252,6 +254,22 @@ struct Parameters
 	Parameter<int> swing_phase;
 	Parameter<int> phase_offset;
 	Parameter<vector<int>> offset_multiplier;
+	
+	//Auto pose parameters
+	Parameter<double> pose_frequency;
+	Parameter<int> pose_phase_length;
+	Parameter<vector<int>> pose_phase_starts;
+	Parameter<vector<int>> pose_phase_ends;
+	Parameter<vector<int>> pose_negation_phase_starts;
+	Parameter<vector<int>> pose_negation_phase_ends;	
+	
+	Parameter<vector<double>> x_amplitudes;
+	Parameter<vector<double>> y_amplitudes;
+	Parameter<vector<double>> z_amplitudes;
+	Parameter<vector<double>> roll_amplitudes;
+	Parameter<vector<double>> pitch_amplitudes;
+	Parameter<vector<double>> yaw_amplitudes;	
+	
 	// Debug Parameters
 	Parameter<bool> debug_rviz;
 	Parameter<bool> debug_rviz_static_display;
