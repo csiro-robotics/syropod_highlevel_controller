@@ -134,6 +134,8 @@ private:
   ImpedanceController* impedance_;
   DebugOutput debug_;
   Parameters params_;
+	
+	bool initialised_ = false;
 
   SystemState system_state_ = SUSPENDED;
 	SystemState new_system_state_ = SUSPENDED;

@@ -109,6 +109,8 @@ void StateController::init()
 	impedance_ = new ImpedanceController(model_, &params_);
 
 	robot_state_ = UNKNOWN;
+	
+	initialised_ = true;
 }
 
 /***********************************************************************************************************************
@@ -186,24 +188,24 @@ void StateController::transitionSystemState()
 		{
 			if (!params_.start_up_sequence.data)
 			{
-				ROS_FATAL("Hexapod currently in packed state and cannot run direct startup sequence.\nEither manually unpack hexapod or set start_up_sequence to true in config file\n");
+				ROS_FATAL("\nHexapod currently in packed state and cannot run direct startup sequence.\nEither manually unpack hexapod or set start_up_sequence to true in config file\n");
 				ros::shutdown();
 			}
 			else
 			{
 				robot_state_ = PACKED;
-				ROS_INFO("Hexapod currently packed.\n");
+				ROS_INFO("\nHexapod currently packed.\n");
 			}
 		}
 		else if (!params_.start_up_sequence.data)
 		{
-			ROS_WARN("start_up_sequence parameter is set to false, ensure hexapod is off the ground before transitioning system state.\n");
+			ROS_WARN("\nstart_up_sequence parameter is set to false, ensure hexapod is off the ground before transitioning system state.\n");
 			robot_state_ = OFF;
 		}
 		else
 		{
 			robot_state_ = OFF;
-			ROS_WARN("Hexapod state is unknown. Future state transitions may be undesireable, recommend ensuring hexapod is off the ground before proceeding.\n");
+			ROS_WARN("\nHexapod state is unknown. Future state transitions may be undesireable, recommend ensuring hexapod is off the ground before proceeding.\n");
 		}
 	}
 	// OFF -> !OFF (Start controller or directly transition to walking stance)
@@ -213,57 +215,57 @@ void StateController::transitionSystemState()
 		if (new_robot_state_ == RUNNING && !params_.start_up_sequence.data)
 		{
 			int progress = poser_->directStartup();
-			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning directly to RUNNING state (%d%%). . .\n", progress);
+			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning directly to RUNNING state (%d%%). . .\n", progress);
 			if (progress == 100)
 			{
 				robot_state_ = RUNNING;
-				ROS_INFO("Direct startup sequence complete. Ready to walk.\n");
+				ROS_INFO("\nDirect startup sequence complete. Ready to walk.\n");
 			}
 		}
 		// OFF -> PACKED/READY/RUNNING (Start controller)
 		else
 		{
 			robot_state_ = PACKED;
-			ROS_INFO("Controller running.\n");
+			ROS_INFO("\nController running.\n");
 		}
 	}
 	// PACKED -> OFF (Suspend controller)
 	else if (robot_state_ == PACKED && new_robot_state_ == OFF)
 	{
 		robot_state_ = OFF;
-		ROS_INFO("Controller suspended.\n");
+		ROS_INFO("\nController suspended.\n");
 	}
 	// PACKED -> READY/RUNNING (Unpack Hexapod)
 	else if (robot_state_ == PACKED && (new_robot_state_ == READY || new_robot_state_ == RUNNING))
 	{
 		int progress = poser_->unpackLegs(2.0 / params_.step_frequency.current_value);
-		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state (%d%%). . .\n", progress);
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to READY state (%d%%). . .\n", progress);
 		if (progress == 100) //100% complete
 		{
 			robot_state_ = READY;
-			ROS_INFO("State transition complete. Hexapod is in READY state.\n");
+			ROS_INFO("\nState transition complete. Hexapod is in READY state.\n");
 		}
 	}
 	// READY -> PACKED/OFF (Pack Hexapod)
 	else if (robot_state_ == READY && (new_robot_state_ == PACKED || new_robot_state_ == OFF))
 	{		
 		int progress = poser_->packLegs(2.0 / params_.step_frequency.current_value);
-		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to PACKED state (%d%%). . .\n", progress);
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to PACKED state (%d%%). . .\n", progress);
 		if (progress == 100) //100% complete
 		{
 			robot_state_ = PACKED;
-			ROS_INFO("State transition complete. Hexapod is in PACKED state.\n");
+			ROS_INFO("\nState transition complete. Hexapod is in PACKED state.\n");
 		}
 	}
 	// READY -> RUNNING (Initate start up sequence to step to walking stance)
 	else if (robot_state_ == READY && new_robot_state_ == RUNNING)
 	{		
 		int progress = poser_->startUpSequence();
-		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to RUNNING state (%d%%). . .\n", progress);
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to RUNNING state (%d%%). . .\n", progress);
 		if (progress == 100) //100% complete
 		{
 			robot_state_ = RUNNING;
-			ROS_INFO("State transition complete. Hexapod is in RUNNING state. Ready to walk.\n");
+			ROS_INFO("\nState transition complete. Hexapod is in RUNNING state. Ready to walk.\n");
 		}
 	}
 	// RUNNING -> !RUNNING (Initiate shut down sequence to step from walking stance to ready stance or suspend controller)
@@ -273,23 +275,23 @@ void StateController::transitionSystemState()
 		if (new_robot_state_ == OFF && !params_.start_up_sequence.data)
 		{
 			robot_state_ = OFF;
-			ROS_INFO("Controller suspended.\n");
+			ROS_INFO("\nController suspended.\n");
 		}
 		else
 		{
 			int progress = poser_->shutDownSequence();
-			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Hexapod transitioning to READY state (%d%%). . .\n", progress);
+			ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to READY state (%d%%). . .\n", progress);
 			if (progress == 100) //100% complete
 			{
 				robot_state_ = READY;
-				ROS_INFO("State transition complete. Hexapod is in READY state.\n");
+				ROS_INFO("\nState transition complete. Hexapod is in READY state.\n");
 			}
 		}
 	}
 	// Undefined system transition
 	else
 	{
-		ROS_FATAL("Undefined system state transition was requested! Shutting down controller!\n");
+		ROS_FATAL("\nUndefined system state transition was requested! Shutting down controller!\n");
 		ros::shutdown();
 	}
 
@@ -349,7 +351,7 @@ void StateController::runningState()
 				target_tip_position[2] += leg->getDeltaZ();
 			}
 			leg->setDesiredTipPosition(target_tip_position);
-			leg->applyIK(true, params_.debug_IK.data);
+			leg->applyIK(true, true, false, params_.debug_IK.data);
 		}
 	}
 }
@@ -367,8 +369,9 @@ void StateController::adjustParameter()
 			p->current_value = new_parameter_value_;
 			walker_->init();
 			impedance_->init();
+			poser_->setAutoPoseParams();
 			new_parameter_set_ = true;
-			ROS_INFO("Attempting to adjust '%s' parameter to %f. (Default: %f, Min: %f, Max: %f) . . .\n", p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
+			ROS_INFO("\nAttempting to adjust '%s' parameter to %f. (Default: %f, Min: %f, Max: %f) . . .\n", p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
 		}
 		else
 		{
@@ -376,7 +379,7 @@ void StateController::adjustParameter()
 			int progress = poser_->stepToNewStance();
 			if (progress == 100)
 			{
-				ROS_INFO("Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",	p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
+				ROS_INFO("\nParameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",	p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
 				parameter_adjust_flag_ = false;
 				new_parameter_set_ = false;
 			}
@@ -385,7 +388,7 @@ void StateController::adjustParameter()
 	// Force hexapod to stop walking
 	else
 	{
-		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to adjust parameters . . .\n");
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping hexapod to adjust parameters . . .\n");
 		linear_velocity_input_ = Vector2d(0.0, 0.0);
 		angular_velocity_input_ = 0.0;
 	}
@@ -405,13 +408,13 @@ void StateController::changeGait(void)
 			initAutoPoseParameters();
 			poser_->setAutoPoseParams();
 		}		
-		ROS_INFO("Now using %s mode.\n", params_.gait_type.data.c_str());
+		ROS_INFO("\nNow using %s mode.\n", params_.gait_type.data.c_str());
 		gait_change_flag_ = false;
 	}
 	// Force hexapod to stop walking
 	else
 	{
-		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to change gait . . .\n");
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping hexapod to change gait . . .\n");
 		linear_velocity_input_ = Vector2d(0.0, 0.0);
 		angular_velocity_input_ = 0.0;
 	}
@@ -443,19 +446,19 @@ void StateController::legStateToggle()
 		{
 			if (manual_leg_count_ < MAX_MANUAL_LEGS)
 			{
-				ROS_INFO_COND(leg->getLegState() == WALKING, "%s leg transitioning to MANUAL state . . .\n", leg->getIDName().c_str());
+				ROS_INFO_COND(leg->getLegState() == WALKING, "\n%s leg transitioning to MANUAL state . . .\n", leg->getIDName().c_str());
 				leg->setLegState(WALKING_TO_MANUAL);
 			}
 			else
 			{
-				ROS_INFO("Only allowed to have %d legs manually manipulated at one time.\n", MAX_MANUAL_LEGS);
+				ROS_INFO("\nOnly allowed to have %d legs manually manipulated at one time.\n", MAX_MANUAL_LEGS);
 				toggle_primary_leg_state_ = false;
 				toggle_secondary_leg_state_ = false;
 			}
 		}
 		else if (leg->getLegState() == MANUAL)
 		{
-			ROS_INFO_COND(leg->getLegState() == MANUAL, "%s leg transitioning to WALKING state . . .\n", leg->getIDName().c_str());
+			ROS_INFO_COND(leg->getLegState() == MANUAL, "\n%s leg transitioning to WALKING state . . .\n", leg->getIDName().c_str());
 			leg->setLegState(MANUAL_TO_WALKING);
 		}
 		else if (leg->getLegState() == WALKING_TO_MANUAL)
@@ -472,7 +475,7 @@ void StateController::legStateToggle()
 			if (progress == 100)
 			{
 				leg->setLegState(MANUAL);
-				ROS_INFO("%s leg set to state: MANUAL.\n", leg->getIDName().c_str());
+				ROS_INFO("\n%s leg set to state: MANUAL.\n", leg->getIDName().c_str());
 				toggle_primary_leg_state_ = false;
 				toggle_secondary_leg_state_ = false;
 				poser_->setPoseResetMode(NO_RESET);
@@ -492,7 +495,7 @@ void StateController::legStateToggle()
 			if (progress == 100)
 			{
 				leg->setLegState(WALKING);
-				ROS_INFO("%s leg set to state: WALKING.\n", leg->getIDName().c_str());
+				ROS_INFO("\n%s leg set to state: WALKING.\n", leg->getIDName().c_str());
 				toggle_primary_leg_state_ = false;
 				toggle_secondary_leg_state_ = false;
 				poser_->setPoseResetMode(NO_RESET);
@@ -503,7 +506,7 @@ void StateController::legStateToggle()
 	// Force hexapod to stop walking
 	else
 	{
-		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Stopping hexapod to transition leg state . . .\n");
+		ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping hexapod to transition leg state . . .\n");
 		linear_velocity_input_ = Vector2d(0.0, 0.0);
 		angular_velocity_input_ = 0.0;
 	}
@@ -521,19 +524,6 @@ void StateController::publishDesiredJointState(void)
 		for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
 		{
 			Joint* joint = joint_it->second;
-			double time_delta = params_.time_delta.data;
-			
-			//TBD Need first iteration check?
-			joint->desired_velocity = (joint->desired_position - joint->prev_desired_position) / time_delta;
-			/*
-			if (abs(joint->desired_velocity) > joint->max_angular_speed)
-			{
-				ROS_WARN("%s desired position requires velocity %f which exceeds maximum velocity %f) - CLAMPING TO MAXIMUM!\n",
-				joint->name.c_str(), joint->desired_velocity, sign(joint->desired_velocity)*joint->max_angular_speed);
-				joint->desired_velocity = sign(joint->desired_velocity)*joint->max_angular_speed;
-				joint->desired_position = joint->prev_desired_position + joint->desired_velocity*time_delta;
-			}
-			*/
 			joint->prev_desired_position = joint->desired_position;
 			if (true)//params_.gazebo_simulation.data)
 			{
@@ -551,10 +541,11 @@ void StateController::publishDesiredJointState(void)
 ***********************************************************************************************************************/
 void StateController::publishLegState()
 {
-  simple_hexapod_controller::legState msg;
+  
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it_->second;
+    simple_hexapod_controller::legState msg;
+    Leg* leg = leg_it_->second;    
     LegStepper* leg_stepper = leg->getLegStepper();
     LegPoser* leg_poser = leg->getLegPoser();
     msg.header.stamp = ros::Time::now();
@@ -569,40 +560,49 @@ void StateController::publishLegState()
     msg.walker_tip_positions.x = leg_stepper->getCurrentTipPosition()[0];
     msg.walker_tip_positions.y = leg_stepper->getCurrentTipPosition()[1];
     msg.walker_tip_positions.z = leg_stepper->getCurrentTipPosition()[2];
+    
+    //Joint positions/velocities
+    for(joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
+    {
+      Joint* joint = joint_it_->second;
+      msg.joint_positions.data.push_back(joint->desired_position);
+      msg.joint_velocities.data.push_back(joint->desired_velocity);
+    }
 
     // Step progress
     msg.swing_progress.data = leg_stepper->getSwingProgress();
     msg.stance_progress.data = leg_stepper->getStanceProgress();
-		
-		// Negation pose
-		msg.negation_pose.linear.x = leg_poser->getNegationPose().position_[0];
-		msg.negation_pose.linear.y = leg_poser->getNegationPose().position_[1];
-		msg.negation_pose.linear.z = leg_poser->getNegationPose().position_[2];
-		msg.negation_pose.angular.x = leg_poser->getNegationPose().rotation_.toEulerAngles()[0];
-		msg.negation_pose.angular.y = leg_poser->getNegationPose().rotation_.toEulerAngles()[1];
-		msg.negation_pose.angular.z = leg_poser->getNegationPose().rotation_.toEulerAngles()[2];
+    
+    // Leg specific auto pose
+    Pose auto_pose = leg_poser->getAutoPose();
+    msg.auto_pose.linear.x = auto_pose.position_[0];
+    msg.auto_pose.linear.y = auto_pose.position_[1];
+    msg.auto_pose.linear.z = auto_pose.position_[2];
+    msg.auto_pose.angular.x = auto_pose.rotation_.toEulerAngles()[0];
+    msg.auto_pose.angular.y = auto_pose.rotation_.toEulerAngles()[1];
+    msg.auto_pose.angular.z = auto_pose.rotation_.toEulerAngles()[2];
 
     // Impedance controller
     msg.tip_force.x = leg->getTipForce()[0];
-		msg.tip_force.y = leg->getTipForce()[1];
-		msg.tip_force.z = leg->getTipForce()[2];
+    msg.tip_force.y = leg->getTipForce()[1];
+    msg.tip_force.z = leg->getTipForce()[2];
     msg.delta_z.data = leg->getDeltaZ();
     msg.virtual_stiffness.data = leg->getVirtualStiffness();
 
     leg->publishState(msg);
 
     // Publish leg state (ASC)
-    std_msgs::Bool msg;
+    std_msgs::Bool asc_msg;
     if (leg_stepper->getStepState() == SWING ||
-	(leg->getLegState() != WALKING && leg->getLegState() != MANUAL))
+  (leg->getLegState() != WALKING && leg->getLegState() != MANUAL))
     {
-      msg.data = true;
+      asc_msg.data = true;
     }
     else
     {
-      msg.data = false;
+      asc_msg.data = false;
     }
-    leg->publishASCState(msg);
+    leg->publishASCState(asc_msg);
   }
 }
 
@@ -753,9 +753,9 @@ void StateController::systemStateCallback(const std_msgs::Int8 &input)
 	if (system_state_ != new_system_state_)
 	{
 		system_state_ = new_system_state_;
-		if (system_state_ == OPERATIONAL && robot_state_ != UNKNOWN)
+		if (system_state_ == OPERATIONAL && initialised_)
 		{
-			ROS_INFO("Controller operation resumed.");
+			ROS_INFO("\nController operation resumed.\n");
 		}
 	}
 }
@@ -818,19 +818,19 @@ void StateController::posingModeCallback(const std_msgs::Int8 &input)
       switch (posing_mode_) //Used only for user message, control handled by hexapod_remote
       {
         case (NO_POSING):
-          ROS_INFO("Posing mode set to NO_POSING. "
+          ROS_INFO("\nPosing mode set to NO_POSING. "
                    "Body will not respond to manual posing input (except for reset commands).\n");
           break;
         case (X_Y_POSING):
-          ROS_INFO("Posing mode set to X_Y_POSING. "
+          ROS_INFO("\nPosing mode set to X_Y_POSING. "
                    "Body will only respond to x/y translational manual posing input.\n");
           break;
         case (PITCH_ROLL_POSING):
-          ROS_INFO("Posing mode set to PITCH_ROLL_POSING. "
+          ROS_INFO("\nPosing mode set to PITCH_ROLL_POSING. "
                    "Body will only respond to pitch/roll rotational manual posing input.\n");
           break;
         case (Z_YAW_POSING):
-          ROS_INFO("Posing mode set to Z_YAW_POSING. "
+          ROS_INFO("\nPosing mode set to Z_YAW_POSING. "
                    "Body will only respond to z translational and yaw rotational manual posing input.\n");
           break;
       }
@@ -864,12 +864,12 @@ void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
 	  linear_cruise_velocity_ = linear_velocity_input_;
 	  angular_cruise_velocity_ = angular_velocity_input_;
 	}
-        ROS_INFO("Cruise control ON - Input velocity set to constant: Linear(X:Y): %f:%f, Angular(Z): %f\n",
+        ROS_INFO("\nCruise control ON - Input velocity set to constant: Linear(X:Y): %f:%f, Angular(Z): %f\n",
                  linear_cruise_velocity_[0], linear_cruise_velocity_[1], angular_cruise_velocity_);
       }
       else if (new_cruise_control_mode == CRUISE_CONTROL_OFF)
       {
-        ROS_INFO("Cruise control OFF - Input velocity set by user.\n");
+        ROS_INFO("\nCruise control OFF - Input velocity set by user.\n");
       }
     }
   }
@@ -887,8 +887,8 @@ void StateController::autoNavigationCallback(const std_msgs::Int8 &input)
     {
       auto_navigation_mode_ = new_auto_navigation_mode;
       bool auto_navigation_on = (auto_navigation_mode_ == AUTO_NAVIGATION_ON);
-      ROS_INFO_COND(auto_navigation_on, "Auto Navigation mode ON. User input is being ignored.\n");
-      ROS_INFO_COND(!auto_navigation_on, "Auto Navigation mode OFF. Control returned to user input.\n");
+      ROS_INFO_COND(auto_navigation_on, "\nAuto Navigation mode ON. User input is being ignored.\n");
+      ROS_INFO_COND(!auto_navigation_on, "\nAuto Navigation mode OFF. Control returned to user input.\n");
     }
   }
 }
@@ -907,11 +907,11 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
       if (parameter_selection_ != NO_PARAMETER_SELECTION)
       {
 	               dynamic_param_ = params_.adjustable_map[parameter_selection_];
-	ROS_INFO("%s parameter currently selected.\n", dynamic_param_->name.c_str());  
+	ROS_INFO("\n%s parameter currently selected.\n", dynamic_param_->name.c_str());  
       }
       else
       {
-	ROS_INFO("No parameter currently selected.\n"); 
+	ROS_INFO("\nNo parameter currently selected.\n"); 
       }
     }
   }
@@ -1031,11 +1031,11 @@ void StateController::primaryLegSelectionCallback(const std_msgs::Int8 &input)
       if (new_primary_leg_selection != LEG_UNDESIGNATED)
       {
 	primary_leg_ = model_->getLegByIDNumber(primary_leg_selection_);
-	ROS_INFO("%s leg selected for primary control.\n", primary_leg_->getIDName().c_str());        
+	ROS_INFO("\n%s leg selected for primary control.\n", primary_leg_->getIDName().c_str());        
       }
       else
       {
-	ROS_INFO("No leg currently selected for primary control.\n");        
+	ROS_INFO("\nNo leg currently selected for primary control.\n");        
       }      
     }
   }
@@ -1055,11 +1055,11 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8 &input)
 			if (new_secondary_leg_selection != LEG_UNDESIGNATED)
 			{
 				secondary_leg_ = model_->getLegByIDNumber(secondary_leg_selection_);
-				ROS_INFO("%s leg selected for secondary control.\n", secondary_leg_->getIDName().c_str());
+				ROS_INFO("\n%s leg selected for secondary control.\n", secondary_leg_->getIDName().c_str());
 			}
 			else
 			{
-				ROS_INFO("No leg currently selected for secondary control.\n");
+				ROS_INFO("\nNo leg currently selected for secondary control.\n");
 			}
 		}
 	}
@@ -1077,14 +1077,14 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
     {
       if (primary_leg_selection_ == LEG_UNDESIGNATED)
       {
-        ROS_INFO("Cannot toggle primary leg state as no leg is currently selected as primary.");
-        ROS_INFO("Press left bumper to select a leg and try again.\n");
+        ROS_INFO("\nCannot toggle primary leg state as no leg is currently selected as primary.");
+        ROS_INFO("\nPress left bumper to select a leg and try again.\n");
       }
       else if (toggle_secondary_leg_state_)
       {
-        ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Cannot toggle primary leg state as secondary leg is currently "
+        ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nCannot toggle primary leg state as secondary leg is currently "
                                            "transitioning states.");
-        ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Please wait and try again.\n");
+        ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nPlease wait and try again.\n");
       }
       else
       {
@@ -1107,14 +1107,14 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
     {
       if (secondary_leg_selection_ == LEG_UNDESIGNATED)
       {
-        ROS_INFO("Cannot toggle secondary leg state as no leg is currently selected as secondary.");
-        ROS_INFO("Press left bumper to select a leg and try again.\n");
+        ROS_INFO("\nCannot toggle secondary leg state as no leg is currently selected as secondary.");
+        ROS_INFO("\nPress left bumper to select a leg and try again.\n");
       }
       else if (toggle_primary_leg_state_)
       {
-        ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Cannot toggle secondary leg state as secondary leg is currently "
+        ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nCannot toggle secondary leg state as secondary leg is currently "
                                            "transitioning states.");
-        ROS_INFO_THROTTLE(THROTTLE_PERIOD, "Please wait and try again.\n");
+        ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nPlease wait and try again.\n");
       }
       else
       {
@@ -1274,7 +1274,6 @@ void StateController::initParameters(void)
 	params_.time_to_start.init(n_, "time_to_start");
 	params_.rotation_pid_gains.init(n_, "rotation_pid_gains");
 	params_.translation_pid_gains.init(n_, "translation_pid_gains");  
-	params_.auto_compensation_parameters.init(n_, "auto_compensation_parameters");
 	params_.max_translation.init(n_, "max_translation");
 	params_.max_translation_velocity.init(n_, "max_translation_velocity");
 	params_.max_rotation.init(n_, "max_rotation");
@@ -1418,7 +1417,7 @@ void StateController::initAutoPoseParameters(void)
 	}
 	else
 	{
-		base_auto_pose_parameters_name += params_.auto_pose_type.data;
+		base_auto_pose_parameters_name += (params_.auto_pose_type.data + "/");
 	}
 
 	params_.pose_frequency.init(n_, "pose_frequency", base_auto_pose_parameters_name);

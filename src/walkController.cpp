@@ -60,7 +60,7 @@ void WalkController::init(void)
 	}
 
 	//Check that required body height is possible
-	body_clearance_ = min(params_->body_clearance.current_value, maximum_body_height_);    
+	body_clearance_ = min(params_->body_clearance.current_value, maximum_body_height_);
 
 	//Find workspace radius of tip on ground by finding maximum horizontal distance of each tip 
 	double min_horizontal_range = UNASSIGNED_VALUE;
@@ -258,6 +258,7 @@ void WalkController::setGaitParams(Parameters* p)
   max_linear_acceleration_ = max_stride_length / ((on_ground_ratio/step_frequency_)*time_to_max_stride);
   max_angular_speed_ = max_linear_speed_ / stance_radius_;  
   max_angular_acceleration_ = max_acceleration/stance_radius_;
+  
 }
 
 /***********************************************************************************************************************
@@ -280,9 +281,9 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
     {
       new_linear_velocity = clamped(linear_velocity_input, 1.0) * max_linear_speed_;  // Forces input between -1.0/1.0
       new_angular_velocity = clamped(angular_velocity_input, -1.0, 1.0) * max_angular_speed_;
-      
+
       // Scale linear velocity according to angular velocity (% of max) to keep stride velocities within limits
-      new_linear_velocity *= (1 - abs(angular_velocity_input));  
+      new_linear_velocity *= (1 - abs(angular_velocity_input)); 
     }
     else if (params_->velocity_input_mode.data == "real")
     {
@@ -290,7 +291,7 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
       new_angular_velocity = clamped(angular_velocity_input, -max_angular_speed_, max_angular_speed_);
 
       // Scale linear velocity according to angular velocity (% of max) to keep stride velocities within limits
-      new_linear_velocity *= (max_angular_speed_ != 0 ? (1 - abs(new_angular_velocity / max_angular_speed_)) : 0.0);  
+      new_linear_velocity *= (max_angular_speed_ != 0 ? (1 - abs(new_angular_velocity / max_angular_speed_)) : 0.0);
 
       if (linear_velocity_input.norm() > max_linear_speed_)
       {
@@ -426,41 +427,17 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
 		}
 		else if (walk_state_ == STOPPING)
 		{
-			bool perform_final_step = (legs_at_correct_phase_ == num_legs-1);
+			leg_stepper->iteratePhase();
 			
-			// Reset phase and state for final step
-			if (perform_final_step && leg_stepper->getStepState() == FORCE_STOP && leg->getIDNumber() == 0)
-			{
-				leg_stepper->setPhase(swing_start_);
-				leg_stepper->setStepState(STANCE);
-			}
-			
-			// Iterate phase if correct phase has not been met or if performing final step
-			if (!leg_stepper->isAtCorrectPhase() || perform_final_step)
-			{
-				leg_stepper->iteratePhase();
-			}
-
 			// All legs (except reference leg) must make one extra step after receiving stopping signal
-			if (leg_stepper->getStrideVector().norm() == 0 && leg_stepper->getPhase() == swing_end_)
+			bool zero_body_velocity = leg_stepper->getStrideVector().norm() == 0;
+			if (zero_body_velocity && !leg_stepper->isAtCorrectPhase() && leg_stepper->getPhase() == swing_end_)
 			{
 				leg_stepper->setStepState(FORCE_STOP);
-				if (leg->getIDNumber() != 0)
+				if (!leg_stepper->isAtCorrectPhase())
 				{
-					if (!leg_stepper->isAtCorrectPhase())
-					{
-						leg_stepper->setAtCorrectPhase(true);
-						legs_at_correct_phase_++;
-					}
-				}
-				// Only after the final simultaneous step is the reference leg at correct phase
-				else if (perform_final_step)
-				{
-					if (!leg_stepper->isAtCorrectPhase())
-					{
-						leg_stepper->setAtCorrectPhase(true);
-						legs_at_correct_phase_++;
-					}
+					leg_stepper->setAtCorrectPhase(true);
+					legs_at_correct_phase_++;
 				}
 			}
 		}
@@ -585,6 +562,13 @@ LegStepper::LegStepper(WalkController* walker, Leg* leg, Vector3d identity_tip_p
   stride_vector_ = Vector3d(0.0,0.0,0.0);
   swing_height_ = walker->getStepClearance();
   stance_depth_ = walker->getStepDepth();
+  
+  for (int i = 0; i < 5; ++i)
+  {
+    swing_1_nodes_[i] = Vector3d(0,0,0);
+    swing_2_nodes_[i] = Vector3d(0,0,0);
+    stance_nodes_[i] = Vector3d(0,0,0);
+  }
 };
 
 /***********************************************************************************************************************

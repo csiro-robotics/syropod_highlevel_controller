@@ -50,6 +50,7 @@
 #include <stdlib.h>
 
 #define UNASSIGNED_VALUE 1e10
+#define PROGRESS_COMPLETE 100
 const double pi = M_PI;  //< easier to read
 
 // ifdef because assert(x) is nop on NDEBUG defined, not on 'DEBUG not defined'
@@ -157,9 +158,9 @@ inline MatrixXd createJacobian(vector<map<string, double>> dh, int degrees_of_fr
       //double sA1 = sin(dh[0]["alpha"]); //Unused
       //double cA1 = cos(dh[0]["alpha"]); //Unused
       MatrixXd j(3, 1);
-      j << -r1*sT1,
-	    r1*cT1, 
-	      0.0;
+      j(0,0) = -r1*sT1;
+      j(1,0) = r1*cT1;
+      j(2,0) = 0.0;
       return j;
     }
     case(2):
@@ -177,9 +178,12 @@ inline MatrixXd createJacobian(vector<map<string, double>> dh, int degrees_of_fr
       double cA1 = cos(dh[0]["alpha"]);
 			//double cA2 = cos(dh[1]["alpha"]); //Unused
       MatrixXd j(3, 2);
-      j << -(sT1*r2*cT2)-(cT1*cA1*r2*sT2)+(cT1*sA1*d2)-(r1*sT1), -(cT1*r2*sT2)-(sT1*cA1*r2*cT2),
-	    (cT1*r2*cT2)-(sT1*cA1*r2*sT2)+(sT1*sA1*d2)+(r1*cT1), -(sT1*r2*sT2)+(cT1*cA1*r2*cT2),
-							    0.0,                   (sA1*r2*cT2);
+      j(0,0) = -(sT1*r2*cT2)-(cT1*cA1*r2*sT2)+(cT1*sA1*d2)-(r1*sT1);
+      j(0,1) = -(cT1*r2*sT2)-(sT1*cA1*r2*cT2);
+      j(1,0) = (cT1*r2*cT2)-(sT1*cA1*r2*sT2)+(sT1*sA1*d2)+(r1*cT1);
+      j(1,1) = -(sT1*r2*sT2)+(cT1*cA1*r2*cT2);
+      j(2,0) = 0.0;
+      j(2,1) = (sA1*r2*cT2);
       return j;
     }
     case(3):
@@ -203,21 +207,58 @@ inline MatrixXd createJacobian(vector<map<string, double>> dh, int degrees_of_fr
 			double cA2 = cos(dh[1]["alpha"]);
 			//double cA3 = cos(dh[2]["alpha"]); //Unused
       MatrixXd j(3,3);
-      j << 	-(sT1*cT2*r3*cT3)-(cT1*cA1*sT2*r3*cT3)+(sT1*sT2*cA2*r3*sT3)-(cT1*cA1*cT2*cA2*r3*sT3)+(cT1*sA1*sA2*r3*sT3)
-	    -(sT1*sT2*sA2*d3)+(cT1*cA1*cT2*sA2*d3)+(cT1*sA1*cA2*d3)-(sT1*r2*cT2)-(cT1*cA1*r2*sT2)+(cT1*sA1*d2)-(r1*sT1),	
-	    -(cT1*sT2*r3*cT3)-(sT1*cA1*cT2*r3*cT3)-(cT1*cT2*cA2*r3*sT3)+(sT1*cA1*sT2*cA2*r3*sT3)
-	    +(cT1*cT2*sA2*d3)-(sT1*cA1*sT2*sA2*d3)-(cT1*r2*sT2)-(sT1*cA1*r2*cT2),	
-	    -(cT1*cT2*r3*sT3)+(sT1*cA1*sT2*r3*sT3)-(cT1*sT2*cA2*r3*cT3)-(sT1*cA1*cT2*cA2*r3*cT3)+(sT1*sA1*sA2*r3*cT3),	
-	    (cT1*cT2*r3*cT3)-(sT1*cA1*sT2*r3*cT3)-(cT1*sT2*cA2*r3*sT3)-(sT1*cA1*cT2*cA2*r3*sT3)+(sT1*sA1*sA2*r3*sT3)
-	    +(cT1*sT2*sA2*d3)+(sT1*cA1*cT2*sA2*d3)+(sT1*sA1*cA2*d3)+(cT1*r2*cT2)-(sT1*cA1*r2*sT2)+(sT1*sA1*d2)+(r1*cT1),	
-	    -(sT1*sT2*r3*cT3)+(cT1*cA1*cT2*r3*cT3)-(sT1*cT2*cA2*r3*sT3)-(cT1*cA1*sT2*cA2*r3*sT3)
-	    +(sT1*cT2*sA2*d3)+(cT1*cA1*sT2*sA2*d3)-(sT1*r2*sT2)+(cT1*cA1*r2*cT2),	
-	    -(sT1*cT2*r3*sT3)-(cT1*cA1*sT2*r3*sT3)-(sT1*sT2*cA2*r3*cT3)+(cT1*cA1*cT2*cA2*r3*cT3)-(cT1*sA1*sA2*r3*cT3),	
-	    0,	
-	    (sA1*cT2*r3*cT3)-(sA1*sT2*cA2*r3*sT3)+(sA1*sT2*sA2*d3)+(sA1*r2*cT2),	
-	    -(sA1*sT2*r3*sT3)+(sA1*cT2*cA2*r3*cT3)+(cA1*sA2*r3*cT3);
+      j(0,0) = -(sT1*cT2*r3*cT3)-(cT1*cA1*sT2*r3*cT3)+(sT1*sT2*cA2*r3*sT3)-(cT1*cA1*cT2*cA2*r3*sT3)+(cT1*sA1*sA2*r3*sT3)-(sT1*sT2*sA2*d3)+(cT1*cA1*cT2*sA2*d3)+(cT1*sA1*cA2*d3)-(sT1*r2*cT2)-(cT1*cA1*r2*sT2)+(cT1*sA1*d2)-(r1*sT1);
+      j(0,1) = -(cT1*sT2*r3*cT3)-(sT1*cA1*cT2*r3*cT3)-(cT1*cT2*cA2*r3*sT3)+(sT1*cA1*sT2*cA2*r3*sT3)+(cT1*cT2*sA2*d3)-(sT1*cA1*sT2*sA2*d3)-(cT1*r2*sT2)-(sT1*cA1*r2*cT2);
+      j(0,2) = -(cT1*cT2*r3*sT3)+(sT1*cA1*sT2*r3*sT3)-(cT1*sT2*cA2*r3*cT3)-(sT1*cA1*cT2*cA2*r3*cT3)+(sT1*sA1*sA2*r3*cT3);
+      j(1,0) = (cT1*cT2*r3*cT3)-(sT1*cA1*sT2*r3*cT3)-(cT1*sT2*cA2*r3*sT3)-(sT1*cA1*cT2*cA2*r3*sT3)+(sT1*sA1*sA2*r3*sT3)+(cT1*sT2*sA2*d3)+(sT1*cA1*cT2*sA2*d3)+(sT1*sA1*cA2*d3)+(cT1*r2*cT2)-(sT1*cA1*r2*sT2)+(sT1*sA1*d2)+(r1*cT1);
+      j(1,1) = -(sT1*sT2*r3*cT3)+(cT1*cA1*cT2*r3*cT3)-(sT1*cT2*cA2*r3*sT3)-(cT1*cA1*sT2*cA2*r3*sT3)+(sT1*cT2*sA2*d3)+(cT1*cA1*sT2*sA2*d3)-(sT1*r2*sT2)+(cT1*cA1*r2*cT2);
+      j(1,2) = -(sT1*cT2*r3*sT3)-(cT1*cA1*sT2*r3*sT3)-(sT1*sT2*cA2*r3*cT3)+(cT1*cA1*cT2*cA2*r3*cT3)-(cT1*sA1*sA2*r3*cT3);
+      j(2,0) = 0;
+      j(2,1) = (sA1*cT2*r3*cT3)-(sA1*sT2*cA2*r3*sT3)+(sA1*sT2*sA2*d3)+(sA1*r2*cT2);
+      j(2,2) = -(sA1*sT2*r3*sT3)+(sA1*cT2*cA2*r3*cT3)+(cA1*sA2*r3*cT3);
       return j; 
-    }  
+    }
+    case(4):
+    {
+      //double d1 = dh[0]["d"]; //Unused
+			double d2 = dh[1]["d"];
+			double d3 = dh[2]["d"];
+      double d4 = dh[3]["d"];
+      double r1 = dh[0]["r"];
+			double r2 = dh[1]["r"];
+			double r3 = dh[2]["r"];
+      double r4 = dh[3]["r"];
+      double sT1 = sin(dh[0]["theta"]);
+			double sT2 = sin(dh[1]["theta"]);
+			double sT3 = sin(dh[2]["theta"]);
+      double sT4 = sin(dh[3]["theta"]);
+      double cT1 = cos(dh[0]["theta"]);
+			double cT2 = cos(dh[1]["theta"]);
+			double cT3 = cos(dh[2]["theta"]);
+      double cT4 = cos(dh[3]["theta"]);
+      double sA1 = sin(dh[0]["alpha"]);
+			double sA2 = sin(dh[1]["alpha"]);
+			double sA3 = sin(dh[2]["alpha"]);
+      //double sA4 = sin(dh[3]["alpha"]); //Unused
+      double cA1 = cos(dh[0]["alpha"]);
+			double cA2 = cos(dh[1]["alpha"]);
+			double cA3 = cos(dh[2]["alpha"]);
+      //double cA4 = cos(dh[3]["alpha"]); //Unused
+      MatrixXd j(3,4);
+      j(0,0) = -(sT1*cT2*cT3*r4*cT4)-(cT1*cA1*sT2*cT3*r4*cT4)+(sT1*sT2*cA2*sT3*r4*cT4)-(cT1*cA1*cT2*cA2*sT3*r4*cT4)-(cT1*sA1*sA2*sT3*r4*cT4)+(sT1*cT2*sT3*cA3*r4*sT4)+(cT1*cA1*sT2*sT3*cA3*r4*sT4)+(sT1*sT2*cA2*cT3*cA3*r4*sT4)-(cT1*cA1*cT2*cA2*cT3*cA3*r4*sT4)+(cT1*sA1*sA2*cT3*cA3*r4*sT4)-(sT1*sT2*sA2*sA3*r4*sT4)+(cT1*cA1*cT2*sA2*sA3*r4*sT4)+(cT1*sA1*cA2*sA3*r4*sT4)-(sT1*cT2*sT3*sA3*d4)-(cT1*cA1*sT2*sT3*sA3*d4)-(sT1*sT2*cA2*cT3*sA3*d4)+(cT1*cA1*cT2*cA2*cT3*sA3*d4)-(cT1*sA1*sA2*cT3*sA3*d4)-(sT1*sT2*sA2*cA3*d4)+(cT1*cA1*cT2*sA2*cA3*d4)-(sT1*cT2*r3*cT3)+(cT1*sA1*cA2*cA3*d4)-(cT1*cA1*sT2*r3*cT3)+(sT1*sT2*cA2*r3*sT3)-(cT1*cA1*cT2*cA2*r3*sT3)+(cT1*sA1*sA2*r3*sT3)-(sT1*sT2*sA2*d3)+(cT1*cA1*cT2*sA2*d3)+(cT1*sA1*cA2*d3)-(sT1*r2*cT2)-(cT1*cA1*r2*sT2)+(cT1*sA1*d2)-(r1*sT1);
+      j(0,1) = -(cT1*sT2*cT3*r4*cT4)-(sT1*cA1*cT2*cT3*r4*cT4)-(cT1*cT2*cA2*sT3*r4*cT4)+(sT1*cA1*sT2*cA2*sT3*r4*cT4)+(cT1*sT2*sT3*cA3*r4*sT4)+(sT1*cA1*cT2*sT3*cA3*r4*sT4)-(cT1*cT2*cA2*cT3*cA3*r4*sT4)+(sT1*cA1*sT2*cA2*cT3*cA3*r4*sT4)+(cT1*cT2*sA2*sA3*r4*sT4)-(sT1*cA1*sT2*sA2*sA3*r4*sT4)-(cT1*sT2*sT3*sA3*d4)-(sT1*cA1*cT2*sT3*sA3*d4)+(cT1*cT2*cA2*cT3*sA3*d4)-(sT1*cA1*sT2*cA2*cT3*sA3*d4)+(cT1*cT2*sA2*cA3*d4)-(sT1*cA1*sT2*sA2*cA3*d4)-(cT1*sT2*r3*cT3)-(sT1*cA1*cT2*r3*cT3)-(cT1*cT2*cA2*r3*sT3)+(sT1*cA1*sT2*cA2*r3*sT3)+(cT1*cT2*sA2*d3)-(sT1*cA1*sT2*sA2*d3)-(cT1*r2*sT2)-(sT1*cA1*r2*cT2);
+      j(0,2) = -(cT1*cT2*sT3*r4*cT4)+(sT1*cA1*sT2*sT3*r4*cT4)-(cT1*sT2*cA2*cT3*r4*cT4)-(sT1*cA1*cT2*cA2*cT3*r4*cT4)+(sT1*sA1*sA2*cT3*r4*cT4)-(cT1*cT2*cT3*cA3*r4*sT4)+(sT1*cA1*sT2*cT3*cA3*r4*sT4)+(cT1*sT2*cA2*sT3*cA3*r4*sT4)+(sT1*cA1*cT2*cA2*sT3*cA3*r4*sT4)-(sT1*sA1*sA2*sT3*cA3*r4*sT4)+(cT1*cT2*cT3*sA3*d4)-(sT1*cA1*sT2*cT3*sA3*d4)-(cT1*sT2*cA2*sT3*sA3*d4)-(sT1*cA1*cT2*cA2*sT3*sA3*d4)+(sT1*sA1*sA2*sT3*sA3*d4)-(cT1*cT2*r3*sT3)+(sT1*cA1*sT2*r3*sT3)-(cT1*sT2*cA2*r3*cT3)-(sT1*cA1*cT2*cA2*r3*cT3)+(sT1*sA1*sA2*r3*cT3);
+      j(0,3) = -(cT1*cT2*cT3*r4*sT4)+(sT1*cA1*sT2*cT3*r4*sT4)+(cT1*sT2*cA2*sT3*r4*sT4)+(sT1*cA1*cT2*cA2*sT3*r4*sT4)-(sT1*sA1*sA2*sT3*r4*sT4)-(cT1*cT2*sT3*cA3*r4*cT4)+(sT1*cA1*sT2*sT3*cA3*r4*cT4)-(cT1*sT2*cA2*cT3*cA3*r4*cT4)-(sT1*cA1*cT2*cA2*cT3*cA3*r4*cT4)+(sT1*sA1*sA2*cT3*cA3*r4*cT4)+(cT1*sT2*sA2*sA3*r4*cT4)+(sT1*cA1*cT2*sA2*sA3*r4*cT4)+(sT1*sA1*cA2*sA3*r4*cT4);
+      j(1,0) = (cT1*cT2*cT3*r4*cT4)-(sT1*cA1*sT2*cT3*r4*cT4)-(cT1*sT2*cA2*sT3*r4*cT4)-(sT1*cA1*cT2*cA2*sT3*r4*cT4)+(sT1*sA1*sA2*sT3*r4*cT4)-(cT1*cT2*sT3*cA3*r4*sT4)+(sT1*cA1*sT2*sT3*cA3*r4*sT4)-(cT1*sT2*cA2*cT3*cA3*r4*sT4)-(sT1*cA1*cT2*cA2*cT3*cA3*r4*sT4)+(sT1*sA1*sA2*cT3*cA3*r4*sT4)+(cT1*sT2*sA2*sA3*r4*sT4)+(sT1*cA1*cT2*sA2*sA3*r4*sT4)+(sT1*sA1*cA2*sA3*r4*sT4)+(cT1*cT2*sT3*sA3*d4)-(sT1*cA1*sT2*sT3*sA3*d4)+(cT1*sT2*cA2*cT3*sA3*d4)+(sT1*cA1*cT2*cA2*cT3*sA3*d4)-(sT1*sA1*sA2*cT3*sA3*d4)+(cT1*sT2*sA2*cA3*d4)+(sT1*cA1*cT2*sA2*cA3*d4)+(sT1*sA1*cA2*cA3*d4)+(cT1*cT2*r3*cT3)-(sT1*cA1*sT2*r3*cT3)-(cT1*sT2*cA2*r3*sT3)-(sT1*cA1*cT2*cA2*r3*sT3)+(sT1*sA1*sA2*r3*sT3)+(cT1*sT2*sA2*d3)+(sT1*cA1*cT2*sA2*d3)+(sT1*sA1*cA2*d3)+(cT1*r2*cT2)-(sT1*cA1*r2*sT2)+(sT1*sA1*d2)+(r1*cT1);
+      j(1,1) = -(sT1*sT2*cT3*r4*cT4)+(cT1*cA1*cT2*cT3*r4*cT4)-(sT1*cT2*cA2*sT3*r4*cT4)-(cT1*cA1*sT2*cA2*sT3*r4*cT4)+(sT1*sT2*sT3*cA3*r4*sT4)-(cT1*cA1*cT2*sT3*cA3*r4*sT4)-(sT1*cT2*cA2*cT3*cA3*r4*sT4)-(cT1*cA1*sT2*cA2*cT3*cA3*r4*sT4)+(sT1*cT2*sA2*sA3*r4*sT4)+(cT1*cA1*sT2*sA2*sA3*r4*sT4)-(sT1*sT2*sT3*sA3*d4)+(sT1*cT2*cA2*cT3*sA3*d4)+(cT1*cA1*sT2*cA2*cT3*sA3*d4)+(sT1*cT2*sA2*cA3*d4)+(cT1*cA1*sT2*sA2*cA3*d4)-(sT1*sT2*r3*cT3)+(cT1*cA1*cT2*r3*cT3)-(sT1*cT2*cA2*r3*sT3)-(cT1*cA1*sT2*cA2*r3*sT3)+(sT1*cT2*sA2*d3)+(cT1*cA1*sT2*sA2*d3)-(sT1*r2*sT2)+(cT1*cA1*r2*cT2);
+      j(1,2) = -(sT1*cT2*sT3*r4*cT4)-(cT1*cA1*sT2*sT3*r4*cT4)-(sT1*sT2*cA2*cT3*r4*cT4)+(cT1*cA1*cT2*cA2*cT3*r4*cT4)-(cT1*sA1*sA2*cT3*r4*cT4)-(sT1*cT2*cT3*cA3*r4*sT4)-(cT1*cA1*sT2*cT3*cA3*r4*sT4)+(sT1*sT2*cA2*sT3*cA3*r4*sT4)-(cT1*cA1*cT2*cA2*sT3*cA3*r4*sT4)+(cT1*sA1*sA2*sT3*cA3*r4*sT4)+(sT1*cT2*cT3*sA3*d4)+(cT1*cA1*sT2*cT3*sA3*d4)-(sT1*sT2*cA2*sT3*sA3*d4)+(cT1*cA1*cT2*cA2*sT3*sA3*d4)-(cT1*sA1*sA2*sT3*sA3*d4)-(sT1*cT2*r3*sT3)-(cT1*cA1*sT2*r3*sT3)-(sT1*sT2*cA2*r3*cT3)+(cT1*cA1*cT2*cA2*r3*cT3)-(cT1*sA1*sA2*r3*cT3);
+      j(1,3) = -(sT1*cT2*cT3*r4*sT4)-(cT1*cA1*sT2*cT3*r4*sT4)+(sT1*sT2*cA2*sT3*r4*sT4)-(cT1*cA1*cT2*cA2*sT3*r4*sT4)+(cT1*sA1*sA2*sT3*r4*sT4)-(sT1*cT2*sT3*cA3*r4*cT4)-(cT1*cA1*sT2*sT3*cA3*r4*cT4)-(sT1*sT2*cA2*cT3*cA3*r4*cT4)+(cT1*cA1*cT2*cA2*cT3*cA3*r4*cT4)-(cT1*sA1*sA2*cT3*cA3*r4*cT4)+(sT1*sT2*sA2*sA3*r4*cT4)-(cT1*cA1*cT2*sA2*sA3*r4*cT4)-(cT1*sA1*cA2*sA3*r4*cT4);
+      j(2,0) = 0;
+      j(2,1) = (sA1*cT2*cT3*r4*cT4)-(sA1*sT2*cA2*sT3*r4*cT4)-(sA1*sT2*cA2*cT3*cA3*r4*sT4)+(sA1*sT2*sA2*sA3*r4*sT4)+(sA1*cT2*sT3*sA3*d4)+(sA1*sT2*cA2*cT3*sA3*d4)+(sA1*sT2*sA2*cA3*d4)+(sA1*cT2*r3*cT3)-(sA1*sT2*cA2*r3*sT3)+(sA1*sT2*sA2*d3)+(sA1*r2*cT2);
+      j(2,2) = -(sA1*sT2*sT3*r4*cT4)+(sA1*cT2*cA2*cT3*r4*cT4)+(cA1*sA2*cT3*r4*cT4)-(sA1*sT2*cT3*cA3*r4*sT4)-(sA1*cT2*cA2*sT3*cA3*r4*sT4)-(cA1*sA2*sT3*cA3*r4*sT4)+(sA1*sT2*cT3*sA3*d4)+(sA1*cT2*cA2*sT3*sA3*d4)+(cA1*sA2*sT3*sA3*d4)-(sA1*sT2*r3*sT3)+(sA1*cT2*cA2*r3*cT3)+(cA1*sA2*r3*cT3);
+      j(2,3) = -(sA1*sT2*cT3*r4*sT4)-(sA1*cT2*cA2*sT3*r4*sT4)-(cA1*sA2*sT3*r4*sT4)-(sA1*sT2*sT3*cA3*r4*cT4)+(sA1*cT2*cA2*cT3*cA3*r4*cT4)+(cA1*sA2*cT3*cA3*r4*cT4)-(sA1*cT2*sA2*sA3*r4*cT4)+(cA1*cA2*sA3*r4*cT4);
+      return j;
+    }
     default:
       return MatrixXd::Identity(3,3);
   };
@@ -273,6 +314,12 @@ inline int roundToEvenInt(double x)
 {
 	int x_int = int(x);
   return (x_int % 2 == 0) ? x_int : x_int + 1; 
+}
+
+inline double setPrecision(double value, int precision)
+{
+  double return_value = roundToInt(value*pow(10, precision))/pow(10, precision);
+  return return_value;
 }
 
 /// Uniform distribution within range

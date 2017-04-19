@@ -90,6 +90,12 @@ enum StepState
   FORCE_STOP
 };
 
+enum PosingState
+{
+	POSING,
+	STOP_POSING
+};
+
 enum LegCoordinationMode
 {
   SIMULTANEOUS_MODE,
@@ -231,7 +237,6 @@ struct Parameters
 	Parameter<double> time_to_start;
 	Parameter<map<string, double>> rotation_pid_gains;
 	Parameter<map<string, double>> translation_pid_gains;
-	Parameter<map<string, double>> auto_compensation_parameters;
 	Parameter<map<string, double>> max_translation;
 	Parameter<double> max_translation_velocity;
 	Parameter<map<string, double>> max_rotation;

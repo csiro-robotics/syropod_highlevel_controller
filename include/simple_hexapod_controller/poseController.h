@@ -36,14 +36,21 @@ struct ImuData
   Vector3d angular_velocity;
 };
 
+class AutoPoser;
+
 class PoseController
 {      
   public:
     PoseController(Model* model, Parameters* params);
     void setAutoPoseParams(void);
     inline PoseResetMode getPoseResetMode(void) { return pose_reset_mode_; };
+		inline PosingState getAutoPoseState(void) { return auto_posing_state_; };
     inline ImuData getImuData(void) { return imu_data_; };
     inline Parameters* getParameters(void) { return params_; };
+		inline Pose getAutoPose(void) { return auto_pose_; };
+		inline int getPhaseLength(void) { return pose_phase_length_; };
+		inline int getNormaliser(void) { return normaliser_; };
+		inline double getPoseFrequency(void) { return pose_frequency_; };
     inline Vector3d getRotationAbsementError(void) { return rotation_absement_error_; };
     inline Vector3d getRotationPositionError(void) { return rotation_position_error_; };
     inline Vector3d getRotationVelocityError(void) { return rotation_velocity_error_; };
@@ -52,6 +59,8 @@ class PoseController
     inline Vector3d getTranslationVelocityError(void) { return translation_velocity_error_; };
     inline Vector3d getTranslationAccelerationError(void) { return translation_acceleration_error_; };
     
+		inline void setPhaseLength(int phase_length) { pose_phase_length_ = phase_length; };
+		inline void setNormaliser(int normaliser) { normaliser_ = normaliser; };
     inline void setPoseResetMode(PoseResetMode mode) { pose_reset_mode_ = mode; };
     inline void setImuData(Quat orientation, Vector3d linear_acceleration, Vector3d angular_velocity)
     {
@@ -118,7 +127,8 @@ class PoseController
     bool raise_complete_ = false;
 		
 		//Auto Compensation cycle variables
-		vector<bool> start_posing_;
+		vector<AutoPoser*> auto_poser_container_;
+		PosingState auto_posing_state_;
 		int pose_phase_ = 0;
 		double pose_frequency_ = 0.0;
 		int pose_phase_length_ = 0;
@@ -136,6 +146,43 @@ class PoseController
     Vector3d translation_acceleration_error_;
 };
 
+class AutoPoser
+{
+	public:
+		AutoPoser(PoseController* poser, int id);
+		Pose updatePose(int phase);
+		inline int getID(void) { return id_; };
+		inline void setStartPhase(int start_phase) { start_phase_ = start_phase; };
+		inline void setEndPhase(int end_phase) { end_phase_ = end_phase; };
+		inline void setXAmplitude(double x) { x_amplitude_ = x; };
+		inline void setYAmplitude(double y) { y_amplitude_ = y; };
+		inline void setZAmplitude(double z) { z_amplitude_ = z; };
+		inline void setRollAmplitude(double roll) { roll_amplitude_ = roll; };
+		inline void setPitchAmplitude(double pitch) { pitch_amplitude_ = pitch; };
+		inline void setYawAmplitude(double yaw) { yaw_amplitude_ = yaw; };
+		inline void resetChecks(void) 
+		{ 
+			start_check_ = false;
+			end_check_ = pair<bool, bool>(false, false);
+		}
+		
+	private:
+		PoseController* poser_;
+		int id_;
+		int start_phase_;
+		int end_phase_;
+		bool start_check_;
+		pair<bool, bool> end_check_;
+		bool allow_posing_ = false;
+		
+		double x_amplitude_;
+		double y_amplitude_;
+		double z_amplitude_;
+		double roll_amplitude_;
+		double pitch_amplitude_;
+		double yaw_amplitude_;
+};
+
 class LegPoser
 {
   public:
@@ -143,31 +190,46 @@ class LegPoser
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
     inline Vector3d getTargetTipPosition(void) { return target_tip_position_; };
 		inline Pose getOriginPose(void) { return origin_pose_; };
-		inline Pose getNegationPose(void) { return negation_pose_; };
+		inline Pose getAutoPose(void) { return auto_pose_; };
 		inline int getPoseNegationPhaseStart() { return pose_negation_phase_start_; };
 		inline int getPoseNegationPhaseEnd() { return pose_negation_phase_end_; };
+		inline bool getStopNegation(void) { return stop_negation_; };
+    inline double getMinLegLength(void) { return min_leg_length_; };
+    inline bool getLegCompletedStep(void) { return leg_completed_step_; };
     
     inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
     inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
-		inline void setNegationPose(Pose negation_pose) { negation_pose_ = negation_pose; };
+		inline void setAutoPose(Pose auto_pose) { auto_pose_ = auto_pose; };
 		inline void setOriginPose(Pose origin_pose) { origin_pose_ = origin_pose; };
 		inline void setPoseNegationPhaseStart(int start) { pose_negation_phase_start_ = start; };
 		inline void setPoseNegationPhaseEnd(int end) { pose_negation_phase_end_ = end; };
+		inline void setStopNegation(bool stop_negation) { stop_negation_ = stop_negation; };
+    inline void setMinLegLength(double length) { min_leg_length_ = length; };
+    inline void setLegCompletedStep(bool complete) { leg_completed_step_ = complete; };
+    
+    inline int resetStepToPosition(void) 
+    { 
+      first_iteration_ = true;
+      int progress = 100;
+      return progress;
+    }
     
     //updatePosition(void); //apply current pose to generate new tip position
     int moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
     int stepToPosition(Vector3d targetTipPosition, Pose targetPose, double lift_height, double time_to_step);
+		void updateAutoPose(int phase);
     
   private:
     PoseController* poser_;
     Leg* leg_;
 		
 		Pose origin_pose_; // Set pose used as origin of bezier curve in calculating per leg negation pose 
-		Pose negation_pose_; // Pose used to negate auto posing during defined period
+		Pose auto_pose_; // Leg specific auto pose (based off body auto pose negating where required)
 		int pose_negation_phase_start_ = 0; //Auto pose negation phase start
 		int pose_negation_phase_end_ = 0; //Auto pose negation phase end
     
-    bool first_iteration_ = true;
+    bool stop_negation_ = false;
+		bool first_iteration_ = true;
     int master_iteration_count_ = 0;
     
     vector<double> origin_joint_positions_;
@@ -175,6 +237,9 @@ class LegPoser
     Vector3d origin_tip_position_;
     Vector3d current_tip_position_;
     Vector3d target_tip_position_;
+    
+    double min_leg_length_ = UNASSIGNED_VALUE;
+    bool leg_completed_step_ = false;
 };
 
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H */

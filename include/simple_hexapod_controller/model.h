@@ -25,11 +25,6 @@
 #include "pose.h"
 #include "simple_hexapod_controller/legState.h"
 
-//#include "walkController.h"
-//#include "poseController.h"
-//#include <Eigen/src/Core/Matrix.h>
-//#include <boost/concept_check.hpp>
-
 struct Leg;
 struct Joint;
 struct Link;
@@ -86,8 +81,6 @@ public:
 	inline LegState getLegState(void) { return leg_state_; };
 	inline double getMirrorDir(void) { return mirror_dir_; }; 
 	inline double getStanceLegYaw(void) { return stance_leg_yaw_; };
-	inline double getMinLegLength(void) { return min_virtual_leg_length_; };
-	inline double getMaxLegLength(void) { return max_virtual_leg_length_; };
 	inline Vector3d getTipForce(void) { return tip_force_; };
 	inline double getDeltaZ(void) { return delta_z_; };
 	inline double getVirtualMass(void) { return virtual_mass_; };
@@ -120,8 +113,12 @@ public:
 	void init(bool use_default_joint_positions);
 	void applyDeltaZ(Vector3d tip_position);
 	bool updateTipForce(bool debug);
-	bool applyIK(bool clamp_to_limits = true, bool debug = false); // sets angles to reach local position relative to root    
-	Vector3d applyFK(bool set_local = true); // works out local tip position from angles
+  Vector3d applyFK(bool set_local = true);
+	bool applyIK(bool clamp_positions = true,
+               bool clamp_velocities = true,
+               bool ignore_warnings = false,
+               bool debug = false);
+	
 
 	void publishState(simple_hexapod_controller::legState msg) { leg_state_publisher_.publish(msg); };
 	void publishASCState(std_msgs::Bool msg) { asc_leg_state_publisher_.publish(msg); };
@@ -162,8 +159,8 @@ protected:
 	Vector3d desired_tip_velocity_;
 	double workspace_radius_;
 
-	double min_virtual_leg_length_;
-	double max_virtual_leg_length_;
+	//double min_virtual_leg_length_;
+	//double max_virtual_leg_length_;
 	int group_;
 
 	Vector3d tip_force_;
