@@ -39,11 +39,12 @@ void WalkController::init(void)
 			{
 				if (joint_twist_ < 0)
 				{
-					angle = min(link->actuating_joint->max_position, ground_bearing_);
+					angle = clamped(ground_bearing_, link->actuating_joint->min_position, link->actuating_joint->max_position);
+          
 				}
 				else if (joint_twist_ > 0)
 				{
-					angle = max(link->actuating_joint->min_position, -ground_bearing_);	
+					angle = clamped(-ground_bearing_, link->actuating_joint->min_position, link->actuating_joint->max_position);	
 				}
 				ground_bearing_ -= abs(angle);
 			}
@@ -95,7 +96,7 @@ void WalkController::init(void)
 				double virtual_link_length;
 				if (abs(distance_to_tip*sin(joint_twist_)) > distance_to_ground)
 				{	  
-					double required_joint_angle = asin(distance_to_ground/(abs(distance_to_tip*sin(joint_twist_))));
+					double required_joint_angle = asin(-distance_to_ground/(abs(distance_to_tip*sin(joint_twist_))));
 					joint_angle = clamped(required_joint_angle, joint->min_position, joint->max_position);
 					virtual_link_length = (joint_angle == required_joint_angle) ? distance_to_tip : link->length;
 				}
@@ -117,7 +118,7 @@ void WalkController::init(void)
 				horizontal_range += link->length;
 			}
 			
-			if (distance_to_ground <= 0.0)
+			if (setPrecision(distance_to_ground, 3) <= 0.0)
 			{
 				break;
 			}
@@ -157,8 +158,8 @@ void WalkController::init(void)
 		{
 			leg->setLegStepper(new LegStepper(this, leg, identity_tip_position));
 			leg_it_++;
-		}    
-	}  
+		}
+	}
 
 	// Stance radius based around front right leg to ensure positive values
 	Leg* reference_leg = model_->getLegByIDNumber(0);

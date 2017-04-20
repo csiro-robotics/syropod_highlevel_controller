@@ -42,15 +42,24 @@ int main(int argc, char* argv[])
 
   // Set ros rate from params
   ros::Rate r(roundToInt(1.0 / params->time_delta.data));
+  
+  // Wait specified time to aquire all published joint positions via callback
+  int spin = 5.0 / params->time_delta.data;  // Max ros spin cycles to find joint positions //TBD 5 second magic number
+
+  while (spin--)
+  {
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nCommunicating with hardware . . .\n");
+    ros::spinOnce();
+    r.sleep();
+  }
 
   //Check topics are correctly subscribed
   if (!state.receivingJointStates())
   {
     ROS_WARN("\nFailed to subscribe to joint_states topic! - check to see if topic is being published.\n");
-    //params->start_up_sequence.data = false;
+    params->start_up_sequence.data = false;
   }
-  else if ((params->imu_compensation.data || params->inclination_compensation.data)
-           && !state.receivingImuData())
+  else if ((params->imu_compensation.data || params->inclination_compensation.data) && !state.receivingImuData())
   {
     ROS_WARN("\nFailed to subscribe to imu_data topic! - check to see if topic is being published.\n");
     params->imu_compensation.data = false;
@@ -64,32 +73,23 @@ int main(int argc, char* argv[])
       ROS_WARN("\nFailed to subscribe to force data topic/s! Please check that topic is being published.\n");
       params->impedance_control.data = false;
     }
-  }
-
-  // Wait specified time to aquire all published joint positions via callback //TBD Still needed?, consider cutting
-  int spin = 5.0 / params->time_delta.data;  // Max ros spin cycles to find joint positions
-
-  while (spin--)
-  {
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nCommunicating with hardware . . .\n");
-    ros::spinOnce();
-    r.sleep();
-  }
+  }  
 
   // Set start message
   std::string start_message;
   bool use_default_joint_positions;
 
-  if (state.areJointPostionsInitialised())
+  if (state.jointPostionsInitialised())
   {
     start_message = "\nPress 'Logitech' button to start controller . . .\n";
     use_default_joint_positions = false;
   }
   else
   {
-    start_message = "\nFailed to initialise joint position values!\nPress 'Logitech' button to run controller initialising unknown joint positions to defaults . . .\n";
+    start_message = "\nFailed to initialise joint position values!\n";
+    start_message += "Press 'Logitech' button to run controller initialising unknown positions to defaults . . .\n";
     use_default_joint_positions = true;
-    //params->start_up_sequence.data = false;
+    //params->start_up_sequence.data = false; //TBD uncomment when finished testing in rviz
   }
 
   // Loop waiting for start button press
@@ -105,6 +105,7 @@ int main(int argc, char* argv[])
   state.init(); // Must be initialised before initialising model with current joint state
   state.initModel(use_default_joint_positions);
 
+  // Main loop
   while (ros::ok())
   {
     if (state.getSystemState() != SUSPENDED)
@@ -112,11 +113,11 @@ int main(int argc, char* argv[])
       state.loop();
       state.publishLegState();
       state.publishPose();
-      //state.publishIMUData();
+      //state.publishIMUData(); //TBD Still needed?
       state.publishBodyVelocity();
+      //state.publishRotationPoseError(); //TBD Still needed?
+      //state.publishTranslationPoseError(); //TBD Still needed?
 
-      //state.publishRotationPoseError();
-      //state.publishTranslationPoseError();
       if (params->debug_rviz.data)
       {
         state.RVIZDebugging(params->debug_rviz_static_display.data);

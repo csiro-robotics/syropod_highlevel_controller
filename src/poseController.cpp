@@ -138,6 +138,7 @@ int PoseController::startUpSequence(void)
         Leg* leg = leg_it_->second;
         LegPoser* leg_poser = leg->getLegPoser();
         LegStepper* leg_stepper = leg->getLegStepper();
+        leg_poser->setLegCompletedStep(false);
         if (!raise_complete_)
         {
           if (leg_poser->getMinLegLength() != UNASSIGNED_VALUE)
@@ -189,7 +190,7 @@ int PoseController::startUpSequence(void)
           // Estimates min raise/lower radius from IK errors
           if (!within_workspace)
           {
-            double buffer = 1.00; //5% buffer
+            double buffer = 1.05; //5% buffer
             leg_poser->setMinLegLength(setPrecision(leg->getLocalTipPosition().norm()*buffer, 3)); 
             progress = leg_poser->resetStepToPosition();
           }
@@ -208,7 +209,7 @@ int PoseController::startUpSequence(void)
 
     // Coordinate leg stepping groups
     int num_legs = model_->getLegCount();
-    if (legs_completed_step_ == ((num_legs / 2) + (num_legs%2 ? 1:0))) //Handles odd number of legs
+    if (legs_completed_step_ == ((num_legs / 2) + (num_legs%2 ? 1:0)) && current_group_ == 0) //Handles odd number of legs
     {
       current_group_ = 1;
       set_target_ = true;
@@ -218,6 +219,7 @@ int PoseController::startUpSequence(void)
       step_complete_ = true;
       legs_completed_step_ = 0;
       current_group_ = 0;
+      set_target_ = true;
     }
   }
   // Raise body to default position

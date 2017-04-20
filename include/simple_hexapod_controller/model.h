@@ -159,8 +159,6 @@ protected:
 	Vector3d desired_tip_velocity_;
 	double workspace_radius_;
 
-	//double min_virtual_leg_length_;
-	//double max_virtual_leg_length_;
 	int group_;
 
 	Vector3d tip_force_;

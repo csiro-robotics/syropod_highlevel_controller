@@ -276,6 +276,7 @@ struct Parameters
 	Parameter<vector<double>> yaw_amplitudes;	
 	
 	// Debug Parameters
+  Parameter<bool> debug_gazebo;
 	Parameter<bool> debug_rviz;
 	Parameter<bool> debug_rviz_static_display;
 	Parameter<string> console_verbosity;

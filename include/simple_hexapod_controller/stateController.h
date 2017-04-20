@@ -45,7 +45,7 @@ public:
   inline bool receivingImuData(void) { return imu_data_subscriber_; };
   inline bool receivingTipForces(void) { return tip_force_subscriber_; };
   inline bool receivingJointStates(void) { return joint_state_subscriber_; };
-  inline bool areJointPostionsInitialised(void) { return joint_positions_initialised; };
+  inline bool jointPostionsInitialised(void) { return joint_positions_initialised; };
   
   // Initialisation functions  
   void init(void);

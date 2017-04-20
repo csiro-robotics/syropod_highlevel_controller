@@ -66,6 +66,7 @@ const double pi = M_PI;  //< easier to read
 
 using namespace Eigen;
 using namespace std;
+using namespace std_msgs;
 
 template <class T>
 T mod(const T &a, const T &b)

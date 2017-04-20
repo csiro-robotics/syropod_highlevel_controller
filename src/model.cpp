@@ -185,7 +185,6 @@ bool Leg::updateTipForce(bool debug)
 ***********************************************************************************************************************/
 bool Leg::applyIK(bool clamp_positions, bool clamp_velocities, bool ignore_warnings, bool debug)
 {
-  ignore_warnings = true;
   bool desired_tip_position_within_workspace = true;
   vector<map<string, double>> dh_parameters;
   map<int, Joint*>::iterator joint_it;
@@ -232,7 +231,7 @@ bool Leg::applyIK(bool clamp_positions, bool clamp_velocities, bool ignore_warni
     joint->desired_velocity = joint_delta_pos[index] / model_->getTimeDelta();
     
     // Clamp joint velocities within limits
-    if (clamp_velocities)
+    if (false)
     {
       ROS_WARN_COND(abs(joint->desired_velocity) > joint->max_angular_speed,
                     "\n\tJoint %s is attempting an excessive angular speed (%f > %f).\t"
