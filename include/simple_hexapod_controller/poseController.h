@@ -102,7 +102,8 @@ class PoseController
     Model* model_;
     ImuData imu_data_; 
     Parameters* params_;
-    std::map<int, Leg*>::iterator leg_it_;
+    map<int, Leg*>::iterator leg_it_;
+    map<int, Joint*>::iterator joint_it_;
     
     PoseResetMode pose_reset_mode_;
     Vector3d translation_velocity_input_;
@@ -125,6 +126,10 @@ class PoseController
     bool lower_complete_ = false;
     bool step_complete_ = false;
     bool raise_complete_ = false;
+    
+    //Direct startup state variables
+    bool move_joints_complete = false;
+    bool direct_startup_complete = false;
 		
 		//Auto Compensation cycle variables
 		vector<AutoPoser*> auto_poser_container_;
@@ -196,6 +201,7 @@ class LegPoser
 		inline bool getStopNegation(void) { return stop_negation_; };
     inline double getMinLegLength(void) { return min_leg_length_; };
     inline bool getLegCompletedStep(void) { return leg_completed_step_; };
+    inline bool getJointsWithinLimits(void) { return joints_within_limits_; };
     
     inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
     inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
@@ -206,6 +212,7 @@ class LegPoser
 		inline void setStopNegation(bool stop_negation) { stop_negation_ = stop_negation; };
     inline void setMinLegLength(double length) { min_leg_length_ = length; };
     inline void setLegCompletedStep(bool complete) { leg_completed_step_ = complete; };
+    inline void setJointsWithinLimits(bool within_limits) { joints_within_limits_ = within_limits; };
     
     inline int resetStepToPosition(void) 
     { 
@@ -240,6 +247,7 @@ class LegPoser
     
     double min_leg_length_ = UNASSIGNED_VALUE;
     bool leg_completed_step_ = false;
+    bool joints_within_limits_ = false;
 };
 
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H */

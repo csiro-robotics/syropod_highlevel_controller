@@ -180,7 +180,7 @@ int PoseController::startUpSequence(void)
         if (leg->getGroup() == current_group_ && !leg_poser->getLegCompletedStep())
         {
           double step_height = !raise_complete_ ? 0.0 : leg_stepper->getSwingHeight();
-          double time_to_step = 1.0 / params_->step_frequency.current_value;
+          double time_to_step = (leg_poser->getMinLegLength() == UNASSIGNED_VALUE ? 5.0 : 1.0) / params_->step_frequency.current_value;
           Vector3d target_tip_position = leg_poser->getTargetTipPosition();
           progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), step_height, time_to_step);
           leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
@@ -193,6 +193,7 @@ int PoseController::startUpSequence(void)
             double buffer = 1.05; //5% buffer
             leg_poser->setMinLegLength(setPrecision(leg->getLocalTipPosition().norm()*buffer, 3)); 
             progress = leg_poser->resetStepToPosition();
+            ROS_INFO("Leg %s reached workspace limit\n", leg->getIDName().c_str());
           }
           leg_poser->setLegCompletedStep(progress == PROGRESS_COMPLETE);
           legs_completed_step_ += int(leg_poser->getLegCompletedStep());
@@ -201,7 +202,7 @@ int PoseController::startUpSequence(void)
     }
 
     // Check if next target new stepping/raising target is to be set
-    set_target_ = (progress == PROGRESS_COMPLETE);
+    //set_target_ = (progress == PROGRESS_COMPLETE && );
 
     // Normalise progress in terms of total start up procedure
     progress = progress / 5 + current_group_ * 20;
@@ -256,7 +257,14 @@ int PoseController::startUpSequence(void)
     }
 
     // Check if raise is complete and order another stepping task
-    raise_complete_ = (progress == PROGRESS_COMPLETE);
+    if (progress == PROGRESS_COMPLETE)
+    {
+      raise_complete_ = true;
+    }
+    else
+    {
+      raise_complete_ = false;
+    }
     step_complete_ = !raise_complete_;
 
     // Check if next target new stepping/raising target is to be set
@@ -418,6 +426,68 @@ int PoseController::shutDownSequence(void)
 ***********************************************************************************************************************/
 int PoseController::directStartup(void) //Simultaneous leg coordination
 {
+  /*
+  int total_progress = 0;
+  int legs_with_joints_within_limits = 0;
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    Leg* leg = leg_it_->second;
+    LegPoser* leg_poser = leg->getLegPoser();
+    legs_with_joints_within_limits += int(leg_poser->getJointsWithinLimits());
+  }
+  
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    Leg* leg = leg_it_->second;
+    LegPoser* leg_poser = leg->getLegPoser();
+    LegStepper* leg_stepper = leg->getLegStepper();
+    vector<double> target_joint_positions;
+    bool joints_within_limits = leg_poser->getJointsWithinLimits();
+    if (!joints_within_limits)
+    {
+      //Check if joints are within limits
+      for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
+      {
+        Joint* joint = joint_it_->second;
+        if (joint->current_position > joint->max_position || joint->current_position < joint->min_position)
+        {
+          double target = (joint->max_position + joint->min_position)/2.0;
+          target_joint_positions.push_back(target);
+          ROS_INFO("Joint %s @ %f targeted to %f\n", joint->name.c_str(), joint->current_position, target);
+        }
+        else
+        {
+          joints_within_limits = true;
+        }
+      }
+      
+      if (!joints_within_limits)
+      {
+        int progress = leg_poser->moveToJointPosition(target_joint_positions, 5.0/params_->step_frequency.current_value);
+        leg_poser->setJointsWithinLimits(progress == PROGRESS_COMPLETE);
+        total_progress = progress/2.0;
+      }
+      else
+      {
+        leg_poser->setJointsWithinLimits(true);
+      }
+    }
+    else if (legs_with_joints_within_limits == model_->getLegCount())
+    {
+      // Move tip positions directly to default stance
+      Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
+      double time_to_start = params_->time_to_start.data;
+      int progress = leg_poser->stepToPosition(default_tip_position, model_->getCurrentPose(), 0.0, time_to_start);
+      leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+      //leg->applyDeltaZ(leg_poser->getCurrentTipPosition()); //TBD Impendance controller
+      leg->applyIK(true, true, false, params_->debug_IK.data);
+      total_progress = 50 + progress/2.0;
+    }
+  }
+
+  return total_progress;
+  */
+  
   int progress = 0; //Percentage progress (0%->100%)
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -1100,7 +1170,7 @@ int LegPoser::moveToJointPosition(vector<double> target_joint_positions, double 
 
   leg_->applyFK();
 
-  if (leg_->getIDNumber() == 0) //reference leg for debugging
+  if (leg_->getIDNumber() == 1) //reference leg for debugging
   {
     double time = master_iteration_count_ * delta_t;
     bool debug = poser_->getParameters()->debug_moveToJointPosition.data;
@@ -1138,7 +1208,7 @@ int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose, dou
   {
     origin_tip_position_ = leg_->getLocalTipPosition();
     //origin_tip_position_[2] += delta_z;  // Remove deltaZ offset temporarily //TBD
-    double tolerance = 0.001; // 1mm
+    double tolerance = 0.0001; // 1mm
     if (abs(origin_tip_position_[0] - target_tip_position[0]) < tolerance &&
       abs(origin_tip_position_[1] - target_tip_position[1]) < tolerance &&
       abs(origin_tip_position_[2] - target_tip_position[2]) < tolerance)

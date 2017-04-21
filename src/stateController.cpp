@@ -143,7 +143,7 @@ void StateController::loop()
 /***********************************************************************************************************************
  * Impedance Control
 ***********************************************************************************************************************/
-void StateController::impedanceControl()
+void StateController::impedanceControl() //TBD
 {
   // Calculate new stiffness based on walking cycle
   if (walker_->getWalkState() != STOPPED && params_.dynamic_stiffness.data)
@@ -154,10 +154,7 @@ void StateController::impedanceControl()
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     Leg* leg = leg_it_->second;
-    //if (leg->getLegState() == WALKING) //TBD Needed?
-    //{
     impedance_->updateImpedance(leg, params_.use_joint_effort.data);
-    //}
   }
 }
 
@@ -166,28 +163,31 @@ void StateController::impedanceControl()
 ***********************************************************************************************************************/
 void StateController::transitionSystemState()
 {
-  // UNKNOWN -> OFF/PACKED/READY/RUNNING  if (systemState == UNKNOWN)
+  // UNKNOWN -> OFF/PACKED/READY/RUNNING
   if (robot_state_ == UNKNOWN)
   {
+    // Check how many joints/legs are in the packed state
     int legs_packed = 0;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
       Leg* leg = leg_it_->second;
-      map<int, Joint*>::iterator joint_it;
       int joints_packed = 0;
-      for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+      for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
-        Joint* joint = joint_it->second;
-        double joint_tolerance = 0.01;
+        Joint* joint = joint_it_->second;
+        double joint_tolerance = 0.01; //TBD Magic number
         joints_packed += int(abs(joint->current_position - joint->packed_position) < joint_tolerance);
       }
       legs_packed += int(joints_packed == leg->getNumJoints());
     }
-    if (legs_packed == model_->getLegCount())  // All joints in each leg are approximately in the packed position
+
+    // Robot estimated to be in packed state
+    if (legs_packed == model_->getLegCount())
     {
       if (!params_.start_up_sequence.data)
       {
-        ROS_FATAL("\nHexapod currently in packed state and cannot run direct startup sequence.\nEither manually unpack hexapod or set start_up_sequence to true in config file\n");
+        ROS_FATAL("\nHexapod currently in packed state and cannot run direct startup sequence.\n"
+                  "Either manually unpack hexapod or set start_up_sequence to true in config file\n");
         ros::shutdown();
       }
       else
@@ -196,15 +196,18 @@ void StateController::transitionSystemState()
         ROS_INFO("\nHexapod currently packed.\n");
       }
     }
+    // Robot state unknown
     else if (!params_.start_up_sequence.data)
     {
-      ROS_WARN("\nstart_up_sequence parameter is set to false, ensure hexapod is off the ground before transitioning system state.\n");
       robot_state_ = OFF;
+      ROS_WARN("\nstart_up_sequence parameter is set to false, "
+               "ensure hexapod is off the ground before transitioning system state.\n");
     }
     else
     {
       robot_state_ = OFF;
-      ROS_WARN("\nHexapod state is unknown. Future state transitions may be undesireable, recommend ensuring hexapod is off the ground before proceeding.\n");
+      ROS_WARN("\nHexapod state is unknown. Future state transitions may be undesireable, "
+               "recommend ensuring hexapod is off the ground before proceeding.\n");
     }
   }
   // OFF -> !OFF (Start controller or directly transition to walking stance)
@@ -524,7 +527,7 @@ void StateController::publishDesiredJointState(void)
     {
       Joint* joint = joint_it->second;
       joint->prev_desired_position = joint->desired_position;
-      if (true)//params_.gazebo_simulation.data)
+      if (params_.debug_gazebo.data)
       {
         std_msgs::Float64 msg;
         msg.data = joint->desired_position + joint->position_offset;
