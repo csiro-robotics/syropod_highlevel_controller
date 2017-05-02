@@ -32,6 +32,23 @@ void Model::initLegs(bool use_default_joint_positions)
 }
 
 /***********************************************************************************************************************
+ * Get Leg by name
+***********************************************************************************************************************/
+Leg* Model::getLegByIDName(std::string leg_name)
+{
+  map<int, Leg*>::iterator leg_it;
+  for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
+  {
+    Leg* leg = leg_it->second;
+    if (leg->getIDName() == leg_name)
+    {
+      return leg;
+    }
+  }
+  return NULL;
+}
+
+/***********************************************************************************************************************
  * Generic leg data object
 ***********************************************************************************************************************/
 Leg::Leg(Model* model, int id_number, Parameters* params)
@@ -39,7 +56,7 @@ Leg::Leg(Model* model, int id_number, Parameters* params)
   , id_number_(id_number)
   , id_name_(params->leg_id.data[id_number])
   , num_joints_(params->leg_DOF.data[id_name_])
-  , mirror_dir_(pow(-1.0, (id_number_ % 2) + 1))
+  , mirror_dir_(id_number_ >= 3 ? -1.0:1.0)
   , stance_leg_yaw_(params->leg_stance_yaws.data[id_name_])
   , leg_state_(WALKING)
   , impedance_state_(std::vector<double>(2))
@@ -142,7 +159,7 @@ void Leg::applyDeltaZ(Vector3d tip_position)
 /***********************************************************************************************************************
  * Update tip force
 ***********************************************************************************************************************/
-bool Leg::updateTipForce(bool debug)
+bool Leg::updateTipForce(bool debug) //TBD Not currently used (experiment function)
 {
   vector<map<string, double>> dh_parameters;
   map<int, Joint*>::iterator joint_it;
@@ -176,9 +193,9 @@ bool Leg::updateTipForce(bool debug)
     joint_torques[index] = joint->current_effort;
   }
 
-  tip_force_ = j * joint_torques; // Estimate force at the tip in frame of first joint
+  //tip_force_ = j * joint_torques; // Estimate force at the tip in frame of first joint
 
-  ROS_DEBUG_COND(id_number_ == 0 && debug, "Leg: %s\n\tEstimated tip force:\t%f:%f:%f\n", id_name_.c_str(), tip_force_[0], tip_force_[1], tip_force_[2]);
+  //ROS_DEBUG_COND(id_number_ == 0 && debug, "Leg: %s\n\tEstimated tip force:\t%f:%f:%f\n", id_name_.c_str(), tip_force_[0], tip_force_[1], tip_force_[2]);
 }
 /***********************************************************************************************************************
  * Applies inverse kinematics to achieve target tip position

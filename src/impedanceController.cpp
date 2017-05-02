@@ -34,10 +34,10 @@ void ImpedanceController::updateImpedance(Leg* leg, bool use_joint_effort)
 {
 	if (use_joint_effort)
 	{
-		leg->updateTipForce(false);
+		leg->setTipForce(leg->getJointByIDNumber(2)->current_effort * leg->getMirrorDir()); //TBD Refactor
 	}
-	
-	double force_input = abs(max(leg->getTipForce()[0], 0.0));
+    
+  double force_input = abs(max(leg->getTipForce(), 0.0));
 
 	double damping = leg->getVirtualDampingRatio();
 	double stiffness = leg->getVirtualStiffness();

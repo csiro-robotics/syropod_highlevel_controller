@@ -98,6 +98,14 @@ class PoseController
     
     void calculateDefaultPose(void);
     
+    void resetAllPosing(void)
+    {
+      manual_pose_ = Pose::identity();
+      auto_pose_ = Pose::identity();
+      default_pose_ = Pose::identity();
+      inclination_compensation_offset_ = Vector3d(0,0,0);
+    }
+    
   private:    
     Model* model_;
     ImuData imu_data_; 

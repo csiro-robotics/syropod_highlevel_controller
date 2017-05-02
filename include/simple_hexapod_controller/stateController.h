@@ -96,6 +96,12 @@ public:
   void imuCallback(const sensor_msgs::Imu &data);
   void jointStatesCallback(const sensor_msgs::JointState &joint_states);
   void tipForceCallback(const sensor_msgs::JointState &raw_tip_forces); 
+  void tipForceCallbackAR(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackBR(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackCR(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackCL(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackBL(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackAL(const std_msgs::UInt16 &raw_tip_force);
   
 private:
   ros::NodeHandle n_;
@@ -117,8 +123,14 @@ private:
   ros::Subscriber secondary_leg_state_subscriber_;
   ros::Subscriber pose_reset_mode_subscriber_;
   ros::Subscriber imu_data_subscriber_;
-  ros::Subscriber tip_force_subscriber_;
   ros::Subscriber joint_state_subscriber_;
+  ros::Subscriber tip_force_subscriber_;
+  ros::Subscriber tip_force_subscriber_AR_;
+  ros::Subscriber tip_force_subscriber_BR_;
+  ros::Subscriber tip_force_subscriber_CR_;
+  ros::Subscriber tip_force_subscriber_CL_;
+  ros::Subscriber tip_force_subscriber_BL_;
+  ros::Subscriber tip_force_subscriber_AL_;
   ros::Publisher pose_publisher_;
   ros::Publisher imu_data_publisher_;
   ros::Publisher body_velocity_publisher_;

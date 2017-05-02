@@ -32,8 +32,14 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n_.subscribe("ig/imu/data_ned", 1, &StateController::imuCallback, this);
-  tip_force_subscriber_ = n_.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, this); //TBD New topic?
   joint_state_subscriber_ = n_.subscribe("/joint_states", 1000, &StateController::jointStatesCallback, this);
+  tip_force_subscriber_ = n_.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, this); //TBD New topic?
+  tip_force_subscriber_AR_ = n_.subscribe("/AR_prs", 1, &StateController::tipForceCallbackAR, this); //TBD 
+  tip_force_subscriber_BR_ = n_.subscribe("/BR_prs", 1, &StateController::tipForceCallbackBR, this);
+  tip_force_subscriber_CR_ = n_.subscribe("/CR_prs", 1, &StateController::tipForceCallbackCR, this);
+  tip_force_subscriber_CL_ = n_.subscribe("/CL_prs", 1, &StateController::tipForceCallbackCL, this);
+  tip_force_subscriber_BL_ = n_.subscribe("/BL_prs", 1, &StateController::tipForceCallbackBL, this);
+  tip_force_subscriber_AL_ = n_.subscribe("/AL_prs", 1, &StateController::tipForceCallbackAL, this);
 
   //Set up debugging publishers
   string node_name = ros::this_node::getName();
@@ -519,6 +525,7 @@ void StateController::legStateToggle()
 ***********************************************************************************************************************/
 void StateController::publishDesiredJointState(void)
 {
+  sensor_msgs::JointState msg2;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     Leg* leg = leg_it_->second;
@@ -569,6 +576,7 @@ void StateController::publishLegState()
       Joint* joint = joint_it_->second;
       msg.joint_positions.data.push_back(joint->desired_position);
       msg.joint_velocities.data.push_back(joint->desired_velocity);
+      msg.joint_efforts.data.push_back(joint->current_effort); //TBD desired effort
     }
 
     // Step progress
@@ -585,9 +593,7 @@ void StateController::publishLegState()
     msg.auto_pose.angular.z = auto_pose.rotation_.toEulerAngles()[2];
 
     // Impedance controller
-    msg.tip_force.x = leg->getTipForce()[0];
-    msg.tip_force.y = leg->getTipForce()[1];
-    msg.tip_force.z = leg->getTipForce()[2];
+    msg.tip_force.data = leg->getTipForce();
     msg.delta_z.data = leg->getDeltaZ();
     msg.virtual_stiffness.data = leg->getVirtualStiffness();
 
@@ -1186,10 +1192,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
         }
         if (get_effort_values)
         {
-          // Low pass filter of joint effort values
-          double smoothing_factor = (joint->current_effort == UNASSIGNED_VALUE) ? 1.0 : 0.05; // Handles first iteration
-          double scaled_effort = joint_states.effort[i] * (joint->id_number == 2 ? 15.6882 : 5.6168);
-          joint->current_effort = smoothing_factor * scaled_effort + (1 - smoothing_factor) * joint->current_effort;
+          joint->current_effort = joint_states.effort[i];
         }
       }
     }
@@ -1226,8 +1229,86 @@ void StateController::tipForceCallback(const sensor_msgs::JointState& raw_tip_fo
     double max_force = 1000.0;
     double min_force = 0.0;
     double tip_force = clamped(raw_tip_forces.effort[leg->getIDNumber() * 2] - force_offset, min_force, max_force);
-    //leg->setTipForce(tip_force);
+    leg->setTipForce(tip_force);
   }
+}
+
+/***********************************************************************************************************************
+ * Gets tip forces
+***********************************************************************************************************************/
+void StateController::tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+{
+  Leg* leg = model_->getLegByIDName("AR");
+  double force_offset = 23930.0;
+  double max_force = 1000.0;
+  double min_force = 0.0;
+  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
+  leg->setTipForce(tip_force);
+}
+
+/***********************************************************************************************************************
+ * Gets tip forces
+***********************************************************************************************************************/
+void StateController::tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+{
+  Leg* leg = model_->getLegByIDName("BR");
+  double force_offset = 23845.0;
+  double max_force = 1000.0;
+  double min_force = 0.0;
+  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
+  leg->setTipForce(tip_force);
+}
+
+/***********************************************************************************************************************
+ * Gets tip forces
+***********************************************************************************************************************/
+void StateController::tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+{
+  Leg* leg = model_->getLegByIDName("CR");
+  double force_offset = 23930.0;
+  double max_force = 1000.0;
+  double min_force = 0.0;
+  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
+  leg->setTipForce(tip_force);
+}
+
+/***********************************************************************************************************************
+ * Gets tip forces
+***********************************************************************************************************************/
+void StateController::tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+{
+  Leg* leg = model_->getLegByIDName("CL");
+  double force_offset = 23895.0;
+  double max_force = 1000.0;
+  double min_force = 0.0;
+  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
+  leg->setTipForce(tip_force);
+}
+
+/***********************************************************************************************************************
+ * Gets tip forces
+***********************************************************************************************************************/
+void StateController::tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+{
+  Leg* leg = model_->getLegByIDName("BL");
+  double force_offset = 23775.0;
+  double max_force = 1000.0;
+  double min_force = 0.0;
+  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
+  leg->setTipForce(tip_force);
+}
+
+/***********************************************************************************************************************
+ * Gets tip forces
+***********************************************************************************************************************/
+void StateController::tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+{
+  Leg* leg = model_->getLegByIDName("AL");
+  double force_offset = 23920.0;
+  double max_force = 1000.0;
+  double min_force = 0.0;
+  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
+  leg->setTipForce(tip_force);
 }
 
 /***********************************************************************************************************************
@@ -1292,6 +1373,7 @@ void StateController::initParameters(void)
   params_.swing_stiffness_scaler.init(n_, "swing_stiffness_scaler");
   params_.virtual_damping_ratio.init(n_, "virtual_damping_ratio");
   params_.force_gain.init(n_, "force_gain");
+  params_.debug_gazebo.init(n_, "debug_gazebo");
   params_.debug_rviz.init(n_, "debug_rviz");
   params_.debug_rviz_static_display.init(n_, "debug_rviz_static_display");
   params_.console_verbosity.init(n_, "console_verbosity");

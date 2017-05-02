@@ -56,7 +56,7 @@ class Model
     vector<Vector3d> getJointPositions(const Pose &pose);
     
     Leg* getLegByIDNumber(int leg_id_num) { return leg_container_[leg_id_num]; };
-    Leg* getLegByIDName(std::string leg_id_name);  
+    Leg* getLegByIDName(std::string leg_id_name);
     
   private:
     std::map<int, Leg*> leg_container_;
@@ -81,7 +81,7 @@ public:
 	inline LegState getLegState(void) { return leg_state_; };
 	inline double getMirrorDir(void) { return mirror_dir_; }; 
 	inline double getStanceLegYaw(void) { return stance_leg_yaw_; };
-	inline Vector3d getTipForce(void) { return tip_force_; };
+	inline double getTipForce(void) { return tip_force_; };
 	inline double getDeltaZ(void) { return delta_z_; };
 	inline double getVirtualMass(void) { return virtual_mass_; };
 	inline double getVirtualStiffness(void) { return virtual_stiffness_; };
@@ -101,7 +101,7 @@ public:
 	inline void setASCStatePublisher(ros::Publisher publisher) { asc_leg_state_publisher_ = publisher; };
 	inline void setLegStepper(LegStepper* leg_stepper) { leg_stepper_ = leg_stepper; };
 	inline void setLegPoser(LegPoser* leg_poser) { leg_poser_ = leg_poser; };
-	inline void setTipForce(Vector3d tip_force) { tip_force_ = tip_force; };
+	inline void setTipForce(double tip_force) { tip_force_ = tip_force; };
 	inline void setDeltaZ(double dz) { delta_z_ = dz; };
 	inline void setVirtualMass(double mass) { virtual_mass_ = mass; };
 	inline void setVirtualStiffness(double stiffness) { virtual_stiffness_ = stiffness; };
@@ -161,7 +161,7 @@ protected:
 
 	int group_;
 
-	Vector3d tip_force_;
+	double tip_force_; // Vertical force estimation on tip
 };
 
 struct Link

@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
   ros::Rate r(roundToInt(1.0 / params->time_delta.data));
   
   // Wait specified time to aquire all published joint positions via callback
-  int spin = 5.0 / params->time_delta.data;  // Max ros spin cycles to find joint positions //TBD 5 second magic number
+  int spin = 10.0 / params->time_delta.data;  // Max ros spin cycles to find joint positions //TBD 5 second magic number
 
   while (spin--)
   {

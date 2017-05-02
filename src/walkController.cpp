@@ -631,7 +631,7 @@ void LegStepper::updatePosition()
     if (iteration == 1)
     {
       swing_origin_tip_position_ = current_tip_position_;
-      generateSwingControlNodes(bezier_scaler);
+      generateSwingControlNodes(bezier_scaler, stride_vector_);
     }
 
     // Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
@@ -643,13 +643,14 @@ void LegStepper::updatePosition()
     {
       t1 = iteration * swing_delta_t_;
       //delta_pos = swing_delta_t_ * quarticBezierDot(swing_1_nodes_, t1);
+      generateSwingControlNodes(bezier_scaler, stride_vector_);
       current_tip_position_ = quarticBezier(swing_1_nodes_, t1);
     }
     else
     {
       stance_origin_tip_position_ = default_tip_position_ + 0.5 * stride_vector_;
       generateStanceControlNodes(stride_vector_);
-      generateSwingControlNodes(bezier_scaler);
+      generateSwingControlNodes(bezier_scaler, stride_vector_);
       t2 = (iteration - num_iterations / 2) * swing_delta_t_;
       //delta_pos = swing_delta_t_ * quarticBezierDot(swing_2_nodes_, t2);
       current_tip_position_ = quarticBezier(swing_2_nodes_, t2);
@@ -738,8 +739,12 @@ void LegStepper::updatePosition()
 /***********************************************************************************************************************
  * Generates control nodes for each quartic bezier curve of swing tip trajectory calculation
 ***********************************************************************************************************************/
-void LegStepper::generateSwingControlNodes(double bezier_scaler)
+void LegStepper::generateSwingControlNodes(double bezier_scaler, Vector3d stride_vector)
 {
+  double scaler = leg_->getIDNumber() < 3 ? 0.0:-0.0;
+  Vector3d curver(scaler*stride_vector[1], -scaler*stride_vector[0], 0); //TBD Parameterise
+  
+  
   // Control nodes for swing quartic bezier curves - horizontal plane
   // Set for horizontal position continuity at transition between stance and primary swing curves (C0 Smoothness)
   swing_1_nodes_[0] = swing_origin_tip_position_;  
@@ -748,7 +753,7 @@ void LegStepper::generateSwingControlNodes(double bezier_scaler)
   // Set for horizontal acceleration continuity at transition between stance and primary swing curves (C2 Smoothness)
   swing_1_nodes_[2] = swing_1_nodes_[1] + (swing_1_nodes_[1] - swing_1_nodes_[0]);  
   // Set to default tip position so max swing height and transition to 2nd swing curve occurs at default tip position
-  swing_1_nodes_[4] = default_tip_position_;  
+  swing_1_nodes_[4] = default_tip_position_ + curver;
   // Set for horizontal acceleration continuity at transition between swing curves (C2 Smoothness) (symetrical curves)
   swing_1_nodes_[3] = (swing_1_nodes_[2] + swing_1_nodes_[4]) / 2.0;
   // Set for horizontal position continuity at transition between primary and secondary swing curves (C0 Smoothness)
@@ -792,9 +797,9 @@ void LegStepper::generateStanceControlNodes(Vector3d stride_vector)
 {  
   // Control nodes for stance quartic bezier curve - horizontal plane
   // Set as initial horizontal tip position
-  stance_nodes_[0] = stance_origin_tip_position_;  
+  stance_nodes_[0] = stance_origin_tip_position_;
   // Set as target horizontal tip position
-  stance_nodes_[4] = /*default_tip_position_ - stride_vector*0.5;*/stance_origin_tip_position_ - stride_vector;
+  stance_nodes_[4] = stance_origin_tip_position_ - stride_vector;
   // Set for constant horizontal velocity in stance phase
   stance_nodes_[1] = stance_nodes_[4] + 0.75 * (stance_nodes_[0] - stance_nodes_[4]);  
   // Set for constant horizontal velocity in stance phase
@@ -806,7 +811,7 @@ void LegStepper::generateStanceControlNodes(Vector3d stride_vector)
   // Set as initial vertical tip position
   stance_nodes_[0][2] = stance_origin_tip_position_[2];  
   // Set as target vertical tip position
-  stance_nodes_[4][2] = default_tip_position_[2];  
+  stance_nodes_[4][2] = default_tip_position_[2];
   // Set to control depth below ground level of stance trajectory, defined by stanceDepth
   stance_nodes_[2][2] = stance_nodes_[0][2] - stance_depth_;  
   // Set for vertical acceleration continuity at transition between secondary swing and stance curves (C2 Smoothness)                                                                    

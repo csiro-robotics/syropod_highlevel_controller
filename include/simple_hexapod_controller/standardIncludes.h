@@ -32,6 +32,7 @@
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int8.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/UInt16.h>
 
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/JointState.h>

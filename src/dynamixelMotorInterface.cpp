@@ -82,8 +82,7 @@ void DynamixelMotorInterface::setPGain(double pGain) //TBD Needed?
 void DynamixelMotorInterface::publish(void)
 {
   sensor_msgs::JointState msg;
-  msg.header.stamp.sec = ros::Time::now().toSec();
-  msg.header.stamp.nsec = ros::Time::now().toNSec();
+  msg.header.stamp = ros::Time::now();
   std::map<int, Leg*>::iterator leg_it;
 
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
@@ -100,7 +99,6 @@ void DynamixelMotorInterface::publish(void)
       msg.effort.push_back(joint->desired_effort);
     }
   }
-
   motor_publisher_.publish(msg);
 }
 

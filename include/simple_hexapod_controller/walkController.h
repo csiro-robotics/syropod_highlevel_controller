@@ -156,7 +156,7 @@ class LegStepper
     };
     
     void updatePosition(void);
-    void generateSwingControlNodes(double bezier_scaler);
+    void generateSwingControlNodes(double bezier_scaler, Vector3d stride_vector);
     void generateStanceControlNodes(Vector3d stride_vector);
     void iteratePhase(void);
     double calculateDeltaT(StepState step_state, int length);

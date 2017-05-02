@@ -416,6 +416,7 @@ int PoseController::shutDownSequence(void)
     step_complete_ = false;
     lower_complete_ = false;
     set_target_ = true;
+    resetAllPosing();
   }
 
   return progress;
@@ -669,7 +670,7 @@ void PoseController::updateCurrentPose(double body_height, WalkState walk_state)
   // Compensation to offset average deltaZ from impedance controller and keep body at specificied height
   if (params_->impedance_control.data)
   {
-    new_pose.position_[2] += impedanceControllerCompensation();
+    //new_pose.position_[2] += impedanceControllerCompensation();
   }
 
   // Auto body compensation using IMU feedback
