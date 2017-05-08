@@ -81,8 +81,7 @@ class PoseController
     int directStartup(void);
     int stepToNewStance(void);
     int poseForLegManipulation(void);
-    int shutDownSequence(void);
-    int startUpSequence(void);    
+    int executeSequence(SequenceSelection sequence);
     
     //Coordinated leg movements - joint position
     int packLegs(double time_to_pack);
@@ -130,10 +129,13 @@ class PoseController
     Vector3d inclination_compensation_offset_;
     
     //Shutdown/Startup state variables
+    int transition_step_ = 0;
+    int transition_step_count_ = 0;
     bool set_target_ = true;
-    bool lower_complete_ = false;
-    bool step_complete_ = false;
-    bool raise_complete_ = false;
+    bool proximity_alert_ = false;
+    bool horizontal_transition_complete_ = false;
+    bool vertical_transition_complete_ = false;
+    bool first_sequence_execution_ = true;
     
     //Direct startup state variables
     bool move_joints_complete = false;
@@ -202,33 +204,33 @@ class LegPoser
     LegPoser(PoseController* poser, Leg* leg);
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
     inline Vector3d getTargetTipPosition(void) { return target_tip_position_; };
+    inline Vector3d getUnpackedTipPosition(void) { return unpacked_tip_position_; };
+    inline Vector3d getTransitionPosition(int index) { return transition_positions_[index]; }
+    inline bool hasTransitionPosition(int index) { return int(transition_positions_.size()) > index; };
 		inline Pose getOriginPose(void) { return origin_pose_; };
 		inline Pose getAutoPose(void) { return auto_pose_; };
 		inline int getPoseNegationPhaseStart() { return pose_negation_phase_start_; };
 		inline int getPoseNegationPhaseEnd() { return pose_negation_phase_end_; };
 		inline bool getStopNegation(void) { return stop_negation_; };
-    inline double getMinLegLength(void) { return min_leg_length_; };
     inline bool getLegCompletedStep(void) { return leg_completed_step_; };
-    inline bool getJointsWithinLimits(void) { return joints_within_limits_; };
     
     inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
     inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
+    inline void setUnpackedTipPosition(Vector3d unpacked) { unpacked_tip_position_ = unpacked; };
+    inline void addTransitionPosition(Vector3d transition) { transition_positions_.push_back(transition); };
 		inline void setAutoPose(Pose auto_pose) { auto_pose_ = auto_pose; };
 		inline void setOriginPose(Pose origin_pose) { origin_pose_ = origin_pose; };
 		inline void setPoseNegationPhaseStart(int start) { pose_negation_phase_start_ = start; };
 		inline void setPoseNegationPhaseEnd(int end) { pose_negation_phase_end_ = end; };
 		inline void setStopNegation(bool stop_negation) { stop_negation_ = stop_negation; };
-    inline void setMinLegLength(double length) { min_leg_length_ = length; };
     inline void setLegCompletedStep(bool complete) { leg_completed_step_ = complete; };
-    inline void setJointsWithinLimits(bool within_limits) { joints_within_limits_ = within_limits; };
-    
     inline int resetStepToPosition(void) 
     { 
       first_iteration_ = true;
       int progress = 100;
       return progress;
     }
-    
+
     //updatePosition(void); //apply current pose to generate new tip position
     int moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
     int stepToPosition(Vector3d targetTipPosition, Pose targetPose, double lift_height, double time_to_step);
@@ -253,9 +255,11 @@ class LegPoser
     Vector3d current_tip_position_;
     Vector3d target_tip_position_;
     
-    double min_leg_length_ = UNASSIGNED_VALUE;
+    Vector3d stance_tip_position_;
+    Vector3d unpacked_tip_position_;
+    vector<Vector3d> transition_positions_;
+    
     bool leg_completed_step_ = false;
-    bool joints_within_limits_ = false;
 };
 
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H */

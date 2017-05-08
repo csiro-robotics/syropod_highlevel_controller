@@ -114,10 +114,10 @@ public:
 	void applyDeltaZ(Vector3d tip_position);
 	bool updateTipForce(bool debug);
   Vector3d applyFK(bool set_local = true);
-	bool applyIK(bool clamp_positions = true,
-               bool clamp_velocities = true,
-               bool ignore_warnings = false,
-               bool debug = false);
+	double applyIK(bool debug = false,
+                 bool ignore_warnings = false,
+                 bool clamp_positions = true,
+                 bool clamp_velocities = true);
 	
 
 	void publishState(simple_hexapod_controller::legState msg) { leg_state_publisher_.publish(msg); };
@@ -161,7 +161,7 @@ protected:
 
 	int group_;
 
-	double tip_force_; // Vertical force estimation on tip
+	double tip_force_ = 0.0; // Vertical force estimation on tip
 };
 
 struct Link

@@ -151,7 +151,7 @@ void Leg::applyDeltaZ(Vector3d tip_position)
 {
   if (leg_state_ != MANUAL)  // Don't apply delta Z to manually manipulated legs
   {
-    tip_position[2] -= delta_z_;
+    tip_position[2] += delta_z_;
   }
   desired_tip_position_ = tip_position;
 }
@@ -196,13 +196,14 @@ bool Leg::updateTipForce(bool debug) //TBD Not currently used (experiment functi
   //tip_force_ = j * joint_torques; // Estimate force at the tip in frame of first joint
 
   //ROS_DEBUG_COND(id_number_ == 0 && debug, "Leg: %s\n\tEstimated tip force:\t%f:%f:%f\n", id_name_.c_str(), tip_force_[0], tip_force_[1], tip_force_[2]);
+  
+  return false;
 }
 /***********************************************************************************************************************
  * Applies inverse kinematics to achieve target tip position
 ***********************************************************************************************************************/
-bool Leg::applyIK(bool clamp_positions, bool clamp_velocities, bool ignore_warnings, bool debug)
+double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool clamp_velocities)
 {
-  bool desired_tip_position_within_workspace = true;
   vector<map<string, double>> dh_parameters;
   map<int, Joint*>::iterator joint_it;
   map<string, double> dh_map;
@@ -242,19 +243,22 @@ bool Leg::applyIK(bool clamp_positions, bool clamp_velocities, bool ignore_warni
   joint_delta_pos = ik_matrix * leg_frame_tip_position_delta;
 
   int index = 0;
+  string clamping_events;
+  double limit_proximity = 1.0;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
   {
     Joint* joint = joint_it->second;
     joint->desired_velocity = joint_delta_pos[index] / model_->getTimeDelta();
     
     // Clamp joint velocities within limits
-    if (false)
+    if (clamp_velocities)
     {
-      ROS_WARN_COND(abs(joint->desired_velocity) > joint->max_angular_speed,
-                    "\n\tJoint %s is attempting an excessive angular speed (%f > %f).\t"
-                    "Limiting angular speed to the maximum.\n",
-                    joint->name.c_str(), abs(joint->desired_velocity), joint->max_angular_speed);
-      joint->desired_velocity = clamped(joint->desired_velocity, -joint->max_angular_speed, joint->max_angular_speed);
+      if (abs(joint->desired_velocity) > joint->max_angular_speed)
+      {
+        clamping_events += stringFormat("\n\tType: Velocity\tJoint: %s\tDesired: %f rad/s\tLimited to: %f rad/s",
+                                        joint->name.c_str(), abs(joint->desired_velocity), joint->max_angular_speed);
+        joint->desired_velocity = clamped(joint->desired_velocity, -joint->max_angular_speed, joint->max_angular_speed);
+      }
     }
     joint->desired_position = joint->prev_desired_position + joint->desired_velocity*model_->getTimeDelta();
 
@@ -263,47 +267,54 @@ bool Leg::applyIK(bool clamp_positions, bool clamp_velocities, bool ignore_warni
     {
       if (joint->desired_position < joint->min_position)
       {
+        clamping_events += stringFormat("\n\tType: Position\tJoint: %s\tDesired: %f rad\tLimited to: %f rad",
+                                        joint->name.c_str(), joint->desired_position, joint->min_position);
         joint->desired_position = joint->min_position;
-        ROS_WARN_COND(!ignore_warnings,
-                      "\n\t%s leg has tried to exceed %s min joint limit: %f.\tClamping joint to limit.\n",
-                      id_name_.c_str(), joint->name.c_str(), joint->min_position);
-        desired_tip_position_within_workspace = false;
       }
       else if (joint->desired_position > joint->max_position)
       {
+        clamping_events += stringFormat("\n\tType: Position\tJoint: %s\tDesired: %f rad\tLimited to: %f rad",
+                                        joint->name.c_str(), joint->desired_position, joint->max_position);
         joint->desired_position = joint->max_position;
-        ROS_WARN_COND(!ignore_warnings,
-                      "\n\t%s leg has tried to exceed %s max joint limit: %f.\tClamping joint to limit.\n",
-                      id_name_.c_str(), joint->name.c_str(), joint->max_position);
-        desired_tip_position_within_workspace = false;
       }
     }
+    
+    //Calculates the proximity of the joint closest to one of it's limits. Used for preventing exceeding workspace.
+    // (1.0 = furthest possible from limit, 0.0 = equal to limit)
+    double min_diff = abs(joint->min_position - joint->desired_position);
+    double max_diff = abs(joint->max_position - joint->desired_position);
+    double half_joint_range = (joint->max_position - joint->min_position)/2.0;
+    limit_proximity = min(limit_proximity, min(min_diff, max_diff)/half_joint_range);
   }
 
   Vector3d result = applyFK();
 
+  // Debugging message
   ROS_DEBUG_COND(id_number_ == 0 && debug,
                  "\nLeg %s:\n\tDesired tip position from trajectory engine: %f:%f:%f\n\t"
                  "Resultant tip position from inverse/forward kinematics: %f:%f:%f", id_name_.c_str(),
                  desired_tip_position_[0], desired_tip_position_[1], desired_tip_position_[2],
                  result[0], result[1], result[2]);
 
-  Vector3d IK_tolerance(0.005, 0.005, 0.005); //5mm
-  std::string axis_label[3] = {"x", "y", "z"};
-  for (int i = 0; i < 3; ++i)
+  // Display warning messages for clamping events and associated inverse kinematic deviations
+  if (!ignore_warnings)
   {
-    if (abs(result[i] - desired_tip_position_[i]) > IK_tolerance[i])
+    Vector3d IK_tolerance(0.005, 0.005, 0.005); //5mm
+    std::string axis_label[3] = {"x", "y", "z"};
+    for (int i = 0; i < 3; ++i)
     {
-      double error_percentage = abs((result[i] - desired_tip_position_[i]) / desired_tip_position_[i]) * 100;
-      ROS_WARN_COND(!ignore_warnings,
-                    "\nInverse kinematics error! Calculated tip %s position of leg %s (%s: %f)"
-                    "differs from desired tip position (%s: %f) by %f%%",
-                    axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), result[i], axis_label[i].c_str(),
-                    desired_tip_position_[i], error_percentage);
-      desired_tip_position_within_workspace = false;
+      if (abs(result[i] - desired_tip_position_[i]) > IK_tolerance[i])
+      {
+        double error_percentage = abs((result[i] - desired_tip_position_[i]) / desired_tip_position_[i]) * 100;
+        ROS_WARN("\nInverse kinematics deviation! Calculated tip %s position of leg %s (%s: %f)"
+                " differs from desired tip position (%s: %f) by %f%%\nThis is due to clamping events:%s\n",
+                axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), result[i], axis_label[i].c_str(),
+                desired_tip_position_[i], error_percentage, clamping_events.c_str());
+      }
     }
   }
-  return desired_tip_position_within_workspace;
+  
+  return limit_proximity;
 }
 
 /***********************************************************************************************************************

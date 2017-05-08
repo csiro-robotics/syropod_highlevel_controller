@@ -268,7 +268,7 @@ void StateController::transitionSystemState()
   // READY -> RUNNING (Initate start up sequence to step to walking stance)
   else if (robot_state_ == READY && new_robot_state_ == RUNNING)
   {
-    int progress = poser_->startUpSequence();
+    int progress = poser_->executeSequence(START_UP);
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to RUNNING state (%d%%). . .\n", progress);
     if (progress == 100) //100% complete
     {
@@ -287,7 +287,7 @@ void StateController::transitionSystemState()
     }
     else
     {
-      int progress = poser_->shutDownSequence();
+      int progress = poser_->executeSequence(SHUT_DOWN);
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to READY state (%d%%). . .\n", progress);
       if (progress == 100) //100% complete
       {
@@ -353,13 +353,8 @@ void StateController::runningState()
     {
       Leg* leg = leg_it_->second;
       LegPoser* leg_poser = leg->getLegPoser();
-      Vector3d target_tip_position = leg_poser->getCurrentTipPosition();
-      if (leg->getLegState() != MANUAL)  // Don't apply delta Z to manually manipulated legs
-      {
-        target_tip_position[2] += leg->getDeltaZ();
-      }
-      leg->setDesiredTipPosition(target_tip_position);
-      leg->applyIK(true, true, false, params_.debug_IK.data);
+      leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
+      leg->applyIK(params_.debug_IK.data);
     }
   }
 }
@@ -525,7 +520,6 @@ void StateController::legStateToggle()
 ***********************************************************************************************************************/
 void StateController::publishDesiredJointState(void)
 {
-  sensor_msgs::JointState msg2;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     Leg* leg = leg_it_->second;
@@ -1362,7 +1356,6 @@ void StateController::initParameters(void)
   params_.max_rotation.init(n_, "max_rotation");
   params_.max_rotation_velocity.init(n_, "max_rotation_velocity");
   params_.leg_manipulation_mode.init(n_, "leg_manipulation_mode");
-
   // Impedance controller parameters
   params_.dynamic_stiffness.init(n_, "dynamic_stiffness");
   params_.use_joint_effort.init(n_, "use_joint_effort");
@@ -1372,7 +1365,8 @@ void StateController::initParameters(void)
   params_.load_stiffness_scaler.init(n_, "load_stiffness_scaler");
   params_.swing_stiffness_scaler.init(n_, "swing_stiffness_scaler");
   params_.virtual_damping_ratio.init(n_, "virtual_damping_ratio");
-  params_.force_gain.init(n_, "force_gain");
+  params_.force_gain.init(n_, "force_gain");  
+  // Debug Parameters
   params_.debug_gazebo.init(n_, "debug_gazebo");
   params_.debug_rviz.init(n_, "debug_rviz");
   params_.debug_rviz_static_display.init(n_, "debug_rviz_static_display");
@@ -1381,6 +1375,7 @@ void StateController::initParameters(void)
   params_.debug_stepToPosition.init(n_, "debug_step_to_position");
   params_.debug_swing_trajectory.init(n_, "debug_swing_trajectory");
   params_.debug_stance_trajectory.init(n_, "debug_stance_trajectory");
+  params_.debug_execute_sequence.init(n_, "debug_execute_sequence");
   params_.debug_IK.init(n_, "debug_ik");
 
   // Init all joint and link parameters per leg

@@ -139,6 +139,12 @@ enum ParameterSelection
   FORCE_GAIN,
 };
 
+enum SequenceSelection
+{
+  START_UP,
+  SHUT_DOWN
+};
+
 template <typename T>
 struct Parameter
 {
@@ -284,6 +290,7 @@ struct Parameters
 	Parameter<bool> debug_stepToPosition;
 	Parameter<bool> debug_swing_trajectory;
 	Parameter<bool> debug_stance_trajectory;
+  Parameter<bool> debug_execute_sequence;
 	Parameter<bool> debug_IK;
 };
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H */
