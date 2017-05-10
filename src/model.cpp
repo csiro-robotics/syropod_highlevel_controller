@@ -32,6 +32,23 @@ void Model::initLegs(bool use_default_joint_positions)
 }
 
 /***********************************************************************************************************************
+ * Estimates if the legs of the robot are bearing the load (i.e. any leg is lower than the plan of the body underside)
+***********************************************************************************************************************/
+bool Model::legsBearingLoad(void) //TBD Make more robust by estimating body height
+{
+  // Set initial leg angles
+  std::map<int, Leg*>::iterator leg_it;
+  double body_height_estimate = 0.0;
+  for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
+  {
+    Leg* leg = leg_it->second;
+    body_height_estimate += leg->getLocalTipPosition()[2];
+  }
+  double threshold = 0.05; //TBD Parameterise as body thickness
+  return -(body_height_estimate / leg_count_) > threshold;
+}
+
+/***********************************************************************************************************************
  * Get Leg by name
 ***********************************************************************************************************************/
 Leg* Model::getLegByIDName(std::string leg_name)
@@ -145,15 +162,23 @@ Link* Leg::getLinkByIDName(std::string link_name)
 }
 
 /***********************************************************************************************************************
- * Applies impedance controller delta z position to requested tip position and sets as desired tip position
+ * Applies impedance controller delta z position within velocity limits
 ***********************************************************************************************************************/
-void Leg::applyDeltaZ(Vector3d tip_position)
+void Leg::setDesiredTipPosition(Vector3d tip_position, bool apply_delta_z)
 {
-  if (leg_state_ != MANUAL)  // Don't apply delta Z to manually manipulated legs
+  desired_tip_position_[0] = tip_position[0];
+  desired_tip_position_[1] = tip_position[1];
+  
+  // Don't apply delta Z to manually manipulated legs
+  bool manually_manipulated = (leg_state_ == MANUAL || leg_state_ == WALKING_TO_MANUAL);
+  if (apply_delta_z && !manually_manipulated)
   {
-    tip_position[2] += delta_z_;
+    desired_tip_position_[2] = tip_position[2] + delta_z_;
   }
-  desired_tip_position_ = tip_position;
+  else
+  {
+    desired_tip_position_[2] = tip_position[2];
+  }
 }
 
 /***********************************************************************************************************************

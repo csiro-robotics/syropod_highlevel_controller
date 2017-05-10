@@ -224,7 +224,7 @@ void StateController::transitionSystemState()
     {
       int progress = poser_->directStartup();
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning directly to RUNNING state (%d%%). . .\n", progress);
-      if (progress == 100)
+      if (progress == PROGRESS_COMPLETE)
       {
         robot_state_ = RUNNING;
         ROS_INFO("\nDirect startup sequence complete. Ready to walk.\n");
@@ -248,7 +248,7 @@ void StateController::transitionSystemState()
   {
     int progress = poser_->unpackLegs(2.0 / params_.step_frequency.current_value);
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to READY state (%d%%). . .\n", progress);
-    if (progress == 100) //100% complete
+    if (progress == PROGRESS_COMPLETE)
     {
       robot_state_ = READY;
       ROS_INFO("\nState transition complete. Hexapod is in READY state.\n");
@@ -259,7 +259,7 @@ void StateController::transitionSystemState()
   {
     int progress = poser_->packLegs(2.0 / params_.step_frequency.current_value);
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to PACKED state (%d%%). . .\n", progress);
-    if (progress == 100) //100% complete
+    if (progress == PROGRESS_COMPLETE)
     {
       robot_state_ = PACKED;
       ROS_INFO("\nState transition complete. Hexapod is in PACKED state.\n");
@@ -269,8 +269,9 @@ void StateController::transitionSystemState()
   else if (robot_state_ == READY && new_robot_state_ == RUNNING)
   {
     int progress = poser_->executeSequence(START_UP);
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to RUNNING state (%d%%). . .\n", progress);
-    if (progress == 100) //100% complete
+    string progress_string = (progress == -1 ? "Generating Sequence" : (numberToString(progress) + "%"));
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to RUNNING state (%s). . .\n", progress_string.c_str());
+    if (progress == PROGRESS_COMPLETE)
     {
       robot_state_ = RUNNING;
       ROS_INFO("\nState transition complete. Hexapod is in RUNNING state. Ready to walk.\n");
@@ -289,7 +290,7 @@ void StateController::transitionSystemState()
     {
       int progress = poser_->executeSequence(SHUT_DOWN);
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to READY state (%d%%). . .\n", progress);
-      if (progress == 100) //100% complete
+      if (progress == PROGRESS_COMPLETE)
       {
         robot_state_ = READY;
         ROS_INFO("\nState transition complete. Hexapod is in READY state.\n");
@@ -353,7 +354,7 @@ void StateController::runningState()
     {
       Leg* leg = leg_it_->second;
       LegPoser* leg_poser = leg->getLegPoser();
-      leg->applyDeltaZ(leg_poser->getCurrentTipPosition());
+      leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
       leg->applyIK(params_.debug_IK.data);
     }
   }

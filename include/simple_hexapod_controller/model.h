@@ -53,6 +53,7 @@ class Model
     inline void setAngularVelocity(double velocity) { angular_velocity_ = velocity; };
     
     void initLegs(bool use_default_joint_positions);
+    bool legsBearingLoad(void);
     vector<Vector3d> getJointPositions(const Pose &pose);
     
     Leg* getLegByIDNumber(int leg_id_num) { return leg_container_[leg_id_num]; };
@@ -106,12 +107,11 @@ public:
 	inline void setVirtualMass(double mass) { virtual_mass_ = mass; };
 	inline void setVirtualStiffness(double stiffness) { virtual_stiffness_ = stiffness; };
 	inline void setVirtualDampingRatio(double damping_ratio) { virtual_damping_ratio_ = damping_ratio; };
-	inline void setDesiredTipPosition(Vector3d tip_position) { desired_tip_position_ = tip_position; };
 	inline void setDesiredTipVelocity(Vector3d tip_velocity) { desired_tip_velocity_ = tip_velocity; };
 	inline void setWorkspaceRadius(double radius) { workspace_radius_ = radius; };
 
 	void init(bool use_default_joint_positions);
-	void applyDeltaZ(Vector3d tip_position);
+	void setDesiredTipPosition(Vector3d tip_position, bool apply_delta_z = true);
 	bool updateTipForce(bool debug);
   Vector3d applyFK(bool set_local = true);
 	double applyIK(bool debug = false,

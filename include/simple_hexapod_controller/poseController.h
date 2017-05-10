@@ -136,6 +136,7 @@ class PoseController
     bool horizontal_transition_complete_ = false;
     bool vertical_transition_complete_ = false;
     bool first_sequence_execution_ = true;
+    bool reset_transition_sequence_ = true;
     
     //Direct startup state variables
     bool move_joints_complete = false;
@@ -204,7 +205,6 @@ class LegPoser
     LegPoser(PoseController* poser, Leg* leg);
     inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
     inline Vector3d getTargetTipPosition(void) { return target_tip_position_; };
-    inline Vector3d getUnpackedTipPosition(void) { return unpacked_tip_position_; };
     inline Vector3d getTransitionPosition(int index) { return transition_positions_[index]; }
     inline bool hasTransitionPosition(int index) { return int(transition_positions_.size()) > index; };
 		inline Pose getOriginPose(void) { return origin_pose_; };
@@ -216,7 +216,6 @@ class LegPoser
     
     inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
     inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
-    inline void setUnpackedTipPosition(Vector3d unpacked) { unpacked_tip_position_ = unpacked; };
     inline void addTransitionPosition(Vector3d transition) { transition_positions_.push_back(transition); };
 		inline void setAutoPose(Pose auto_pose) { auto_pose_ = auto_pose; };
 		inline void setOriginPose(Pose origin_pose) { origin_pose_ = origin_pose; };
@@ -224,6 +223,7 @@ class LegPoser
 		inline void setPoseNegationPhaseEnd(int end) { pose_negation_phase_end_ = end; };
 		inline void setStopNegation(bool stop_negation) { stop_negation_ = stop_negation; };
     inline void setLegCompletedStep(bool complete) { leg_completed_step_ = complete; };
+    inline void resetTransitionSequence(void) { transition_positions_.clear(); };
     inline int resetStepToPosition(void) 
     { 
       first_iteration_ = true;
@@ -233,7 +233,8 @@ class LegPoser
 
     //updatePosition(void); //apply current pose to generate new tip position
     int moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
-    int stepToPosition(Vector3d targetTipPosition, Pose targetPose, double lift_height, double time_to_step);
+    int stepToPosition(Vector3d targetTipPosition, Pose targetPose,
+                       double lift_height, double time_to_step, bool apply_delta_z = true);
 		void updateAutoPose(int phase);
     
   private:
@@ -255,8 +256,6 @@ class LegPoser
     Vector3d current_tip_position_;
     Vector3d target_tip_position_;
     
-    Vector3d stance_tip_position_;
-    Vector3d unpacked_tip_position_;
     vector<Vector3d> transition_positions_;
     
     bool leg_completed_step_ = false;

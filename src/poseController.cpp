@@ -120,11 +120,27 @@ void PoseController::updateStance(void)
 }
 
 /***********************************************************************************************************************
- * Startup/Shutdown sequence
+ * Executes saved transition sequence in direction defined by 'sequence' (START_UP or SHUT_DOWN).
+ * If no sequence exists for target stance, it generates one iteratively by checking workspace limitations.
 ***********************************************************************************************************************/
 int PoseController::executeSequence(SequenceSelection sequence)
 {
   bool debug = params_->debug_execute_sequence.data;
+  
+  // Initialise/Reset any saved transition sequence
+  if (reset_transition_sequence_ && sequence == START_UP)
+  {
+    reset_transition_sequence_ = false;
+    first_sequence_execution_ = true;
+    transition_step_ = 0;
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+    {
+      Leg* leg = leg_it_->second;
+      LegPoser* leg_poser = leg->getLegPoser();
+      leg_poser->resetTransitionSequence();
+      leg_poser->addTransitionPosition(leg->getLocalTipPosition()); // Initial transition position
+    }
+  }
   
   // Setup transition step iteration direction and targets
   int progress = 0;
@@ -132,23 +148,39 @@ int PoseController::executeSequence(SequenceSelection sequence)
   int transition_step_target;
   bool execute_horizontal_transition;
   bool execute_vertical_transition;
+  int total_progress;
+  int normalised_progress;
   if (sequence == START_UP)
   {
     execute_horizontal_transition = !(transition_step_%2); // Even steps
     execute_vertical_transition = transition_step_%2; // Odd steps
     next_transition_step = transition_step_ + 1;
     transition_step_target = transition_step_count_;
+    total_progress = transition_step_*100 / max(transition_step_count_, 1);
   }
   else if (sequence == SHUT_DOWN)
   {
     execute_horizontal_transition = transition_step_%2; // Odd steps
     execute_vertical_transition = !(transition_step_%2); // Even steps
     next_transition_step = transition_step_ - 1;
-    transition_step_target = 1;
+    transition_step_target = 0;
+    total_progress = 100 - transition_step_*100 / max(transition_step_count_, 1);
+  }
+  
+  //Determine if this transition is the last one before end of sequence
+  bool final_transition;
+  bool sequence_complete = false;
+  if (first_sequence_execution_)
+  {
+    final_transition = horizontal_transition_complete_ || vertical_transition_complete_;
+  }
+  else
+  {
+    final_transition = (next_transition_step == transition_step_target);
   }
   
   // Safety factor during first sequence execution decreases for each successive transition
-  double safety_factor = first_sequence_execution_ ? 0.15/(transition_step_+1) : 0.0; //TBD Magic number (%15)
+  double safety_factor = (first_sequence_execution_ ? 0.15 : 0.0)/(transition_step_+1); //TBD Magic number (%15)
   
   // Attempt to step (in specific coordination) along horizontal plane to transition positions
   if (execute_horizontal_transition)
@@ -164,57 +196,61 @@ int PoseController::executeSequence(SequenceSelection sequence)
         LegStepper* leg_stepper = leg->getLegStepper();
         LegPoser* leg_poser = leg->getLegPoser();
         leg_poser->setLegCompletedStep(false);
-        
-        // Group coordinated stepping (For hexapod, TRIPOD coordination)
-        if (leg->getGroup() == current_group_ || transition_step_ == 0)
+
+        Vector3d target_tip_position;
+        if (leg_poser->hasTransitionPosition(next_transition_step))
         {
-          Vector3d target_tip_position;
-          if (leg_poser->hasTransitionPosition(next_transition_step))
-          {
-            ROS_DEBUG_COND(debug, "\nLeg %s targeting transition position %d.\n",
-                           leg->getIDName().c_str(), next_transition_step);
-            target_tip_position = leg_poser->getTransitionPosition(next_transition_step);
-          }
-          else
-          {
-            ROS_DEBUG_COND(debug, "\nNo transition position found for leg %s - targeting default stance position.\n",
-                           leg->getIDName().c_str());
-            target_tip_position = leg_stepper->getDefaultTipPosition();
-          }
-          target_tip_position[2] = leg->getLocalTipPosition()[2]; //Maintains vertical tip position
-          leg_poser->setTargetTipPosition(target_tip_position);
+          ROS_DEBUG_COND(debug, "\nLeg %s targeting transition position %d.\n",
+                          leg->getIDName().c_str(), next_transition_step);
+          target_tip_position = leg_poser->getTransitionPosition(next_transition_step);
         }
-        // Legs not within stepping group do not step
         else
         {
-          legs_completed_step_++;
-          leg_poser->setLegCompletedStep(true);
+          ROS_DEBUG_COND(debug, "\nNo transition position found for leg %s - targeting default stance position.\n",
+                          leg->getIDName().c_str());
+          target_tip_position = leg_stepper->getDefaultTipPosition();
         }
+        target_tip_position[2] = leg->getLocalTipPosition()[2]; //Maintains vertical tip position
+        leg_poser->setTargetTipPosition(target_tip_position);
       }
     }
-    else
+    
+    // Step to target
+    bool direct_step = !model_->legsBearingLoad();
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      // Step to target
-      for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+      Leg* leg = leg_it_->second;
+      LegStepper* leg_stepper = leg->getLegStepper();
+      LegPoser* leg_poser = leg->getLegPoser();      
+      if (!leg_poser->getLegCompletedStep())
       {
-        Leg* leg = leg_it_->second;
-        LegStepper* leg_stepper = leg->getLegStepper();
-        LegPoser* leg_poser = leg->getLegPoser();
-        if (!leg_poser->getLegCompletedStep())
+        // Step leg if leg is in stepping group OR simultaneous direct stepping is allowed
+        if (leg->getGroup() == current_group_ || direct_step)
         {
-          double step_height = (transition_step_ == 0) ? 0.0 : leg_stepper->getSwingHeight();
+          Vector3d target_tip_position = leg_poser->getTargetTipPosition();
+          bool apply_delta_z = (sequence == START_UP && final_transition);
+          Pose pose = (apply_delta_z ? model_->getCurrentPose() : Pose::identity());
+          double step_height = direct_step ? 0.0 : leg_stepper->getSwingHeight();
           double time_to_step = 1.0 / params_->step_frequency.current_value;
           time_to_step *= (first_sequence_execution_ ? 2.0:1.0); //TBD Magic numbers
-          Vector3d target_tip_position = leg_poser->getTargetTipPosition();
-          progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), step_height, time_to_step);
-          leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+          progress = leg_poser->stepToPosition(target_tip_position, pose, step_height, time_to_step, apply_delta_z);
+          leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
           double limit_proximity = leg->applyIK(params_->debug_IK.data);
+          bool exceeded_workspace = limit_proximity < safety_factor; // Leg attempted to move beyond safe workspace
           
           // Leg has attempted to move beyond workspace so stop transition early
-          if (limit_proximity < safety_factor)
+          if (exceeded_workspace)
           {
-            ROS_DEBUG_COND(debug, "\nLeg %s exceeded safety factor\n", leg->getIDName().c_str());
-            progress = leg_poser->resetStepToPosition();
+            string joint_position_string;
+            for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
+            {
+              Joint* joint = joint_it_->second;
+              joint_position_string += stringFormat("\tJoint: %s\tPosition: %f\n", joint->name.c_str(), joint->desired_position);
+            }
+            ROS_DEBUG_COND(debug, "\nLeg %s exceeded safety factor.\nOptimise sequence by setting 'unpacked'joint"
+                           "positions to the following:\n%s", leg->getIDName().c_str(), joint_position_string.c_str());
+            leg_poser->setTargetTipPosition(leg_poser->getCurrentTipPosition());
+            progress = leg_poser->resetStepToPosition(); // Skips to 'complete' progress and resets
             proximity_alert_ = true;
           }
           
@@ -224,30 +260,51 @@ int PoseController::executeSequence(SequenceSelection sequence)
             legs_completed_step_ ++;
             if (first_sequence_execution_)
             {
+              bool reached_target = !exceeded_workspace;
+              Vector3d transition_position = (reached_target ? leg_poser->getTargetTipPosition() : leg_poser->getCurrentTipPosition());
+              leg_poser->addTransitionPosition(transition_position);
               ROS_DEBUG_COND(debug, "\nAdded transition position %d for leg %s.\n",
-                             next_transition_step, leg->getIDName().c_str());
-              leg_poser->addTransitionPosition(leg->getLocalTipPosition());
+                              next_transition_step, leg->getIDName().c_str());
             }
           }
         }
+        // Leg not designated to step so set step completed
+        else
+        {
+          legs_completed_step_++;
+          leg_poser->setLegCompletedStep(true);
+        }
       }
-      
-      // Check if legs have completed steps and if transition has completed without a proximity alert
-      if (legs_completed_step_ == model_->getLegCount())
+    }
+    
+    // Normalise transition progress for use in calculation of total sequence progress
+    if (direct_step)
+    {
+      normalised_progress = progress/max(transition_step_count_, 1);
+    }
+    else
+    {
+      normalised_progress = (progress/2 + (current_group_ == 0 ? 0 : 50))/max(transition_step_count_, 1);
+    }
+    
+    // Check if legs have completed steps and if transition has completed without a proximity alert
+    // TBD Future work - make sequential leg stepping coordination an option
+    if (legs_completed_step_ == model_->getLegCount())
+    {
+      set_target_ = true;
+      legs_completed_step_ = 0;
+      if (current_group_ == 1 || direct_step)
       {
-        set_target_ = true;
-        legs_completed_step_ = 0;
-        if (current_group_ == 1 || transition_step_ == 0)
-        {
-          current_group_ = 0;
-          transition_step_ = next_transition_step;
-          horizontal_transition_complete_ = !proximity_alert_;
-          proximity_alert_ = false;
-        }
-        else if (current_group_ == 0)
-        {
-          current_group_ = 1;
-        }
+        
+        current_group_ = 0;
+        transition_step_ = next_transition_step;
+        horizontal_transition_complete_ = !proximity_alert_;
+        sequence_complete = final_transition;
+        proximity_alert_ = false;
+      }
+      else if (current_group_ == 0)
+      {
+        current_group_ = 1;
       }
     }
   }
@@ -281,45 +338,51 @@ int PoseController::executeSequence(SequenceSelection sequence)
         leg_poser->setTargetTipPosition(target_tip_position);
       }
     }
-    else
+    
+    // Step to target
+    bool all_legs_within_workspace = true;
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      // Step to target
-      bool all_legs_within_workspace = true;
+      Leg* leg = leg_it_->second;
+      LegPoser* leg_poser = leg->getLegPoser();
+      Vector3d target_tip_position = leg_poser->getTargetTipPosition();
+      bool apply_delta_z = (sequence == START_UP && final_transition);
+      Pose pose = (apply_delta_z ? model_->getCurrentPose() : Pose::identity());
+      double time_to_step = (first_sequence_execution_ ? 5.0:3.0) / params_->step_frequency.current_value; //TBD Magic Numbers
+      progress = leg_poser->stepToPosition(target_tip_position, pose, 0.0, time_to_step, apply_delta_z);
+      leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
+      double limit_proximity = leg->applyIK(params_->debug_IK.data);
+      all_legs_within_workspace = all_legs_within_workspace && !(limit_proximity < safety_factor);
+      ROS_DEBUG_COND(debug && limit_proximity < safety_factor,
+                      "\nLeg %s exceeded safety factor\n", leg->getIDName().c_str());
+    }
+
+    // All legs have completed vertical transition (either by reaching target or exceeding safe workspace)
+    if (!all_legs_within_workspace || progress == PROGRESS_COMPLETE)
+    {
       for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
       {
         Leg* leg = leg_it_->second;
         LegPoser* leg_poser = leg->getLegPoser();
-        Vector3d target_tip_position = leg_poser->getTargetTipPosition();
-        double time_to_step = (first_sequence_execution_ ? 5.0:3.0) / params_->step_frequency.current_value;
-        progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), 0.0, time_to_step);
-        leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
-        double limit_proximity = leg->applyIK(params_->debug_IK.data);
-        all_legs_within_workspace = all_legs_within_workspace && (limit_proximity > safety_factor);
-        ROS_DEBUG_COND(debug && limit_proximity < safety_factor,
-                       "\nLeg %s exceeded safety factor\n", leg->getIDName().c_str());
-      }
-
-      // One or more legs have attempted to move beyond the workspace so stop transition and move on to next
-      if (!all_legs_within_workspace || progress == PROGRESS_COMPLETE)
-      {
-        for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+        progress = leg_poser->resetStepToPosition();
+        if (first_sequence_execution_)
         {
-          Leg* leg = leg_it_->second;
-          LegPoser* leg_poser = leg->getLegPoser();
-          progress = leg_poser->resetStepToPosition();
-          if (first_sequence_execution_)
-          {
-            leg_poser->addTransitionPosition(leg->getLocalTipPosition());
-            ROS_DEBUG_COND(debug, "\nAdded transition position %d for leg %s.\n",
-                           next_transition_step, leg->getIDName().c_str());
-          }
+          bool reached_target = all_legs_within_workspace; // Assume reached target if all are within safe workspace
+          Vector3d transition_position = (reached_target ? leg_poser->getTargetTipPosition() : leg_poser->getCurrentTipPosition());
+          leg_poser->addTransitionPosition(transition_position);
+          ROS_DEBUG_COND(debug, "\nAdded transition position %d for leg %s.\n",
+                          next_transition_step, leg->getIDName().c_str());
         }
-
-        vertical_transition_complete_ = all_legs_within_workspace;
-        transition_step_ = next_transition_step;
-        set_target_ = true;
       }
+
+      vertical_transition_complete_ = all_legs_within_workspace;
+      transition_step_ = next_transition_step;
+      sequence_complete = final_transition; //Sequence is complete if this transition was the final one
+      set_target_ = true;
     }
+    
+    // Normalise transition progress for use in calculation of total sequence progress
+    normalised_progress = progress/max(transition_step_count_, 1);
   }
 
   // Update count of transition steps as first sequence executes
@@ -330,14 +393,13 @@ int PoseController::executeSequence(SequenceSelection sequence)
   }
   
   // Check for excessive transition steps
-  if (transition_step_ > 20)
+  if (transition_step_ > 20) //TBD Magic number
   {
     ROS_FATAL("\nUnable to execute sequence, shutting down controller.\n");
     ros::shutdown();
   }
 
-  // Check if all steps and raises have completed and reset
-  bool sequence_complete = vertical_transition_complete_ && horizontal_transition_complete_ && transition_step_ == transition_step_target;
+  // Check if sequence has completed
   if (sequence_complete)
   {
     set_target_ = true;
@@ -346,9 +408,11 @@ int PoseController::executeSequence(SequenceSelection sequence)
     first_sequence_execution_ = false;
     return  PROGRESS_COMPLETE;
   }
+  // If sequence has not completed return percentage estimate of completion (i.e. < 100%)
   else
   {
-    return 0; //TBD Calculate % of total progress and return value
+    total_progress = min(total_progress + normalised_progress, PROGRESS_COMPLETE-1); 
+    return (first_sequence_execution_ ? -1 : total_progress);
   }
 }
 
@@ -428,7 +492,7 @@ int PoseController::directStartup(void) //Simultaneous leg coordination
     LegStepper* leg_stepper = leg->getLegStepper();
     double time_to_start = params_->time_to_start.data;
     progress = leg_poser->stepToPosition(leg_stepper->getDefaultTipPosition(), model_->getCurrentPose(), 0.0, time_to_start);
-    leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+    leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
     leg->applyIK(params_->debug_IK.data);
   }
 
@@ -455,7 +519,7 @@ int PoseController::stepToNewStance(void) //Tripod leg coordination
       double step_time = 1.0 / params_->step_frequency.current_value;
       Vector3d target_tip_position = leg_stepper->getDefaultTipPosition();
       progress = leg_poser->stepToPosition(target_tip_position, model_->getCurrentPose(), step_height, step_time);
-      leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+      leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
       leg->applyIK(params_->debug_IK.data);
       legs_completed_step_ += int(progress == PROGRESS_COMPLETE);
     }
@@ -471,6 +535,9 @@ int PoseController::stepToNewStance(void) //Tripod leg coordination
     legs_completed_step_ = 0;
     current_group_ = 0;
   }
+  
+  // Set flag to reset any stored transition sequences and generate new sequence for new stance
+  reset_transition_sequence_ = true;
 
   return progress;
 }
@@ -518,7 +585,7 @@ int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
     }
 
     progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), step_height, step_time);
-    leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+    leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
     leg->applyIK(params_->debug_IK.data);
   }
 
@@ -571,11 +638,6 @@ int PoseController::unpackLegs(double time_to_unpack) //Simultaneous leg coordin
     }
 
     progress = leg_poser->moveToJointPosition(target_joint_positions, time_to_unpack);
-    
-    if (progress == PROGRESS_COMPLETE && !leg_poser->hasTransitionPosition(0))
-    {
-      leg_poser->addTransitionPosition(leg->getLocalTipPosition());
-    }
   }
 
   return progress;
@@ -1060,7 +1122,6 @@ LegPoser::LegPoser(PoseController* poser, Leg* leg)
   , auto_pose_(Pose::identity())
   , current_tip_position_(Vector3d(0, 0, 0))
 {
-  stance_tip_position_ = leg_->getLegStepper()->getDefaultTipPosition();
 }
 
 /***********************************************************************************************************************
@@ -1137,12 +1198,12 @@ int LegPoser::moveToJointPosition(vector<double> target_joint_positions, double 
 /***********************************************************************************************************************
  * Step leg tip position to target tip position
 ***********************************************************************************************************************/
-int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose, double lift_height, double time_to_step)
+int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose,
+                             double lift_height, double time_to_step, bool apply_delta_z)
 {
   if (first_iteration_)
   {
     origin_tip_position_ = leg_->getLocalTipPosition();
-    /*
     double tolerance = 0.0001; // 1mm
     if (abs(origin_tip_position_[0] - target_tip_position[0]) < tolerance &&
       abs(origin_tip_position_[1] - target_tip_position[1]) < tolerance &&
@@ -1151,14 +1212,14 @@ int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose, dou
       current_tip_position_ = target_tip_position;
       return PROGRESS_COMPLETE; //Target and origin are approximately equal so no need to proceed with step
     }
-    */
     current_tip_position_ = origin_tip_position_;
     master_iteration_count_ = 0;
     first_iteration_ = false;
   }
   
-  //Apply deltaZ
-  if (leg_->getLegState() == WALKING || leg_->getLegState() == MANUAL_TO_WALKING)
+  // Apply delta z to target tip position (used for transitioning to state using impedance control)
+   bool manually_manipulated = (leg_->getLegState() == MANUAL || leg_->getLegState()  == WALKING_TO_MANUAL);
+  if (apply_delta_z && !manually_manipulated)
   {
     target_tip_position[2] += leg_->getDeltaZ();
   }
@@ -1211,18 +1272,19 @@ int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose, dou
     new_tip_position = cubicBezier(control_nodes_secondary, time_input);
   }
 
-  if (leg_->getIDNumber() == 1) //Reference leg for debugging (AR)
+  if (leg_->getIDNumber() == 0) //Reference leg for debugging (AR)
   {
     ROS_DEBUG_COND(poser_->getParameters()->debug_stepToPosition.data,
                    "STEP_TO_POSITION DEBUG - LEG: %s\t\t"
                    "MASTER ITERATION: %d\t\t"
                    "TIME INPUT: %f\t\t"
+                   "COMPLETION RATIO: %f\t\t"
                    "ORIGIN: %f:%f:%f\t\t"
                    "CURRENT: %f:%f:%f\t\t"
                    "TARGET: %f:%f:%f\n",
                    leg_->getIDName().c_str(),
                    master_iteration_count_,
-                   time_input,
+                   time_input, completion_ratio,
                    origin_tip_position_[0], origin_tip_position_[1], origin_tip_position_[2],
                    new_tip_position[0], new_tip_position[1], new_tip_position[2],
                    target_tip_position[0], target_tip_position[1], target_tip_position[2]);
