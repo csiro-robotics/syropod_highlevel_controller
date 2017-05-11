@@ -59,22 +59,29 @@ void ImpedanceController::updateImpedance(Leg* leg, bool use_joint_effort)
 /***********************************************************************************************************************
  * Scales virtual stiffness value of given and adjacent legs according to reference
 ***********************************************************************************************************************/
-void ImpedanceController::updateStiffness(Leg* leg, double step_reference)
+void ImpedanceController::updateStiffness(Leg* leg, double scale_reference)
 {
   int leg_id = leg->getIDNumber();
   int adjacent_leg_1_id = mod(leg_id-1, model_->getLegCount()); 
   int adjacent_leg_2_id = mod(leg_id+1, model_->getLegCount());
   Leg* adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
-  Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);  
+  Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
 
   //(X-1)+1 to change range from 0->1 to 1->multiplier
   double virtual_stiffness = params_->virtual_stiffness.current_value;
-  double swing_stiffness = virtual_stiffness*(step_reference*(params_->swing_stiffness_scaler.data-1)+1);
-  double load_stiffness = virtual_stiffness*(step_reference*(params_->load_stiffness_scaler.data-1)+1);
+  double swing_stiffness = virtual_stiffness*(scale_reference*(params_->swing_stiffness_scaler.data-1)+1);
+  double load_stiffness = virtual_stiffness*(scale_reference*(params_->load_stiffness_scaler.data-1)+1);
   
   leg->setVirtualStiffness(swing_stiffness);
-  adjacent_leg_1->setVirtualStiffness(load_stiffness);
-  adjacent_leg_2->setVirtualStiffness(load_stiffness);
+  if (adjacent_leg_1->getLegState() != MANUAL)
+  {
+    adjacent_leg_1->setVirtualStiffness(load_stiffness);
+  }
+  
+  if (adjacent_leg_2->getLegState() != MANUAL)
+  {
+    adjacent_leg_2->setVirtualStiffness(load_stiffness);
+  }
 }
 
 /***********************************************************************************************************************

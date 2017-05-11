@@ -175,20 +175,24 @@ void StateController::transitionSystemState()
   {
     // Check how many joints/legs are in the packed state
     int legs_packed = 0;
+    int legs_ready = 0;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
       Leg* leg = leg_it_->second;
       int joints_packed = 0;
+      int joints_ready = 0;
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
         Joint* joint = joint_it_->second;
         double joint_tolerance = 0.01; //TBD Magic number
         joints_packed += int(abs(joint->current_position - joint->packed_position) < joint_tolerance);
+        joints_ready += int(abs(joint->current_position - joint->unpacked_position) < joint_tolerance);
       }
       legs_packed += int(joints_packed == leg->getNumJoints());
+      legs_ready += int(joints_ready == leg->getNumJoints());
     }
 
-    // Robot estimated to be in packed state
+    // Robot estimated to be in PACKED state
     if (legs_packed == model_->getLegCount())
     {
       if (!params_.start_up_sequence.data)
@@ -200,9 +204,23 @@ void StateController::transitionSystemState()
       else
       {
         robot_state_ = PACKED;
-        ROS_INFO("\nHexapod currently packed.\n");
+        ROS_INFO("\nHexapod currently in PACKED state.\n");
       }
     }
+    // Robot estimated to be in READY state
+    if (legs_ready == model_->getLegCount())
+    {
+      if (!params_.start_up_sequence.data)
+      {
+        robot_state_ = OFF;
+        ROS_INFO("Hexapod is ready for direct transition to RUNNING state.");
+      }
+      else
+      {
+        robot_state_ = READY;
+        ROS_INFO("\nHexapod currently in READY state.\n");
+      }
+    }    
     // Robot state unknown
     else if (!params_.start_up_sequence.data)
     {
@@ -212,40 +230,32 @@ void StateController::transitionSystemState()
     }
     else
     {
-      robot_state_ = OFF;
+      robot_state_ = PACKED;
       ROS_WARN("\nHexapod state is unknown. Future state transitions may be undesireable, "
                "recommend ensuring hexapod is off the ground before proceeding.\n");
     }
+    new_robot_state_ = robot_state_;
   }
-  // OFF -> !OFF (Start controller or directly transition to walking stance)
-  else if (robot_state_ == OFF && new_robot_state_ != OFF)
+  // OFF -> RUNNING (Direct transition to walking stance)
+  else if (robot_state_ == OFF && new_robot_state_ == RUNNING && !params_.start_up_sequence.data)
   {
-    // OFF -> RUNNING (Direct startup)
-    if (new_robot_state_ == RUNNING && !params_.start_up_sequence.data)
+    int progress = poser_->directStartup();
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning directly to RUNNING state (%d%%). . .\n", progress);
+    if (progress == PROGRESS_COMPLETE)
     {
-      int progress = poser_->directStartup();
-      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning directly to RUNNING state (%d%%). . .\n", progress);
-      if (progress == PROGRESS_COMPLETE)
-      {
-        robot_state_ = RUNNING;
-        ROS_INFO("\nDirect startup sequence complete. Ready to walk.\n");
-      }
-    }
-    // OFF -> PACKED/READY/RUNNING (Start controller)
-    else
-    {
-      robot_state_ = PACKED;
-      ROS_INFO("\nController running.\n");
+      robot_state_ = RUNNING;
+      ROS_INFO("\nDirect startup sequence complete. Ready to walk.\n");
     }
   }
-  // PACKED -> OFF (Suspend controller)
-  else if (robot_state_ == PACKED && new_robot_state_ == OFF)
+  // RUNNING -> OFF
+  else if (robot_state_ == RUNNING && new_robot_state_ == OFF && !params_.start_up_sequence.data)
   {
-    robot_state_ = OFF;
-    ROS_INFO("\nController suspended.\n");
+    transition_state_flag_ = false;
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod cannot transition from RUNNING state."
+                      " Set start_up_sequence parameter true to enable that functionality.\n");
   }
-  // PACKED -> READY/RUNNING (Unpack Hexapod)
-  else if (robot_state_ == PACKED && (new_robot_state_ == READY || new_robot_state_ == RUNNING))
+  // PACKED -> READY (Unpack Hexapod)
+  else if (robot_state_ == PACKED && new_robot_state_ == READY)
   {
     int progress = poser_->unpackLegs(2.0 / params_.step_frequency.current_value);
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to READY state (%d%%). . .\n", progress);
@@ -255,8 +265,8 @@ void StateController::transitionSystemState()
       ROS_INFO("\nState transition complete. Hexapod is in READY state.\n");
     }
   }
-  // READY -> PACKED/OFF (Pack Hexapod)
-  else if (robot_state_ == READY && (new_robot_state_ == PACKED || new_robot_state_ == OFF))
+  // READY -> PACKED (Pack Hexapod)
+  else if (robot_state_ == READY && new_robot_state_ == PACKED)
   {
     int progress = poser_->packLegs(2.0 / params_.step_frequency.current_value);
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to PACKED state (%d%%). . .\n", progress);
@@ -278,14 +288,20 @@ void StateController::transitionSystemState()
       ROS_INFO("\nState transition complete. Hexapod is in RUNNING state. Ready to walk.\n");
     }
   }
-  // RUNNING -> !RUNNING (Initiate shut down sequence to step from walking stance to ready stance or suspend controller)
-  else if (robot_state_ == RUNNING && new_robot_state_ != RUNNING)
+  // RUNNING -> READY (Initiate shut down sequence to step from walking stance to ready stance)
+  else if (robot_state_ == RUNNING && new_robot_state_ == READY)
   {
-    // RUNNING -> OFF (Suspend controller)
-    if (new_robot_state_ == OFF && !params_.start_up_sequence.data)
+    // Return any manually controlled legs before executing shutdown
+    if (manual_leg_count_ != 0)
     {
-      robot_state_ = OFF;
-      ROS_INFO("\nController suspended.\n");
+      if (primary_leg_selection_ != LEG_UNDESIGNATED)
+      {
+        toggle_primary_leg_state_ = primary_leg_->getLegState() == MANUAL;
+      }      
+      if (secondary_leg_selection_ != LEG_UNDESIGNATED)
+      {
+        toggle_secondary_leg_state_ = (secondary_leg_->getLegState() == MANUAL);
+      }
     }
     else
     {
@@ -376,7 +392,8 @@ void StateController::adjustParameter()
       impedance_->init();
       poser_->setAutoPoseParams();
       new_parameter_set_ = true;
-      ROS_INFO("\nAttempting to adjust '%s' parameter to %f. (Default: %f, Min: %f, Max: %f) . . .\n", p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
+      ROS_INFO("\nAttempting to adjust '%s' parameter to %f. (Default: %f, Min: %f, Max: %f) . . .\n",
+               p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
     }
     else
     {
@@ -384,7 +401,8 @@ void StateController::adjustParameter()
       int progress = poser_->stepToNewStance();
       if (progress == 100)
       {
-        ROS_INFO("\nParameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n", p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
+        ROS_INFO("\nParameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
+                 p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
         parameter_adjust_flag_ = false;
         new_parameter_set_ = false;
       }
@@ -434,13 +452,16 @@ void StateController::legStateToggle()
   {
     // Choose primary or secondary leg state to transition
     Leg* leg; //Transitioning leg
+    LegState* new_leg_state;
     if (toggle_primary_leg_state_)
     {
       leg = model_->getLegByIDNumber(primary_leg_selection_);
+      new_leg_state = &primary_leg_state_;
     }
     else if (toggle_secondary_leg_state_)
     {
       leg = model_->getLegByIDNumber(secondary_leg_selection_);
+      new_leg_state = &secondary_leg_state_;
     }
     string leg_name = leg->getIDName();
 
@@ -470,16 +491,16 @@ void StateController::legStateToggle()
     {
       poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       int progress = poser_->poseForLegManipulation();
-      /*
       if (params_.dynamic_stiffness.data)
       {
-        impedance_->updateStiffness(leg, res);
+        double scale_reference = double(progress)/PROGRESS_COMPLETE; // 0.0->1.0
+        impedance_->updateStiffness(leg, scale_reference);
       }
-      */
 
       if (progress == 100)
       {
         leg->setLegState(MANUAL);
+        *new_leg_state = MANUAL;
         ROS_INFO("\n%s leg set to state: MANUAL.\n", leg->getIDName().c_str());
         toggle_primary_leg_state_ = false;
         toggle_secondary_leg_state_ = false;
@@ -491,15 +512,16 @@ void StateController::legStateToggle()
     {
       poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       int progress = poser_->poseForLegManipulation();
-      /*
       if (params_.dynamic_stiffness.data)
       {
-        impedance_->updateStiffness(leg, res);
+        double scale_reference = abs(double(progress)/PROGRESS_COMPLETE - 1.0); // 1.0->0.0
+        impedance_->updateStiffness(leg, scale_reference);
       }
-      */
+      
       if (progress == 100)
       {
         leg->setLegState(WALKING);
+        *new_leg_state = WALKING;
         ROS_INFO("\n%s leg set to state: WALKING.\n", leg->getIDName().c_str());
         toggle_primary_leg_state_ = false;
         toggle_secondary_leg_state_ = false;
@@ -770,25 +792,45 @@ void StateController::systemStateCallback(const std_msgs::Int8& input)
 void StateController::robotStateCallback(const std_msgs::Int8& input)
 {
   RobotState input_state = static_cast<RobotState>(int(input.data));
-  // If startUpSequence parameter is false then skip READY and PACKED states
-  new_robot_state_ = input_state;
+  
+  // Wait for any other transitions to complete
+  bool ready_for_transition = !(toggle_primary_leg_state_ || toggle_secondary_leg_state_ || parameter_adjust_flag_);
+  if (transition_state_flag_ && !ready_for_transition)
+  {
+    transition_state_flag_ = false;
+  }
+  
+  // In Direct, mode enforce only OFF & RUNNING states
   if (!params_.start_up_sequence.data)
   {
-    if (new_robot_state_ == READY)
+    if (input_state != RUNNING)
     {
-      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSystem not able to transition to READY state, parameter start_up_sequence is false.\nPress START to skip this state and attempt to transition to the next.\n");
-      new_robot_state_ = OFF;
+      input_state = OFF;
     }
-    else if (new_robot_state_ == PACKED)
+    
+    if (input_state != robot_state_ && !transition_state_flag_)
     {
-      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSystem not able to transition to PACKED state, parameter start_up_sequence is false.\nPress START to skip this state and attempt to transition to the next.\n");
-      new_robot_state_ = OFF;
+      new_robot_state_ = input_state;
+      transition_state_flag_ = ready_for_transition;
     }
   }
-
-  if (new_robot_state_ != robot_state_)
+  // In Sequence mode, handle single step transitioning between multiple states
+  else
   {
-    transition_state_flag_ = true;
+    if (input_state != robot_state_ && !transition_state_flag_)
+    {
+      new_robot_state_ = input_state;
+      if (new_robot_state_ > robot_state_)
+      {
+        new_robot_state_ = static_cast<RobotState>(robot_state_ + 1);
+        transition_state_flag_ = ready_for_transition;
+      }
+      else if (new_robot_state_ < robot_state_)
+      {
+        new_robot_state_ = static_cast<RobotState>(robot_state_ - 1);
+        transition_state_flag_ = ready_for_transition;
+      }
+    }
   }
 }
 
@@ -1104,7 +1146,7 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
 ***********************************************************************************************************************/
 void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && !transition_state_flag_)
   {
     LegState newSecondaryLegState = static_cast<LegState>(int(input.data));
     if (newSecondaryLegState != secondary_leg_state_)

@@ -30,11 +30,11 @@ enum SystemState
 
 enum RobotState 
 {
-	OFF,
   PACKED,
   READY,
   RUNNING,
 	UNKNOWN = -1,
+  OFF = -2,
 };
 
 enum GaitDesignation

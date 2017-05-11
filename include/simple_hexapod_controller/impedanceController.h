@@ -37,7 +37,7 @@ public:
   // Solve ODE of the impedance controller and update delta_z value for leg
   void updateImpedance(Leg* leg, bool use_joint_effort);
   
-  void updateStiffness(Leg*, double step_reference);
+  void updateStiffness(Leg*, double scale_reference);
   void updateStiffness(WalkController *walker);
 
 private:

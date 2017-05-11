@@ -210,7 +210,10 @@ int PoseController::executeSequence(SequenceSelection sequence)
                           leg->getIDName().c_str());
           target_tip_position = leg_stepper->getDefaultTipPosition();
         }
-        target_tip_position[2] = leg->getLocalTipPosition()[2]; //Maintains vertical tip position
+        
+        //Maintain horizontal position
+        target_tip_position[2] = leg->getLocalTipPosition()[2];
+        
         leg_poser->setTargetTipPosition(target_tip_position);
       }
     }
@@ -239,7 +242,7 @@ int PoseController::executeSequence(SequenceSelection sequence)
           bool exceeded_workspace = limit_proximity < safety_factor; // Leg attempted to move beyond safe workspace
           
           // Leg has attempted to move beyond workspace so stop transition early
-          if (exceeded_workspace)
+          if (first_sequence_execution_ && exceeded_workspace)
           {
             string joint_position_string;
             for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
@@ -322,19 +325,24 @@ int PoseController::executeSequence(SequenceSelection sequence)
         Leg* leg = leg_it_->second;
         LegStepper* leg_stepper = leg->getLegStepper();
         LegPoser* leg_poser = leg->getLegPoser();
-        Vector3d target_tip_position = leg->getLocalTipPosition(); //Maintains horizontal tip position
+        Vector3d target_tip_position;
         if (leg_poser->hasTransitionPosition(next_transition_step))
         {
           ROS_DEBUG_COND(debug, "\nLeg %s targeting transition position %d.\n",
                          leg->getIDName().c_str(), next_transition_step);
-          target_tip_position[2] = leg_poser->getTransitionPosition(next_transition_step)[2];
+          target_tip_position = leg_poser->getTransitionPosition(next_transition_step);
         }
         else
         {
           ROS_DEBUG_COND(debug, "\nNo transition position found for leg %s - targeting default stance position.\n",
                          leg->getIDName().c_str());
-          target_tip_position[2] = leg_stepper->getDefaultTipPosition()[2];
+          target_tip_position = leg_stepper->getDefaultTipPosition();
         }
+        
+        //Maintain horizontal position
+        target_tip_position[0] = leg->getLocalTipPosition()[0];
+        target_tip_position[1] = leg->getLocalTipPosition()[1];
+        
         leg_poser->setTargetTipPosition(target_tip_position);
       }
     }
@@ -358,7 +366,7 @@ int PoseController::executeSequence(SequenceSelection sequence)
     }
 
     // All legs have completed vertical transition (either by reaching target or exceeding safe workspace)
-    if (!all_legs_within_workspace || progress == PROGRESS_COMPLETE)
+    if ((!all_legs_within_workspace && first_sequence_execution_) || progress == PROGRESS_COMPLETE)
     {
       for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
       {
@@ -877,7 +885,7 @@ Pose PoseController::autoCompensation(void)
   }
   
   // All auto posers have completed their required posing cycle (Allows walkController transition to STARTING)
-  if (auto_posers_complete == auto_poser_container_.size())
+  if (auto_posers_complete == int(auto_poser_container_.size()))
   {
     auto_posing_state_ = POSING_COMPLETE;
   }
