@@ -1116,7 +1116,7 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8& input)
 ***********************************************************************************************************************/
 void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && !transition_state_flag_)
   {
     LegState newPrimaryLegState = static_cast<LegState>(int(input.data));
     if (newPrimaryLegState != primary_leg_state_)
