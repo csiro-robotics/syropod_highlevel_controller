@@ -127,6 +127,7 @@ void StateController::loop()
   if (robot_state_ != UNKNOWN)
   {
     poser_->updateCurrentPose(walker_->getBodyHeight(), walker_->getWalkState());
+    walker_->setPoseState(poser_->getAutoPoseState()); // Sends pose state from poser to walker
 
     // Impedance control - updates deltaZ values
     if (params_.impedance_control.data)

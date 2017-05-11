@@ -352,7 +352,7 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   // State transitions for robot state machine.
   // State transition: STOPPED->STARTING
   int num_legs = model_->getLegCount();
-  if (walk_state_ == STOPPED && has_velocity_command)
+  if (walk_state_ == STOPPED && has_velocity_command && pose_state_ == POSING_COMPLETE)
   {
     walk_state_ = STARTING;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)

@@ -93,7 +93,8 @@ enum StepState
 enum PosingState
 {
 	POSING,
-	STOP_POSING
+	STOP_POSING,
+	POSING_COMPLETE
 };
 
 enum LegCoordinationMode

@@ -168,6 +168,7 @@ class AutoPoser
 		AutoPoser(PoseController* poser, int id);
 		Pose updatePose(int phase);
 		inline int getID(void) { return id_; };
+    inline bool isPosing(void) { return allow_posing_; };
 		inline void setStartPhase(int start_phase) { start_phase_ = start_phase; };
 		inline void setEndPhase(int end_phase) { end_phase_ = end_phase; };
 		inline void setXAmplitude(double x) { x_amplitude_ = x; };
@@ -211,7 +212,6 @@ class LegPoser
 		inline Pose getAutoPose(void) { return auto_pose_; };
 		inline int getPoseNegationPhaseStart() { return pose_negation_phase_start_; };
 		inline int getPoseNegationPhaseEnd() { return pose_negation_phase_end_; };
-		inline bool getStopNegation(void) { return stop_negation_; };
     inline bool getLegCompletedStep(void) { return leg_completed_step_; };
     
     inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
@@ -221,7 +221,6 @@ class LegPoser
 		inline void setOriginPose(Pose origin_pose) { origin_pose_ = origin_pose; };
 		inline void setPoseNegationPhaseStart(int start) { pose_negation_phase_start_ = start; };
 		inline void setPoseNegationPhaseEnd(int end) { pose_negation_phase_end_ = end; };
-		inline void setStopNegation(bool stop_negation) { stop_negation_ = stop_negation; };
     inline void setLegCompletedStep(bool complete) { leg_completed_step_ = complete; };
     inline void resetTransitionSequence(void) { transition_positions_.clear(); };
     inline int resetStepToPosition(void) 

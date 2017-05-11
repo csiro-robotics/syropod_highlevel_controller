@@ -56,6 +56,8 @@ class WalkController
     inline WalkState getWalkState(void) { return walk_state_; };
     inline void resetJointOrientationTracking(void) { joint_twist_ = 0.0, ground_bearing_ = 1.57; };
     
+    inline void setPoseState(PosingState state) { pose_state_ = state; };
+    
     void init(void);
     void setGaitParams(Parameters* p);
     void updateWalk(Vector2d linear_velocity_input, double angular_velocity_input);
@@ -66,7 +68,8 @@ class WalkController
     Model* model_;
     Parameters* params_;
     WalkState walk_state_;
-    double time_delta_;        
+    PosingState pose_state_ = POSING_COMPLETE;
+    double time_delta_;
     double time_elapsed_=0;
     
     //Joint orientation tracking variables

@@ -862,8 +862,9 @@ Pose PoseController::autoCompensation(void)
     master_phase = pose_phase_;
     pose_phase_ = (pose_phase_ + 1) % pose_phase_length_; // Iterate pose phase
   }
-
+  
   // Update auto pose from auto posers
+  int auto_posers_complete = 0;
   vector<AutoPoser*>::iterator auto_poser_it;
   for (auto_poser_it = auto_poser_container_.begin(); auto_poser_it != auto_poser_container_.end(); ++auto_poser_it)
   {
@@ -871,7 +872,14 @@ Pose PoseController::autoCompensation(void)
     Pose updated_pose = auto_poser->updatePose(master_phase);
     auto_pose_.position_ += updated_pose.position_;
     auto_pose_.rotation_ *= updated_pose.rotation_;
+    auto_posers_complete += int(!auto_poser->isPosing());
     // BUG: ^Adding pitch and roll simultaneously adds unwanted yaw
+  }
+  
+  // All auto posers have completed their required posing cycle (Allows walkController transition to STARTING)
+  if (auto_posers_complete == auto_poser_container_.size())
+  {
+    auto_posing_state_ = POSING_COMPLETE;
   }
 
   // Update leg specific auto pose using leg posers
