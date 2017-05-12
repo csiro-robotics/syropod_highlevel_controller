@@ -19,7 +19,7 @@
  *
  */
 
-#include "standardIncludes.h"
+#include "standard_includes.h"
 #define ACQUISTION_TIME 10 // Max time controller will wait to acquire intitial joint states (seconds)
 #define THROTTLE_PERIOD 5  // Default throttle period for all throttled rosconsole messages (seconds)
 

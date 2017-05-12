@@ -19,8 +19,8 @@
  *
  */
 
-#include "standardIncludes.h"
-#include "parametersAndStates.h"
+#include "standard_includes.h"
+#include "parameters_and_states.h"
 #include "quat.h"
 #include "pose.h"
 #include "simple_hexapod_controller/legState.h"

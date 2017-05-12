@@ -19,11 +19,11 @@
  *
 ***********************************************************************************************************************/
 
-#include "standardIncludes.h"
+#include "standard_includes.h"
 #include <visualization_msgs/Marker.h>
 #include "pose.h"
 #include "model.h"
-#include "walkController.h"
+#include "walk_controller.h"
 
 class DebugOutput
 {

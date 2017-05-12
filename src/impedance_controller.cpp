@@ -1,4 +1,4 @@
-#include "../include/simple_hexapod_controller/impedanceController.h"
+#include "../include/simple_hexapod_controller/impedance_controller.h"
 
 /***********************************************************************************************************************
  * Constructor

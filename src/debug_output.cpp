@@ -17,7 +17,7 @@
  *
 ***********************************************************************************************************************/
 
-#include "simple_hexapod_controller/debugOutput.h"
+#include "simple_hexapod_controller/debug_output.h"
 
 /*******************************************************************************************************************//**
  * Draw visualisation markers for robot body, legs and walking debug data

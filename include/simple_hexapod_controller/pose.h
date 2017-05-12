@@ -18,7 +18,7 @@
  *  without explicit permission of CSIRO
  *
  */
-#include "standardIncludes.h"
+#include "standard_includes.h"
 #include "quat.h"
 
 /// 3d orientation and position

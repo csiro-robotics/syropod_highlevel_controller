@@ -19,12 +19,12 @@
  *
  */
 
-#include "standardIncludes.h"
-#include "parametersAndStates.h"
+#include "standard_includes.h"
+#include "parameters_and_states.h"
 #include <boost/numeric/odeint.hpp>
 
 #include "model.h"
-#include "walkController.h"
+#include "walk_controller.h"
 
 using namespace boost::numeric::odeint;
 

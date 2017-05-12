@@ -1,4 +1,4 @@
-#include "../include/simple_hexapod_controller/walkController.h"
+#include "../include/simple_hexapod_controller/walk_controller.h"
 
 /***********************************************************************************************************************
  * Determines the basic stance pose which the hexapod will try to maintain, by

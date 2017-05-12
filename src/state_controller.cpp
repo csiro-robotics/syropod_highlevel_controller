@@ -1,4 +1,4 @@
-#include "simple_hexapod_controller/stateController.h"
+#include "simple_hexapod_controller/state_controller.h"
 
 /***********************************************************************************************************************
  * State controller contructor

@@ -19,13 +19,13 @@
  *
  */
 
-#include "standardIncludes.h"
-#include "parametersAndStates.h"
+#include "standard_includes.h"
+#include "parameters_and_states.h"
 #include "quat.h"
 #include "pose.h"
 
 #include "model.h"
-#include "walkController.h"
+#include "walk_controller.h"
 
 //#include "debugOutput.h"
 

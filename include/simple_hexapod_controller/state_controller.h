@@ -19,15 +19,15 @@
  *  without explicit permission of CSIRO
  *
  **********************************************************************************************************************/
-#include "standardIncludes.h"
-#include "parametersAndStates.h"
+#include "standard_includes.h"
+#include "parameters_and_states.h"
 
-#include "walkController.h"
-#include "poseController.h"
+#include "walk_controller.h"
+#include "pose_controller.h"
 #include "model.h"
 
-#include "debugOutput.h"
-#include "impedanceController.h"
+#include "debug_output.h"
+#include "impedance_controller.h"
 
 #define MAX_MANUAL_LEGS 2
 

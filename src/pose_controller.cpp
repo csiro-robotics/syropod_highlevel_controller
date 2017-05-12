@@ -1,5 +1,5 @@
 
-#include "../include/simple_hexapod_controller/poseController.h"
+#include "../include/simple_hexapod_controller/pose_controller.h"
 
 /***********************************************************************************************************************
  * Pose controller contructor

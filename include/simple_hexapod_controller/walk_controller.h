@@ -19,13 +19,13 @@
  *
  */
 
-#include "standardIncludes.h"
-#include "parametersAndStates.h"
+#include "standard_includes.h"
+#include "parameters_and_states.h"
 #include "pose.h"
 
 #include "model.h"
-#include "poseController.h"
-#include "debugOutput.h"
+#include "pose_controller.h"
+#include "debug_output.h"
 
 /***********************************************************************************************************************
  * Top level controller that calculates walk characteristics and coordinates leg specific walk controllers
