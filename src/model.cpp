@@ -114,7 +114,7 @@ void Leg::init(bool use_default_joint_positions)
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
     Joint* joint = joint_it->second;
-    if (use_default_joint_positions)
+    if (use_default_joint_positions && joint->current_position == UNASSIGNED_VALUE)
     {
       joint->current_position = clamped(0.0, joint->min_position, joint->max_position);
       joint->current_velocity = 0.0;

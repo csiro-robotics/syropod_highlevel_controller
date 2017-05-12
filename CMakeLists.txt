@@ -11,8 +11,6 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
   geometry_msgs
-  dynamixel_controllers
-  dynamixel_msgs
   dynamic_reconfigure
  )
 
@@ -90,7 +88,7 @@ generate_dynamic_reconfigure_options(config/dynamic_parameter.cfg)
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES simple_hexapod_controller
-  CATKIN_DEPENDS roscpp rospy message_runtime std_msgs sensor_msgs geometry_msgs dynamixel_msgs dynamixel_controllers 
+  CATKIN_DEPENDS roscpp rospy message_runtime std_msgs sensor_msgs geometry_msgs 
 #  DEPENDS system_lib
 )
 add_definitions(-DEIGEN3_SUPPORT -DDEBUG -std=c++11 -Wall -g -ggdb -O0 -fopenmp -fPIC)
@@ -114,15 +112,13 @@ include_directories(
 # )
 
 ## Declare a cpp executable
-add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/walkController.cpp src/poseController.cpp src/debugOutput.cpp src/dynamixelMotorInterface.cpp src/impedanceController.cpp src/stateController.cpp)
-add_executable(simple_diagnostics_node src/simpleDiagnostics.cpp)
+add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/walkController.cpp src/poseController.cpp src/debugOutput.cpp src/impedanceController.cpp src/stateController.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 
 ## Specify libraries to link a library or executable target against
  target_link_libraries(simple_hexapod_controller_node ${catkin_LIBRARIES} -fopenmp)
- target_link_libraries(simple_diagnostics_node ${catkin_LIBRARIES})
  
 add_dependencies(simple_hexapod_controller_node simple_hexapod_controller_cpp simple_hexapod_controller_generate_messages_cpp simple_hexapod_controller_gencfg)
 

@@ -144,7 +144,7 @@ class PoseController
 		
 		//Auto Compensation cycle variables
 		vector<AutoPoser*> auto_poser_container_;
-		PosingState auto_posing_state_;
+		PosingState auto_posing_state_ = POSING_COMPLETE;
 		int pose_phase_ = 0;
 		double pose_frequency_ = 0.0;
 		int pose_phase_length_ = 0;

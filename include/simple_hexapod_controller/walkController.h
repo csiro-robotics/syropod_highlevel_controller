@@ -25,7 +25,6 @@
 
 #include "model.h"
 #include "poseController.h"
-#include "dynamixelMotorInterface.h"
 #include "debugOutput.h"
 
 /***********************************************************************************************************************

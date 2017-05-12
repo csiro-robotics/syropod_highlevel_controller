@@ -6,7 +6,7 @@
  *  \brief   Top level controller that handles state of hexapod. Part of simple hexapod controller.
  *
  *  \author Fletcher Talbot
- *  \date   January 2017
+ *  \date   June 2017
  *  \version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
@@ -27,33 +27,27 @@
 #include "model.h"
 
 #include "debugOutput.h"
-#include "dynamixelMotorInterface.h"
 #include "impedanceController.h"
 
 #define MAX_MANUAL_LEGS 2
 
 class StateController
 {
-public:  
+public:
   StateController(ros::NodeHandle nodeHandle);
   ~StateController();
-  
+
   inline Parameters* getParameters(void) { return &params_; };
-  inline bool getUserInputFlag(void) { return user_input_flag_; }
   inline SystemState getSystemState(void) { return system_state_; };
-  
-  inline bool receivingImuData(void) { return imu_data_subscriber_; };
-  inline bool receivingTipForces(void) { return tip_force_subscriber_; };
-  inline bool receivingJointStates(void) { return joint_state_subscriber_; };
-  inline bool jointPostionsInitialised(void) { return joint_positions_initialised; };
-  
-  // Initialisation functions  
+  inline bool jointPostionsInitialised(void) { return joint_positions_initialised_; };
+  inline void resetDebug(void) { debug_.reset(); };
+
+  // Initialisation functions
   void init(void);
   void initParameters(void);
   void initGaitParameters(GaitDesignation gaitSelection);
 	void initAutoPoseParameters(void);
-  void initModel(bool use_default_joint_positions = false);
-  void resetDebug(void) { debug_.reset(); };
+  void initModel(bool use_default_joint_positions = false);  
 
   // Loop and state functions
   void loop();
@@ -63,13 +57,13 @@ public:
   void adjustParameter();
   void changeGait();
   void legStateToggle();
-  void publishDesiredJointState();  
-  
-  // Debugging functions  
+  void publishDesiredJointState();
+
+  // Debugging functions
   void publishLegState();
   void publishBodyVelocity();
   void publishPose();
-  void publishIMUData();  
+  void publishIMUData();
   void publishRotationPoseError();
   void publishTranslationPoseError();
   void RVIZDebugging(bool static_display = false);
@@ -79,7 +73,7 @@ public:
   void primaryTipVelocityInputCallback(const geometry_msgs::Point &input);
   void secondaryTipVelocityInputCallback(const geometry_msgs::Point &input);
   void bodyPoseInputCallback(const geometry_msgs::Twist &input);
-  void systemStateCallback(const std_msgs::Int8 &input);
+  void systemStateCallback(const Int8 &input);
 	void robotStateCallback(const std_msgs::Int8 &input);
   void gaitSelectionCallback(const std_msgs::Int8 &input);
   void posingModeCallback(const std_msgs::Int8 &input);
@@ -131,6 +125,7 @@ private:
   ros::Subscriber tip_force_subscriber_CL_;
   ros::Subscriber tip_force_subscriber_BL_;
   ros::Subscriber tip_force_subscriber_AL_;
+  ros::Publisher desired_joint_state_publisher_;
   ros::Publisher pose_publisher_;
   ros::Publisher imu_data_publisher_;
   ros::Publisher body_velocity_publisher_;
@@ -138,9 +133,8 @@ private:
   ros::Publisher translation_pose_error_publisher_;
 	boost::recursive_mutex mutex_;
 	dynamic_reconfigure::Server<simple_hexapod_controller::DynamicConfig>* dynamic_reconfigure_server_;
-  
+
   Model* model_;
-  DynamixelMotorInterface* interface_;
   WalkController* walker_;
   PoseController* poser_;
   ImpedanceController* impedance_;
@@ -169,18 +163,17 @@ private:
   LegState primary_leg_state_ = WALKING;
   LegState secondary_leg_state_ = WALKING;
   Leg* primary_leg_;
-  Leg* secondary_leg_;     
+  Leg* secondary_leg_;
   
   int manual_leg_count_ = 0;
 
-  bool user_input_flag_ = false;
   bool gait_change_flag_ = false;
   bool toggle_primary_leg_state_ = false;
   bool toggle_secondary_leg_state_ = false;
   bool parameter_adjust_flag_ = false;
-  bool new_parameter_set_ = false;
-  bool joint_positions_initialised = false;
-  bool transition_state_flag_ = false;  
+  bool apply_new_parameter_ = true;
+  bool joint_positions_initialised_ = false;
+  bool transition_state_flag_ = false;
 
   Vector2d linear_velocity_input_;
   double angular_velocity_input_ = 0;

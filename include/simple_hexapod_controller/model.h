@@ -25,6 +25,8 @@
 #include "pose.h"
 #include "simple_hexapod_controller/legState.h"
 
+#define JOINT_TOLERANCE 0.01 // Tolerance allowing assumption that joints are in correct position (metres)
+
 struct Leg;
 struct Joint;
 struct Link;
@@ -208,7 +210,7 @@ public:
 	const std::string name;
 	Matrix4d current_transform;
 	Matrix4d identity_transform;
-	ros::Publisher gazebo_publisher;
+	ros::Publisher desired_position_publisher;
 	
 	const double position_offset;
 	const double min_position;

@@ -2,8 +2,8 @@ Header header
 std_msgs/String leg_name
 
 geometry_msgs/Point local_tip_position
-geometry_msgs/Point poser_tip_positions
-geometry_msgs/Point walker_tip_positions
+geometry_msgs/Point poser_tip_position
+geometry_msgs/Point walker_tip_position
 
 std_msgs/Float32MultiArray joint_positions
 std_msgs/Float32MultiArray joint_velocities

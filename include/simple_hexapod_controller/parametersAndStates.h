@@ -20,7 +20,8 @@
  */
 
 #include "standardIncludes.h"
-#define THROTTLE_PERIOD 5  // seconds
+#define ACQUISTION_TIME 10 // Max time controller will wait to acquire intitial joint states (seconds)
+#define THROTTLE_PERIOD 5  // Default throttle period for all throttled rosconsole messages (seconds)
 
 enum SystemState
 {
@@ -216,8 +217,12 @@ struct Parameters
 	Parameter<bool> manual_compensation;
 	Parameter<bool> inclination_compensation;
 	Parameter<bool> impedance_control;
-	Parameter<vector<double>> imu_rotation_offset;
-	Parameter<double> interface_setup_speed;
+	
+  // Motor Interface parameters
+  Parameter<bool> individual_control_interface;
+  Parameter<bool> combined_control_interface;
+  Parameter<vector<double>> imu_rotation_offset;
+	
 	// Model parameters
 	Parameter<string> 	hexapod_type;
 	Parameter<vector<string>> leg_id;
@@ -283,9 +288,6 @@ struct Parameters
 	Parameter<vector<double>> yaw_amplitudes;	
 	
 	// Debug Parameters
-  Parameter<bool> debug_gazebo;
-	Parameter<bool> debug_rviz;
-	Parameter<bool> debug_rviz_static_display;
 	Parameter<string> console_verbosity;
 	Parameter<bool> debug_moveToJointPosition;
 	Parameter<bool> debug_stepToPosition;
@@ -293,6 +295,8 @@ struct Parameters
 	Parameter<bool> debug_stance_trajectory;
   Parameter<bool> debug_execute_sequence;
 	Parameter<bool> debug_IK;
+  Parameter<bool> debug_rviz;
+	Parameter<bool> debug_rviz_static_display;
 };
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H */
   

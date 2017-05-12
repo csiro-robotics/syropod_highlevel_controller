@@ -795,7 +795,8 @@ Pose PoseController::manualCompensation(void)
     translation_limit[i] = sign(translation_velocity[i]) * max_translation[i];
 
     if (reset_translation[i] &&
-        default_translation[i] < max_translation[i] && default_translation[i] > -max_translation[i])
+        default_translation[i] < max_translation[i] &&
+        default_translation[i] > -max_translation[i])
     {
       translation_limit[i] = default_translation[i];
     }
