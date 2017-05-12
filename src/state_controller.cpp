@@ -661,13 +661,14 @@ void StateController::publishLegState()
     msg.stance_progress.data = leg_stepper->getStanceProgress();
 
     // Leg specific auto pose
-    Pose auto_pose = leg_poser->getAutoPose();
-    msg.auto_pose.linear.x = auto_pose.position_[0];
-    msg.auto_pose.linear.y = auto_pose.position_[1];
-    msg.auto_pose.linear.z = auto_pose.position_[2];
-    msg.auto_pose.angular.x = auto_pose.rotation_.toEulerAngles()[0];
-    msg.auto_pose.angular.y = auto_pose.rotation_.toEulerAngles()[1];
-    msg.auto_pose.angular.z = auto_pose.rotation_.toEulerAngles()[2];
+    Vector3d position = leg_poser->getAutoPose().position_;
+    Quat rotation = leg_poser->getAutoPose().rotation_;
+    msg.auto_pose.linear.x = position[0];
+    msg.auto_pose.linear.y = position[1];
+    msg.auto_pose.linear.z = position[2];
+    msg.auto_pose.angular.x = rotation.toEulerAngles()[0];
+    msg.auto_pose.angular.y = rotation.toEulerAngles()[1];
+    msg.auto_pose.angular.z = rotation.toEulerAngles()[2];
 
     // Impedance controller
     msg.tip_force.data = leg->getTipForce();
@@ -709,12 +710,14 @@ void StateController::publishBodyVelocity()
 void StateController::publishPose()
 {
   geometry_msgs::Twist msg;
-  msg.linear.x = model_->getCurrentPose().position_[0];
-  msg.linear.y = model_->getCurrentPose().position_[1];
-  msg.linear.z = model_->getCurrentPose().position_[2];
-  msg.angular.x = model_->getCurrentPose().rotation_.toEulerAngles()[0];
-  msg.angular.y = model_->getCurrentPose().rotation_.toEulerAngles()[1];
-  msg.angular.z = model_->getCurrentPose().rotation_.toEulerAngles()[2];
+  Vector3d position = model_->getCurrentPose().position_;
+  Quat rotation = model_->getCurrentPose().rotation_;
+  msg.linear.x = position[0];
+  msg.linear.y = position[1];
+  msg.linear.z = position[2];
+  msg.angular.x = rotation.toEulerAngles()[0];
+  msg.angular.y = rotation.toEulerAngles()[1];
+  msg.angular.z = rotation.toEulerAngles()[2];
   pose_publisher_.publish(msg);
 }
 
@@ -1240,10 +1243,10 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
   //TBD use tf
 
   Quat raw_orientation;
-  raw_orientation.w = data.orientation.w;
-  raw_orientation.x = data.orientation.x;
-  raw_orientation.y = data.orientation.y;
-  raw_orientation.z = data.orientation.z;
+  raw_orientation.w_ = data.orientation.w;
+  raw_orientation.x_ = data.orientation.x;
+  raw_orientation.y_ = data.orientation.y;
+  raw_orientation.z_ = data.orientation.z;
 
   Vector3d raw_linear_acceleration;
   raw_linear_acceleration[0] = data.linear_acceleration.x;

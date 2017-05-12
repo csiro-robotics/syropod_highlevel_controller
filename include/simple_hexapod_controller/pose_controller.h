@@ -1,6 +1,6 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H
 #define SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H
-/** 
+/*******************************************************************************************************************//**
  *  \file    pose_controller.h
  *  \brief   Handles control of hexapod body posing. Part of simple hexapod controller.
  *

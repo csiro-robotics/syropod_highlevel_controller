@@ -25,8 +25,8 @@
 DebugOutput::DebugOutput()
 {
   string node_name = ros::this_node::getName();
-  robot_publisher_ = n.advertise<visualization_msgs::Marker>(node_name + "/robot_visualisation", 1000);
-  visualization_publisher_ = n.advertise<visualization_msgs::Marker>(node_name + "/walking_debug_visualisation", 1000);
+  robot_publisher_ = n_.advertise<visualization_msgs::Marker>(node_name + "/robot_visualisation", 1000);
+  visualization_publisher_ = n_.advertise<visualization_msgs::Marker>(node_name + "/walking_debug_visualisation", 1000);
   odometry_pose_ = Pose::identity();
   reset();
 }
@@ -38,8 +38,7 @@ void DebugOutput::updatePose(Vector2d linear_body_velocity, double angular_body_
 {
   Vector3d linear_body_velocity_3d = Vector3d(linear_body_velocity[0], linear_body_velocity[1], 0);
   Vector3d angular_body_velocity_3d = Vector3d(0.0, 0.0, angular_body_velocity);
-  odometry_pose_.position_ += odometry_pose_.rotation_.rotateVector(linear_body_velocity_3d);
-  odometry_pose_.rotation_ *= Quat(angular_body_velocity_3d);
+  odometry_pose_ *= Pose(linear_body_velocity_3d, Quat(angular_body_velocity_3d));
   odometry_pose_.position_[2] = height;
 }
 
@@ -49,9 +48,9 @@ void DebugOutput::updatePose(Vector2d linear_body_velocity, double angular_body_
 void DebugOutput::drawRobot(Model* model)
 {
   visualization_msgs::Marker leg_line_list;
-  leg_line_list.header.frame_id = "/my_frame";
+  leg_line_list.header.frame_id = "/fixed_frame";
   leg_line_list.header.stamp = ros::Time::now();
-  leg_line_list.ns = "trajectory_polyline_" + to_string(robot_ID_);
+  leg_line_list.ns = "robot_model";
   leg_line_list.action = visualization_msgs::Marker::ADD;
   leg_line_list.id = robot_ID_++;
   leg_line_list.type = visualization_msgs::Marker::LINE_LIST;
@@ -61,16 +60,13 @@ void DebugOutput::drawRobot(Model* model)
   leg_line_list.color.b = 1;
   leg_line_list.color.a = 1;
 
-  Pose pose;
-  pose.position_ = odometry_pose_.position_ + model->getCurrentPose().position_;
-  pose.rotation_ = odometry_pose_.rotation_ * model->getCurrentPose().rotation_;
+  Pose pose = odometry_pose_.addPose(model->getCurrentPose());
 
   geometry_msgs::Point point;
   Vector3d previous_body_position = pose.transformVector(Vector3d(0.0, 0.0, 0.0));
   Vector3d initial_body_position = pose.transformVector(Vector3d(0.0, 0.0, 0.0));
 
   map<int, Leg*>::iterator leg_it;
-
   for (leg_it = model->getLegContainer()->begin(); leg_it != model->getLegContainer()->end(); ++leg_it)
   {
     Leg* leg = leg_it->second;
@@ -96,7 +92,6 @@ void DebugOutput::drawRobot(Model* model)
 
     //Draw legs
     map<int, Joint*>::iterator joint_it; //Start at second joint
-
     for (joint_it = ++leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
     {
       Joint* joint = joint_it->second;
@@ -145,12 +140,10 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
   double time_delta = walker->getParameters()->time_delta.data;
   int num_legs = model->getLegCount();
 
-  Pose pose;
-  pose.position_ = odometry_pose_.position_ + model->getCurrentPose().position_;
-  pose.rotation_ = odometry_pose_.rotation_ * model->getCurrentPose().rotation_;
+  Pose pose = odometry_pose_.addPose(model->getCurrentPose());
 
   visualization_msgs::Marker tip_position_history;
-  tip_position_history.header.frame_id = "/my_frame";
+  tip_position_history.header.frame_id = "/fixed_frame";
   tip_position_history.header.stamp = ros::Time::now();
   tip_position_history.ns = "tip_tracking_markers";
   tip_position_history.id = 0;
@@ -162,7 +155,7 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
   tip_position_history.lifetime = ros::Duration();
 
   visualization_msgs::Marker swing_1_nodes;
-  swing_1_nodes.header.frame_id = "/my_frame";
+  swing_1_nodes.header.frame_id = "/fixed_frame";
   swing_1_nodes.header.stamp = ros::Time::now();
   swing_1_nodes.ns = "primary_swing_control_nodes";
   swing_1_nodes.id = 1;
@@ -175,7 +168,7 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
   swing_1_nodes.lifetime = ros::Duration(time_delta);
 
   visualization_msgs::Marker swing_2_nodes;
-  swing_2_nodes.header.frame_id = "/my_frame";
+  swing_2_nodes.header.frame_id = "/fixed_frame";
   swing_2_nodes.header.stamp = ros::Time::now();
   swing_2_nodes.ns = "secondary_swing_control_nodes";
   swing_2_nodes.id = 2;
@@ -190,7 +183,7 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
   swing_2_nodes.lifetime = ros::Duration(time_delta);
 
   visualization_msgs::Marker stance_nodes;
-  stance_nodes.header.frame_id = "/my_frame";
+  stance_nodes.header.frame_id = "/fixed_frame";
   stance_nodes.header.stamp = ros::Time::now();
   stance_nodes.ns = "stance_control_nodes";
   stance_nodes.id = 3;
@@ -212,7 +205,7 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
     if (debug_trajectory && walker->getWalkState() != STOPPED)
     {
       visualization_msgs::Marker workspace;
-      workspace.header.frame_id = "/my_frame";
+      workspace.header.frame_id = "/fixed_frame";
       workspace.header.stamp = ros::Time::now();
       workspace.ns = "workspace_markers";
       workspace.id = leg->getIDNumber() + 4; // Id after initial 4 markers
@@ -231,7 +224,7 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
       visualization_publisher_.publish(workspace);
 
       visualization_msgs::Marker stride;
-      stride.header.frame_id = "/my_frame";
+      stride.header.frame_id = "/fixed_frame";
       stride.header.stamp = ros::Time::now();
       stride.ns = "max_stride_markers";
       stride.id = leg->getIDNumber() + num_legs + 4; // Id after intial 4 markers and workspace marker for each leg
@@ -250,7 +243,6 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
       for (int i = 0; i < 5; ++i) // For each of 5 control nodes
       {
         geometry_msgs::Point point;
-
         if (leg_stepper->getStepState() == STANCE)
         {
           Vector3d stance_node = odometry_pose_.transformVector(leg_stepper->getStanceControlNode(i));
@@ -288,7 +280,6 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
   }
 
   vector<Vector3d>::iterator it;
-
   for (it = tip_position_history_.begin(); it != tip_position_history_.end(); ++it)
   {
     geometry_msgs::Point point;
@@ -305,3 +296,6 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
   visualization_publisher_.publish(swing_2_nodes);
   visualization_publisher_.publish(stance_nodes);
 }
+
+/***********************************************************************************************************************
+***********************************************************************************************************************/

@@ -5,7 +5,7 @@
  *  \brief   Handles publishing of hexapod info for debugging in RVIZ. Part of simple hexapod controller.
  *
  *  \author Fletcher Talbot
- *  \date   January 2017
+ *  \date   June 2017
  *  \version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
@@ -41,7 +41,7 @@ public:
 private:
 	int robot_ID_;
 	int plot_ID_;
-	ros::NodeHandle n;
+	ros::NodeHandle n_;
 	ros::Publisher robot_publisher_;
 	ros::Publisher visualization_publisher_;
 	Pose odometry_pose_;

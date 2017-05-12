@@ -1,6 +1,6 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_MODEL_H
 #define SIMPLE_HEXAPOD_CONTROLLER_MODEL_H
-/** 
+/*******************************************************************************************************************//**
  *  \file    model.h
  *  \brief   Describes the hexapod model including all legs, joints and links. Part of simple hexapod controller.
  *

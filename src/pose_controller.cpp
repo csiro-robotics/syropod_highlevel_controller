@@ -102,11 +102,9 @@ void PoseController::updateStance(void)
 
     if (leg_state == WALKING || leg_state == MANUAL_TO_WALKING)
     {
-      // Remove posing compensation from auto_pose under correct conditions
-      compensation_pose.position_ -= auto_pose_.position_;
-      compensation_pose.rotation_ *= auto_pose_.rotation_.inverse();
-      compensation_pose.position_ += leg_poser->getAutoPose().position_;
-      compensation_pose.rotation_ *= leg_poser->getAutoPose().rotation_;
+      // Remove posing compensation from auto_pose under correct conditions and add leg specific auto pose
+      compensation_pose = compensation_pose.removePose(auto_pose_);
+      compensation_pose = compensation_pose.addPose(leg_poser->getAutoPose());
 
       // Apply compensation pose to current walking tip position to calculate new 'posed' tip position
       Vector3d new_tip_position = compensation_pose.inverseTransformVector(leg_stepper->getCurrentTipPosition());
@@ -555,7 +553,7 @@ int PoseController::stepToNewStance(void) //Tripod leg coordination
 ***********************************************************************************************************************/
 int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
 {
-  Pose targetPose;
+  Pose target_pose;
   int progress = 0; //Percentage progress (0%->100%)
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -568,19 +566,19 @@ int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
 
     if (leg->getLegState() == WALKING_TO_MANUAL)
     {
-      targetPose = Pose::identity();
-      targetPose.position_ += inclination_compensation_offset_;  // Apply inclination control to lifted leg
-      targetPose.position_[2] -= step_height;
+      target_pose = Pose::identity();
+      target_pose.position_ += inclination_compensation_offset_; // Apply inclination control to lifted leg
+      target_pose.position_[2] -= step_height;
     }
     // Get target tip positions for legs in WALKING state using default pose
     else
     {
-      targetPose = model_->getCurrentPose();
-      targetPose.position_ -= manual_pose_.position_;
-      targetPose.position_ += default_pose_.position_;
+      target_pose = model_->getCurrentPose();
+      target_pose.position_ -= manual_pose_.position_;
+      target_pose.position_ += default_pose_.position_;
     }
 
-    Vector3d target_tip_position = targetPose.inverseTransformVector(leg_stepper->getDefaultTipPosition());
+    Vector3d target_tip_position = target_pose.inverseTransformVector(leg_stepper->getDefaultTipPosition());
 
     if (leg->getLegState() == WALKING_TO_MANUAL)
     {
@@ -685,8 +683,7 @@ void PoseController::updateCurrentPose(double body_height, WalkState walk_state)
   else if (params_->auto_compensation.data)
   {
     Pose auto_pose = autoCompensation();
-    new_pose.position_ += auto_pose.position_;
-    new_pose.rotation_ *= auto_pose.rotation_;  //(Quaternion)
+    new_pose.addPose(auto_pose);
   }
 
   model_->setCurrentPose(new_pose);
@@ -832,7 +829,7 @@ Pose PoseController::manualCompensation(void)
   }
 
   // Update position according to limitations
-  manual_pose_.position_ = translation_position + translation_velocity * params_->time_delta.data;
+  manual_pose_.position_ = (translation_position + translation_velocity * params_->time_delta.data);
   manual_pose_.rotation_ = rotation_position * Quat(Vector3d(rotation_velocity * params_->time_delta.data));
   // BUG: ^Adding pitch and roll simultaneously adds unwanted yaw
 
@@ -879,8 +876,7 @@ Pose PoseController::autoCompensation(void)
   {
     AutoPoser* auto_poser = *auto_poser_it;
     Pose updated_pose = auto_poser->updatePose(master_phase);
-    auto_pose_.position_ += updated_pose.position_;
-    auto_pose_.rotation_ *= updated_pose.rotation_;
+    auto_pose_ = auto_pose_.addPose(updated_pose);
     auto_posers_complete += int(!auto_poser->isPosing());
     // BUG: ^Adding pitch and roll simultaneously adds unwanted yaw
   }
@@ -1252,7 +1248,7 @@ int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose,
   // Scales position vector by 0->1.0
   target_pose.position_ *= completion_ratio;
   // Scales rotation quat by 0.0->1.0 (https://en.wikipedia.org/wiki/Slerp)
-  target_pose.rotation_ = Pose::identity().rotation_.slerpTo(target_pose.rotation_, completion_ratio);
+  target_pose.rotation_ = Quat::Identity().slerpTo(target_pose.rotation_, completion_ratio);
 
   int half_swing_iteration = num_iterations / 2;
 
@@ -1381,8 +1377,7 @@ void LegPoser::updateAutoPose(int phase)
     Vector3d rotation = quarticBezier(rotation_control_nodes, time_input);
 
     auto_pose_ = poser_->getAutoPose();
-    auto_pose_.position_ -= position;
-    auto_pose_.rotation_ *= Quat(rotation).inverse();
+    auto_pose_ = auto_pose_.removePose(Pose(position, Quat(rotation)));
   }
   else
   {

@@ -1,6 +1,6 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H
 #define SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H
-/** 
+/*******************************************************************************************************************//**
  *  \file    parameters_and_states.h
  *  \brief   Defines various hexapod and system parameters and states. Part of simple hexapod controller.
  *
