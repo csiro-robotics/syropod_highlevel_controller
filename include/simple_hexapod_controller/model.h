@@ -5,7 +5,7 @@
  *  \brief   Describes the hexapod model including all legs, joints and links. Part of simple hexapod controller.
  *
  *  \author Fletcher Talbot
- *  \date   January 2017
+ *  \date   June 2017
  *  \version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
@@ -17,7 +17,7 @@
  *  All rights reserved, no part of this program may be used
  *  without explicit permission of CSIRO
  *
- */
+***********************************************************************************************************************/
 
 #include "standard_includes.h"
 #include "parameters_and_states.h"
@@ -27,17 +27,19 @@
 
 #define JOINT_TOLERANCE 0.01 // Tolerance allowing assumption that joints are in correct position (metres)
 
-struct Leg;
-struct Joint;
-struct Link;
-struct Tip;
+class Leg;
+class Joint;
+class Link;
+class Tip;
 
 class WalkController;
 class LegStepper;
 class PoseController;
 class LegPoser;
 
-// defines the hexapod model
+/***********************************************************************************************************************
+ * Defines hexapod model
+***********************************************************************************************************************/
 class Model
 {
   public:
@@ -56,7 +58,7 @@ class Model
     
     void initLegs(bool use_default_joint_positions);
     bool legsBearingLoad(void);
-    vector<Vector3d> getJointPositions(const Pose &pose);
+    //vector<Vector3d> getJointPositions(const Pose &pose); //TBD
     
     Leg* getLegByIDNumber(int leg_id_num) { return leg_container_[leg_id_num]; };
     Leg* getLegByIDName(std::string leg_id_name);
@@ -70,7 +72,9 @@ class Model
     double angular_velocity_ = 0.0;
 };
 
-//Base leg class
+/***********************************************************************************************************************
+ * Base leg class
+***********************************************************************************************************************/
 typedef std::vector<double> state_type; //Impedance state used in impedance controller
 class Leg
 {
@@ -115,6 +119,7 @@ public:
 	void init(bool use_default_joint_positions);
 	void setDesiredTipPosition(Vector3d tip_position, bool apply_delta_z = true);
 	bool updateTipForce(bool debug);
+  MatrixXd createJacobian(vector<map<string, double>> dh);
   Vector3d applyFK(bool set_local = true);
 	double applyIK(bool debug = false,
                  bool ignore_warnings = false,
@@ -166,6 +171,9 @@ protected:
 	double tip_force_ = 0.0; // Vertical force estimation on tip
 };
 
+/***********************************************************************************************************************
+ * Base link class
+***********************************************************************************************************************/
 struct Link
 {
   public:
@@ -180,6 +188,9 @@ struct Link
     const double twist; //DH parameter 'alpha'    
 };
 
+/***********************************************************************************************************************
+ * Base joint class
+***********************************************************************************************************************/
 struct Joint
 {
 public:
@@ -232,6 +243,9 @@ public:
 	double current_effort = UNASSIGNED_VALUE;
 };
 
+/***********************************************************************************************************************
+ * Base tip class
+***********************************************************************************************************************/
 struct Tip
 {
 public:
@@ -262,6 +276,9 @@ public:
 	Matrix4d identity_transform;
 	Vector3d relative_body_position;
 };
+
+/***********************************************************************************************************************
+***********************************************************************************************************************/
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_MODEL_H */
 
 

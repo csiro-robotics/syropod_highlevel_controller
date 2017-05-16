@@ -1,3 +1,22 @@
+/*******************************************************************************************************************//**
+ *  \file    impedance_controller.cpp
+ *  \brief   Impedance controller. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   June 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+***********************************************************************************************************************/
+
 #include "../include/simple_hexapod_controller/impedance_controller.h"
 
 /***********************************************************************************************************************

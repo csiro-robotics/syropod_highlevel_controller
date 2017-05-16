@@ -1,3 +1,22 @@
+/*******************************************************************************************************************//**
+ *  \file    walk_controller.cpp
+ *  \brief   Handles control of hexapod walking. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   June 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+ **********************************************************************************************************************/
+
 #include "../include/simple_hexapod_controller/walk_controller.h"
 
 /***********************************************************************************************************************
@@ -81,7 +100,7 @@ void WalkController::init(void)
 			distance_to_ground += link->offset*cos(joint_twist_);
 			
 			// Find first joint able to move in x/y plane and assign a half yaw range value for the leg
-			if (abs(joint_twist_) != pi/2 && half_stance_yaw_range == UNASSIGNED_VALUE)
+			if (abs(joint_twist_) != M_PI/2 && half_stance_yaw_range == UNASSIGNED_VALUE)
 			{
 				half_stance_yaw_range = min(abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->min_position)),
 				abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->max_position)));

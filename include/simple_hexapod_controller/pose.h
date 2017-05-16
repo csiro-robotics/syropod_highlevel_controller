@@ -1,6 +1,5 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_POSE_H
 #define SIMPLE_HEXAPOD_CONTROLLER_POSE_H
-
 /*******************************************************************************************************************//**
  *  \file    pose.h
  *  \brief   Custom class definition of hexapod pose. Part of simple hexapod controller.

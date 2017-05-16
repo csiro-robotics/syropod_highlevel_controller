@@ -1,11 +1,11 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_WALK_CONTROLLER_H
 #define SIMPLE_HEXAPOD_CONTROLLER_WALK_CONTROLLER_H
-/** 
+/*******************************************************************************************************************//**
  *  \file    walk_controller.h
  *  \brief   Handles control of hexapod walking. Part of simple hexapod controller.
  *
  *  \author Fletcher Talbot
- *  \date   January 2017
+ *  \date   June 2017
  *  \version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
@@ -17,7 +17,7 @@
  *  All rights reserved, no part of this program may be used
  *  without explicit permission of CSIRO
  *
- */
+ **********************************************************************************************************************/
 
 #include "standard_includes.h"
 #include "parameters_and_states.h"
@@ -197,4 +197,6 @@ class LegStepper
     Vector3d stance_origin_tip_position_;
 };
 
+/***********************************************************************************************************************
+***********************************************************************************************************************/
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_WALK_CONTROLLER_H */

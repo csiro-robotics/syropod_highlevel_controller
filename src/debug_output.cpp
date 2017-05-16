@@ -3,7 +3,7 @@
  *  \brief   Handles publishing of hexapod info for debugging in RVIZ. Part of simple hexapod controller.
  *
  *  \author Fletcher Talbot
- *  \date   March 2017
+ *  \date   June 2017
  *  \version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory

@@ -112,7 +112,7 @@ include_directories(
 # )
 
 ## Declare a cpp executable
-add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/walk_controller.cpp src/pose_controller.cpp src/debug_output.cpp src/impedance_controller.cpp src/state_controller.cpp)
+add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/walk_controller.cpp src/pose_controller.cpp src/debug_output.cpp src/impedance_controller.cpp src/state_controller.cpp src/jacobian.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes

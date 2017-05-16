@@ -5,7 +5,7 @@
  *  \brief   Defines various hexapod and system parameters and states. Part of simple hexapod controller.
  *
  *  \author Fletcher Talbot
- *  \date   January 2017
+ *  \date   June 2017
  *  \version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
@@ -17,9 +17,10 @@
  *  All rights reserved, no part of this program may be used
  *  without explicit permission of CSIRO
  *
- */
+***********************************************************************************************************************/
 
 #include "standard_includes.h"
+
 #define ACQUISTION_TIME 10 // Max time controller will wait to acquire intitial joint states (seconds)
 #define THROTTLE_PERIOD 5  // Default throttle period for all throttled rosconsole messages (seconds)
 
@@ -112,7 +113,7 @@ enum PoseResetMode
   X_AND_Y_RESET,
   PITCH_AND_ROLL_RESET,
   ALL_RESET,
-  IMMEDIATE_ALL_RESET,  // overrides input from user
+  IMMEDIATE_ALL_RESET,
 };
 
 enum LegDesignation
@@ -147,15 +148,16 @@ enum SequenceSelection
   SHUT_DOWN
 };
 
+/***********************************************************************************************************************
+***********************************************************************************************************************/
 template <typename T>
-struct Parameter
+class Parameter
 {
-  string name; 
-  T data;
-  bool required = true;
-  bool initialised = false;
+public:
   
-  void init(ros::NodeHandle n, string name_input, string base_parameter_name = "/hexapod/parameters/", bool required_input = true)
+  void init(ros::NodeHandle n, string name_input,
+            string base_parameter_name = "/hexapod/parameters/",
+            bool required_input = true)
   {
     name = name_input;
     required = required_input;
@@ -163,34 +165,37 @@ struct Parameter
     if (!parameter_found && required)
     {
       ROS_ERROR("Error reading parameter/s %s from rosparam. Check config file is loaded and type is correct\n",
-		name.c_str());
+                name.c_str());
     }
     else
     {
       initialised = true;
     }
   }
+  
+  string name;
+  T data;
+  bool required = true;
+  bool initialised = false;
 };
 
-struct AdjustableParameter : public Parameter<map<string, double>>
+/***********************************************************************************************************************
+***********************************************************************************************************************/
+class AdjustableParameter : public Parameter<map<string, double>>
 {
-	double current_value;
-	double max_value;
-	double min_value;
-	double default_value;
-	double adjust_step;
+public:
 
-	void init(ros::NodeHandle n, 
-			string name_input,
-			string base_parameter_name = "/hexapod/parameters/",
-			bool required_input = true)
+	void init(ros::NodeHandle n, string name_input,
+            string base_parameter_name = "/hexapod/parameters/",
+            bool required_input = true)
 	{
 		name = name_input;
 		required = required_input;
 		bool parameter_found = n.getParam(base_parameter_name + name_input, data);
 		if (!parameter_found && required)
 		{
-			ROS_ERROR("Error reading parameter/s %s from rosparam. Check config file is loaded and type is correct\n", name.c_str());
+			ROS_ERROR("Error reading parameter/s %s from rosparam. Check config file is loaded and type is correct\n",
+                name.c_str());
 		}
 		else
 		{
@@ -202,10 +207,17 @@ struct AdjustableParameter : public Parameter<map<string, double>>
 			initialised = true;
 		}
 	}
+	
+  double current_value;
+	double max_value;
+	double min_value;
+	double default_value;
+	double adjust_step;
 };
 
+/***********************************************************************************************************************
+***********************************************************************************************************************/
 typedef map<ParameterSelection, AdjustableParameter*> AdjustableMapType;
-
 struct Parameters
 {      
 	AdjustableMapType adjustable_map;
@@ -231,7 +243,8 @@ struct Parameters
 	Parameter<map<string, int>> leg_DOF;
 	Parameter<map<string, double>> leg_stance_yaws;
 	Parameter<map<string, double>> joint_parameters[8][6]; //Max 8 legs with 6 joints
-	Parameter<map<string, double>> link_parameters[8][7];
+	Parameter<map<string, double>> link_parameters[8][7]; //Max 8 legs with 6 links + base link
+	
 	// Walk controller parameters
 	Parameter<string> gait_type;
 	AdjustableParameter step_frequency;
@@ -243,6 +256,7 @@ struct Parameters
 	Parameter<bool> force_cruise_velocity;
 	Parameter<map<string, double>> linear_cruise_velocity;
 	Parameter<double> angular_cruise_velocity;
+  
 	// Pose controller parameters
 	Parameter<string> auto_pose_type;
 	Parameter<bool> start_up_sequence;
@@ -279,13 +293,12 @@ struct Parameters
 	Parameter<vector<int>> pose_phase_ends;
 	Parameter<vector<int>> pose_negation_phase_starts;
 	Parameter<vector<int>> pose_negation_phase_ends;	
-	
-	Parameter<vector<double>> x_amplitudes;
-	Parameter<vector<double>> y_amplitudes;
-	Parameter<vector<double>> z_amplitudes;
-	Parameter<vector<double>> roll_amplitudes;
-	Parameter<vector<double>> pitch_amplitudes;
-	Parameter<vector<double>> yaw_amplitudes;	
+  Parameter<vector<double>> x_amplitudes;
+  Parameter<vector<double>> y_amplitudes;
+  Parameter<vector<double>> z_amplitudes;
+  Parameter<vector<double>> roll_amplitudes;
+  Parameter<vector<double>> pitch_amplitudes;
+  Parameter<vector<double>> yaw_amplitudes;
 	
 	// Debug Parameters
 	Parameter<string> console_verbosity;
@@ -298,5 +311,8 @@ struct Parameters
   Parameter<bool> debug_rviz;
 	Parameter<bool> debug_rviz_static_display;
 };
+
+/***********************************************************************************************************************
+***********************************************************************************************************************/
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H */
   

@@ -1,11 +1,11 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_IMPEDANCE_CONTROLLER_H
 #define SIMPLE_HEXAPOD_CONTROLLER_IMPEDANCE_CONTROLLER_H
-/** 
+/*******************************************************************************************************************//**
  *  \file    impedance_controller.h
  *  \brief   Impedance controller. Part of simple hexapod controller.
  *
  *  \author Fletcher Talbot
- *  \date   January 2017
+ *  \date   June 2017
  *  \version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
@@ -17,7 +17,7 @@
  *  All rights reserved, no part of this program may be used
  *  without explicit permission of CSIRO
  *
- */
+***********************************************************************************************************************/
 
 #include "standard_includes.h"
 #include "parameters_and_states.h"
@@ -28,6 +28,8 @@
 
 using namespace boost::numeric::odeint;
 
+/***********************************************************************************************************************
+***********************************************************************************************************************/
 class ImpedanceController
 {
 public:
@@ -47,4 +49,6 @@ private:
   double force_gain_;
 };
 
+/***********************************************************************************************************************
+***********************************************************************************************************************/
 #endif /* SIMPLE_HEXAPOD_CONTROLLER_IMPEDANCE_CONTROLLER_H */

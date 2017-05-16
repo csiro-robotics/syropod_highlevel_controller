@@ -1,3 +1,21 @@
+/*******************************************************************************************************************//**
+ *  \file    model.cpp
+ *  \brief   Describes the hexapod model including all legs, joints and links. Part of simple hexapod controller.
+ *
+ *  \author Fletcher Talbot
+ *  \date   June 2017
+ *  \version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
+***********************************************************************************************************************/
 
 #include "../include/simple_hexapod_controller/model.h"
 
@@ -208,7 +226,7 @@ bool Leg::updateTipForce(bool debug) //TBD Not currently used (experiment functi
   dh_parameters.push_back(dh_map);
 
   MatrixXd j(3, num_joints_);
-  j = createJacobian(dh_parameters, num_joints_);
+  //j = createJacobian(dh_parameters, num_joints_);
 
   VectorXd joint_torques(num_joints_);
   int index = 0;
@@ -251,7 +269,7 @@ double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool
   dh_parameters.push_back(dh_map);
 
   MatrixXd j(3, num_joints_);
-  j = createJacobian(dh_parameters, num_joints_);
+  j = createJacobian(dh_parameters);
 
   double dls_cooeficient = 0.02; //TBD calculate optimal value (this value currently works sufficiently)
   MatrixXd identity = Matrix3d::Identity();
@@ -369,6 +387,30 @@ Vector3d Leg::applyFK(bool set_local)
     local_tip_position_ = tip_position;
   }
   return tip_position;
+}
+
+/***********************************************************************************************************************
+ * Calls jocobian creation function for requested degrees of freedom
+***********************************************************************************************************************/
+MatrixXd Leg::createJacobian(vector<map<string, double>> dh)
+{
+  switch(num_joints_)
+  {
+    case(1):
+      return createJacobian1DOF(dh);
+    case(2):
+      return createJacobian2DOF(dh);
+    case(3):
+      return createJacobian3DOF(dh);
+    case(4):
+      return createJacobian4DOF(dh);
+    case(5):
+      return createJacobian5DOF(dh); //Not implemented
+    case(6):
+      return createJacobian6DOF(dh); //Not implemented
+    default:
+      return MatrixXd::Identity(3,3);
+  };
 }
 
 /***********************************************************************************************************************
