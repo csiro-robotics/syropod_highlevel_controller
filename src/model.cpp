@@ -226,7 +226,7 @@ bool Leg::updateTipForce(bool debug) //TBD Not currently used (experiment functi
   dh_parameters.push_back(dh_map);
 
   MatrixXd j(3, num_joints_);
-  //j = createJacobian(dh_parameters, num_joints_);
+  j = createJacobian(dh_parameters);
 
   VectorXd joint_torques(num_joints_);
   int index = 0;

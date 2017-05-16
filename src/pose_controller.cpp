@@ -701,7 +701,7 @@ void PoseController::updateCurrentPose(double body_height, WalkState walk_state)
   else if (params_->auto_compensation.data)
   {
     Pose auto_pose = autoCompensation();
-    new_pose.addPose(auto_pose);
+    new_pose = new_pose.addPose(auto_pose);
   }
 
   model_->setCurrentPose(new_pose);

@@ -211,8 +211,8 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
       workspace.id = leg->getIDNumber() + 4; // Id after initial 4 markers
       workspace.type = visualization_msgs::Marker::CYLINDER;
       workspace.action = visualization_msgs::Marker::ADD;
-      workspace.pose.position.x = pose.transformVector(leg_stepper->getDefaultTipPosition())[0];
-      workspace.pose.position.y = pose.transformVector(leg_stepper->getDefaultTipPosition())[1];
+      workspace.pose.position.x = leg_stepper->getDefaultTipPosition()[0];
+      workspace.pose.position.y = leg_stepper->getDefaultTipPosition()[1];
       workspace.pose.position.z = workspace_height / 2.0;
       workspace.scale.x = workspace_radius * 2.0;
       workspace.scale.y = workspace_radius * 2.0;
@@ -230,8 +230,8 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
       stride.id = leg->getIDNumber() + num_legs + 4; // Id after intial 4 markers and workspace marker for each leg
       stride.type = visualization_msgs::Marker::CYLINDER;
       stride.action = visualization_msgs::Marker::ADD;
-      stride.pose.position.x = pose.transformVector(leg_stepper->getDefaultTipPosition())[0];
-      stride.pose.position.y = pose.transformVector(leg_stepper->getDefaultTipPosition())[1];
+      stride.pose.position.x = leg_stepper->getDefaultTipPosition()[0];
+      stride.pose.position.y = leg_stepper->getDefaultTipPosition()[1];
       stride.scale.x = stride_length;
       stride.scale.y = stride_length;
       stride.scale.z = 0.005;
