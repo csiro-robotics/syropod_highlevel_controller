@@ -58,7 +58,6 @@ class Model
     
     void initLegs(bool use_default_joint_positions);
     bool legsBearingLoad(void);
-    //vector<Vector3d> getJointPositions(const Pose &pose); //TBD
     
     Leg* getLegByIDNumber(int leg_id_num) { return leg_container_[leg_id_num]; };
     Leg* getLegByIDName(std::string leg_id_name);
@@ -83,10 +82,10 @@ public:
 
 	inline std::string getIDName(void) { return id_name_; };
 	inline int getIDNumber(void) { return id_number_; };
-	inline int getNumJoints(void) { return num_joints_; };
+	inline int getJointCount(void) { return joint_count_; };
 	inline int getGroup(void) { return group_; };
 	inline LegState getLegState(void) { return leg_state_; };
-	inline double getMirrorDir(void) { return mirror_dir_; }; 
+	//inline double getMirrorDir(void) { return mirror_dir_; }; //TBD
 	inline double getStanceLegYaw(void) { return stance_leg_yaw_; };
 	inline double getTipForce(void) { return tip_force_; };
 	inline double getDeltaZ(void) { return delta_z_; };
@@ -97,10 +96,10 @@ public:
 	inline std::map<int, Joint*>* getJointContainer(void) { return &joint_container_; };
 	inline std::map<int, Link*>* getLinkContainer(void) { return &link_container_; };
 	inline Tip* getTip(void) { return tip_; };
-	inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};    
+	inline LegStepper* getLegStepper(void) { return leg_stepper_ ;};
 	inline LegPoser* getLegPoser(void) { return leg_poser_ ;};
-	inline Vector3d getLocalTipPosition(void) { return local_tip_position_; };
-	inline Vector3d getDesiredTipVelocity(void) { return desired_tip_velocity_; };
+	inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
+	inline Vector3d getCurrentTipVelocity(void) { return current_tip_velocity_; };
 	inline double getWorkspaceRadius(void) { return workspace_radius_; };
 
 	inline void setLegState(LegState leg_state) { leg_state_ = leg_state; };  
@@ -113,7 +112,7 @@ public:
 	inline void setVirtualMass(double mass) { virtual_mass_ = mass; };
 	inline void setVirtualStiffness(double stiffness) { virtual_stiffness_ = stiffness; };
 	inline void setVirtualDampingRatio(double damping_ratio) { virtual_damping_ratio_ = damping_ratio; };
-	inline void setDesiredTipVelocity(Vector3d tip_velocity) { desired_tip_velocity_ = tip_velocity; };
+	inline void setDesiredTipVelocity(Vector3d tip_velocity) { current_tip_velocity_ = tip_velocity; };
 	inline void setWorkspaceRadius(double radius) { workspace_radius_ = radius; };
 
 	void init(bool use_default_joint_positions);
@@ -144,8 +143,7 @@ protected:
 	const int id_number_;
 	const std::string id_name_;
 
-	const int num_joints_;
-	const double mirror_dir_;  // 1 or -1 for mirrored
+	const int joint_count_;
 	const double stance_leg_yaw_;
 
 	LegState leg_state_;
@@ -161,12 +159,12 @@ protected:
 	double virtual_damping_ratio_;
 	state_type impedance_state_;
 
-	Vector3d desired_tip_position_;
-	Vector3d local_tip_position_;  // actual tip position relative to root
-	Vector3d desired_tip_velocity_;
+	Vector3d desired_tip_position_; // Desired tip position before applying Inverse/Forward kinematics
+	Vector3d current_tip_position_; // Current tip position according to the model
+	Vector3d current_tip_velocity_; // Current tip velocity according to the model
 	double workspace_radius_;
 
-	int group_;
+	int group_; // Leg stepping coordination group (Either 0 or 1)
 
 	double tip_force_ = 0.0; // Vertical force estimation on tip
 };
@@ -174,32 +172,32 @@ protected:
 /***********************************************************************************************************************
  * Base link class
 ***********************************************************************************************************************/
-struct Link
+class Link
 {
   public:
-    Link(Leg* leg, Joint* actuating_joint, int id, Parameters* params);      
-    const Leg* parent_leg;
-    const Joint* actuating_joint;
-    const int id_number;
-    const std::string name;    
-    const double length; //DH parameter 'r'   
-    const double angle; //DH parameter 'theta'
-    const double offset; //DH parameter 'd'
-    const double twist; //DH parameter 'alpha'    
+    Link(Leg* leg, Joint* actuating_joint, int id, Parameters* params);
+    const Leg* parent_leg_;
+    const Joint* actuating_joint_;
+    const int id_number_;
+    const std::string id_name_;
+    const double dh_parameter_r_;
+    const double dh_parameter_theta_;
+    const double dh_parameter_d_;
+    const double dh_parameter_alpha_;
 };
 
 /***********************************************************************************************************************
  * Base joint class
 ***********************************************************************************************************************/
-struct Joint
+class Joint
 {
 public:
 	Joint(Leg* leg, Link* reference_link, int id_number, Parameters* params);
 	
 	inline Matrix4d getBaseTransform(bool zero = false) const
 	{
-		Matrix4d transform = zero ? identity_transform : current_transform;
-		return (id_number == 1) ? transform : reference_link->actuating_joint->getBaseTransform(zero)*transform;
+		Matrix4d transform = zero ? identity_transform_ : current_transform_;
+		return (id_number_ == 1) ? transform : reference_link_->actuating_joint_->getBaseTransform(zero)*transform;
 	};
 	inline Vector3d getPositionWorldFrame(bool zero = false, Vector3d joint_frame_position = Vector3d(0,0,0)) const
 	{
@@ -215,45 +213,45 @@ public:
 		return Vector3d(result[0], result[1], result[2]);
 	};
 	
-	const Leg* parent_leg;
-	const Link* reference_link;
-	const int id_number;
-	const std::string name;
-	Matrix4d current_transform;
-	Matrix4d identity_transform;
-	ros::Publisher desired_position_publisher;
+	const Leg* parent_leg_;
+	const Link* reference_link_;
+	const int id_number_;
+	const std::string id_name_;
+	Matrix4d current_transform_;
+	Matrix4d identity_transform_;
+	ros::Publisher desired_position_publisher_;
 	
-	const double position_offset;
-	const double min_position;
-	const double max_position;
-	const double packed_position;
-	const double unpacked_position;
-	const double max_angular_speed;     
+	const double position_offset_;
+	const double min_position_;
+	const double max_position_;
+	const double packed_position_;
+	const double unpacked_position_;
+	const double max_angular_speed_;
 	
-	double desired_position = 0.0;
-	double desired_velocity = 0.0;
-	double desired_effort = 0.0;    
-	double prev_desired_position = 0.0;   
-	double prev_desired_velocity = 0.0;    
-	double prev_desired_effort = 0.0;     
+	double desired_position_ = 0.0;
+	double desired_velocity_ = 0.0;
+	double desired_effort_ = 0.0;
+	double prev_desired_position_ = 0.0;
+	double prev_desired_velocity_ = 0.0;
+	double prev_desired_effort_ = 0.0;
 	
 	// Current joint state from joint state publisher
-	double current_position = UNASSIGNED_VALUE;
-	double current_velocity = UNASSIGNED_VALUE;
-	double current_effort = UNASSIGNED_VALUE;
+	double current_position_ = UNASSIGNED_VALUE;
+	double current_velocity_ = UNASSIGNED_VALUE;
+	double current_effort_ = UNASSIGNED_VALUE;
 };
 
 /***********************************************************************************************************************
  * Base tip class
 ***********************************************************************************************************************/
-struct Tip
+class Tip
 {
 public:
 	Tip(Leg* leg, Link* reference_link);
 	inline Matrix4d getBaseTransform(bool zero = false) const
 	{ 
-		MatrixXd transform = zero ? identity_transform : current_transform;
-		return reference_link->actuating_joint->getBaseTransform()*transform; 
+		MatrixXd transform = zero ? identity_transform_ : current_transform_;
+		return reference_link_->actuating_joint_->getBaseTransform()*transform; 
 	};    
 	inline Vector3d getPositionWorldFrame(bool zero = false, Vector3d tip_frame_position = Vector3d(0,0,0)) const
 	{
@@ -269,12 +267,11 @@ public:
 		return Vector3d(result[0], result[1], result[2]);
 	};
 	
-	const Leg* parent_leg;
-	const Link* reference_link;
-	const std::string name;
-	Matrix4d current_transform;
-	Matrix4d identity_transform;
-	Vector3d relative_body_position;
+	const Leg* parent_leg_;
+	const Link* reference_link_;
+	const std::string id_name_;
+	Matrix4d current_transform_;
+	Matrix4d identity_transform_;
 };
 
 /***********************************************************************************************************************

@@ -191,8 +191,8 @@ class LegStepper
     double stance_depth_;
     
     Vector3d default_tip_position_;
-    Vector3d current_tip_position_;
-    Vector3d current_tip_velocity_;    
+    Vector3d current_tip_position_; // Current tip position according to the walk controller
+    Vector3d current_tip_velocity_; // Current tip velocity according to the walk controller  
     Vector3d swing_origin_tip_position_;
     Vector3d stance_origin_tip_position_;
 };

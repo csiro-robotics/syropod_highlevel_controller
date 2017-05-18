@@ -111,7 +111,7 @@ void DebugOutput::drawRobot(Model* model)
     point.y = previous_joint_position[1];
     point.z = previous_joint_position[2];
     leg_line_list.points.push_back(point);
-    Vector3d tip_point = pose.transformVector(leg->getLocalTipPosition());
+    Vector3d tip_point = pose.transformVector(leg->getCurrentTipPosition());
     point.x = tip_point[0];
     point.y = tip_point[1];
     point.z = tip_point[2];
@@ -270,7 +270,7 @@ void DebugOutput::drawPoints(Model* model, WalkController* walker, bool debug_tr
       }
     }
 
-    Vector3d tip_position = pose.transformVector(leg->getLocalTipPosition());
+    Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
     tip_position_history_.insert(tip_position_history_.begin(), tip_position);
 
     if (tip_position_history_.size() > 4000) // Tip history limit

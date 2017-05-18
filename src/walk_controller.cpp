@@ -50,30 +50,31 @@ void WalkController::init(void)
 		Matrix4d transform = Matrix4d::Identity();
 		for (link_it_ = leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
 		{
-			// If joint is twisted such that actuation increases vertical tip displacement
-			// set joint angle toward ground bearing (within limits) and update transform
+			// Iterates through possible joint angles to find that which gives greatest vertical displacement of the link end
 			Link* link = link_it_->second;
-			double angle = 0.0;
-			if (link->id_number != 0)
+      const Joint* actuating_joint = link->actuating_joint_;
+      double optimal_angle = link->dh_parameter_theta_;
+      if (link->id_number_ != 0)
 			{
-				if (joint_twist_ < 0)
-				{
-					angle = clamped(ground_bearing_, link->actuating_joint->min_position, link->actuating_joint->max_position);
-          
-				}
-				else if (joint_twist_ > 0)
-				{
-					angle = clamped(-ground_bearing_, link->actuating_joint->min_position, link->actuating_joint->max_position);	
-				}
-				ground_bearing_ -= abs(angle);
-			}
-			else
-			{
-				angle = link->angle;
-			}
-			transform = transform*createDHMatrix(link->offset, angle, link->length, link->twist);
-			joint_twist_ += link->twist;
+        double furthest_vertical_position = 0.0;
+        optimal_angle = 0.0;
+        for (double angle = actuating_joint->min_position_; angle <= actuating_joint->max_position_; angle += 0.001)
+        {
+          Matrix4d test_transform = transform*createDHMatrix(link->dh_parameter_d_, angle, link->dh_parameter_r_, link->dh_parameter_alpha_);
+          Vector4d result = test_transform*Vector4d(0,0,0,1);
+          if (result[2] < furthest_vertical_position)
+          {
+            furthest_vertical_position = result[2];
+            optimal_angle = angle;
+          }
+        }
+      }
+			
+			// Updates transform with angle which give greatest vertical displacement
+			transform = transform*createDHMatrix(link->dh_parameter_d_, optimal_angle, link->dh_parameter_r_, link->dh_parameter_alpha_);
 		}
+		
+		// End result transform gives the furthest possible vertical reach of the leg
 		Vector4d result = transform*Vector4d(0,0,0,1);
 		Vector3d min_vertical_tip_position = Vector3d(result[0], result[1], result[2]);
 		maximum_body_height_ = min(maximum_body_height_, -min_vertical_tip_position[2]);
@@ -95,15 +96,15 @@ void WalkController::init(void)
 		for (link_it_ = ++leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
 		{
 			Link* link = link_it_->second;
-			const Joint* joint = link->actuating_joint;
-			joint_twist_ += joint->reference_link->twist;
-			distance_to_ground += link->offset*cos(joint_twist_);
+			const Joint* joint = link->actuating_joint_;
+			joint_twist_ += joint->reference_link_->dh_parameter_alpha_;
+			distance_to_ground += link->dh_parameter_d_ *cos(joint_twist_);
 			
 			// Find first joint able to move in x/y plane and assign a half yaw range value for the leg
 			if (abs(joint_twist_) != M_PI/2 && half_stance_yaw_range == UNASSIGNED_VALUE)
 			{
-				half_stance_yaw_range = min(abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->min_position)),
-				abs(leg->getStanceLegYaw() - (joint->reference_link->angle + joint->max_position)));
+				half_stance_yaw_range = min(abs(leg->getStanceLegYaw() - (joint->reference_link_->dh_parameter_theta_ + joint->min_position_)),
+				abs(leg->getStanceLegYaw() - (joint->reference_link_->dh_parameter_theta_ + joint->max_position_)));
 			}
 			
 			if (joint_twist_ != 0.0)
@@ -116,25 +117,25 @@ void WalkController::init(void)
 				if (abs(distance_to_tip*sin(joint_twist_)) > distance_to_ground)
 				{	  
 					double required_joint_angle = asin(-distance_to_ground/(abs(distance_to_tip*sin(joint_twist_))));
-					joint_angle = clamped(required_joint_angle, joint->min_position, joint->max_position);
-					virtual_link_length = (joint_angle == required_joint_angle) ? distance_to_tip : link->length;
+					joint_angle = clamped(required_joint_angle, joint->min_position_, joint->max_position_);
+					virtual_link_length = (joint_angle == required_joint_angle) ? distance_to_tip : link->dh_parameter_r_;
 				}
 				else if (joint_twist_ > 0.0)
 				{
-					joint_angle = joint->min_position;
-					virtual_link_length = link->length;
+					joint_angle = joint->min_position_;
+					virtual_link_length = link->dh_parameter_r_;
 				}
 				else if (joint_twist_ < 0.0)
 				{
-					joint_angle = joint->max_position;
-					virtual_link_length = link->length;
+					joint_angle = joint->max_position_;
+					virtual_link_length = link->dh_parameter_r_;
 				}
 				horizontal_range += virtual_link_length*cos(joint_angle);
 				distance_to_ground -= abs(virtual_link_length*sin(joint_angle)*sin(joint_twist_));
 			}
 			else
 			{
-				horizontal_range += link->length;
+				horizontal_range += link->dh_parameter_r_;
 			}
 			
 			if (setPrecision(distance_to_ground, 3) <= 0.0)
@@ -159,8 +160,8 @@ void WalkController::init(void)
 	{
 		Leg* leg = leg_it_->second;
 		Link* base_link = leg->getLinkByIDName(leg->getIDName() + "_base_link");
-		double x_position = base_link->length*cos(base_link->angle); // First joint world position (x)
-		double y_position = base_link->length*sin(base_link->angle); // First joint world position (y)
+		double x_position = base_link->dh_parameter_r_ *cos(base_link->dh_parameter_theta_); // First joint world position (x)
+		double y_position = base_link->dh_parameter_r_ *sin(base_link->dh_parameter_theta_); // First joint world position (y)
 		x_position += (min_horizontal_range - workspace_radius_)*cos(leg->getStanceLegYaw()); 
 		y_position += (min_horizontal_range - workspace_radius_)*sin(leg->getStanceLegYaw());
 		Vector3d identity_tip_position(x_position, y_position, -body_clearance_);
@@ -507,7 +508,7 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
     Leg* leg = leg_it_->second;
     LegStepper* leg_stepper = leg->getLegStepper(); 
         
-    Vector3d tip_position = leg->getLocalTipPosition(); //TBD Should be walker tip positions?
+    Vector3d tip_position = leg->getCurrentTipPosition(); //TBD Should be walker tip positions?
     Vector2d rotation_normal = Vector2d(-tip_position[1], tip_position[0]);
     Vector2d stride_vector = desired_linear_velocity_ + desired_angular_velocity_ * rotation_normal;
     stride_vector *= (on_ground_ratio / step_frequency_);
@@ -554,9 +555,9 @@ void WalkController::updateManual(int primary_leg_selection_ID, Vector3d primary
 				double coxa_joint_velocity = tip_velocity_input[0] * params_->max_rotation_velocity.data * time_delta_;
 				double femur_joint_velocity = tip_velocity_input[1] * params_->max_rotation_velocity.data * time_delta_;
 				double tibia_joint_velocity = tip_velocity_input[2] * params_->max_rotation_velocity.data * time_delta_;
-				leg->getJointByIDName(leg->getIDName() + "_coxa_joint")->desired_position += coxa_joint_velocity;
-				leg->getJointByIDName(leg->getIDName() + "_femur_joint")->desired_position += femur_joint_velocity;
-				leg->getJointByIDName(leg->getIDName() + "_tibia_joint")->desired_position += tibia_joint_velocity;	
+				leg->getJointByIDName(leg->getIDName() + "_coxa_joint")->desired_position_ += coxa_joint_velocity;
+				leg->getJointByIDName(leg->getIDName() + "_femur_joint")->desired_position_ += femur_joint_velocity;
+				leg->getJointByIDName(leg->getIDName() + "_tibia_joint")->desired_position_ += tibia_joint_velocity;	
 				Vector3d new_tip_position = leg->applyFK(false);
 				leg_stepper->setCurrentTipPosition(new_tip_position);
 			}

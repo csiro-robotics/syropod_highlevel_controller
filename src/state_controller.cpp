@@ -107,7 +107,7 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
         Joint* joint = joint_it_->second;
-        joint->desired_position_publisher = n_.advertise<Float64>("/hexapod/" + joint->name + "/command", 1000);
+        joint->desired_position_publisher_ = n_.advertise<Float64>("/hexapod/" + joint->id_name_ + "/command", 1000);
       }
     }
   }
@@ -224,11 +224,11 @@ void StateController::transitionSystemState()
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
         Joint* joint = joint_it_->second;
-        joints_packed += int(abs(joint->current_position - joint->packed_position) < JOINT_TOLERANCE);
-        joints_ready += int(abs(joint->current_position - joint->unpacked_position) < JOINT_TOLERANCE);
+        joints_packed += int(abs(joint->current_position_ - joint->packed_position_) < JOINT_TOLERANCE);
+        joints_ready += int(abs(joint->current_position_ - joint->unpacked_position_) < JOINT_TOLERANCE);
       }
-      legs_packed += int(joints_packed == leg->getNumJoints());
-      legs_ready += int(joints_ready == leg->getNumJoints());
+      legs_packed += int(joints_packed == leg->getJointCount());
+      legs_ready += int(joints_ready == leg->getJointCount());
     }
 
     // Hexapod estimated to be in PACKED state
@@ -615,21 +615,21 @@ void StateController::publishDesiredJointState(void)
     for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
     {
       Joint* joint = joint_it->second;
-      joint->prev_desired_position = joint->desired_position;
+      joint->prev_desired_position_ = joint->desired_position_;
       
       if (params_.combined_control_interface.data)
       {
-        joint_state_msg.name.push_back(joint->name);
-        joint_state_msg.position.push_back(joint->desired_position + joint->position_offset);
-        joint_state_msg.velocity.push_back(joint->desired_velocity);
-        joint_state_msg.effort.push_back(joint->desired_effort);
+        joint_state_msg.name.push_back(joint->id_name_);
+        joint_state_msg.position.push_back(joint->desired_position_ + joint->position_offset_);
+        joint_state_msg.velocity.push_back(joint->desired_velocity_);
+        joint_state_msg.effort.push_back(joint->desired_effort_);
       }
       
       if (params_.individual_control_interface.data)
       {
         std_msgs::Float64 position_command_msg;
-        position_command_msg.data = joint->desired_position + joint->position_offset;
-        joint->desired_position_publisher.publish(position_command_msg);
+        position_command_msg.data = joint->desired_position_ + joint->position_offset_;
+        joint->desired_position_publisher_.publish(position_command_msg);
       }
     }
   }
@@ -656,9 +656,9 @@ void StateController::publishLegState()
     msg.leg_name.data = leg->getIDName().c_str();
     
     // Tip positions
-    msg.local_tip_position.x = leg->getLocalTipPosition()[0];
-    msg.local_tip_position.y = leg->getLocalTipPosition()[1];
-    msg.local_tip_position.z = leg->getLocalTipPosition()[2];
+    msg.local_tip_position.x = leg->getCurrentTipPosition()[0];
+    msg.local_tip_position.y = leg->getCurrentTipPosition()[1];
+    msg.local_tip_position.z = leg->getCurrentTipPosition()[2];
     msg.poser_tip_position.x = leg_poser->getCurrentTipPosition()[0];
     msg.poser_tip_position.y = leg_poser->getCurrentTipPosition()[1];
     msg.poser_tip_position.z = leg_poser->getCurrentTipPosition()[2];
@@ -670,9 +670,9 @@ void StateController::publishLegState()
     for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
     {
       Joint* joint = joint_it_->second;
-      msg.joint_positions.data.push_back(joint->desired_position);
-      msg.joint_velocities.data.push_back(joint->desired_velocity);
-      msg.joint_efforts.data.push_back(joint->desired_effort);
+      msg.joint_positions.data.push_back(joint->desired_position_);
+      msg.joint_velocities.data.push_back(joint->desired_velocity_);
+      msg.joint_efforts.data.push_back(joint->desired_effort_);
     }
 
     // Step progress
@@ -1301,14 +1301,14 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
       Joint* joint = leg->getJointByIDName(joint_name);
       if (joint != NULL)
       {
-        joint->current_position = joint_states.position[i] - joint->position_offset;
+        joint->current_position_ = joint_states.position[i] - joint->position_offset_;
         if (get_velocity_values)
         {
-          joint->current_velocity = joint_states.velocity[i];
+          joint->current_velocity_ = joint_states.velocity[i];
         }
         if (get_effort_values)
         {
-          joint->current_effort = joint_states.effort[i];
+          joint->current_effort_ = joint_states.effort[i];
         }
       }
     }
@@ -1324,7 +1324,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
         Joint* joint = joint_it->second;
-        if (joint->current_position == UNASSIGNED_VALUE)
+        if (joint->current_position_ == UNASSIGNED_VALUE)
         {
           joint_positions_initialised_ = false;
         }

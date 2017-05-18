@@ -258,7 +258,7 @@ class LegPoser
     vector<double> origin_joint_positions_;
     
     Vector3d origin_tip_position_;
-    Vector3d current_tip_position_;
+    Vector3d current_tip_position_; //Current tip position according to the pose controller
     Vector3d target_tip_position_;
     
     vector<Vector3d> transition_positions_;

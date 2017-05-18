@@ -154,7 +154,7 @@ int PoseController::executeSequence(SequenceSelection sequence)
       Leg* leg = leg_it_->second;
       LegPoser* leg_poser = leg->getLegPoser();
       leg_poser->resetTransitionSequence();
-      leg_poser->addTransitionPosition(leg->getLocalTipPosition()); // Initial transition position
+      leg_poser->addTransitionPosition(leg->getCurrentTipPosition()); // Initial transition position
     }
   }
   
@@ -228,7 +228,7 @@ int PoseController::executeSequence(SequenceSelection sequence)
         }
         
         //Maintain horizontal position
-        target_tip_position[2] = leg->getLocalTipPosition()[2];
+        target_tip_position[2] = leg->getCurrentTipPosition()[2];
         
         leg_poser->setTargetTipPosition(target_tip_position);
       }
@@ -264,7 +264,7 @@ int PoseController::executeSequence(SequenceSelection sequence)
             for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
             {
               Joint* joint = joint_it_->second;
-              joint_position_string += stringFormat("\tJoint: %s\tPosition: %f\n", joint->name.c_str(), joint->desired_position);
+              joint_position_string += stringFormat("\tJoint: %s\tPosition: %f\n", joint->id_name_.c_str(), joint->desired_position_);
             }
             ROS_DEBUG_COND(debug, "\nLeg %s exceeded safety factor.\nOptimise sequence by setting 'unpacked'joint"
                            "positions to the following:\n%s", leg->getIDName().c_str(), joint_position_string.c_str());
@@ -356,8 +356,8 @@ int PoseController::executeSequence(SequenceSelection sequence)
         }
         
         //Maintain horizontal position
-        target_tip_position[0] = leg->getLocalTipPosition()[0];
-        target_tip_position[1] = leg->getLocalTipPosition()[1];
+        target_tip_position[0] = leg->getCurrentTipPosition()[0];
+        target_tip_position[1] = leg->getCurrentTipPosition()[1];
         
         leg_poser->setTargetTipPosition(target_tip_position);
       }
@@ -634,7 +634,7 @@ int PoseController::packLegs(double time_to_pack) //Simultaneous leg coordinatio
 
     for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
     {
-      target_joint_positions.push_back(joint_it->second->packed_position);
+      target_joint_positions.push_back(joint_it->second->packed_position_);
     }
 
     progress = leg_poser->moveToJointPosition(target_joint_positions, time_to_pack);
@@ -658,7 +658,7 @@ int PoseController::unpackLegs(double time_to_unpack) //Simultaneous leg coordin
     std::map<int, Joint*>::iterator joint_it;
     for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
     {
-      target_joint_positions.push_back(joint_it->second->unpacked_position);
+      target_joint_positions.push_back(joint_it->second->unpacked_position_);
     }
 
     progress = leg_poser->moveToJointPosition(target_joint_positions, time_to_unpack);
@@ -1170,7 +1170,7 @@ int LegPoser::moveToJointPosition(vector<double> target_joint_positions, double 
 
     for (joint_it = leg_->getJointContainer()->begin(); joint_it != leg_->getJointContainer()->end(); ++joint_it)
     {
-      origin_joint_positions_.push_back(joint_it->second->current_position);
+      origin_joint_positions_.push_back(joint_it->second->current_position_);
     }
   }
 
@@ -1191,8 +1191,8 @@ int LegPoser::moveToJointPosition(vector<double> target_joint_positions, double 
     control_nodes[1] = origin_joint_positions_[i];
     control_nodes[2] = target_joint_positions[i];
     control_nodes[3] = target_joint_positions[i];
-    joint->desired_position = cubicBezier(control_nodes, master_iteration_count_ * delta_t);
-    new_joint_positions.push_back(joint->desired_position);
+    joint->desired_position_ = cubicBezier(control_nodes, master_iteration_count_ * delta_t);
+    new_joint_positions.push_back(joint->desired_position_);
   }
 
   leg_->applyFK();
@@ -1234,7 +1234,7 @@ int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose,
 {
   if (first_iteration_)
   {
-    origin_tip_position_ = leg_->getLocalTipPosition();
+    origin_tip_position_ = leg_->getCurrentTipPosition();
     double tolerance = 0.0001; // 1mm
     if (abs(origin_tip_position_[0] - target_tip_position[0]) < tolerance &&
       abs(origin_tip_position_[1] - target_tip_position[1]) < tolerance &&
