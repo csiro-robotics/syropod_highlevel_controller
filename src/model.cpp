@@ -62,7 +62,7 @@ bool Model::legsBearingLoad(void) //TBD Make more robust by estimating body heig
     Leg* leg = leg_it->second;
     body_height_estimate += leg->getCurrentTipPosition()[2];
   }
-  double threshold = 0.05; //TBD Parameterise as body thickness
+  double threshold = 0.05; //TBD Parameterise as body depth
   return -(body_height_estimate / leg_count_) > threshold;
 }
 
@@ -98,7 +98,6 @@ Leg::Leg(Model* model, int id_number, Parameters* params)
   Joint* null_joint; //HACK
   Link* base_link = new Link(this, null_joint, 0, params);
   link_container_.insert(std::map<int, Link*>::value_type(0, base_link));
-  ROS_DEBUG("%s successfully added to leg %s in model.", base_link->id_name_.c_str(), id_name_.c_str());
   Link* prev_link = base_link;
   for (int i = 1; i < joint_count_ + 1; ++i)
   {
@@ -107,18 +106,13 @@ Leg::Leg(Model* model, int id_number, Parameters* params)
     joint_container_.insert(std::map<int, Joint*>::value_type(i, new_joint));
     link_container_.insert(std::map<int, Link*>::value_type(i, new_link));
     prev_link = new_link;
-    ROS_DEBUG("%s and %s successfully added to leg %s in model.",
-              new_link->id_name_.c_str(), new_joint->id_name_.c_str(), id_name_.c_str());
   }
   tip_ = new Tip(this, prev_link);
-  
+
   desired_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
   current_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
   current_tip_velocity_ = Vector3d(0, 0, 0);
   group_ = (id_number % 2); //Even/odd groups
-
-  ROS_DEBUG("Leg %s has been initialised as a %d degree of freedom leg with %lu links and %lu joints.",
-            id_name_.c_str(), joint_count_, link_container_.size(), joint_container_.size());
 }
 
 /***********************************************************************************************************************
@@ -182,19 +176,12 @@ Link* Leg::getLinkByIDName(std::string link_name)
 ***********************************************************************************************************************/
 void Leg::setDesiredTipPosition(Vector3d tip_position, bool apply_delta_z)
 {
+  // Don't apply delta Z to manually manipulated legs
+  apply_delta_z = apply_delta_z && !(leg_state_ == MANUAL || leg_state_ == WALKING_TO_MANUAL);
+
   desired_tip_position_[0] = tip_position[0];
   desired_tip_position_[1] = tip_position[1];
-  
-  // Don't apply delta Z to manually manipulated legs
-  bool manually_manipulated = (leg_state_ == MANUAL || leg_state_ == WALKING_TO_MANUAL);
-  if (apply_delta_z && !manually_manipulated)
-  {
-    desired_tip_position_[2] = tip_position[2] + delta_z_;
-  }
-  else
-  {
-    desired_tip_position_[2] = tip_position[2];
-  }
+  desired_tip_position_[2] = tip_position[2] + (apply_delta_z ? delta_z_ : 0.0);
 }
 
 /***********************************************************************************************************************
@@ -209,10 +196,11 @@ bool Leg::updateTipForce(bool debug) //TBD Not currently used (experiment functi
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
     Joint* joint = joint_it->second;
-    dh_map.insert(map<string, double>::value_type("d", joint->reference_link_->dh_parameter_d_));
-    dh_map.insert(map<string, double>::value_type("theta", joint->reference_link_->actuating_joint_->desired_position_));
-    dh_map.insert(map<string, double>::value_type("r", joint->reference_link_->dh_parameter_r_));
-    dh_map.insert(map<string, double>::value_type("alpha", joint->reference_link_->dh_parameter_alpha_));
+    const Link* reference_link = joint->reference_link_;
+    dh_map.insert(map<string, double>::value_type("d", reference_link->dh_parameter_d_));
+    dh_map.insert(map<string, double>::value_type("theta", reference_link->actuating_joint_->desired_position_));
+    dh_map.insert(map<string, double>::value_type("r", reference_link->dh_parameter_r_));
+    dh_map.insert(map<string, double>::value_type("alpha", reference_link->dh_parameter_alpha_));
     dh_parameters.push_back(dh_map);
     dh_map.clear();
   }
@@ -236,8 +224,9 @@ bool Leg::updateTipForce(bool debug) //TBD Not currently used (experiment functi
 
   //tip_force_ = j * joint_torques; // Estimate force at the tip in frame of first joint
 
-  //ROS_DEBUG_COND(id_number_ == 0 && debug, "Leg: %s\n\tEstimated tip force:\t%f:%f:%f\n", id_name_.c_str(), tip_force_[0], tip_force_[1], tip_force_[2]);
-  
+  //ROS_DEBUG_COND(id_number_ == 0 && debug, "Leg: %s\n\tEstimated tip force:\t%f:%f:%f\n",
+  //               id_name_.c_str(), tip_force_[0], tip_force_[1], tip_force_[2]);
+
   return false;
 }
 /***********************************************************************************************************************
@@ -248,14 +237,16 @@ double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool
   vector<map<string, double>> dh_parameters;
   map<int, Joint*>::iterator joint_it;
   map<string, double> dh_map;
+
   //Skip first joint dh parameters since it is a fixed transformation
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
     Joint* joint = joint_it->second;
-    dh_map.insert(map<string, double>::value_type("d", joint->reference_link_->dh_parameter_d_));
-    dh_map.insert(map<string, double>::value_type("theta", joint->reference_link_->actuating_joint_->desired_position_));
-    dh_map.insert(map<string, double>::value_type("r", joint->reference_link_->dh_parameter_r_));
-    dh_map.insert(map<string, double>::value_type("alpha", joint->reference_link_->dh_parameter_alpha_));
+    const Link* reference_link = joint->reference_link_;
+    dh_map.insert(map<string, double>::value_type("d", reference_link->dh_parameter_d_));
+    dh_map.insert(map<string, double>::value_type("theta", reference_link->actuating_joint_->desired_position_));
+    dh_map.insert(map<string, double>::value_type("r", reference_link->dh_parameter_r_));
+    dh_map.insert(map<string, double>::value_type("alpha", reference_link->dh_parameter_alpha_));
     dh_parameters.push_back(dh_map);
     dh_map.clear();
   }
@@ -290,21 +281,22 @@ double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool
   {
     Joint* joint = joint_it->second;
     joint->desired_velocity_ = joint_delta_pos[index] / model_->getTimeDelta();
-    
+
     // Clamp joint velocities within limits
-    if (clamp_velocities)
+    if (clamp_velocities) //TBD Parameterise
     {
       if (abs(joint->desired_velocity_) > joint->max_angular_speed_)
       {
+        double max_velocity = joint->max_angular_speed_;
         clamping_events += stringFormat("\n\tType: Velocity\tJoint: %s\tDesired: %f rad/s\tLimited to: %f rad/s",
-                                        joint->id_name_.c_str(), abs(joint->desired_velocity_), joint->max_angular_speed_);
-        joint->desired_velocity_ = clamped(joint->desired_velocity_, -joint->max_angular_speed_, joint->max_angular_speed_);
+                                        joint->id_name_.c_str(), abs(joint->desired_velocity_), max_velocity);
+        joint->desired_velocity_ = clamped(joint->desired_velocity_, -max_velocity, max_velocity);
       }
     }
-    joint->desired_position_ = joint->prev_desired_position_ + joint->desired_velocity_ *model_->getTimeDelta();
+    joint->desired_position_ = joint->prev_desired_position_ + joint->desired_velocity_ * model_->getTimeDelta();
 
     // Clamp joint position within limits
-    if (clamp_positions)
+    if (clamp_positions) //TBD Parameterise
     {
       if (joint->desired_position_ < joint->min_position_)
       {
@@ -319,13 +311,13 @@ double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool
         joint->desired_position_ = joint->max_position_;
       }
     }
-    
+
     //Calculates the proximity of the joint closest to one of it's limits. Used for preventing exceeding workspace.
     // (1.0 = furthest possible from limit, 0.0 = equal to limit)
     double min_diff = abs(joint->min_position_ - joint->desired_position_);
     double max_diff = abs(joint->max_position_ - joint->desired_position_);
-    double half_joint_range = (joint->max_position_ - joint->min_position_)/2.0;
-    limit_proximity = min(limit_proximity, min(min_diff, max_diff)/half_joint_range);
+    double half_joint_range = (joint->max_position_ - joint->min_position_) / 2.0;
+    limit_proximity = min(limit_proximity, min(min_diff, max_diff) / half_joint_range);
   }
 
   Vector3d result = applyFK();
@@ -340,28 +332,27 @@ double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool
   // Display warning messages for clamping events and associated inverse kinematic deviations
   if (!ignore_warnings)
   {
-    Vector3d IK_tolerance(0.005, 0.005, 0.005); //5mm
     std::string axis_label[3] = {"x", "y", "z"};
     for (int i = 0; i < 3; ++i)
     {
-      if (abs(result[i] - desired_tip_position_[i]) > IK_tolerance[i])
+      if (abs(result[i] - desired_tip_position_[i]) > IK_TOLERANCE)
       {
         double error_percentage = abs((result[i] - desired_tip_position_[i]) / desired_tip_position_[i]) * 100;
         ROS_WARN("\nInverse kinematics deviation! Calculated tip %s position of leg %s (%s: %f)"
-                " differs from desired tip position (%s: %f) by %f%%\nThis is due to clamping events:%s\n",
-                axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), result[i], axis_label[i].c_str(),
-                desired_tip_position_[i], error_percentage, clamping_events.c_str());
+                 " differs from desired tip position (%s: %f) by %f%%\nThis is due to clamping events:%s\n",
+                 axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), result[i], axis_label[i].c_str(),
+                 desired_tip_position_[i], error_percentage, clamping_events.c_str());
       }
     }
   }
-  
+
   return limit_proximity;
 }
 
 /***********************************************************************************************************************
  * Applies forward kinematics
 ***********************************************************************************************************************/
-Vector3d Leg::applyFK(bool set_local)
+Vector3d Leg::applyFK(bool set_current)
 {
   //Update joint transforms - skip first joint since it's transform is constant
   map<int, Joint*>::iterator joint_it;
@@ -369,14 +360,20 @@ Vector3d Leg::applyFK(bool set_local)
   {
     Joint* joint = joint_it->second;
     const Link* reference_link = joint->reference_link_;
-    joint->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_, reference_link->actuating_joint_->desired_position_, reference_link->dh_parameter_r_, reference_link->dh_parameter_alpha_);
+    joint->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
+                                               reference_link->actuating_joint_->desired_position_,
+                                               reference_link->dh_parameter_r_,
+                                               reference_link->dh_parameter_alpha_);
   }
   const Link* reference_link = tip_->reference_link_;
-  tip_->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_, reference_link->actuating_joint_->desired_position_, reference_link->dh_parameter_r_, reference_link->dh_parameter_alpha_);
+  tip_->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
+                                            reference_link->actuating_joint_->desired_position_,
+                                            reference_link->dh_parameter_r_,
+                                            reference_link->dh_parameter_alpha_);
 
   //Get world frame position of tip
   Vector3d tip_position = tip_->getPositionWorldFrame();
-  if (set_local)
+  if (set_current)
   {
     if (current_tip_position_[0] != UNASSIGNED_VALUE)
     {
@@ -392,22 +389,22 @@ Vector3d Leg::applyFK(bool set_local)
 ***********************************************************************************************************************/
 MatrixXd Leg::createJacobian(vector<map<string, double>> dh)
 {
-  switch(joint_count_)
+  switch (joint_count_)
   {
-    case(1):
+    case (1):
       return createJacobian1DOF(dh);
-    case(2):
+    case (2):
       return createJacobian2DOF(dh);
-    case(3):
+    case (3):
       return createJacobian3DOF(dh);
-    case(4):
+    case (4):
       return createJacobian4DOF(dh);
-    case(5):
+    case (5):
       return createJacobian5DOF(dh); //Not implemented
-    case(6):
+    case (6):
       return createJacobian6DOF(dh); //Not implemented
     default:
-      return MatrixXd::Identity(3,3);
+      return MatrixXd::Identity(3, 3);
   };
 }
 
@@ -428,7 +425,10 @@ Joint::Joint(Leg* leg, Link* link, int id, Parameters* params)
 {
   if (params->joint_parameters[leg->getIDNumber()][id_number_ - 1].initialised)
   {
-    identity_transform_ = createDHMatrix(reference_link_->dh_parameter_d_, reference_link_->dh_parameter_theta_, reference_link_->dh_parameter_r_, reference_link_->dh_parameter_alpha_);
+    identity_transform_ = createDHMatrix(reference_link_->dh_parameter_d_,
+                                         reference_link_->dh_parameter_theta_,
+                                         reference_link_->dh_parameter_r_,
+                                         reference_link_->dh_parameter_alpha_);
     current_transform_ = identity_transform_;
     ROS_DEBUG("%s has been initialised with parameters:"
               "offset: %f, min: %f, max: %f, packed: %f, unpacked: %f, max_vel: %f.",
@@ -475,7 +475,10 @@ Tip::Tip(Leg* leg, Link* link)
   , reference_link_(link)
   , id_name_(leg->getIDName() + "_tip")
 {
-  identity_transform_ = createDHMatrix(reference_link_->dh_parameter_d_, reference_link_->dh_parameter_theta_, reference_link_->dh_parameter_r_, reference_link_->dh_parameter_alpha_);
+  identity_transform_ = createDHMatrix(reference_link_->dh_parameter_d_,
+                                       reference_link_->dh_parameter_theta_,
+                                       reference_link_->dh_parameter_r_,
+                                       reference_link_->dh_parameter_alpha_);
   current_transform_ = identity_transform_;
 }
 

@@ -26,6 +26,7 @@
 #include "simple_hexapod_controller/legState.h"
 
 #define JOINT_TOLERANCE 0.01 // Tolerance allowing assumption that joints are in correct position (metres)
+#define IK_TOLERANCE 0.05 // Tolerance between desired and resultant tip position from inverse/forward kinematics
 
 class Leg;
 class Joint;
@@ -119,7 +120,7 @@ public:
 	void setDesiredTipPosition(Vector3d tip_position, bool apply_delta_z = true);
 	bool updateTipForce(bool debug);
   MatrixXd createJacobian(vector<map<string, double>> dh);
-  Vector3d applyFK(bool set_local = true);
+  Vector3d applyFK(bool set_current = true);
 	double applyIK(bool debug = false,
                  bool ignore_warnings = false,
                  bool clamp_positions = true,
