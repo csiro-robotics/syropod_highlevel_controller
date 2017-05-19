@@ -224,10 +224,10 @@ struct Parameters
 
 	// Control parameters
 	Parameter<double> time_delta;
-	Parameter<bool> imu_compensation;
-	Parameter<bool> auto_compensation;
-	Parameter<bool> manual_compensation;
-	Parameter<bool> inclination_compensation;
+	Parameter<bool> imu_posing;
+	Parameter<bool> auto_posing;
+	Parameter<bool> manual_posing;
+	Parameter<bool> inclination_posing;
 	Parameter<bool> impedance_control;
 	
   // Motor Interface parameters

@@ -238,7 +238,7 @@ void StateController::transitionSystemState()
       {
         ROS_FATAL("\nHexapod currently in packed state and cannot run direct startup sequence.\n"
                   "Either manually unpack hexapod or set start_up_sequence to true in config file\n");
-        ros::shutdown();
+        //ros::shutdown();
       }
       else
       {
@@ -265,7 +265,7 @@ void StateController::transitionSystemState()
     {
       robot_state_ = OFF;
       ROS_WARN("\nstart_up_sequence parameter is set to false, "
-               "ensure hexapod is off the ground before transitioning system state.\n");
+               "ensure hexapod is off the ground and joints are within limits before transitioning system state.\n");
     }
     else
     {
@@ -473,7 +473,7 @@ void StateController::changeGait(void)
     walker_->setGaitParams(&params_);
     
     // For auto compensation find associated auto posing parameters for new gait
-    if (params_.auto_compensation.data && params_.auto_pose_type.data == "auto")
+    if (params_.auto_posing.data && params_.auto_pose_type.data == "auto")
     {
       initAutoPoseParameters();
       poser_->setAutoPoseParams();
@@ -1442,10 +1442,10 @@ void StateController::initParameters(void)
 {
   // Control parameters
   params_.time_delta.init(n_, "time_delta");
-  params_.imu_compensation.init(n_, "imu_compensation");
-  params_.auto_compensation.init(n_, "auto_compensation");
-  params_.manual_compensation.init(n_, "manual_compensation");
-  params_.inclination_compensation.init(n_, "inclination_compensation");
+  params_.imu_posing.init(n_, "imu_posing");
+  params_.auto_posing.init(n_, "auto_posing");
+  params_.manual_posing.init(n_, "manual_posing");
+  params_.inclination_posing.init(n_, "inclination_posing");
   params_.impedance_control.init(n_, "impedance_control");
   // Hardware interface parameters
   params_.individual_control_interface.init(n_, "individual_control_interface");

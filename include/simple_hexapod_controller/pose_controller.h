@@ -4,8 +4,8 @@
  *  \file    pose_controller.h
  *  \brief   Handles control of hexapod body posing. Part of simple hexapod controller.
  *
- *  \author Fletcher Talbot
- *  \date   June 2017
+ *  \author  Fletcher Talbot
+ *  \date    June 2017
  *  \version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
@@ -27,6 +27,10 @@
 #include "model.h"
 #include "walk_controller.h"
 
+#define SAFETY_FACTOR 0.15 // Joint limit safety factor (i.e. during sequence joints will initially leave 15% buffer)
+#define HORIZONTAL_TRANSITION_TIME 1.0 // Step time during horizontal transition (seconds @ step frequency == 1.0)
+#define VERTICAL_TRANSITION_TIME 3.0 // Body raise time during vertical transtion (seconds @ step frequency == 1.0)
+
 class AutoPoser;
 
 /***********************************************************************************************************************
@@ -41,18 +45,18 @@ struct ImuData
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
 class PoseController
-{      
+{
   public:
     PoseController(Model* model, Parameters* params);
-    void setAutoPoseParams(void);
+
     inline PoseResetMode getPoseResetMode(void) { return pose_reset_mode_; };
-		inline PosingState getAutoPoseState(void) { return auto_posing_state_; };
+    inline PosingState getAutoPoseState(void) { return auto_posing_state_; };
     inline ImuData getImuData(void) { return imu_data_; };
     inline Parameters* getParameters(void) { return params_; };
-		inline Pose getAutoPose(void) { return auto_pose_; };
-		inline int getPhaseLength(void) { return pose_phase_length_; };
-		inline int getNormaliser(void) { return normaliser_; };
-		inline double getPoseFrequency(void) { return pose_frequency_; };
+    inline Pose getAutoPose(void) { return auto_pose_; };
+    inline int getPhaseLength(void) { return pose_phase_length_; };
+    inline int getNormaliser(void) { return normaliser_; };
+    inline double getPoseFrequency(void) { return pose_frequency_; };
     inline Vector3d getRotationAbsementError(void) { return rotation_absement_error_; };
     inline Vector3d getRotationPositionError(void) { return rotation_position_error_; };
     inline Vector3d getRotationVelocityError(void) { return rotation_velocity_error_; };
@@ -61,8 +65,8 @@ class PoseController
     inline Vector3d getTranslationVelocityError(void) { return translation_velocity_error_; };
     inline Vector3d getTranslationAccelerationError(void) { return translation_acceleration_error_; };
     
-		inline void setPhaseLength(int phase_length) { pose_phase_length_ = phase_length; };
-		inline void setNormaliser(int normaliser) { normaliser_ = normaliser; };
+    inline void setPhaseLength(int phase_length) { pose_phase_length_ = phase_length; };
+    inline void setNormaliser(int normaliser) { normaliser_ = normaliser; };
     inline void setPoseResetMode(PoseResetMode mode) { pose_reset_mode_ = mode; };
     inline void setImuData(Quat orientation, Vector3d linear_acceleration, Vector3d angular_velocity)
     {
@@ -75,7 +79,18 @@ class PoseController
       translation_velocity_input_ = translation;
       rotation_velocity_input_ = rotation;
     }
-    
+    inline void resetAllPosing(void)
+    {
+      manual_pose_ = Pose::identity();
+      auto_pose_ = Pose::identity();
+      imu_pose_ = Pose::identity();
+      inclination_pose_ = Pose::identity();
+      impedance_pose_ = Pose::identity();
+      default_pose_ = Pose::identity();
+    }
+
+    void setAutoPoseParams(void);
+
     // Updates tip positions based on current pose
     void updateStance(void);
 
@@ -84,30 +99,21 @@ class PoseController
     int stepToNewStance(void);
     int poseForLegManipulation(void);
     int executeSequence(SequenceSelection sequence);
-    
+
     //Coordinated leg movements - joint position
     int packLegs(double time_to_pack);
     int unpackLegs(double time_to_unpack);
-    
-    // Compensation functions
+
+    //Body posing functions
     void updateCurrentPose(double body_height, WalkState walk_state);
-    Pose manualCompensation(void);
-    Pose autoCompensation(void);
-		Quat imuCompensation(void);
-    Vector3d inclinationCompensation(double body_height);
-    double impedanceControllerCompensation(void);
-    
+    void updateManualPose(void);
+    void updateAutoPose(void);
+    void updateIMUPose(void);
+    void updateInclinationPose(double body_height);
+    void updateImpedancePose(void);
     void calculateDefaultPose(void);
-    
-    void resetAllPosing(void)
-    {
-      manual_pose_ = Pose::identity();
-      auto_pose_ = Pose::identity();
-      default_pose_ = Pose::identity();
-      inclination_compensation_offset_ = Vector3d(0,0,0);
-    }
-    
-  private:    
+
+  private:
     Model* model_;
     ImuData imu_data_; 
     Parameters* params_;
@@ -124,11 +130,13 @@ class PoseController
     
     bool recalculate_offset_ = true;
     
-    //Tracked compensation variables
-    Pose manual_pose_;  // Current pose of body only using manual compensation
-    Pose auto_pose_;  // Current pose of body only using auto compensation
-    Pose default_pose_; // Default pose calculated for different loading patterns
-    Vector3d inclination_compensation_offset_;
+    //Tracked pose variables
+    Pose manual_pose_;      // Current pose of body only using manual posing
+    Pose auto_pose_;        // Current pose of body only using cyclical custom auto posing
+    Pose imu_pose_;         // Current pose of body only using IMU feedback based auto posing
+    Pose inclination_pose_; // Current pose of body only using inclination based pose
+    Pose impedance_pose_ ;  // Current pose of body only using pose for impedance controller offset
+    Pose default_pose_;     // Default pose calculated for different loading patterns
     
     //Shutdown/Startup state variables
     int transition_step_ = 0;
@@ -141,10 +149,9 @@ class PoseController
     bool reset_transition_sequence_ = true;
     
     //Direct startup state variables
-    bool move_joints_complete = false;
-    bool direct_startup_complete = false;
+    int legs_ready_for_direct_ = 0;
 		
-		//Auto Compensation cycle variables
+		//Auto posing cycle variables
 		vector<AutoPoser*> auto_poser_container_;
 		PosingState auto_posing_state_ = POSING_COMPLETE;
 		int pose_phase_ = 0;
@@ -170,8 +177,7 @@ class AutoPoser
 {
 	public:
 		AutoPoser(PoseController* poser, int id);
-		Pose updatePose(int phase);
-		inline int getID(void) { return id_; };
+		inline int getIDNumber(void) { return id_number_; };
     inline bool isPosing(void) { return allow_posing_; };
 		inline void setStartPhase(int start_phase) { start_phase_ = start_phase; };
 		inline void setEndPhase(int end_phase) { end_phase_ = end_phase; };
@@ -187,9 +193,11 @@ class AutoPoser
 			end_check_ = pair<bool, bool>(false, false);
 		}
 		
+    Pose updatePose(int phase);
+		
 	private:
 		PoseController* poser_;
-		int id_;
+		int id_number_;
 		int start_phase_;
 		int end_phase_;
 		bool start_check_;
@@ -214,55 +222,57 @@ class LegPoser
     inline Vector3d getTargetTipPosition(void) { return target_tip_position_; };
     inline Vector3d getTransitionPosition(int index) { return transition_positions_[index]; }
     inline bool hasTransitionPosition(int index) { return int(transition_positions_.size()) > index; };
-		inline Pose getOriginPose(void) { return origin_pose_; };
-		inline Pose getAutoPose(void) { return auto_pose_; };
-		inline int getPoseNegationPhaseStart() { return pose_negation_phase_start_; };
-		inline int getPoseNegationPhaseEnd() { return pose_negation_phase_end_; };
+    inline Pose getOriginPose(void) { return origin_pose_; };
+    inline Pose getAutoPose(void) { return auto_pose_; };
+    inline int getPoseNegationPhaseStart() { return pose_negation_phase_start_; };
+    inline int getPoseNegationPhaseEnd() { return pose_negation_phase_end_; };
     inline bool getLegCompletedStep(void) { return leg_completed_step_; };
-    
+    inline bool getJointsWithinLimits(void) { return joints_within_limits_; };
+
     inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
     inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
     inline void addTransitionPosition(Vector3d transition) { transition_positions_.push_back(transition); };
-		inline void setAutoPose(Pose auto_pose) { auto_pose_ = auto_pose; };
-		inline void setOriginPose(Pose origin_pose) { origin_pose_ = origin_pose; };
-		inline void setPoseNegationPhaseStart(int start) { pose_negation_phase_start_ = start; };
-		inline void setPoseNegationPhaseEnd(int end) { pose_negation_phase_end_ = end; };
+    inline void setAutoPose(Pose auto_pose) { auto_pose_ = auto_pose; };
+    inline void setOriginPose(Pose origin_pose) { origin_pose_ = origin_pose; };
+    inline void setPoseNegationPhaseStart(int start) { pose_negation_phase_start_ = start; };
+    inline void setPoseNegationPhaseEnd(int end) { pose_negation_phase_end_ = end; };
     inline void setLegCompletedStep(bool complete) { leg_completed_step_ = complete; };
+    inline void setJointsWithinLimits(bool within_limits) { joints_within_limits_ = within_limits; };
     inline void resetTransitionSequence(void) { transition_positions_.clear(); };
     inline int resetStepToPosition(void) 
     { 
       first_iteration_ = true;
-      int progress = 100;
+      int progress = PROGRESS_COMPLETE;
       return progress;
     }
 
-    //updatePosition(void); //apply current pose to generate new tip position
-    int moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //move leg joints directly to target postion
+    int moveToJointPosition(vector<double> targetJointPositions, double speed = 2.0); //TBD Magic number
     int stepToPosition(Vector3d targetTipPosition, Pose targetPose,
                        double lift_height, double time_to_step, bool apply_delta_z = true);
-		void updateAutoPose(int phase);
-    
+    void updateAutoPose(int phase);
+
   private:
     PoseController* poser_;
     Leg* leg_;
-		
-		Pose origin_pose_; // Set pose used as origin of bezier curve in calculating per leg negation pose 
-		Pose auto_pose_; // Leg specific auto pose (based off body auto pose negating where required)
-		int pose_negation_phase_start_ = 0; //Auto pose negation phase start
-		int pose_negation_phase_end_ = 0; //Auto pose negation phase end
-    
+
+    Pose origin_pose_;                  // Set pose used as origin of bezier curve in calculating per leg negation pose 
+    Pose auto_pose_;                    // Leg specific auto pose (based off body auto pose negating where required)
+    int pose_negation_phase_start_ = 0; // Auto pose negation phase start
+    int pose_negation_phase_end_ = 0;   // Auto pose negation phase end
+
     bool stop_negation_ = false;
-		bool first_iteration_ = true;
+    bool first_iteration_ = true;
     int master_iteration_count_ = 0;
-    
+    bool joints_within_limits_ = false;
+
     vector<double> origin_joint_positions_;
-    
-    Vector3d origin_tip_position_;
-    Vector3d current_tip_position_; //Current tip position according to the pose controller
-    Vector3d target_tip_position_;
-    
-    vector<Vector3d> transition_positions_;
-    
+
+    Vector3d origin_tip_position_;  // Origin tip position used in bezier curve equations
+    Vector3d current_tip_position_; // Current tip position according to the pose controller
+    Vector3d target_tip_position_;  // Target tip position used in bezier curve equations
+
+    vector<Vector3d> transition_positions_; // Tip positions to target during sequence transitions
+
     bool leg_completed_step_ = false;
 };
 
