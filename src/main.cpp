@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
       state.loop();
       state.publishLegState();
       state.publishPose();
-      //state.publishIMUData(); //TBD Still needed?
+      state.publishIMUData();
       state.publishBodyVelocity();
       //state.publishRotationPoseError(); //TBD Still needed?
       //state.publishTranslationPoseError(); //TBD Still needed?

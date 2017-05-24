@@ -35,6 +35,10 @@ PoseController::PoseController(Model* model, Parameters* params)
   resetAllPosing();
   setAutoPoseParams();
 
+  imu_data_.orientation = Quat::Identity();
+  imu_data_.linear_acceleration = Vector3d(0, 0, 0);
+  imu_data_.angular_velocity = Vector3d(0, 0, 0);
+  
   rotation_absement_error_ = Vector3d(0, 0, 0);
   rotation_position_error_ = Vector3d(0, 0, 0);
   rotation_velocity_error_ = Vector3d(0, 0, 0);
@@ -890,7 +894,7 @@ void PoseController::updateIMUPose(void)
 
   Vector3d rotation_correction = -(kd * rotation_velocity_error_ +
                                    kp * rotation_position_error_ + 
-                                  ki * rotation_absement_error_);
+                                   ki * rotation_absement_error_);
   
   rotation_correction[2] = target_rotation.toEulerAngles()[2];  // No compensation in yaw rotation
 
@@ -902,7 +906,7 @@ void PoseController::updateIMUPose(void)
     ros::shutdown();
   }
 
-  imu_pose_.rotation_ = rotation_correction;
+  imu_pose_.rotation_ = Quat(rotation_correction);
 }
 
 /***********************************************************************************************************************

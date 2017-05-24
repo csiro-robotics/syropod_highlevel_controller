@@ -67,7 +67,7 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
                                                      &StateController::poseResetCallback, this);
 
   // Motor and other sensor topic subscriptions
-  imu_data_subscriber_ = n_.subscribe("ig/imu/data_ned", 1, &StateController::imuCallback, this);
+  imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);
   joint_state_subscriber_ = n_.subscribe("/joint_states", 1, &StateController::jointStatesCallback, this);
   
   // TBD Refactor into single callback to topic /tip_forces
@@ -1254,33 +1254,36 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
 ***********************************************************************************************************************/
 void StateController::imuCallback(const sensor_msgs::Imu& data)
 {
-  Vector3d euler_offset;
-  euler_offset[0] = params_.imu_rotation_offset.data[0];
-  euler_offset[1] = params_.imu_rotation_offset.data[1];
-  euler_offset[2] = params_.imu_rotation_offset.data[2];
-  Quat imu_rotation_offset(euler_offset);
-  //TBD use tf
+  if (system_state_ != SUSPENDED && poser_ != NULL)
+  {
+    Vector3d euler_offset;
+    euler_offset[0] = params_.imu_rotation_offset.data[0];
+    euler_offset[1] = params_.imu_rotation_offset.data[1];
+    euler_offset[2] = params_.imu_rotation_offset.data[2];
+    Quat imu_rotation_offset(euler_offset);
+    //TBD use tf
 
-  Quat raw_orientation;
-  raw_orientation.w_ = data.orientation.w;
-  raw_orientation.x_ = data.orientation.x;
-  raw_orientation.y_ = data.orientation.y;
-  raw_orientation.z_ = data.orientation.z;
+    Quat raw_orientation;
+    raw_orientation.w_ = data.orientation.w;
+    raw_orientation.x_ = data.orientation.x;
+    raw_orientation.y_ = data.orientation.y;
+    raw_orientation.z_ = data.orientation.z;
 
-  Vector3d raw_linear_acceleration;
-  raw_linear_acceleration[0] = data.linear_acceleration.x;
-  raw_linear_acceleration[1] = data.linear_acceleration.y;
-  raw_linear_acceleration[2] = data.linear_acceleration.z;
+    Vector3d raw_linear_acceleration;
+    raw_linear_acceleration[0] = data.linear_acceleration.x;
+    raw_linear_acceleration[1] = data.linear_acceleration.y;
+    raw_linear_acceleration[2] = data.linear_acceleration.z;
 
-  Vector3d raw_angular_velocity;
-  raw_angular_velocity[0] = data.angular_velocity.x;
-  raw_angular_velocity[1] = data.angular_velocity.y;
-  raw_angular_velocity[2] = data.angular_velocity.z;
+    Vector3d raw_angular_velocity;
+    raw_angular_velocity[0] = data.angular_velocity.x;
+    raw_angular_velocity[1] = data.angular_velocity.y;
+    raw_angular_velocity[2] = data.angular_velocity.z;
 
-  // Rotate raw imu data according to physical imu mounting
-  poser_->setImuData((imu_rotation_offset * raw_orientation) * imu_rotation_offset.inverse(),
-                     imu_rotation_offset.toRotationMatrix() * raw_linear_acceleration,
-                     imu_rotation_offset.toRotationMatrix() * raw_angular_velocity);
+    // Rotate raw imu data according to physical imu mounting
+    poser_->setImuData((imu_rotation_offset * raw_orientation) * imu_rotation_offset.inverse(),
+                        imu_rotation_offset.toRotationMatrix() * raw_linear_acceleration,
+                        imu_rotation_offset.toRotationMatrix() * raw_angular_velocity);
+  }
 }
 
 /***********************************************************************************************************************
