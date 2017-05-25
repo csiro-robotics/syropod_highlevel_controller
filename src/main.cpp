@@ -1,10 +1,10 @@
 /*******************************************************************************************************************//**
- *  \file    main.cpp
- *  \brief   Top level file of simple hexapod controller.
+ *  @file    main.cpp
+ *  @brief   Top level file of simple hexapod controller.
  *
- *  \author Fletcher Talbot
- *  \date   June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -19,8 +19,10 @@
 
 #include "simple_hexapod_controller/state_controller.h"
 
-/***********************************************************************************************************************
- * Main
+/*******************************************************************************************************************//**
+ * Main loop. Sets up ros environment including the node handle, rosconsole messaging, loop rate etc. Also creates and
+ * initialises the 'StateController', calls the state controller loop and publishers, and sends messages for the user
+ * interface.
 ***********************************************************************************************************************/
 int main(int argc, char* argv[])
 {
@@ -121,8 +123,8 @@ int main(int argc, char* argv[])
       state.publishPose();
       state.publishIMUData();
       state.publishBodyVelocity();
-      //state.publishRotationPoseError(); //TBD Still needed?
-      //state.publishTranslationPoseError(); //TBD Still needed?
+      state.publishRotationPoseError();
+      state.publishTranslationPoseError();
 
       if (params->debug_rviz.data)
       {

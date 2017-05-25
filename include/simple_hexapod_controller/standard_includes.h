@@ -50,9 +50,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define UNASSIGNED_VALUE 1e10
-#define PROGRESS_COMPLETE 100
-
 using namespace Eigen;
 using namespace std;
 using namespace std_msgs;

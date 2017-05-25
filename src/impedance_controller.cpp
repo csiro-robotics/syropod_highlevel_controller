@@ -49,31 +49,38 @@ void ImpedanceController::init(void)
 /***********************************************************************************************************************
  * Calculates change in tip position in z direction (deltaZ) according to tip force value
 ***********************************************************************************************************************/
-void ImpedanceController::updateImpedance(Leg* leg, bool use_joint_effort)
+void ImpedanceController::updateImpedance(bool use_joint_effort)
 {
-	if (use_joint_effort)
-	{
-    double direction = (leg->getIDNumber() >= (model_->getLegCount()/2) ? -1.0:1.0); //Left or right side
-		leg->setTipForce(leg->getJointByIDNumber(2)->current_effort_ * direction); //TBD Refactor
-	}
-    
-  double force_input = abs(max(leg->getTipForce(), 0.0));
+  // Get current force value on leg and run impedance calculations to get a vertical tip offset (deltaZ)
+  std::map<int, Leg*>::iterator leg_it;
+  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
+  {
+    Leg* leg = leg_it->second;
+  
+    if (use_joint_effort)
+    {
+      double direction = (leg->getIDNumber() >= (model_->getLegCount()/2) ? -1.0:1.0); //Left or right side
+      leg->setTipForce(leg->getJointByIDNumber(2)->current_effort_ * direction); //TBD Refactor
+    }
+      
+    double force_input = abs(max(leg->getTipForce(), 0.0));
 
-	double damping = leg->getVirtualDampingRatio();
-	double stiffness = leg->getVirtualStiffness();
-	double mass = leg->getVirtualMass();
-	state_type* impedance_state = leg->getImpedanceState();
-	double virtual_damping = damping * 2 * sqrt(mass * stiffness);
-	runge_kutta4<state_type> stepper;
-	integrate_const(stepper,
-	                [&](const state_type &x, state_type &dxdt, double t)
-	                {
-	                  dxdt[0] = x[1];
-	                  dxdt[1] = -force_input/mass*force_gain_ - virtual_damping/mass*x[1] - stiffness/mass*x[0];
-	                },
-	                *impedance_state, 0.0, delta_t_, delta_t_ / 30);
-	double delta_z = -(*impedance_state)[0];
-	leg->setDeltaZ(delta_z);
+    double damping = leg->getVirtualDampingRatio();
+    double stiffness = leg->getVirtualStiffness();
+    double mass = leg->getVirtualMass();
+    state_type* impedance_state = leg->getImpedanceState();
+    double virtual_damping = damping * 2 * sqrt(mass * stiffness);
+    runge_kutta4<state_type> stepper;
+    integrate_const(stepper,
+                    [&](const state_type &x, state_type &dxdt, double t)
+                    {
+                      dxdt[0] = x[1];
+                      dxdt[1] = -force_input/mass*force_gain_ - virtual_damping/mass*x[1] - stiffness/mass*x[0];
+                    },
+                    *impedance_state, 0.0, delta_t_, delta_t_ / 30);
+    double delta_z = -(*impedance_state)[0];
+    leg->setDeltaZ(delta_z);
+  }
 }
 
 /***********************************************************************************************************************

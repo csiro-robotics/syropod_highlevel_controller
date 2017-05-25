@@ -27,8 +27,6 @@
 #include "pose_controller.h"
 #include "debug_output.h"
 
-#define JOINT_POSITION_ITERATION 0.001 // Joint position iteration value used to find optimal angle (rad)
-
 /***********************************************************************************************************************
  * Top level controller that calculates walk characteristics and coordinates leg specific walk controllers
 ***********************************************************************************************************************/

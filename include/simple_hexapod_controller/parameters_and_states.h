@@ -21,8 +21,24 @@
 
 #include "standard_includes.h"
 
+#define UNASSIGNED_VALUE 1e10
+#define PROGRESS_COMPLETE 100
+
+#define MAX_MANUAL_LEGS 2 // Maximum number of legs able to be manually manipulated simultaneously
+
 #define ACQUISTION_TIME 10 // Max time controller will wait to acquire intitial joint states (seconds)
 #define THROTTLE_PERIOD 5  // Default throttle period for all throttled rosconsole messages (seconds)
+
+#define JOINT_TOLERANCE 0.01 // Tolerance allowing assumption that joints are in correct position (rad)
+#define TIP_TOLERANCE 0.001 // Tolerance allowing assumption that tip is in correct position (m)
+#define IK_TOLERANCE 0.05 // Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
+
+#define JOINT_POSITION_ITERATION 0.001 // Joint position iteration value used to find optimal angle (rad)
+
+#define PACK_TIME 2.0 // Joint transition time during pack/unpack sequences (seconds @ step frequency == 1.0)
+#define SAFETY_FACTOR 0.15 // Joint limit safety factor (i.e. during sequence joints will initially leave 15% buffer)
+#define HORIZONTAL_TRANSITION_TIME 1.0 // Step time during horizontal transition (seconds @ step frequency == 1.0)
+#define VERTICAL_TRANSITION_TIME 3.0 // Body raise time during vertical transtion (seconds @ step frequency == 1.0)
 
 enum SystemState
 {

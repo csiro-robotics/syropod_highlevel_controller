@@ -27,10 +27,6 @@
 #include "model.h"
 #include "walk_controller.h"
 
-#define SAFETY_FACTOR 0.15 // Joint limit safety factor (i.e. during sequence joints will initially leave 15% buffer)
-#define HORIZONTAL_TRANSITION_TIME 1.0 // Step time during horizontal transition (seconds @ step frequency == 1.0)
-#define VERTICAL_TRANSITION_TIME 3.0 // Body raise time during vertical transtion (seconds @ step frequency == 1.0)
-
 class AutoPoser;
 
 /***********************************************************************************************************************

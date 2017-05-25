@@ -1,10 +1,10 @@
 /*******************************************************************************************************************//**
- *  \file    state_controller.cpp
- *  \brief   Top level controller that handles state of hexapod. Part of simple hexapod controller.
+ *  @file    state_controller.cpp
+ *  @brief   Top level controller that handles state of hexapod. Part of simple hexapod controller.
  *
- *  \author Fletcher Talbot
- *  \date   June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -15,12 +15,16 @@
  *  All rights reserved, no part of this program may be used
  *  without explicit permission of CSIRO
  *
- **********************************************************************************************************************/
+***********************************************************************************************************************/
  
 #include "simple_hexapod_controller/state_controller.h"
 
-/***********************************************************************************************************************
- * State controller contructor
+/*******************************************************************************************************************//**
+ * StateController object constructor. Initialises parameters, creates robot model object, sets up ros topic
+ * subscriptions and advertisments.
+ * @param[in] n The ros node handle, used to subscribe/publish topics and assign callbacks
+ * @todo Refactor tip force subscribers into single callback to topic /tip_forces
+ * @todo Remove ASC publisher object
 ***********************************************************************************************************************/
 StateController::StateController(ros::NodeHandle n) : n_(n)
 {
@@ -31,46 +35,46 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   model_ = new Model(&params_);
 
   // Hexapod Remote topic subscriptions
-  desired_velocity_subscriber_        = n_.subscribe("hexapod_remote/desired_velocity", 1,
-                                                     &StateController::bodyVelocityInputCallback, this);
-  primary_tip_velocity_subscriber_    = n_.subscribe("hexapod_remote/primary_tip_velocity", 1,
-                                                     &StateController::primaryTipVelocityInputCallback, this);
-  secondary_tip_velocity_subscriber_  = n_.subscribe("hexapod_remote/secondary_tip_velocity",
-                                                     1, &StateController::secondaryTipVelocityInputCallback, this);
-  desired_pose_subscriber_            = n_.subscribe("hexapod_remote/desired_pose", 1,
-                                                     &StateController::bodyPoseInputCallback, this);
   system_state_subscriber_            = n_.subscribe("hexapod_remote/system_state", 1,
                                                      &StateController::systemStateCallback, this);
   robot_state_subscriber_             = n_.subscribe("hexapod_remote/robot_state", 1,
                                                      &StateController::robotStateCallback, this);
-  gait_selection_subscriber_          = n_.subscribe("hexapod_remote/gait_selection", 1,
-                                                     &StateController::gaitSelectionCallback, this);
+  desired_velocity_subscriber_        = n_.subscribe("hexapod_remote/desired_velocity", 1,
+                                                     &StateController::bodyVelocityInputCallback, this);
+  desired_pose_subscriber_            = n_.subscribe("hexapod_remote/desired_pose", 1,
+                                                     &StateController::bodyPoseInputCallback, this);
   posing_mode_subscriber_             = n_.subscribe("hexapod_remote/posing_mode", 1,
                                                      &StateController::posingModeCallback, this);
+  pose_reset_mode_subscriber_         = n_.subscribe("hexapod_remote/pose_reset_mode", 1,
+                                                     &StateController::poseResetCallback, this);
+  gait_selection_subscriber_          = n_.subscribe("hexapod_remote/gait_selection", 1,
+                                                     &StateController::gaitSelectionCallback, this);
   cruise_control_mode_subscriber_     = n_.subscribe("hexapod_remote/cruise_control_mode", 1,
                                                      &StateController::cruiseControlCallback, this);
   auto_navigation_mode_subscriber_    = n_.subscribe("hexapod_remote/auto_navigation_mode", 1,
                                                      &StateController::autoNavigationCallback, this);
-  parameter_selection_subscriber_     = n_.subscribe("hexapod_remote/parameter_selection", 1,
-                                                     &StateController::parameterSelectionCallback, this);
-  parameter_adjustment_subscriber_    = n_.subscribe("hexapod_remote/parameter_adjustment", 1,
-                                                     &StateController::parameterAdjustCallback, this);
   primary_leg_selection_subscriber_   = n_.subscribe("hexapod_remote/primary_leg_selection", 1,
                                                      &StateController::primaryLegSelectionCallback, this);
   primary_leg_state_subscriber_       = n_.subscribe("hexapod_remote/primary_leg_state", 1,
                                                      &StateController::primaryLegStateCallback, this);
+  primary_tip_velocity_subscriber_    = n_.subscribe("hexapod_remote/primary_tip_velocity", 1,
+                                                     &StateController::primaryTipVelocityInputCallback, this);
   secondary_leg_selection_subscriber_ = n_.subscribe("hexapod_remote/secondary_leg_selection", 1,
                                                      &StateController::secondaryLegSelectionCallback, this);
   secondary_leg_state_subscriber_     = n_.subscribe("hexapod_remote/secondary_leg_state", 1,
                                                      &StateController::secondaryLegStateCallback, this);
-  pose_reset_mode_subscriber_         = n_.subscribe("hexapod_remote/pose_reset_mode", 1,
-                                                     &StateController::poseResetCallback, this);
+  secondary_tip_velocity_subscriber_  = n_.subscribe("hexapod_remote/secondary_tip_velocity",
+                                                     1, &StateController::secondaryTipVelocityInputCallback, this);
+  parameter_selection_subscriber_     = n_.subscribe("hexapod_remote/parameter_selection", 1,
+                                                     &StateController::parameterSelectionCallback, this);
+  parameter_adjustment_subscriber_    = n_.subscribe("hexapod_remote/parameter_adjustment", 1,
+                                                     &StateController::parameterAdjustCallback, this);
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);
   joint_state_subscriber_ = n_.subscribe("/joint_states", 1, &StateController::jointStatesCallback, this);
   
-  // TBD Refactor into single callback to topic /tip_forces
+  // TODO Refactor into single callback to topic /tip_forces
   tip_force_subscriber_ = n_.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, this);
   tip_force_subscriber_AR_ = n_.subscribe("/AR_prs", 1, &StateController::tipForceCallbackAR, this);
   tip_force_subscriber_BR_ = n_.subscribe("/BR_prs", 1, &StateController::tipForceCallbackBR, this);
@@ -99,7 +103,7 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
     Leg* leg = leg_it_->second;
     string topic_name = node_name + "/" + leg->getIDName() + "/state";
     leg->setStatePublisher(n_.advertise<simple_hexapod_controller::legState>(topic_name, 1000));
-    leg->setASCStatePublisher(n_.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); //TBD Remove
+    leg->setASCStatePublisher(n_.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); //TODO
 
     // If debugging in gazebo, setup joint command publishers
     if (params_.individual_control_interface.data)
@@ -113,10 +117,10 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   }
 }
 
-/***********************************************************************************************************************
- * State controller destructor
+/*******************************************************************************************************************//**
+ * StateController object destructor
 ***********************************************************************************************************************/
-StateController::~StateController()
+StateController::~StateController(void)
 {
   delete model_;
   delete walker_;
@@ -124,10 +128,11 @@ StateController::~StateController()
   delete impedance_;
 }
 
-/***********************************************************************************************************************
- * Init state controller
+/*******************************************************************************************************************//**
+ * StateController initialiser function. Initialises member variables: robot state, gait selection and initalisation
+ * flag and creates sub controller objects: WalkController, PoseController and ImpedanceController.
 ***********************************************************************************************************************/
-void StateController::init()
+void StateController::init(void)
 {
   // Set initial gait selection number for gait toggling
   if (params_.gait_type.data == "tripod_gait")
@@ -157,12 +162,13 @@ void StateController::init()
   initialised_ = true;
 }
 
-/***********************************************************************************************************************
- * State machine loop
+/*******************************************************************************************************************//**
+ * The main loop of the state controller (called from the main ros loop).
+ * Coordinates with other controllers to update based on current robot state, also calls for state transitions.
 ***********************************************************************************************************************/
-void StateController::loop()
+void StateController::loop(void)
 {
-  // Compensation - updates currentPose for body compensation
+  // Posing - updates currentPose for body compensation
   if (robot_state_ != UNKNOWN)
   {
     poser_->updateCurrentPose(walker_->getBodyHeight(), walker_->getWalkState());
@@ -171,7 +177,12 @@ void StateController::loop()
     // Impedance control - updates deltaZ values
     if (params_.impedance_control.data)
     {
-      impedanceControl();
+      // Calculate new stiffness based on walking cycle
+      if (walker_->getWalkState() != STOPPED && params_.dynamic_stiffness.data)
+      {
+        impedance_->updateStiffness(walker_);
+      }
+      impedance_->updateImpedance(params_.use_joint_effort.data);
     }
   }
 
@@ -187,28 +198,10 @@ void StateController::loop()
 }
 
 /***********************************************************************************************************************
- * Impedance Control
+ * Handles transitions of robot state and moves the robot as required for the new state. 
+ * The transition from one state to another may require several iterations through this function before ending.
 ***********************************************************************************************************************/
-void StateController::impedanceControl()
-{
-  // Calculate new stiffness based on walking cycle
-  if (walker_->getWalkState() != STOPPED && params_.dynamic_stiffness.data)
-  {
-    impedance_->updateStiffness(walker_);
-  }
-
-  // Get current force value on leg and run impedance calculations to get a vertical tip offset (deltaZ)
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    Leg* leg = leg_it_->second;
-    impedance_->updateImpedance(leg, params_.use_joint_effort.data);
-  }
-}
-
-/***********************************************************************************************************************
- * State transition handler
-***********************************************************************************************************************/
-void StateController::transitionSystemState()
+void StateController::transitionSystemState(void)
 {
   // UNKNOWN -> OFF/PACKED/READY/RUNNING
   if (robot_state_ == UNKNOWN)
@@ -296,7 +289,7 @@ void StateController::transitionSystemState()
   // PACKED -> READY (Unpack Hexapod)
   else if (robot_state_ == PACKED && new_robot_state_ == READY)
   {
-    int progress = poser_->unpackLegs(2.0 / params_.step_frequency.current_value); //TBD Magic number
+    int progress = poser_->unpackLegs(PACK_TIME / params_.step_frequency.current_value);
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to READY state (%d%%). . .\n", progress);
     if (progress == PROGRESS_COMPLETE)
     {
@@ -307,7 +300,7 @@ void StateController::transitionSystemState()
   // READY -> PACKED (Pack Hexapod)
   else if (robot_state_ == READY && new_robot_state_ == PACKED)
   {
-    int progress = poser_->packLegs(2.0 / params_.step_frequency.current_value); //TBD Magic number
+    int progress = poser_->packLegs(PACK_TIME / params_.step_frequency.current_value);
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to PACKED state (%d%%). . .\n", progress);
     if (progress == PROGRESS_COMPLETE)
     {
@@ -367,10 +360,12 @@ void StateController::transitionSystemState()
   }
 }
 
-/***********************************************************************************************************************
- * Running state
+/*******************************************************************************************************************//**
+ * Loops whilst robot is in RUNNING state.
+ * Coordinates changes of gait, parameter adjustments, leg state toggling and the application of cruise control.
+ * Updates the walk/pose controllers tip positions and applies inverse kinematics to the leg objects.
 ***********************************************************************************************************************/
-void StateController::runningState()
+void StateController::runningState(void)
 {
   // Switch gait and update walker parameters
   if (gait_change_flag_)
@@ -420,14 +415,16 @@ void StateController::runningState()
   }
 }
 
-/***********************************************************************************************************************
- * Dynamic Parameter adjustment
+/*******************************************************************************************************************//**
+ * Handles parameter adjustment. Forces robot velocity input to zero until it is in a STOPPED walk state and then 
+ * reinitialises the walk/pose/impedance controllers with the new parameter value to be applied. The pose controller is
+ * then called to step to new stance if required.
 ***********************************************************************************************************************/
-void StateController::adjustParameter()
+void StateController::adjustParameter(void)
 {
   if (walker_->getWalkState() == STOPPED)
   {
-    AdjustableParameter* p = dynamic_param_;
+    AdjustableParameter* p = dynamic_parameter_;
     
     // Set new parameter value and apply by reinitialising individual controllers.
     if (apply_new_parameter_)
@@ -462,8 +459,10 @@ void StateController::adjustParameter()
   }
 }
 
-/***********************************************************************************************************************
- * Gait change
+/*******************************************************************************************************************//**
+ * Handles a gait change event. Forces robot velocity input to zero until it is in a STOPPED walk state and then updates
+ * gait parameters based on the new gait selection and reinitialises the walk controller with the new parameters. 
+ * If required the pose controller is reinitialised with new 'auto posing' parameters.
 ***********************************************************************************************************************/
 void StateController::changeGait(void)
 {
@@ -491,10 +490,12 @@ void StateController::changeGait(void)
   }
 }
 
-/***********************************************************************************************************************
- * Leg State Toggle
+/*******************************************************************************************************************//**
+ * Handles a leg toggle event. Forces robot velocity input to zero until it is in a STOPPED walk state and then 
+ * calculates a new default pose based on estimated loading patterns. The leg that is changing state is assigned the 
+ * new state and any posing for the new state is executed via the pose controller.
 ***********************************************************************************************************************/
-void StateController::legStateToggle()
+void StateController::legStateToggle(void)
 {
   if (walker_->getWalkState() == STOPPED)
   {
@@ -600,8 +601,9 @@ void StateController::legStateToggle()
   }
 }
 
-/***********************************************************************************************************************
- * Publishes desired joint state in two different formats as required
+/*******************************************************************************************************************//**
+ * Iterates through leg objects and either collates joint state information for combined publishing and/or publishes the
+ * desired joint position on the leg member publisher object.
 ***********************************************************************************************************************/
 void StateController::publishDesiredJointState(void)
 {
@@ -640,10 +642,11 @@ void StateController::publishDesiredJointState(void)
   }
 }
 
-/***********************************************************************************************************************
- * Publishes various state variables for each leg
+/*******************************************************************************************************************//**
+ * Iterates through leg objects and collates state information for publishing on custom leg state message topic
+ * @todo Remove ASC state messages in line with requested hardware changes to use legState message variable/s
 ***********************************************************************************************************************/
-void StateController::publishLegState()
+void StateController::publishLegState(void)
 {
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -696,7 +699,7 @@ void StateController::publishLegState()
 
     leg->publishState(msg);
 
-    // Publish leg state (ASC) //TBD Remove
+    // Publish leg state (ASC) //TODO Remove
     std_msgs::Bool asc_msg;
     if (leg_stepper->getStepState() == SWING || (leg->getLegState() != WALKING && leg->getLegState() != MANUAL))
     {
@@ -710,10 +713,10 @@ void StateController::publishLegState()
   }
 }
 
-/***********************************************************************************************************************
+/*******************************************************************************************************************//**
  * Publishes body velocity for debugging
 ***********************************************************************************************************************/
-void StateController::publishBodyVelocity()
+void StateController::publishBodyVelocity(void)
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
@@ -723,10 +726,10 @@ void StateController::publishBodyVelocity()
   body_velocity_publisher_.publish(msg);
 }
 
-/***********************************************************************************************************************
+/*******************************************************************************************************************//**
  * Publishes current pose (roll, pitch, yaw, x, y, z) for debugging
 ***********************************************************************************************************************/
-void StateController::publishPose()
+void StateController::publishPose(void)
 {
   geometry_msgs::Twist msg;
   Vector3d position = model_->getCurrentPose().position_;
@@ -740,10 +743,10 @@ void StateController::publishPose()
   pose_publisher_.publish(msg);
 }
 
-/***********************************************************************************************************************
- * Publishes current rotation as per the IMU (roll, pitch, yaw, x, y, z) for debugging
+/*******************************************************************************************************************//**
+ * Publishes current rotation as per the IMU data object (roll, pitch, yaw, x, y, z) for debugging
 ***********************************************************************************************************************/
-void StateController::publishIMUData()
+void StateController::publishIMUData(void)
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
@@ -759,10 +762,10 @@ void StateController::publishIMUData()
   imu_data_publisher_.publish(msg);
 }
 
-/***********************************************************************************************************************
- * Publishes pose angle and position error for debugging
+/*******************************************************************************************************************//**
+ * Publishes imu pose rotation absement, position and velocity errors used in the PID controller, for debugging
 ***********************************************************************************************************************/
-void StateController::publishRotationPoseError()
+void StateController::publishRotationPoseError(void)
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
@@ -778,10 +781,10 @@ void StateController::publishRotationPoseError()
   rotation_pose_error_publisher_.publish(msg);
 }
 
-/***********************************************************************************************************************
- * Publishes pose angle and position error for debugging
+/*******************************************************************************************************************//**
+ * Publishes imu pose translation absement, position and velocity errors used in the PID controller, for debugging
 ***********************************************************************************************************************/
-void StateController::publishTranslationPoseError()
+void StateController::publishTranslationPoseError(void)
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
@@ -797,12 +800,14 @@ void StateController::publishTranslationPoseError()
   translation_pose_error_publisher_.publish(msg);
 }
 
-/***********************************************************************************************************************
- * Draws robot in RVIZ for debugging
+/*******************************************************************************************************************//**
+ * Sets up velocities for and calls debug output object to publish various debugging visualations via rviz
+ * @param[in] static_display Flag which determines if the vizualisation is kept statically in place at the origin
+ * @todo Implement calculation of actual body velocity
 ***********************************************************************************************************************/
 void StateController::RVIZDebugging(bool static_display)
 {
-  Vector2d linear_velocity = walker_->getDesiredLinearVelocity(); //TBD Implement calculation of actual body velocity
+  Vector2d linear_velocity = walker_->getDesiredLinearVelocity(); //TODO
   linear_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
   double angular_velocity = walker_->getDesiredAngularVelocity();
   angular_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
@@ -812,46 +817,10 @@ void StateController::RVIZDebugging(bool static_display)
   debug_.drawPoints(model_, walker_, static_display);
 }
 
-/***********************************************************************************************************************
- * Input Body Velocity Topic Callback
-***********************************************************************************************************************/
-void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& input)
-{
-  linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y);
-  angular_velocity_input_ = input.angular.z;
-}
-
-/***********************************************************************************************************************
- * Input Primary Manual Tip Velocity Topic Callback
-***********************************************************************************************************************/
-void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point& input)
-{
-  primary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
-}
-
-/***********************************************************************************************************************
- * Input Secondary Manual Tip Velocity Topic Callback
-***********************************************************************************************************************/
-void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point& input)
-{
-  secondary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
-}
-
-/***********************************************************************************************************************
- * Body Pose Topic Callback
-***********************************************************************************************************************/
-void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
-{
-  if (system_state_ != SUSPENDED && poser_ != NULL)
-  {
-    Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
-    Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
-    poser_->setManualPoseInput(translation_input, rotation_input);
-  }
-}
-
-/***********************************************************************************************************************
- * System state callback handling desired system state from hexapod_remote
+/*******************************************************************************************************************//**
+ * Callback handling the desired system state. Sends message to user interface when system enters OPERATIONAL state.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/system_state"
+ * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::systemStateCallback(const std_msgs::Int8& input)
 {
@@ -866,8 +835,10 @@ void StateController::systemStateCallback(const std_msgs::Int8& input)
   }
 }
 
-/***********************************************************************************************************************
- * System state callback handling desired system state from hexapod_remote
+/*******************************************************************************************************************//**
+ * Callback handling the desired robot state.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/robot_state"
+ * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::robotStateCallback(const std_msgs::Int8& input)
 {
@@ -880,7 +851,7 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
     transition_state_flag_ = false;
   }
   
-  // In Direct, mode enforce only OFF & RUNNING states
+  // In Direct mode, enforce only OFF & RUNNING states
   if (!params_.start_up_sequence.data)
   {
     if (input_state != RUNNING)
@@ -914,24 +885,34 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
   }
 }
 
-/***********************************************************************************************************************
- * Gait Selection Callback
+/*******************************************************************************************************************//**
+ * Callback for the input body velocity
+ * @param[in] input The Twist geometry message provided by the subscribed ros topic "hexapod_remote/desired_velocity"
 ***********************************************************************************************************************/
-void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
+void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& input)
 {
-  if (robot_state_ == RUNNING)
+  linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y);
+  angular_velocity_input_ = input.angular.z;
+}
+
+/*******************************************************************************************************************//**
+ * Callback for the input body pose velocity (x/y/z linear translation and roll/pitch/yaw angular rotation velocities)
+ * @param[in] input The Twist geometry message provided by the subscribed ros topic "hexapod_remote/desired_pose"
+***********************************************************************************************************************/
+void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
+{
+  if (system_state_ != SUSPENDED && poser_ != NULL)
   {
-    GaitDesignation new_gait_selection = static_cast<GaitDesignation>(int(input.data));
-    if (new_gait_selection != gait_selection_ && new_gait_selection != GAIT_UNDESIGNATED)
-    {
-      gait_selection_ = new_gait_selection;
-      gait_change_flag_ = true;
-    }
+    Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
+    Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
+    poser_->setManualPoseInput(translation_input, rotation_input);
   }
 }
 
-/***********************************************************************************************************************
- * Posing Mode Callback
+/*******************************************************************************************************************//**
+ * Callback handling the desired posing mode and sending state messages to user interface.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/posing_mode"
+ * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::posingModeCallback(const std_msgs::Int8& input)
 {
@@ -964,8 +945,44 @@ void StateController::posingModeCallback(const std_msgs::Int8& input)
   }
 }
 
-/***********************************************************************************************************************
- * Cruise Control Callback
+/*******************************************************************************************************************//**
+ * Callback handling desired pose reset mode
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/pose_reset_mode"
+***********************************************************************************************************************/
+void StateController::poseResetCallback(const std_msgs::Int8& input)
+{
+  if (system_state_ != SUSPENDED && poser_ != NULL)
+  {
+    if (poser_->getPoseResetMode() != IMMEDIATE_ALL_RESET)
+    {
+      poser_->setPoseResetMode(static_cast<PoseResetMode>(input.data));
+    }
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Callback handling the desired gait selection.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/gait_selection"
+ * @see parameters_and_states.h
+***********************************************************************************************************************/
+void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
+{
+  if (robot_state_ == RUNNING)
+  {
+    GaitDesignation new_gait_selection = static_cast<GaitDesignation>(int(input.data));
+    if (new_gait_selection != gait_selection_ && new_gait_selection != GAIT_UNDESIGNATED)
+    {
+      gait_selection_ = new_gait_selection;
+      gait_change_flag_ = true;
+    }
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Callback handling the cruise control mode and sending state messages to user interface. Determines cruise velocity
+ * from either parameters or current velocitiy inputs.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/cruise_control_mode"
+ * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::cruiseControlCallback(const std_msgs::Int8& input)
 {
@@ -1001,8 +1018,10 @@ void StateController::cruiseControlCallback(const std_msgs::Int8& input)
   }
 }
 
-/***********************************************************************************************************************
- * Auto Navigation Callback
+/*******************************************************************************************************************//**
+ * Callback handling the auto navigation mode and sending state messages to user interface.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/auto_navigation_mode"
+ * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::autoNavigationCallback(const std_msgs::Int8& input)
 {
@@ -1012,139 +1031,22 @@ void StateController::autoNavigationCallback(const std_msgs::Int8& input)
     if (new_auto_navigation_mode != auto_navigation_mode_)
     {
       auto_navigation_mode_ = new_auto_navigation_mode;
-      bool auto_navigation_on = (auto_navigation_mode_ == AUTO_NAVIGATION_ON);
-      ROS_INFO_COND(auto_navigation_on, "\nAuto Navigation mode ON. User input is being ignored.\n");
-      ROS_INFO_COND(!auto_navigation_on, "\nAuto Navigation mode OFF. Control returned to user input.\n");
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Parameter selection callback
-***********************************************************************************************************************/
-void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
-{
-  if (robot_state_ == RUNNING)
-  {
-    ParameterSelection new_parameter_selection = static_cast<ParameterSelection>(int(input.data));
-    if (new_parameter_selection != parameter_selection_)
-    {
-      parameter_selection_ = new_parameter_selection;
-      if (parameter_selection_ != NO_PARAMETER_SELECTION)
+      if (auto_navigation_mode_ == AUTO_NAVIGATION_ON)
       {
-        dynamic_param_ = params_.adjustable_map[parameter_selection_];
-        ROS_INFO("\n%s parameter currently selected.\n", dynamic_param_->name.c_str());
+        ROS_INFO("\nAuto Navigation mode ON. User input is being ignored.\n");
       }
       else
       {
-        ROS_INFO("\nNo parameter currently selected.\n");
+        ROS_INFO("\nAuto Navigation mode OFF. Control returned to user input.\n");
       }
     }
   }
 }
 
-/***********************************************************************************************************************
- * Parameter adjustment callback
-***********************************************************************************************************************/
-void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
-{
-  if (robot_state_ == RUNNING)
-  {
-    int adjust_direction = input.data; // -1 || 0 || 1 (Decrease, no adjustment, increase)
-    if (adjust_direction != 0.0 && !parameter_adjust_flag_ && parameter_selection_ != NO_PARAMETER_SELECTION)
-    {
-      double parameter_adjustment = dynamic_param_->adjust_step;
-      if (sign(dynamic_param_->adjust_step) != sign(adjust_direction)) //If directions differ
-      {
-        parameter_adjustment *= -1; //Change direction
-      }
-      new_parameter_value_ = dynamic_param_->current_value + parameter_adjustment;
-      new_parameter_value_ = clamped(new_parameter_value_, dynamic_param_->min_value, dynamic_param_->max_value);
-      parameter_adjust_flag_ = true;
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Parameter (Dynamic Reconfigure) adjustment callback
-***********************************************************************************************************************/
-void StateController::dynamicParameterCallback(simple_hexapod_controller::DynamicConfig& config, uint32_t level)
-{
-  if (robot_state_ == RUNNING)
-  {
-    parameter_adjust_flag_ = true;
-    if (config.step_frequency != params_.step_frequency.current_value)
-    {
-      dynamic_param_ = &params_.step_frequency;
-      new_parameter_value_ = clamped(config.step_frequency, dynamic_param_->min_value, dynamic_param_->max_value);
-      config.step_frequency = new_parameter_value_;
-    }
-    else if (config.step_clearance != params_.step_clearance.current_value)
-    {
-      dynamic_param_ = &params_.step_clearance;
-      new_parameter_value_ = clamped(config.step_clearance, dynamic_param_->min_value, dynamic_param_->max_value);
-      config.step_clearance = new_parameter_value_;
-    }
-    else if (config.body_clearance != params_.body_clearance.current_value)
-    {
-      dynamic_param_ = &params_.body_clearance;
-      new_parameter_value_ = clamped(config.body_clearance, dynamic_param_->min_value, dynamic_param_->max_value);
-      config.body_clearance = new_parameter_value_;
-    }
-    else if (config.leg_span != params_.leg_span.current_value)
-    {
-      dynamic_param_ = &params_.leg_span;
-      new_parameter_value_ = clamped(config.leg_span, dynamic_param_->min_value, dynamic_param_->max_value);
-      config.leg_span = new_parameter_value_;
-    }
-    else if (config.virtual_mass != params_.virtual_mass.current_value)
-    {
-      dynamic_param_ = &params_.virtual_mass;
-      new_parameter_value_ = clamped(config.virtual_mass, dynamic_param_->min_value, dynamic_param_->max_value);
-      config.virtual_mass = new_parameter_value_;
-    }
-    else if (config.virtual_stiffness != params_.virtual_stiffness.current_value)
-    {
-      dynamic_param_ = &params_.virtual_stiffness;
-      new_parameter_value_ = clamped(config.virtual_stiffness, dynamic_param_->min_value, dynamic_param_->max_value);
-      config.virtual_stiffness = new_parameter_value_;
-    }
-    else if (config.virtual_damping_ratio != params_.virtual_damping_ratio.current_value)
-    {
-      dynamic_param_ = &params_.virtual_damping_ratio;
-      new_parameter_value_ = clamped(config.virtual_damping_ratio, dynamic_param_->min_value, dynamic_param_->max_value);
-      config.virtual_damping_ratio = new_parameter_value_;
-    }
-    else if (config.force_gain != params_.force_gain.current_value)
-    {
-      dynamic_param_ = &params_.force_gain;
-      new_parameter_value_ = clamped(config.force_gain, dynamic_param_->min_value, dynamic_param_->max_value);
-      config.force_gain = new_parameter_value_;
-    }
-    else
-    {
-      parameter_adjust_flag_ = false;
-    }
-    dynamic_reconfigure_server_->updateConfig(config);
-  }
-}
-
-/***********************************************************************************************************************
- * Pose reset mode callback
-***********************************************************************************************************************/
-void StateController::poseResetCallback(const std_msgs::Int8& input)
-{
-  if (system_state_ != SUSPENDED && poser_ != NULL)
-  {
-    if (poser_->getPoseResetMode() != IMMEDIATE_ALL_RESET)
-    {
-      poser_->setPoseResetMode(static_cast<PoseResetMode>(input.data));
-    }
-  }
-}
-
-/***********************************************************************************************************************
- * Actuating Leg Primary Selection Callback
+/*******************************************************************************************************************//**
+ * Callback handling the selection of the leg as the primary leg for manual manipulation.
+ * @param[in] input The Int8 standard message provided by the subscribed topic "hexapod_remote/primary_leg_selection"
+ * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::primaryLegSelectionCallback(const std_msgs::Int8& input)
 {
@@ -1167,8 +1069,10 @@ void StateController::primaryLegSelectionCallback(const std_msgs::Int8& input)
   }
 }
 
-/***********************************************************************************************************************
- * Actuating Leg Secondary Selection Callback
+/*******************************************************************************************************************//**
+ * Callback handling the selection of the leg as the secondary leg for manual manipulation.
+ * @param[in] input The Int8 standard message provided by the subscribed topic "hexapod_remote/secondary_leg_selection"
+ * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::secondaryLegSelectionCallback(const std_msgs::Int8& input)
 {
@@ -1191,8 +1095,10 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8& input)
   }
 }
 
-/***********************************************************************************************************************
- * Toggle Primary Leg State Callback
+/*******************************************************************************************************************//**
+ * Callback handling the toggling the state of the primary selected leg.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/primary_leg_state"
+ * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
 {
@@ -1220,8 +1126,10 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
   }
 }
 
-/***********************************************************************************************************************
- * Toggle Secondary Leg State Callback
+/*******************************************************************************************************************//**
+ * Callback handling the toggling the state of the secondary selected leg.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/secondary_leg_state"
+ * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
 {
@@ -1249,8 +1157,164 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
   }
 }
 
-/***********************************************************************************************************************
- * IMU data callback
+/*******************************************************************************************************************//**
+ * Callback for the input manual tip velocity (in cartesian space) for the primary selected leg
+ * @param[in] input The Point geometry message provided by the subscribed topic "hexapod_remote/primary_tip_velocity"
+***********************************************************************************************************************/
+void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point& input)
+{
+  primary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
+}
+
+/*******************************************************************************************************************//**
+ * Callback for the input manual tip velocity (in cartesian space) for the secondary selected leg
+ * @param[in] input The Point geometry message provided by the subscribed topic "hexapod_remote/secondary_tip_velocity"
+***********************************************************************************************************************/
+void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point& input)
+{
+  secondary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
+}
+
+/*******************************************************************************************************************//**
+ * Callback handling the desired parameter selection and sending state messages to user interface.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/parameter_selection"
+ * @see parameters_and_states.h
+***********************************************************************************************************************/
+void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
+{
+  if (robot_state_ == RUNNING)
+  {
+    ParameterSelection new_parameter_selection = static_cast<ParameterSelection>(int(input.data));
+    if (new_parameter_selection != parameter_selection_)
+    {
+      parameter_selection_ = new_parameter_selection;
+      if (parameter_selection_ != NO_PARAMETER_SELECTION)
+      {
+        dynamic_parameter_ = params_.adjustable_map[parameter_selection_]; //Pointer to adjustable parameter object
+        ROS_INFO("\n%s parameter currently selected.\n", dynamic_parameter_->name.c_str());
+      }
+      else
+      {
+        ROS_INFO("\nNo parameter currently selected.\n");
+      }
+    }
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Callback handling the desired selected parameter adjustment. Sets a new value for the selected parameter by adding
+ * or subtracting the (parameter defined) adjustment value according to the input direction and clamped with limits.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/parameter_adjustment"
+ * @see parameters_and_states.h
+***********************************************************************************************************************/
+void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
+{
+  if (robot_state_ == RUNNING)
+  {
+    int adjust_direction = input.data; // -1 || 0 || 1 (Decrease, no adjustment, increase)
+    if (adjust_direction != 0.0 && !parameter_adjust_flag_ && parameter_selection_ != NO_PARAMETER_SELECTION)
+    {
+      double parameter_adjustment = dynamic_parameter_->adjust_step;
+      if (sign(dynamic_parameter_->adjust_step) != sign(adjust_direction)) //If directions differ
+      {
+        parameter_adjustment *= -1; //Change direction
+      }
+      new_parameter_value_ = dynamic_parameter_->current_value + parameter_adjustment;
+      new_parameter_value_ = clamped(new_parameter_value_,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      parameter_adjust_flag_ = true;
+    }
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Callback handling new configurations from a dynamic reconfigure client and assigning new values for adjustment.
+ * @param[in] config The new configuration sent from a dynamic reconfigure client (eg: rqt_reconfigure)
+ * @param[in] level Unused
+ * @see config/dynamic_parameter.cfg
+***********************************************************************************************************************/
+void StateController::dynamicParameterCallback(simple_hexapod_controller::DynamicConfig& config, uint32_t level)
+{
+  if (robot_state_ == RUNNING)
+  {
+    parameter_adjust_flag_ = true;
+    if (config.step_frequency != params_.step_frequency.current_value)
+    {
+      dynamic_parameter_ = &params_.step_frequency;
+      new_parameter_value_ = clamped(config.step_frequency,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.step_frequency = new_parameter_value_;
+    }
+    else if (config.step_clearance != params_.step_clearance.current_value)
+    {
+      dynamic_parameter_ = &params_.step_clearance;
+      new_parameter_value_ = clamped(config.step_clearance,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.step_clearance = new_parameter_value_;
+    }
+    else if (config.body_clearance != params_.body_clearance.current_value)
+    {
+      dynamic_parameter_ = &params_.body_clearance;
+      new_parameter_value_ = clamped(config.body_clearance,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.body_clearance = new_parameter_value_;
+    }
+    else if (config.leg_span != params_.leg_span.current_value)
+    {
+      dynamic_parameter_ = &params_.leg_span;
+      new_parameter_value_ = clamped(config.leg_span,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.leg_span = new_parameter_value_;
+    }
+    else if (config.virtual_mass != params_.virtual_mass.current_value)
+    {
+      dynamic_parameter_ = &params_.virtual_mass;
+      new_parameter_value_ = clamped(config.virtual_mass,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.virtual_mass = new_parameter_value_;
+    }
+    else if (config.virtual_stiffness != params_.virtual_stiffness.current_value)
+    {
+      dynamic_parameter_ = &params_.virtual_stiffness;
+      new_parameter_value_ = clamped(config.virtual_stiffness,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.virtual_stiffness = new_parameter_value_;
+    }
+    else if (config.virtual_damping_ratio != params_.virtual_damping_ratio.current_value)
+    {
+      dynamic_parameter_ = &params_.virtual_damping_ratio;
+      new_parameter_value_ = clamped(config.virtual_damping_ratio,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.virtual_damping_ratio = new_parameter_value_;
+    }
+    else if (config.force_gain != params_.force_gain.current_value)
+    {
+      dynamic_parameter_ = &params_.force_gain;
+      new_parameter_value_ = clamped(config.force_gain,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.force_gain = new_parameter_value_;
+    }
+    else
+    {
+      parameter_adjust_flag_ = false;
+    }
+    dynamic_reconfigure_server_->updateConfig(config);
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Callback handling the transformation of IMU data from imu frame to base link frame
+ * @param[in] data The Imu sensor message provided by the subscribed ros topic "/imu/data"
+ * @todo Use tf2 for transformation between frames rather than parameters
 ***********************************************************************************************************************/
 void StateController::imuCallback(const sensor_msgs::Imu& data)
 {
@@ -1261,7 +1325,6 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
     euler_offset[1] = params_.imu_rotation_offset.data[1];
     euler_offset[2] = params_.imu_rotation_offset.data[2];
     Quat imu_rotation_offset(euler_offset);
-    //TBD use tf
 
     Quat raw_orientation;
     raw_orientation.w_ = data.orientation.w;
@@ -1286,8 +1349,10 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
   }
 }
 
-/***********************************************************************************************************************
- * Gets ALL joint positions from joint state messages
+/*******************************************************************************************************************//**
+ * Callback which handles acquisition of joint states from motor drivers. Attempts to populate joint objects with 
+ * available current position/velocity/effort and flags if all joint objects have received an initial current position.
+ * @param[in] joint_states The JointState sensor message provided by the subscribed ros topic "/joint_states"
 ***********************************************************************************************************************/
 void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_states)
 {
@@ -1316,6 +1381,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
       }
     }
   }
+
   // Check if all joint positions have been received from topic
   if (!joint_positions_initialised_)
   {
@@ -1336,10 +1402,14 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
   }
 }
 
-/***********************************************************************************************************************
- * Gets tip forces
+/*******************************************************************************************************************//**
+ * Callback handling and normalising the MAX specific pressure sensor data
+ * @param[in] raw_tip_forces The JointState sensor message provided by the subscribed ros topic "/motor_encoders" which 
+ *                       contains the pressure sensor data.
+ * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
+ * @todo Parameterise the normalisation variables
 ***********************************************************************************************************************/
-void StateController::tipForceCallback(const sensor_msgs::JointState& raw_tip_forces) //TBD redesign
+void StateController::tipForceCallback(const sensor_msgs::JointState& raw_tip_forces)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -1352,10 +1422,13 @@ void StateController::tipForceCallback(const sensor_msgs::JointState& raw_tip_fo
   }
 }
 
-/***********************************************************************************************************************
- * Gets tip forces
+/*******************************************************************************************************************//**
+ * Callback handling and normalising the Flexipod (AR leg) specific pressure sensor data
+ * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/AR_prs"
+ * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
+ * @todo Parameterise the normalisation variables
 ***********************************************************************************************************************/
-void StateController::tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+void StateController::tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force)
 {
   Leg* leg = model_->getLegByIDName("AR");
   double force_offset = 23930.0;
@@ -1365,10 +1438,13 @@ void StateController::tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force) 
   leg->setTipForce(tip_force);
 }
 
-/***********************************************************************************************************************
- * Gets tip forces
+/*******************************************************************************************************************//**
+ * Callback handling and normalising the Flexipod (BR leg) specific pressure sensor data
+ * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/BR_prs"
+ * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
+ * @todo Parameterise the normalisation variables
 ***********************************************************************************************************************/
-void StateController::tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+void StateController::tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force)
 {
   Leg* leg = model_->getLegByIDName("BR");
   double force_offset = 23845.0;
@@ -1378,10 +1454,13 @@ void StateController::tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force) 
   leg->setTipForce(tip_force);
 }
 
-/***********************************************************************************************************************
- * Gets tip forces
+/*******************************************************************************************************************//**
+ * Callback handling and normalising the Flexipod (CR leg) specific pressure sensor data
+ * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/CR_prs"
+ * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
+ * @todo Parameterise the normalisation variables
 ***********************************************************************************************************************/
-void StateController::tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+void StateController::tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force)
 {
   Leg* leg = model_->getLegByIDName("CR");
   double force_offset = 23930.0;
@@ -1391,10 +1470,13 @@ void StateController::tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force) 
   leg->setTipForce(tip_force);
 }
 
-/***********************************************************************************************************************
- * Gets tip forces
+/*******************************************************************************************************************//**
+ * Callback handling and normalising the Flexipod (CL leg) specific pressure sensor data
+ * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/CL_prs"
+ * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
+ * @todo Parameterise the normalisation variables
 ***********************************************************************************************************************/
-void StateController::tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+void StateController::tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force)
 {
   Leg* leg = model_->getLegByIDName("CL");
   double force_offset = 23895.0;
@@ -1404,10 +1486,13 @@ void StateController::tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force) 
   leg->setTipForce(tip_force);
 }
 
-/***********************************************************************************************************************
- * Gets tip forces
+/*******************************************************************************************************************//**
+ * Callback handling and normalising the Flexipod (BL leg) specific pressure sensor data
+ * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/BL_prs"
+ * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
+ * @todo Parameterise the normalisation variables
 ***********************************************************************************************************************/
-void StateController::tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+void StateController::tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force)
 {
   Leg* leg = model_->getLegByIDName("BL");
   double force_offset = 23775.0;
@@ -1417,10 +1502,13 @@ void StateController::tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force) 
   leg->setTipForce(tip_force);
 }
 
-/***********************************************************************************************************************
- * Gets tip forces
+/*******************************************************************************************************************//**
+ * Callback handling and normalising the Flexipod (AL leg) specific pressure sensor data
+ * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/AL_prs"
+ * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
+ * @todo Parameterise the normalisation variables
 ***********************************************************************************************************************/
-void StateController::tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force) //TBD redesign
+void StateController::tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force)
 {
   Leg* leg = model_->getLegByIDName("AL");
   double force_offset = 23920.0;
@@ -1431,15 +1519,8 @@ void StateController::tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force) 
 }
 
 /***********************************************************************************************************************
- * Initialises model by initialising all legs
-***********************************************************************************************************************/
-void StateController::initModel(bool use_default_joint_positions)
-{
-  model_->initLegs(use_default_joint_positions);
-}
-
-/***********************************************************************************************************************
- * Gets hexapod parameters from rosparam server
+ * Acquires parameter values from the ros param server and initialises parameter objects. Also sets up dynamic 
+ * reconfigure server.
 ***********************************************************************************************************************/
 void StateController::initParameters(void)
 {
@@ -1579,12 +1660,13 @@ void StateController::initParameters(void)
   initAutoPoseParameters();
 }
 
-/***********************************************************************************************************************
- * Gets hexapod gait parameters from rosparam server
+/*******************************************************************************************************************//**
+ * Acquires gait selection defined parameter values from the ros param server and initialises parameter objects.
+ * @param[in] gait_selection The desired gait used to acquire associated parameters off the parameter server
 ***********************************************************************************************************************/
-void StateController::initGaitParameters(GaitDesignation gaitSelection)
+void StateController::initGaitParameters(GaitDesignation gait_selection)
 {
-  switch (gaitSelection)
+  switch (gait_selection)
   {
     case (TRIPOD_GAIT):
       params_.gait_type.data = "tripod_gait";
@@ -1610,8 +1692,8 @@ void StateController::initGaitParameters(GaitDesignation gaitSelection)
   params_.offset_multiplier.init(n_, "offset_multiplier", base_gait_parameters_name + params_.gait_type.data + "/");
 }
 
-/***********************************************************************************************************************
- * Gets hexapod auto pose parameters from rosparam server
+/*******************************************************************************************************************//**
+ * Acquires auto pose parameter values from the ros param server and initialises parameter objects.
 ***********************************************************************************************************************/
 void StateController::initAutoPoseParameters(void)
 {
