@@ -20,7 +20,7 @@
 #include "simple_hexapod_controller/state_controller.h"
 
 /*******************************************************************************************************************//**
- * StateController object constructor. Initialises parameters, creates robot model object, sets up ros topic
+ * StateController class constructor. Initialises parameters, creates robot model object, sets up ros topic
  * subscriptions and advertisments.
  * @param[in] n The ros node handle, used to subscribe/publish topics and assign callbacks
  * @todo Refactor tip force subscribers into single callback to topic /tip_forces
@@ -171,7 +171,7 @@ void StateController::loop(void)
   // Posing - updates currentPose for body compensation
   if (robot_state_ != UNKNOWN)
   {
-    poser_->updateCurrentPose(walker_->getBodyHeight(), walker_->getWalkState());
+    poser_->updateCurrentPose(walker_->getBodyHeight());
     walker_->setPoseState(poser_->getAutoPoseState()); // Sends pose state from poser to walker
 
     // Impedance control - updates deltaZ values
@@ -779,25 +779,6 @@ void StateController::publishRotationPoseError(void)
   msg.data.push_back(poser_->getRotationVelocityError()[1]);
   msg.data.push_back(poser_->getRotationVelocityError()[2]);
   rotation_pose_error_publisher_.publish(msg);
-}
-
-/*******************************************************************************************************************//**
- * Publishes imu pose translation absement, position and velocity errors used in the PID controller, for debugging
-***********************************************************************************************************************/
-void StateController::publishTranslationPoseError(void)
-{
-  std_msgs::Float32MultiArray msg;
-  msg.data.clear();
-  msg.data.push_back(poser_->getTranslationAbsementError()[0]);
-  msg.data.push_back(poser_->getTranslationAbsementError()[1]);
-  msg.data.push_back(poser_->getTranslationAbsementError()[2]);
-  msg.data.push_back(poser_->getTranslationPositionError()[0]);
-  msg.data.push_back(poser_->getTranslationPositionError()[1]);
-  msg.data.push_back(poser_->getTranslationPositionError()[2]);
-  msg.data.push_back(poser_->getTranslationVelocityError()[0]);
-  msg.data.push_back(poser_->getTranslationVelocityError()[1]);
-  msg.data.push_back(poser_->getTranslationVelocityError()[2]);
-  translation_pose_error_publisher_.publish(msg);
 }
 
 /*******************************************************************************************************************//**

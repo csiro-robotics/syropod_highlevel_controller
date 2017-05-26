@@ -124,7 +124,6 @@ int main(int argc, char* argv[])
       state.publishIMUData();
       state.publishBodyVelocity();
       state.publishRotationPoseError();
-      state.publishTranslationPoseError();
 
       if (params->debug_rviz.data)
       {

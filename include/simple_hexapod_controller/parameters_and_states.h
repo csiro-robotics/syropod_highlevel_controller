@@ -40,6 +40,9 @@
 #define HORIZONTAL_TRANSITION_TIME 1.0 // Step time during horizontal transition (seconds @ step frequency == 1.0)
 #define VERTICAL_TRANSITION_TIME 3.0 // Body raise time during vertical transtion (seconds @ step frequency == 1.0)
 
+#define STABILITY_THRESHOLD 100 // Rotation correction magnitude threshold, ensuring imu posing PID is not unstable.
+#define TRANSITION_STEP_THRESHOLD 20 // Number of allowed transition steps before executeSequence() deemed a failure
+
 enum SystemState
 {
 	SUSPENDED,

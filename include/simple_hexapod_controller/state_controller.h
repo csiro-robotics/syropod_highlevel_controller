@@ -1,4 +1,3 @@
-
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H
 #define SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H
 /*******************************************************************************************************************//**
@@ -32,7 +31,7 @@
 
 /*******************************************************************************************************************//**
  * This class creates and initialises all ros publishers/subscriptions; sub-controllers: Walk Controller,
- * Pose Controller and Impedance Controller; and the parameter handling class. It handles all the ros publishing and
+ * Pose Controller and Impedance Controller; and the parameter handling struct. It handles all the ros publishing and
  * subscription callbacks and communicates this data among the robot model class and the sub-controller classes.
  * The primary function of this class is to feed desired body velocity inputs to the walk controller and receive 
  * generated leg trajectories. These trajectories are then fed to the pose controller where any required body posing is
@@ -45,7 +44,7 @@ class StateController
 {
 public:
   /**
-   * StateController object constructor. Initialises parameters, creates robot model object, sets up ros topic
+   * StateController class constructor. Initialises parameters, creates robot model object, sets up ros topic
    * subscriptions and advertisments.
    * @param[in] n The ros node handle, used to subscribe/publish topics and assign callbacks
    * @todo Refactor tip force subscribers into single callback to topic /tip_forces
@@ -150,9 +149,6 @@ public:
   
   /** Publishes imu pose rotation absement, position and velocity errors used in the PID controller, for debugging */
   void publishRotationPoseError(void);
-  
-  /** Publishes imu pose translation absement, position and velocity errors used in the PID controller, for debugging */
-  void publishTranslationPoseError(void);
   
   /**
    * Sets up velocities for and calls debug output object to publish various debugging visualations via rviz
@@ -401,7 +397,7 @@ private:
   PoseController* poser_;           ///! Pointer to pose controller object
   ImpedanceController* impedance_;  ///! Pointer to impedance controller object
   DebugOutput debug_;               ///! Debug class object used for RVIZ visualization
-  Parameters params_;               ///! Parameter class object for storing parameter variables
+  Parameters params_;               ///! Parameter data structure for storing parameter variables
 	
 	bool initialised_ = false; ///! Flags if the state controller has initialised
 
@@ -444,8 +440,8 @@ private:
   Vector2d linear_cruise_velocity_;           ///! Desired constant linear body velocity for cruise control mode
   double angular_cruise_velocity_;            ///! Desired constant angular body velocity for cruise control mode
 
-  map<int, Leg*>::iterator leg_it_;
-	map<int, Joint*>::iterator joint_it_;
+  map<int, Leg*>::iterator leg_it_;     ///! Leg iteration member variable used to minimise code
+	map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code
 };
 
 /***********************************************************************************************************************

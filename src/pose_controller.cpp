@@ -2,7 +2,7 @@
  *  \file    pose_controller.cpp
  *  \brief   Handles control of hexapod body posing. Part of simple hexapod controller.
  *
- *  \author  Fletcher Talbot
+ *  \author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  \date    June 2017
  *  \version 0.5.0
  *
@@ -19,8 +19,11 @@
 
 #include "../include/simple_hexapod_controller/pose_controller.h"
 
-/***********************************************************************************************************************
- * Pose controller contructor
+/*******************************************************************************************************************//**
+ * PoseController class constructor. Iterates through legs in robot model and generates and assigns a leg poser object.
+ * Initialises member variables and calls function to initialise auto pose objects.
+ * @param[in] model Pointer to the robot model class object
+ * @param[in] params Pointer to the parameter struct object
 ***********************************************************************************************************************/
 PoseController::PoseController(Model* model, Parameters* params)
   : model_(model)
@@ -42,14 +45,11 @@ PoseController::PoseController(Model* model, Parameters* params)
   rotation_absement_error_ = Vector3d(0, 0, 0);
   rotation_position_error_ = Vector3d(0, 0, 0);
   rotation_velocity_error_ = Vector3d(0, 0, 0);
-  translation_absement_error_ = Vector3d(0, 0, 0);
-  translation_position_error_ = Vector3d(0, 0, 0);
-  translation_velocity_error_ = Vector3d(0, 0, 0);
-  translation_acceleration_error_ = Vector3d(0, 0, 0);
 }
 
-/***********************************************************************************************************************
- * Pose controller contructor
+/*******************************************************************************************************************//**
+ * Initialises auto poser container and populates with auto poser class objects as defined by auto poser parameters.
+ * Also sets auto pose parameters for the leg poser object of each leg object in robot model.
 ***********************************************************************************************************************/
 void PoseController::setAutoPoseParams(void)
 {
@@ -106,9 +106,10 @@ void PoseController::setAutoPoseParams(void)
   }
 }
 
-/***********************************************************************************************************************
- * Updates default stance tip positions according to desired pose
- * This is then later used in walk controller where inverse kinematics are applied
+/*******************************************************************************************************************//**
+ * Iterates through legs in robot model and updates each Leg Poser tip position. This new tip position is the tip 
+ * position defined from the Leg Stepper, posed using the current desired pose. The applied pose is dependent on the
+ * state of the Leg and Leg Poser specific auto posing.
 ***********************************************************************************************************************/
 void PoseController::updateStance(void)
 {
@@ -138,9 +139,13 @@ void PoseController::updateStance(void)
   }
 }
 
-/***********************************************************************************************************************
- * Executes saved transition sequence in direction defined by 'sequence' (START_UP or SHUT_DOWN).
- * If no sequence exists for target stance, it generates one iteratively by checking workspace limitations.
+/*******************************************************************************************************************//**
+ * Executes saved transition sequence in direction defined by 'sequence' (START_UP or SHUT_DOWN) through the use of the
+ * function StepToPosition() to move to pre-defined tip positions for each leg in the robot model. If no sequence exists
+ * for target stance, it generates one iteratively by checking workspace limitations.
+ * @param[in] sequence The requested sequence - either START_UP or SHUT_DOWN
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
+ * @todo Make sequential leg stepping coordination an option instead of only simultaneous (direct) & groups (tripod)
 ***********************************************************************************************************************/
 int PoseController::executeSequence(SequenceSelection sequence)
 {
@@ -316,7 +321,7 @@ int PoseController::executeSequence(SequenceSelection sequence)
     }
 
     // Check if legs have completed steps and if transition has completed without a proximity alert
-    // TBD Future work - make sequential leg stepping coordination an option
+    // TODO Future work - make sequential leg stepping coordination an option
     if (legs_completed_step_ == model_->getLegCount())
     {
       set_target_ = true;
@@ -427,7 +432,7 @@ int PoseController::executeSequence(SequenceSelection sequence)
   }
 
   // Check for excessive transition steps
-  if (transition_step_ > 20) //TBD Magic number
+  if (transition_step_ > TRANSITION_STEP_THRESHOLD)
   {
     ROS_FATAL("\nUnable to execute sequence, shutting down controller.\n");
     ros::shutdown();
@@ -450,8 +455,11 @@ int PoseController::executeSequence(SequenceSelection sequence)
   }
 }
 
-/***********************************************************************************************************************
- * Moves tip positions along direct straight path from origin position to target walking stance position
+/*******************************************************************************************************************//**
+ * Iterates through legs in robot model and attempts to move them simultaneously in a linear trajectory directly from 
+ * their current tip position to its default tip position (as defined by the walk controller). This motion completes in
+ * a time limit defined by the parameter time_to_start.
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
 int PoseController::directStartup(void) //Simultaneous leg coordination
 {
@@ -472,8 +480,12 @@ int PoseController::directStartup(void) //Simultaneous leg coordination
   return progress;
 }
 
-/***********************************************************************************************************************
- *
+/*******************************************************************************************************************//**
+ * Iterates through legs in robot model and attempts to step each from their current tip position to their default tip
+ * position (as defined by the walk controller). The stepping motion is coordinated such that half of the legs execute 
+ * the step at any one time (for a hexapod this results in a Tripod stepping coordination). The time period and 
+ * height of the stepping maneuver is controlled by the user parameters step_frequency and step_clearance.
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
 int PoseController::stepToNewStance(void) //Tripod leg coordination
 {
@@ -513,8 +525,12 @@ int PoseController::stepToNewStance(void) //Tripod leg coordination
   return progress;
 }
 
-/***********************************************************************************************************************
- * Steps tip positions into correct pose for leg manipulation
+/*******************************************************************************************************************//**
+ * Iterates through the legs in the robot model and generates a pose for each that is best for leg manipulation. This 
+ * pose is generated to attempt to move the centre of gravity within the support polygon of the load bearing legs. All 
+ * legs simultaneously step to each new generated pose and the time period and height of the stepping maneuver is 
+ * controlled by the user parameters step_frequency and step_clearance.
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
 int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
 {
@@ -562,8 +578,11 @@ int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
   return progress;
 }
 
-/***********************************************************************************************************************
- * Pack legs by directly moving leg joint positions simultaneously to the packed joint positions defined by parameters
+/*******************************************************************************************************************//**
+ * Iterate through legs in robot model and directly move joints into 'packed' configuration as defined by joint 
+ * parameters. This maneuver occurs simultaneously for all legs in a time period defined by the input argument.
+ * @param[in] time_to_pack The time period in which to execute the packing maneuver.
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
 int PoseController::packLegs(double time_to_pack) //Simultaneous leg coordination
 {
@@ -586,8 +605,11 @@ int PoseController::packLegs(double time_to_pack) //Simultaneous leg coordinatio
   return progress;
 }
 
-/***********************************************************************************************************************
- * Unpack legs by directly moving leg joint positions simultaneously to the packed joint positions defined by parameters
+/*******************************************************************************************************************//**
+ * Iterate through legs in robot model and directly move joints into 'unpacked' configuration as defined by joint 
+ * parameters. This maneuver occurs simultaneously for all legs in a time period defined by the input argument.
+ * @param[in] time_to_unpack The time period in which to execute the packing maneuver.
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
 int PoseController::unpackLegs(double time_to_unpack) //Simultaneous leg coordination
 {
@@ -610,41 +632,43 @@ int PoseController::unpackLegs(double time_to_unpack) //Simultaneous leg coordin
   return progress;
 }
 
-/***********************************************************************************************************************
- * Compensation - updates currentPose for body compensation
+/*******************************************************************************************************************//**
+ * Depending on parameter flags, calls multiple posing functions and combines individual poses to update the current
+ * desired pose of the robot model.
+ * @param[in] body_height Desired height of the body above ground level - used in inclination posing.
 ***********************************************************************************************************************/
-void PoseController::updateCurrentPose(double body_height, WalkState walk_state)
+void PoseController::updateCurrentPose(double body_height)
 {
   Pose new_pose = Pose::identity();
 
-  // Manually set (joystick controlled) body compensation
+  // Manually set (joystick controlled) body pose
   if (params_->manual_posing.data)
   {
     updateManualPose();
     new_pose = new_pose.addPose(manual_pose_);
   }
 
-  // Compensation to align centre of gravity evenly between tip positions on incline
+  // Pose to align centre of gravity evenly between tip positions on incline
   if (params_->inclination_posing.data)
   {
     updateInclinationPose(body_height);
     new_pose = new_pose.addPose(inclination_pose_);
   }
 
-  // Compensation to offset average deltaZ from impedance controller and keep body at specificied height
+  // Pose to offset average deltaZ from impedance controller and keep body at specificied height
   if (params_->impedance_control.data)
   {
     updateImpedancePose();
     new_pose = new_pose.addPose(impedance_pose_);
   }
 
-  // Auto body compensation using IMU feedback
+  // Auto body pose using IMU feedback
   if (params_->imu_posing.data)
   {
     updateIMUPose();
     new_pose = new_pose.addPose(imu_pose_);
   }
-  // Automatic (non-feedback) body compensation
+  // Automatic (non-feedback) body posing
   else if (params_->auto_posing.data)
   {
     updateAutoPose();
@@ -654,8 +678,11 @@ void PoseController::updateCurrentPose(double body_height, WalkState walk_state)
   model_->setCurrentPose(new_pose);
 }
 
-/***********************************************************************************************************************
- * Calculates pitch/roll/yaw/x,y,z for smooth transition to target pose for manual body compensation
+/*******************************************************************************************************************//**
+ * Generates a manual pose to be applied to the robot model, based on linear (x/y/z) and angular (roll/pitch/yaw)
+ * velocity body posing inputs. Clamps the posing within set limits and resets the pose to zero in specified axes 
+ * depending on the pose reset mode.
+ * @bug Adding pitch and roll simultaneously adds unwanted yaw - fixed by moving away from using quat.h
 ***********************************************************************************************************************/
 void PoseController::updateManualPose(void)
 {
@@ -803,8 +830,12 @@ void PoseController::updateManualPose(void)
   // BUG: ^Adding pitch and roll simultaneously adds unwanted yaw
 }
 
-/***********************************************************************************************************************
- * Calculates pitch/roll for smooth auto body compensation from offset pose
+/*******************************************************************************************************************//**
+ * Updates the auto pose by feeding each Auto Poser object a phase value and combining the output of each Auto Poser
+ * object into a single pose. The input master phase is either an iteration of the pose phase or synced to the step
+ * phase from the Walk Controller. This function also iterates through all leg objects in the robot model and updates
+ * each Leg Poser's specific Auto Poser pose (this pose is used when the leg needs to ignore the default auto pose)
+ * @bug Adding pitch and roll simultaneously adds unwanted yaw - fixed by moving away from using quat.h
 ***********************************************************************************************************************/
 void PoseController::updateAutoPose(void)
 {
@@ -848,7 +879,7 @@ void PoseController::updateAutoPose(void)
     // BUG: ^Adding pitch and roll simultaneously adds unwanted yaw
   }
 
-  // All auto posers have completed their required posing cycle (Allows walkController transition to STARTING)
+  // All auto posers have completed their required posing cycle (Allows walkController to transition to STARTING)
   if (auto_posers_complete == int(auto_poser_container_.size()))
   {
     auto_posing_state_ = POSING_COMPLETE;
@@ -863,8 +894,10 @@ void PoseController::updateAutoPose(void)
   }
 }
 
-/***********************************************************************************************************************
- * Returns rotation correction used to attempt to match target rotation (manual rotation) using PID controller
+/*******************************************************************************************************************//**
+ * Attempts to generate a pose (pitch/roll rotation only) for the robot model to 'correct' any differences between the 
+ * desired pose rotation and the that estimated by the IMU. A low pass filter is used to smooth out velocity inputs 
+ * from the IMU and a basic PID controller is used to do control the output pose.
 ***********************************************************************************************************************/
 void PoseController::updateIMUPose(void)
 {
@@ -898,9 +931,7 @@ void PoseController::updateIMUPose(void)
   
   rotation_correction[2] = target_rotation.toEulerAngles()[2];  // No compensation in yaw rotation
 
-  double stability_threshold = 100; //TBD Magic number
-
-  if (rotation_correction.norm() > stability_threshold)
+  if (rotation_correction.norm() > STABILITY_THRESHOLD)
   {
     ROS_FATAL("IMU rotation compensation became unstable! Adjust PID parameters.\n");
     ros::shutdown();
@@ -909,8 +940,10 @@ void PoseController::updateIMUPose(void)
   imu_pose_.rotation_ = Quat(rotation_correction);
 }
 
-/***********************************************************************************************************************
- * Updates inclination pose with translation correction to move centre of body according to inclination of terrain
+/*******************************************************************************************************************//**
+ * Attempts to generate a pose (x/y linear translation only) which shifts the assumed centre of gravity of the body to 
+ * the vertically projected centre of the support polygon in accordance with the inclination of the terrain.
+ * @param[in] body_height The desired height of the body centre, vertically from the ground.
 ***********************************************************************************************************************/
 void PoseController::updateInclinationPose(double body_height)
 {
@@ -930,8 +963,9 @@ void PoseController::updateInclinationPose(double body_height)
   inclination_pose_.position_[1] = lateral_correction;
 }
 
-/***********************************************************************************************************************
- * Calculates mean delta_z value of all legs and returns an offset used to sustain body at correct height
+/*******************************************************************************************************************//**
+ * Attempts to generate a pose (z linear translation only) which corrects for sagging of the body due to the impedance
+ * controller and poses the body at the correct desired height above the ground.
 ***********************************************************************************************************************/
 void PoseController::updateImpedancePose(void)
 {
@@ -951,8 +985,9 @@ void PoseController::updateImpedancePose(void)
 }
 
 /***********************************************************************************************************************
- * Attempts to develop pose to position body such that there is a zero sum of moments from the force acting on the load
- * bearing feet
+ * Attempts to generate a pose (x/y linear translation only) to position body such that there is a zero sum of moments 
+ * from the force acting on the load bearing feet, allowing the robot to shift its centre of mass away from manually
+ * manipulated (non-load bearing) legs and remain balanced.
 ***********************************************************************************************************************/
 void PoseController::calculateDefaultPose(void)
 {
@@ -979,7 +1014,7 @@ void PoseController::calculateDefaultPose(void)
   // Only update the sum of moments if specific leg is WALKING and ALL other legs are in WALKING OR MANUAL state.
   if (legs_transitioning_states != 0.0)
   {
-    if (recalculate_offset_)
+    if (recalculate_default_pose_)
     {
       Vector3d zero_moment_offset(0, 0, 0);
 
@@ -1004,17 +1039,19 @@ void PoseController::calculateDefaultPose(void)
 
       default_pose_.position_[0] = zero_moment_offset[0];
       default_pose_.position_[1] = zero_moment_offset[1];
-      recalculate_offset_ = false;
+      recalculate_default_pose_ = false;
     }
   }
   else
   {
-    recalculate_offset_ = true;
+    recalculate_default_pose_ = true;
   }
 }
 
-/***********************************************************************************************************************
- * Auto poser contructor
+/*******************************************************************************************************************//**
+ * Auto poser contructor.
+ * @param[in] poser Pointer to the Pose Controller object
+ * @param[in] id Int defining the id number of the created Auto Poser object
 ***********************************************************************************************************************/
 AutoPoser::AutoPoser(PoseController* poser, int id)
   : poser_(poser)
@@ -1022,8 +1059,14 @@ AutoPoser::AutoPoser(PoseController* poser, int id)
 {
 }
 
-/***********************************************************************************************************************
- * Auto poser contructor
+/*******************************************************************************************************************//**
+ * Returns a pose which contributes to the auto pose applied to the robot body. The resultant pose is defined by a 4th
+ * order bezier curve for both linear position and angular rotation and iterated along using the phase input argument.
+ * The characteristics of each bezier curves are defined by the user parameters in the auto_pose.yaml config file.
+ * @param[in] phase The phase is the input value which is used to determine the progression along the bezier curve which
+ * defines the output pose.
+ * @return The component of auto pose contributed by this Auto Poser object's posing cycle defined by user parameters.
+ * @see config/auto_pose.yaml
 ***********************************************************************************************************************/
 Pose AutoPoser::updatePose(int phase)
 {
@@ -1085,6 +1128,7 @@ Pose AutoPoser::updatePose(int phase)
       rotation_control_nodes[1] = Vector3d(roll_amplitude_, pitch_amplitude_, yaw_amplitude_);
     }
 
+    // Extra iteration required to keep continuity between time inputs. (i.e. time input = 0.0->1.0, 0.0->1.0)
     double delta_t = 2.0 / num_iterations;
     int extra_iteration = (iteration <= num_iterations / 2) ? 0 : 1;
     double time_input = (iteration + extra_iteration) % (1 + num_iterations / 2) * delta_t;
@@ -1098,20 +1142,28 @@ Pose AutoPoser::updatePose(int phase)
   return return_pose;
 }
 
-/***********************************************************************************************************************
+/*******************************************************************************************************************//**
  * Leg poser contructor
+ * @param[in] poser Pointer to the Pose Controller object
+ * @param[in] leg Pointer to the parent leg object associated with the create Leg Poser object
 ***********************************************************************************************************************/
 LegPoser::LegPoser(PoseController* poser, Leg* leg)
   : poser_(poser)
   , leg_(leg)
-  , origin_pose_(Pose::identity())
   , auto_pose_(Pose::identity())
   , current_tip_position_(Vector3d(0, 0, 0))
 {
 }
 
-/***********************************************************************************************************************
- * Move joints of leg to target positions
+/*******************************************************************************************************************//**
+ * Uses a bezier curve to smoothly update (over many iterations) the desired joint position of each joint in the leg 
+ * associated with this Leg Poser object, from the original joint position at the first iteration of this function to 
+ * the target joint position defined by the input argument. This maneuver completes after a time period defined by the 
+ * input argument.
+ * @param[in] target_joint_positions A vector of doubles defining the target joint positions of each joint of the parent
+ * leg of this Leg Poser object in asscending joint id number order.
+ * @param[in] time_to_move The time period in which to complete this maneuver.
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
 int LegPoser::moveToJointPosition(vector<double> target_joint_positions, double time_to_move)
 {
@@ -1193,8 +1245,17 @@ int LegPoser::moveToJointPosition(vector<double> target_joint_positions, double 
   }
 }
 
-/***********************************************************************************************************************
- * Step leg tip position to target tip position
+/*******************************************************************************************************************//**
+ * Uses bezier curves to smoothly update (over many iterations) the desired tip position of the leg associated with 
+ * this Leg Poser object, from the original tip position at the first iteration of this function to the target tip 
+ * position defined by the input argument.
+ * @param[in] target_tip_position A 3d vector defining the target tip position in reference to the body centre frame
+ * @param[in] target_pose A Pose to be linearly applied to the tip position over the course of the maneuver
+ * @param[in] lift_height The height which the stepping leg trajectory should reach at its peak.
+ * @param[in] time_to_step The time period to complete this maneuver.
+ * @param[in] apply_delta_z A bool defining if a vertical offset value (generated by the impedance controller) should 
+ * be applied to the target tip position.
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
 int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose,
                              double lift_height, double time_to_step, bool apply_delta_z)
@@ -1306,8 +1367,14 @@ int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose,
   }
 }
 
-/***********************************************************************************************************************
- * Updates leg specific auto pose
+/*******************************************************************************************************************//**
+ * Sets a pose for this Leg Poser which negates the default auto pose applied to the robot body. The negation pose is
+ * defined by a 4th order bezier curve for both linear position and angular rotation and iterated along using the phase
+ * input argument. The characteristics of each bezier curve are defined by the user parameters in the auto_pose.yaml
+ * config file.
+ * @param[in] phase The phase is the input value which is used to determine the progression along the bezier curves
+ * which define the output pose.
+ * @see config/auto_pose.yaml
 ***********************************************************************************************************************/
 void LegPoser::updateAutoPose(int phase)
 {
