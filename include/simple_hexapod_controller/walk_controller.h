@@ -140,6 +140,7 @@ class LegStepper
     inline Vector3d getStanceControlNode(int i) { return stance_nodes_[i]; };
 
     inline void setCurrentTipPosition(Vector3d current_tip_position) { current_tip_position_ = current_tip_position; };
+    inline void setDefaultTipPosition(Vector3d tip_position) { default_tip_position_ = tip_position; };
     inline void setStepState(StepState stepState) { step_state_ = stepState; };
     inline void setPhase(int phase) { phase_ = phase; };
     inline void setPhaseOffset(int phase_offset) { phase_offset_ = phase_offset;};

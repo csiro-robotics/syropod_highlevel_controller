@@ -243,16 +243,18 @@ double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool
   {
     Joint* joint = joint_it->second;
     const Link* reference_link = joint->reference_link_;
+    double joint_angle = reference_link->actuating_joint_->desired_position_;
     dh_map.insert(map<string, double>::value_type("d", reference_link->dh_parameter_d_));
-    dh_map.insert(map<string, double>::value_type("theta", reference_link->actuating_joint_->desired_position_));
+    dh_map.insert(map<string, double>::value_type("theta", reference_link->dh_parameter_theta_ + joint_angle));
     dh_map.insert(map<string, double>::value_type("r", reference_link->dh_parameter_r_));
     dh_map.insert(map<string, double>::value_type("alpha", reference_link->dh_parameter_alpha_));
     dh_parameters.push_back(dh_map);
     dh_map.clear();
   }
   //Add tip dh params
+  double joint_angle = tip_->reference_link_->actuating_joint_->desired_position_;
   dh_map.insert(map<string, double>::value_type("d", tip_->reference_link_->dh_parameter_d_));
-  dh_map.insert(map<string, double>::value_type("theta", tip_->reference_link_->actuating_joint_->desired_position_));
+  dh_map.insert(map<string, double>::value_type("theta", tip_->reference_link_->dh_parameter_theta_ + joint_angle));
   dh_map.insert(map<string, double>::value_type("r", tip_->reference_link_->dh_parameter_r_));
   dh_map.insert(map<string, double>::value_type("alpha", tip_->reference_link_->dh_parameter_alpha_));
   dh_parameters.push_back(dh_map);
@@ -360,14 +362,16 @@ Vector3d Leg::applyFK(bool set_current)
   {
     Joint* joint = joint_it->second;
     const Link* reference_link = joint->reference_link_;
+    double joint_angle = reference_link->actuating_joint_->desired_position_;
     joint->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
-                                               reference_link->actuating_joint_->desired_position_,
+                                               reference_link->dh_parameter_theta_ + joint_angle,
                                                reference_link->dh_parameter_r_,
                                                reference_link->dh_parameter_alpha_);
   }
   const Link* reference_link = tip_->reference_link_;
+  double joint_angle = reference_link->actuating_joint_->desired_position_;
   tip_->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
-                                            reference_link->actuating_joint_->desired_position_,
+                                            reference_link->dh_parameter_theta_ + joint_angle,
                                             reference_link->dh_parameter_r_,
                                             reference_link->dh_parameter_alpha_);
 
@@ -400,7 +404,7 @@ MatrixXd Leg::createJacobian(vector<map<string, double>> dh)
     case (4):
       return createJacobian4DOF(dh);
     case (5):
-      return createJacobian5DOF(dh); //Not implemented
+      return createJacobian5DOF(dh);
     case (6):
       return createJacobian6DOF(dh); //Not implemented
     default:

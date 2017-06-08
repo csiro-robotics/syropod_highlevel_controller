@@ -31,7 +31,7 @@
 
 #define JOINT_TOLERANCE 0.01 // Tolerance allowing assumption that joints are in correct position (rad)
 #define TIP_TOLERANCE 0.001 // Tolerance allowing assumption that tip is in correct position (m)
-#define IK_TOLERANCE 0.05 // Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
+#define IK_TOLERANCE 0.01 // Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
 
 #define JOINT_POSITION_ITERATION 0.001 // Joint position iteration value used to find optimal angle (rad)
 

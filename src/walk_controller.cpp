@@ -52,17 +52,16 @@ void WalkController::init(void)
       // Iterates through possible joint angles to find that which gives greatest vertical displacement of the link end
       Link* link = link_it_->second;
       const Joint* joint = link->actuating_joint_;
-      double optimal_angle = link->dh_parameter_theta_;
+      double optimal_angle = 0.0;
       if (link->id_number_ != 0) //Ignore base link since it is static
       {
         double furthest_vertical_position = 0.0;
-        optimal_angle = 0.0;
         for (double angle = joint->min_position_; angle <= joint->max_position_; angle += JOINT_POSITION_ITERATION)
         {
           Matrix4d test_transform = transform * createDHMatrix(link->dh_parameter_d_,
-                                    angle,
-                                    link->dh_parameter_r_,
-                                    link->dh_parameter_alpha_);
+                                                               link->dh_parameter_theta_ + angle,
+                                                               link->dh_parameter_r_,
+                                                               link->dh_parameter_alpha_);
           Vector4d result = test_transform * Vector4d(0, 0, 0, 1);
           if (result[2] < furthest_vertical_position)
           {
@@ -74,7 +73,7 @@ void WalkController::init(void)
 
       // Updates transform with angle which give greatest vertical displacement
       transform = transform * createDHMatrix(link->dh_parameter_d_,
-                                             optimal_angle,
+                                             link->dh_parameter_theta_ + optimal_angle,
                                              link->dh_parameter_r_,
                                              link->dh_parameter_alpha_);
     }
@@ -496,7 +495,7 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
     {
       leg_stepper->setStepState(STANCE);
     }
-
+    
     // Update tip positions
     Vector3d tip_position = leg->getCurrentTipPosition(); //TBD Should be walker tip positions?
     Vector2d rotation_normal = Vector2d(-tip_position[1], tip_position[0]);

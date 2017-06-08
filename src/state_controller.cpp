@@ -1576,15 +1576,25 @@ void StateController::initParameters(void)
     {
       string leg_id_name = *leg_name_it;
       params_.link_parameters[leg_id_num][0].init(n_, leg_id_name + "_base_link_parameters");
-      int num_joints = params_.leg_DOF.data[leg_id_name];
-      for (int i = 1; i < num_joints + 1; ++i)
+      uint joint_count = params_.leg_DOF.data[leg_id_name];
+
+      if (joint_count > params_.joint_id.data.size() || joint_count > params_.link_id.data.size()+1)
       {
-        string link_name = params_.link_id.data[i];
-        string joint_name = params_.joint_id.data[i - 1];
-        string link_parameter_name = leg_id_name + "_" + link_name + "_link_parameters";
-        string joint_parameter_name = leg_id_name + "_" + joint_name + "_joint_parameters";
-        params_.link_parameters[leg_id_num][i].init(n_, link_parameter_name);
-        params_.joint_parameters[leg_id_num][i - 1].init(n_, joint_parameter_name);
+        ROS_FATAL("\nModel initialisation error for leg %s: Insufficient joint or link id's for defined DOF (%d).\n",
+                  leg_id_name.c_str(), joint_count);
+        ros::shutdown();
+      }
+      else
+      {
+        for (int i = 1; i < joint_count + 1; ++i)
+        {
+          string link_name = params_.link_id.data[i];
+          string joint_name = params_.joint_id.data[i - 1];
+          string link_parameter_name = leg_id_name + "_" + link_name + "_link_parameters";
+          string joint_parameter_name = leg_id_name + "_" + joint_name + "_joint_parameters";
+          params_.link_parameters[leg_id_num][i].init(n_, link_parameter_name);
+          params_.joint_parameters[leg_id_num][i - 1].init(n_, joint_parameter_name);
+        }
       }
     }
   }

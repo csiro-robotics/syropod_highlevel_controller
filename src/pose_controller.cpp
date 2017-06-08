@@ -1177,7 +1177,8 @@ int LegPoser::moveToJointPosition(vector<double> target_joint_positions, double 
     for (joint_it = leg_->getJointContainer()->begin(); joint_it != leg_->getJointContainer()->end(); ++joint_it, ++i)
     {
       Joint* joint = joint_it->second;
-      all_joints_at_target = abs(target_joint_positions[i] - joint->current_position_) < JOINT_TOLERANCE;
+      all_joints_at_target = all_joints_at_target && 
+                             abs(target_joint_positions[i] - joint->current_position_) < JOINT_TOLERANCE;
       origin_joint_positions_.push_back(joint->current_position_);
     }
 
