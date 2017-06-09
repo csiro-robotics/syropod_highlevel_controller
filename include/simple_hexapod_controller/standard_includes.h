@@ -50,6 +50,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define UNASSIGNED_VALUE 1e10 // Value used to determine if variable has been assigned
+#define PROGRESS_COMPLETE 100 // Vale denoting 100% and a completion of progress of various functions
+#define THROTTLE_PERIOD 5  // Default throttle period for all throttled rosconsole messages (seconds)
+
 using namespace Eigen;
 using namespace std;
 using namespace std_msgs;

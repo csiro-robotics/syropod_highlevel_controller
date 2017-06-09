@@ -19,6 +19,8 @@
 
 #include "simple_hexapod_controller/state_controller.h"
 
+#define ACQUISTION_TIME 10 // Max time controller will wait to acquire intitial joint states (seconds)
+
 /*******************************************************************************************************************//**
  * Main loop. Sets up ros environment including the node handle, rosconsole messaging, loop rate etc. Also creates and
  * initialises the 'StateController', calls the state controller loop and publishers, and sends messages for the user
@@ -70,7 +72,7 @@ int main(int argc, char* argv[])
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nAcquiring robot state . . .\n");
     // End wait if joints are intitialised or debugging in rviz (joint states will never initialise).
-    if (state.jointPostionsInitialised() || params->debug_rviz.data)
+    if (state.jointPositionsInitialised() || params->debug_rviz.data)
     {
       spin = 0;
     }
@@ -81,7 +83,7 @@ int main(int argc, char* argv[])
   // Set start message
   std::string start_message;
   bool use_default_joint_positions;
-  if (state.jointPostionsInitialised())
+  if (state.jointPositionsInitialised())
   {
     start_message = "\nPress 'Logitech' button to start controller . . .\n";
     use_default_joint_positions = false;
@@ -139,7 +141,6 @@ int main(int argc, char* argv[])
 
     ros::spinOnce();
     r.sleep();
-    state.resetDebug();
   }
 
   return 0;

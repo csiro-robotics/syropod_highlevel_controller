@@ -1,10 +1,10 @@
 /*******************************************************************************************************************//**
- *  \file    pose_controller.cpp
- *  \brief   Handles control of hexapod body posing. Part of simple hexapod controller.
+ *  @file    pose_controller.cpp
+ *  @brief   Handles control of hexapod body posing. Part of simple hexapod controller.
  *
- *  \author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  \date    June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies

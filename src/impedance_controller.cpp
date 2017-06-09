@@ -1,10 +1,10 @@
 /*******************************************************************************************************************//**
- *  \file    impedance_controller.cpp
- *  \brief   Impedance controller. Part of simple hexapod controller.
+ *  @file    impedance_controller.cpp
+ *  @brief   Impedance controller. Part of simple hexapod controller.
  *
- *  \author Fletcher Talbot
- *  \date   June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -19,8 +19,11 @@
 
 #include "../include/simple_hexapod_controller/impedance_controller.h"
 
-/***********************************************************************************************************************
- * Constructor
+/*******************************************************************************************************************//**
+ * ImpedanceController class constructor. Assigns pointers to robot model object and parameter data storage object and
+ * calls initialisation.
+ * @param[in] model Pointer to the robot model class object
+ * @param[in] params Pointer to the parameter struct object
 ***********************************************************************************************************************/
 ImpedanceController::ImpedanceController(Model* model, Parameters* params)
   : model_(model)
@@ -29,13 +32,11 @@ ImpedanceController::ImpedanceController(Model* model, Parameters* params)
   init();
 }
 
-/***********************************************************************************************************************
- * Initialisation
+/*******************************************************************************************************************//**
+ * Impdedance controller initialisation. For each leg sets virtual mass/stiffness/damping ratio from parameters.
 ***********************************************************************************************************************/
 void ImpedanceController::init(void)
 {
-  delta_t_ = params_->integrator_step_time.data;
-  force_gain_ = params_->force_gain.current_value;
   std::map<int, Leg*>::iterator leg_it;
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
@@ -46,8 +47,12 @@ void ImpedanceController::init(void)
   }
 }
 
-/***********************************************************************************************************************
- * Calculates change in tip position in z direction (deltaZ) according to tip force value
+/*******************************************************************************************************************//**
+ * Iterates through legs in the robot model and updates the vertical tip position offset value (delta_z) for each. 
+ * The calculation of delta_z is achieved through the use of a classical Runge-Kutta ODE solver with a force input
+ * acquired from a tip force callback OR from a joint effort value.
+ * @input[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
+ * @todo Refactor the method of generating tip force from joint effort/s and method of determining effort direction.
 ***********************************************************************************************************************/
 void ImpedanceController::updateImpedance(bool use_joint_effort)
 {
@@ -56,50 +61,58 @@ void ImpedanceController::updateImpedance(bool use_joint_effort)
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
     Leg* leg = leg_it->second;
-  
     if (use_joint_effort)
     {
-      double direction = (leg->getIDNumber() >= (model_->getLegCount()/2) ? -1.0:1.0); //Left or right side
-      leg->setTipForce(leg->getJointByIDNumber(2)->current_effort_ * direction); //TBD Refactor
+      double direction = (leg->getIDNumber() >= (model_->getLegCount() / 2) ? -1.0 : 1.0); //Left or right side
+      leg->setTipForce(leg->getJointByIDNumber(2)->current_effort_ * direction); //TODO
     }
-      
-    double force_input = abs(max(leg->getTipForce(), 0.0));
 
+    double force_input = max(leg->getTipForce(), 0.0);
     double damping = leg->getVirtualDampingRatio();
     double stiffness = leg->getVirtualStiffness();
     double mass = leg->getVirtualMass();
+    double force_gain = params_->force_gain.current_value;
+    double step_time = params_->integrator_step_time.data;
     state_type* impedance_state = leg->getImpedanceState();
     double virtual_damping = damping * 2 * sqrt(mass * stiffness);
-    runge_kutta4<state_type> stepper;
+    boost::numeric::odeint::runge_kutta4<state_type> stepper;
     integrate_const(stepper,
-                    [&](const state_type &x, state_type &dxdt, double t)
+                    [&](const state_type & x, state_type & dxdt, double t)
                     {
                       dxdt[0] = x[1];
-                      dxdt[1] = -force_input/mass*force_gain_ - virtual_damping/mass*x[1] - stiffness/mass*x[0];
+                      dxdt[1] = -force_input/mass*force_gain - virtual_damping/mass*x[1] - stiffness/mass*x[0];
                     },
-                    *impedance_state, 0.0, delta_t_, delta_t_ / 30);
-    double delta_z = -(*impedance_state)[0];
-    leg->setDeltaZ(delta_z);
+                    *impedance_state,
+                    0.0,
+                    step_time,
+                    step_time/30);
+    leg->setDeltaZ(-(*impedance_state)[0]);
   }
 }
 
-/***********************************************************************************************************************
- * Scales virtual stiffness value of given and adjacent legs according to reference
+/*******************************************************************************************************************//**
+ * Scales virtual stiffness of an input swinging leg and two 'adjacent legs' according to an input reference.
+ * The input reference ranges between 0.0 and 1.0, and defines the characteristic of the curve as stiffness changes
+ * from the default stiffness (i.e. scaled by 1.0) to the swing/load stiffness (i.e. scaled by swing/load scaling value)
+ * The swing stiffness value is applied to the swinging leg and load stiffness value applied to the two adjacent legs.
+ * @input[in] leg A pointer to the leg object associated with the stiffness value to be updated.
+ * @input[in] scale_reference A double ranging from 0.0->1.0 which controls the scaling of the stiffnesses
 ***********************************************************************************************************************/
 void ImpedanceController::updateStiffness(Leg* leg, double scale_reference)
 {
   int leg_id = leg->getIDNumber();
-  int adjacent_leg_1_id = mod(leg_id-1, model_->getLegCount()); 
-  int adjacent_leg_2_id = mod(leg_id+1, model_->getLegCount());
+  int adjacent_leg_1_id = mod(leg_id - 1, model_->getLegCount());
+  int adjacent_leg_2_id = mod(leg_id + 1, model_->getLegCount());
   Leg* adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
   Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
 
-  //(X-1)+1 to change range from 0->1 to 1->multiplier
+  //(X-1)+1 to change range from 0->1 to 1->scaler
   double virtual_stiffness = params_->virtual_stiffness.current_value;
-  double swing_stiffness = virtual_stiffness*(scale_reference*(params_->swing_stiffness_scaler.data-1)+1);
-  double load_stiffness = virtual_stiffness*(scale_reference*(params_->load_stiffness_scaler.data-1)+1);
-  
+  double swing_stiffness = virtual_stiffness * (scale_reference * (params_->swing_stiffness_scaler.data - 1) + 1);
+  double load_stiffness = virtual_stiffness * (scale_reference * (params_->load_stiffness_scaler.data - 1) + 1);
+
   leg->setVirtualStiffness(swing_stiffness);
+  
   if (adjacent_leg_1->getLegState() != MANUAL)
   {
     adjacent_leg_1->setVirtualStiffness(load_stiffness);
@@ -111,12 +124,17 @@ void ImpedanceController::updateStiffness(Leg* leg, double scale_reference)
   }
 }
 
-/***********************************************************************************************************************
- * Scales virtual stiffness value of legs adjacent to swinging leg according to swing cycle percentage
- * Note: The reseting and addition of stiffness allows overlapping step cycles to JOINTLY add stiffness to
- * simultaneously adjacent legs
+/*******************************************************************************************************************//**
+ * Scales virtual stiffness of swinging leg and adjacent legs according to the walk cycle of the walk controller.
+ * The percentage vertical position difference of the swinging leg tip from it's default position is used as a reference
+ * value ranging from 0.0 (default tip height) to 1.0 (max swing height). This reference value defines the 
+ * characteristic of the curve as stiffness changes from the default stiffness (i.e. scaled by 1.0) to the swing/load
+ * stiffness (i.e. scaled by swing/load scaling value). The swing stiffness value is applied to the swinging leg and 
+ * load stiffness value applied to the two adjacent legs. The reseting and addition of stiffness allows overlapping 
+ * step cycles to JOINTLY add stiffness to simultaneously adjacent legs.
+ * @input[in] walker A pointer to the walk controller
 ***********************************************************************************************************************/
-void ImpedanceController::updateStiffness(WalkController *walker)
+void ImpedanceController::updateStiffness(WalkController* walker)
 {
   // Reset virtual Stiffness each cycle
   std::map<int, Leg*>::iterator leg_it;
@@ -138,15 +156,15 @@ void ImpedanceController::updateStiffness(WalkController *walker)
       step_reference += abs(z_diff / walker->getStepClearance());
 
       int leg_id = leg->getIDNumber();
-      int adjacent_leg_1_id = mod(leg_id-1,model_->getLegCount()); 
-      int adjacent_leg_2_id = mod(leg_id+1,model_->getLegCount());
+      int adjacent_leg_1_id = mod(leg_id - 1, model_->getLegCount());
+      int adjacent_leg_2_id = mod(leg_id + 1, model_->getLegCount());
       Leg* adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
       Leg* adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
-      
-      //(X-1)+1 to change range from 0->1 to 1->multiplier
+
+      //(X-1)+1 to change range from 0->1 to 1->scaler
       double virtual_stiffness = params_->virtual_stiffness.current_value;
-      double swing_stiffness = virtual_stiffness*(step_reference*(params_->swing_stiffness_scaler.data-1)+1);
-      double load_stiffness = virtual_stiffness*(step_reference*(params_->load_stiffness_scaler.data-1));
+      double swing_stiffness = virtual_stiffness * (step_reference * (params_->swing_stiffness_scaler.data - 1) + 1);
+      double load_stiffness = virtual_stiffness * (step_reference * (params_->load_stiffness_scaler.data - 1));
       double current_stiffness_1 = adjacent_leg_1->getVirtualStiffness();
       double current_stiffness_2 = adjacent_leg_2->getVirtualStiffness();
       leg->setVirtualStiffness(swing_stiffness);

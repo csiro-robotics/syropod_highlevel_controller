@@ -25,6 +25,8 @@
 #include "pose.h"
 #include "simple_hexapod_controller/legState.h"
 
+#define IK_TOLERANCE 0.01 // Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
+
 class Leg;
 class Joint;
 class Link;

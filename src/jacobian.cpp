@@ -1,10 +1,10 @@
 /*******************************************************************************************************************//**
- *  \file    jacobian.cpp
- *  \brief   Defines the generation of jacobians for various degrees of freedom.
+ *  @file    jacobian.cpp
+ *  @brief   Defines the generation of jacobians for various degrees of freedom.
  *
- *  \author Fletcher Talbot
- *  \date   June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -19,8 +19,9 @@
 
 #include "../include/simple_hexapod_controller/standard_includes.h"
 
-/***********************************************************************************************************************
- * Jacobian functions from DH parameters (derived analytically) (en.wikipedia.org/wiki/Denavit–Hartenberg_parameters)
+/*******************************************************************************************************************//**
+ * Generates a Jacobian matrix for a 1 degree of freedom leg from input DH parameters (derived analytically)
+ * @input[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
 ***********************************************************************************************************************/
 MatrixXd createJacobian1DOF(vector<map<string, double>> dh)
 {
@@ -36,7 +37,11 @@ MatrixXd createJacobian1DOF(vector<map<string, double>> dh)
   j(2,0) = 0.0;
   return j;
 }
-      
+
+/*******************************************************************************************************************//**
+ * Generates a Jacobian matrix for a 2 degree of freedom leg from input DH parameters (derived analytically)
+ * @input[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
+***********************************************************************************************************************/
 MatrixXd createJacobian2DOF(vector<map<string, double>> dh)
 {
   //double d1 = dh[0]["d"]; //Unused
@@ -61,6 +66,10 @@ MatrixXd createJacobian2DOF(vector<map<string, double>> dh)
   return j;
 }
 
+/*******************************************************************************************************************//**
+ * Generates a Jacobian matrix for a 3 degree of freedom leg from input DH parameters (derived analytically)
+ * @input[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
+***********************************************************************************************************************/
 MatrixXd createJacobian3DOF(vector<map<string, double>> dh)
 {
   //double d1 = dh[0]["d"]; //Unused
@@ -98,6 +107,10 @@ MatrixXd createJacobian3DOF(vector<map<string, double>> dh)
   return j;
 }
 
+/*******************************************************************************************************************//**
+ * Generates a Jacobian matrix for a 4 degree of freedom leg from input DH parameters (derived analytically)
+ * @input[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
+***********************************************************************************************************************/
 MatrixXd createJacobian4DOF(vector<map<string, double>> dh)
 {
   //double d1 = dh[0]["d"]; //Unused
@@ -183,6 +196,10 @@ MatrixXd createJacobian4DOF(vector<map<string, double>> dh)
   return j;
 }
 
+/*******************************************************************************************************************//**
+ * Generates a Jacobian matrix for a 5 degree of freedom leg from input DH parameters (derived analytically)
+ * @input[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
+***********************************************************************************************************************/
 MatrixXd createJacobian5DOF(vector<map<string, double>> dh)
 {
   //double d1 = dh[0]["d //Unused
@@ -448,6 +465,11 @@ MatrixXd createJacobian5DOF(vector<map<string, double>> dh)
   return j;
 }
 
+/*******************************************************************************************************************//**
+ * Generates a Jacobian matrix for a 6 degree of freedom leg from input DH parameters (derived analytically)
+ * @input[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
+ * @todo Develop analytical solution to generate Jacobian from dh parameters for 6 degrees of freedom
+***********************************************************************************************************************/
 MatrixXd createJacobian6DOF(vector<map<string, double>> dh) //TODO
 {
   //double d1 = dh[0]["d"];

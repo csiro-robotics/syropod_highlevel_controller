@@ -29,6 +29,9 @@
 #include "debug_output.h"
 #include "impedance_controller.h"
 
+#define MAX_MANUAL_LEGS 2 // Maximum number of legs able to be manually manipulated simultaneously
+#define PACK_TIME 2.0 // Joint transition time during pack/unpack sequences (seconds @ step frequency == 1.0)
+
 /*******************************************************************************************************************//**
  * This class creates and initialises all ros publishers/subscriptions; sub-controllers: Walk Controller,
  * Pose Controller and Impedance Controller; and the parameter handling struct. It handles all the ros publishing and
@@ -62,10 +65,7 @@ public:
   inline SystemState getSystemState(void) { return system_state_; };
   
   /** Returns true if all joint objects in model have been initialised with a current position */
-  inline bool jointPostionsInitialised(void) { return joint_positions_initialised_; };
-  
-  /** Resets the debug object */
-  inline void resetDebug(void) { debug_.reset(); };
+  inline bool jointPositionsInitialised(void) { return joint_positions_initialised_; };
   
   /** Initialises the model by calling the model object function initLegs() */
   inline void initModel(bool use_default_joint_positions = false) { model_->initLegs(use_default_joint_positions); };
@@ -382,12 +382,12 @@ private:
   ros::Subscriber tip_force_subscriber_BL_;           ///! Subscriber for topic "/BL_prs"
   ros::Subscriber tip_force_subscriber_AL_;           ///! Subscriber for topic "/AL_prs"
   
-  ros::Publisher desired_joint_state_publisher_;      //! Publisher for topic "/desired_joint_state"
-  ros::Publisher pose_publisher_;                     //! Publisher for topic "/pose"
-  ros::Publisher imu_data_publisher_;                 //! Publisher for topic "/imu_data"
-  ros::Publisher body_velocity_publisher_;            //! Publisher for topic "/body_velocity"
-  ros::Publisher rotation_pose_error_publisher_;      //! Publisher for topic "/rotation_pose_error"
-  ros::Publisher translation_pose_error_publisher_;   //! Publisher for topic "/translation_pose_error"
+  ros::Publisher desired_joint_state_publisher_;      ///! Publisher for topic "/desired_joint_state"
+  ros::Publisher pose_publisher_;                     ///! Publisher for topic "/pose"
+  ros::Publisher imu_data_publisher_;                 ///! Publisher for topic "/imu_data"
+  ros::Publisher body_velocity_publisher_;            ///! Publisher for topic "/body_velocity"
+  ros::Publisher rotation_pose_error_publisher_;      ///! Publisher for topic "/rotation_pose_error"
+  ros::Publisher translation_pose_error_publisher_;   ///! Publisher for topic "/translation_pose_error"
   
 	boost::recursive_mutex mutex_; ///! Mutex used in setup of dynamic reconfigure server
 	dynamic_reconfigure::Server<simple_hexapod_controller::DynamicConfig>* dynamic_reconfigure_server_;

@@ -162,7 +162,7 @@ void WalkController::init(void)
     min_half_stance_yaw_range = min(min_half_stance_yaw_range, half_stance_yaw_range);
   }
 
-  min_horizontal_range *= params_->leg_span.current_value;
+  //min_horizontal_range *= params_->leg_span.current_value; //TODO
 
   // Fitting largest circle within sector defined by yaw ranges and horizontal range
   workspace_radius_ = min_horizontal_range * sin(min_half_stance_yaw_range) / (1 + sin(min_half_stance_yaw_range));

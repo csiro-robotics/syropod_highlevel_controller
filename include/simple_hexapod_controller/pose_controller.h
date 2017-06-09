@@ -27,6 +27,14 @@
 #include "model.h"
 #include "walk_controller.h"
 
+#define JOINT_TOLERANCE 0.01 // Tolerance allowing assumption that joints are in correct position (rad)
+#define TIP_TOLERANCE 0.001 // Tolerance allowing assumption that tip is in correct position (m)
+#define SAFETY_FACTOR 0.15 // Joint limit safety factor (i.e. during sequence joints will initially leave 15% buffer)
+#define HORIZONTAL_TRANSITION_TIME 1.0 // Step time during horizontal transition (seconds @ step frequency == 1.0)
+#define VERTICAL_TRANSITION_TIME 3.0 // Body raise time during vertical transtion (seconds @ step frequency == 1.0)
+#define STABILITY_THRESHOLD 100 // Rotation correction magnitude threshold, ensuring imu posing PID is not unstable.
+#define TRANSITION_STEP_THRESHOLD 20 // Number of allowed transition steps before executeSequence() deemed a failure
+
 class AutoPoser;
 
 /*******************************************************************************************************************//**
@@ -250,7 +258,7 @@ public:
 private:
   Model* model_;       ///! Pointer to robot model object.
   ImuData imu_data_;   ///! Imu data structure.
-  Parameters* params_; ///! Parameter data structure for storing parameter variables.
+  Parameters* params_; ///! Pointer to parameter data structure for storing parameter variables.
   
   PoseResetMode pose_reset_mode_;         ///! Mode for controlling which posing axes to reset to zero.
   Vector3d translation_velocity_input_;   ///! Velocity input for controlling the translation component of manual pose.

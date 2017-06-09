@@ -31,8 +31,10 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   // Get parameters from parameter server and initialises parameter map
   initParameters();
 
-  // Initiate model and imu objects
+  // Create robot model
   model_ = new Model(&params_);
+
+  debug_.setTimeDelta(params_.time_delta.data);
 
   // Hexapod Remote topic subscriptions
   system_state_subscriber_            = n_.subscribe("hexapod_remote/system_state", 1,
@@ -794,8 +796,19 @@ void StateController::RVIZDebugging(bool static_display)
   angular_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
 
   debug_.updatePose(linear_velocity, angular_velocity, walker_->getBodyHeight());
-  debug_.drawRobot(model_);
-  debug_.drawPoints(model_, walker_, static_display);
+  debug_.generateRobotModel(model_);
+
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    Leg* leg = leg_it_->second;
+    debug_.generateTipTrajectory(leg, model_->getCurrentPose());
+    if (static_display && walker_->getWalkState() != STOPPED)
+    {
+      debug_.generateBezierCurves(leg);
+      debug_.generateWorkspace(leg, walker_);
+    }
+  }
+  debug_.resetMarkerID();
 }
 
 /*******************************************************************************************************************//**
@@ -1539,7 +1552,6 @@ void StateController::initParameters(void)
   params_.start_up_sequence.init(n_, "start_up_sequence");
   params_.time_to_start.init(n_, "time_to_start");
   params_.rotation_pid_gains.init(n_, "rotation_pid_gains");
-  params_.translation_pid_gains.init(n_, "translation_pid_gains");
   params_.max_translation.init(n_, "max_translation");
   params_.max_translation_velocity.init(n_, "max_translation_velocity");
   params_.max_rotation.init(n_, "max_rotation");
@@ -1586,7 +1598,7 @@ void StateController::initParameters(void)
       }
       else
       {
-        for (int i = 1; i < joint_count + 1; ++i)
+        for (uint i = 1; i < joint_count + 1; ++i)
         {
           string link_name = params_.link_id.data[i];
           string joint_name = params_.joint_id.data[i - 1];
