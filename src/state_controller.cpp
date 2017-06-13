@@ -661,15 +661,20 @@ void StateController::publishLegState(void)
     msg.leg_name.data = leg->getIDName().c_str();
     
     // Tip positions
-    msg.local_tip_position.x = leg->getCurrentTipPosition()[0];
-    msg.local_tip_position.y = leg->getCurrentTipPosition()[1];
-    msg.local_tip_position.z = leg->getCurrentTipPosition()[2];
-    msg.poser_tip_position.x = leg_poser->getCurrentTipPosition()[0];
-    msg.poser_tip_position.y = leg_poser->getCurrentTipPosition()[1];
-    msg.poser_tip_position.z = leg_poser->getCurrentTipPosition()[2];
     msg.walker_tip_position.x = leg_stepper->getCurrentTipPosition()[0];
     msg.walker_tip_position.y = leg_stepper->getCurrentTipPosition()[1];
     msg.walker_tip_position.z = leg_stepper->getCurrentTipPosition()[2];
+    msg.poser_tip_position.x = leg_poser->getCurrentTipPosition()[0];
+    msg.poser_tip_position.y = leg_poser->getCurrentTipPosition()[1];
+    msg.poser_tip_position.z = leg_poser->getCurrentTipPosition()[2];
+    msg.model_tip_position.x = leg->getCurrentTipPosition()[0];
+    msg.model_tip_position.y = leg->getCurrentTipPosition()[1];
+    msg.model_tip_position.z = leg->getCurrentTipPosition()[2];
+    
+    // Tip velocities
+    msg.model_tip_velocity.x = leg->getCurrentTipVelocity()[0];
+    msg.model_tip_velocity.y = leg->getCurrentTipVelocity()[1];
+    msg.model_tip_velocity.z = leg->getCurrentTipVelocity()[2];
 
     //Joint positions/velocities
     for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)

@@ -34,9 +34,9 @@ DebugOutput::DebugOutput(void)
 
 /*******************************************************************************************************************//**
  * Updates the odometry pose of the robot body from velocity inputs
- * @input[in] linear_body_velocity The linear velocity of the robot body in the x/y plane
- * @input[in] angular_body_velocity The angular velocity of the robot body
- * @input[in] height The desired height of the robot body above ground
+ * @param[in] linear_body_velocity The linear velocity of the robot body in the x/y plane
+ * @param[in] angular_body_velocity The angular velocity of the robot body
+ * @param[in] height The desired height of the robot body above ground
 ***********************************************************************************************************************/
 void DebugOutput::updatePose(Vector2d linear_body_velocity, double angular_body_velocity, double height)
 {
@@ -49,7 +49,7 @@ void DebugOutput::updatePose(Vector2d linear_body_velocity, double angular_body_
 /*******************************************************************************************************************//**
  * Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
  * linking the origin points of each joint and tip of each leg.
- * @input[in] model A pointer to the robot model object
+ * @param[in] model A pointer to the robot model object
 ***********************************************************************************************************************/
 void DebugOutput::generateRobotModel(Model* model)
 {
@@ -84,7 +84,7 @@ void DebugOutput::generateRobotModel(Model* model)
     leg_line_list.points.push_back(point);
 
     Joint* first_joint = leg->getJointContainer()->begin()->second;
-    Vector3d first_joint_position = pose.transformVector(first_joint->getPositionWorldFrame());
+    Vector3d first_joint_position = pose.transformVector(first_joint->getPositionRobotFrame());
     point.x = first_joint_position[0];
     point.y = first_joint_position[1];
     point.z = first_joint_position[2];
@@ -108,7 +108,7 @@ void DebugOutput::generateRobotModel(Model* model)
       leg_line_list.points.push_back(point);
       
       Joint* joint = joint_it->second;
-      Vector3d joint_position = pose.transformVector(joint->getPositionWorldFrame());
+      Vector3d joint_position = pose.transformVector(joint->getPositionRobotFrame());
       point.x = joint_position[0];
       point.y = joint_position[1];
       point.z = joint_position[2];
@@ -146,8 +146,8 @@ void DebugOutput::generateRobotModel(Model* model)
 
 /*******************************************************************************************************************//**
  * Publishes visualisation markers which represent the trajectory of the tip of the input leg.
- * @input[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
- * @input[in] current_pose The current pose of the body in the robot model - modifies the tip trajectory
+ * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+ * @param[in] current_pose The current pose of the body in the robot model - modifies the tip trajectory
 ***********************************************************************************************************************/
 void DebugOutput::generateTipTrajectory(Leg* leg, Pose current_pose)
 {
@@ -180,7 +180,7 @@ void DebugOutput::generateTipTrajectory(Leg* leg, Pose current_pose)
 /*******************************************************************************************************************//**
  * Publishes visualisation markers which represent the control nodes of the three bezier curves used to control tip 
  * trajectory of the input leg.
- * @input[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+ * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
 ***********************************************************************************************************************/
 void DebugOutput::generateBezierCurves(Leg* leg)
 {
@@ -264,8 +264,8 @@ void DebugOutput::generateBezierCurves(Leg* leg)
 /*******************************************************************************************************************//**
  * Publishes visualisation markers which represent the walking workspace of the input leg as well as the current 
  * requested stride length.
- * @input[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
- * @input[in] walker A pointer to the walk controller object
+ * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+ * @param[in] walker A pointer to the walk controller object
 ***********************************************************************************************************************/
 void DebugOutput::generateWorkspace(Leg* leg, WalkController* walker)
 {

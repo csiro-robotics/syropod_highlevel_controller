@@ -55,7 +55,7 @@ public:
    * Iterates through legs in the robot model and updates the vertical tip position offset value (delta_z) for each.
    * The calculation of delta_z is achieved through the use of a classical Runge-Kutta ODE solver with a force input
    * acquired from a tip force callback OR from a joint effort value.
-   * @input[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
+   * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
    * @todo Refactor the method of generating tip force from joint effort/s and method of determining effort direction.
    */
   void updateImpedance(bool use_joint_effort);
@@ -66,8 +66,8 @@ public:
    * from the default stiffness (i.e. scaled by 1.0) to the swing/load stiffness (i.e. scaled by swing/load scaling 
    * value). The swing stiffness value is applied to the swinging leg and load stiffness value applied to the two 
    * adjacent legs.
-   * @input[in] leg A pointer to the leg object associated with the stiffness value to be updated.
-   * @input[in] scale_reference A double ranging from 0.0->1.0 which controls the scaling of the stiffnesses
+   * @param[in] leg A pointer to the leg object associated with the stiffness value to be updated.
+   * @param[in] scale_reference A double ranging from 0.0->1.0 which controls the scaling of the stiffnesses
    */
   void updateStiffness(Leg*, double scale_reference);
   
@@ -79,7 +79,7 @@ public:
    * stiffness (i.e. scaled by swing/load scaling value). The swing stiffness value is applied to the swinging leg and 
    * load stiffness value applied to the two adjacent legs. The reseting and addition of stiffness allows overlapping 
    * step cycles to JOINTLY add stiffness to simultaneously adjacent legs.
-   * @input[in] walker A pointer to the walk controller
+   * @param[in] walker A pointer to the walk controller
    */
   void updateStiffness(WalkController *walker);
 

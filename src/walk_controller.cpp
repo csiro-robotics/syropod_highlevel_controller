@@ -19,10 +19,10 @@
 
 #include "../include/simple_hexapod_controller/walk_controller.h"
 
-/***********************************************************************************************************************
- * Determines the basic stance pose which the hexapod will try to maintain, by
- * finding the largest footprint radius that each leg can achieve for the
- * specified level of clearance.
+/*******************************************************************************************************************//**
+ * Constructor for the walk controller.
+ * @param[in] model A pointer to the robot model.
+ * @param[in] params A pointer to the parameter data structure
 ***********************************************************************************************************************/
 WalkController::WalkController(Model* model, Parameters* params)
   : model_(model)
@@ -32,8 +32,12 @@ WalkController::WalkController(Model* model, Parameters* params)
   init();
 }
 
-/***********************************************************************************************************************
- * Initialisation
+/*******************************************************************************************************************//**
+ * Initialises walk controller by calculating default walking stance tip positions and creating LegStepper objects for
+ * each leg. In this process calculates various ancilary variables such as workspace radius and maximum body height.
+ * @todo Redesign algorithm for generating default stance tip positions to work for all form factors 
+ * (iterative trial/error?)
+ * @todo Implement leg span scale parameter to change the 'width' of the stance.
 ***********************************************************************************************************************/
 void WalkController::init(void)
 {
@@ -63,7 +67,7 @@ void WalkController::init(void)
                                                                link->dh_parameter_r_,
                                                                link->dh_parameter_alpha_);
           Vector4d result = test_transform * Vector4d(0, 0, 0, 1);
-          if (result[2] < furthest_vertical_position)
+          if (result[2] < furthest_vertical_position) // Origin = zero therefore position results are negative.
           {
             furthest_vertical_position = result[2];
             optimal_angle = angle;
@@ -88,7 +92,7 @@ void WalkController::init(void)
   body_clearance_ = min(params_->body_clearance.current_value, maximum_body_height_);
 
   // Find workspace radius of tip on ground by finding maximum horizontal distance of each tip
-  // TBD Refactor - algorithm needs to be redesigned to work for all form factors
+  // TODO Refactor - algorithm needs to be redesigned to work for all form factors
   double min_horizontal_range = UNASSIGNED_VALUE;
   double min_half_stance_yaw_range = UNASSIGNED_VALUE;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -120,7 +124,7 @@ void WalkController::init(void)
       if (joint_twist_ != 0.0)
       {
         Tip* tip = leg->getTip();
-        Vector3d tip_position = tip->getPositionWorldFrame(true);
+        Vector3d tip_position = tip->getPositionRobotFrame(true);
         double distance_to_tip = joint->getPositionJointFrame(true, tip_position).norm();
         double joint_angle;
         double virtual_link_length;
@@ -217,12 +221,14 @@ void WalkController::init(void)
   setGaitParams(params_);
 }
 
-/***********************************************************************************************************************
- * Sets parameters associated with gait
+/*******************************************************************************************************************//**
+ * Calculates walk controller walk cycle parameters, normalising base parameters according to step frequency.
+ * Calculates max accelerations and speeds from scaled workspaces which accomodate overshoot.
+ * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-void WalkController::setGaitParams(Parameters* p)
+void WalkController::setGaitParams(Parameters* params)
 {
-  params_ = p;
+  params_ = params;
   stance_end_ = params_->stance_phase.data * 0.5;
   swing_start_ = stance_end_;
   swing_end_ = swing_start_ + params_->swing_phase.data;
@@ -305,9 +311,13 @@ void WalkController::setGaitParams(Parameters* p)
   max_angular_acceleration_ = max_acceleration / stance_radius_;
 }
 
-/***********************************************************************************************************************
- * Calculates body and stride velocities and uses velocities in body and leg state machines
- * to update tip positions and apply inverse kinematics
+/*******************************************************************************************************************//**
+ * Updates all legs in the walk cycle. Calculates stride vectors for all legs from robot body velocity inputs and calls
+ * trajectory update functions for each leg to update individual tip positions. Also manages the overall walk state via
+ * state machine and input velocities as well as the individual step state of each leg as they progress through stance
+ * amd swing states.
+ * @params[in] linear_velocity_input A vector input for the desired linear velocity of the robot body in the x/y plane.
+ * @params[in] angular_velocity_input An input for the desired angular velocity of the robot body about the z axis.
 ***********************************************************************************************************************/
 void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_velocity_input)
 {
@@ -510,11 +520,15 @@ void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_v
   }
 }
 
-/***********************************************************************************************************************
- * Calculates body and stride velocities and uses velocities in body and leg state machines
- * to update tip positions and apply inverse kinematics
+/*******************************************************************************************************************//**
+ * Updates the tip position for legs in the manual state from tip velocity inputs. Two modes are available: joint 
+ * control allows manipulation of joint positions directly but only works for 3DOF legs; tip control allows 
+ * manipulation of the tip in cartesian space in the robot frame.
+ * @params[in] primary_leg_selection_ID The designation of a leg selected (in the primary role) for manipulation.
+ * @params[in] primary_tip_velocity_input The velocity input to move the 1st leg tip position in the robot frame.
+ * @params[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
+ * @params[in] secondary_tip_velocity_input The velocity input to move the 2nd leg tip position in the robot frame.
 ***********************************************************************************************************************/
-
 void WalkController::updateManual(int primary_leg_selection_ID, Vector3d primary_tip_velocity_input,
                                   int secondary_leg_selection_ID, Vector3d secondary_tip_velocity_input)
 {
@@ -557,8 +571,11 @@ void WalkController::updateManual(int primary_leg_selection_ID, Vector3d primary
   }
 }
 
-/***********************************************************************************************************************
- * Leg stepper object constructor
+/*******************************************************************************************************************//**
+ * Leg stepper object constructor, initialises member variables from walk controller.
+ * @param[in] walker A pointer to the walk controller.
+ * @param[in] leg A pointer to the parent leg object.
+ * @param[in] identity_tip_position The default walking stance tip position about which the step cycle is based.
 ***********************************************************************************************************************/
 LegStepper::LegStepper(WalkController* walker, Leg* leg, Vector3d identity_tip_position)
   : walker_(walker)
@@ -579,7 +596,7 @@ LegStepper::LegStepper(WalkController* walker, Leg* leg, Vector3d identity_tip_p
   }
 };
 
-/***********************************************************************************************************************
+/*******************************************************************************************************************//**
  * Iterates the step phase and updates the progress variables
 ***********************************************************************************************************************/
 void LegStepper::iteratePhase(void)
@@ -606,12 +623,13 @@ void LegStepper::iteratePhase(void)
   }
 }
 
-/***********************************************************************************************************************
- * Updates position of tip using tri-quartic bezier curve tip trajectory engine. Calculates change in tip position using
- * the derivatives of three quartic bezier curves, two for swing phase and one for stance phase. Each Bezier curve uses
- * 5 control nodes designed specifically to give a C2 smooth trajectory for the entire step cycle.
+/*******************************************************************************************************************//**
+ * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in tip
+ * position using two bezier curves for swing phase and one for stance phase. Each Bezier curve uses 5 control nodes 
+ * designed specifically to give a C2 smooth trajectory for the entire step cycle. For stance, the derivative of the 
+ * bezier curve is used to ensure correct tip velocity in line with input body velocity commands.
 ***********************************************************************************************************************/
-void LegStepper::updatePosition()
+void LegStepper::updatePosition(void)
 {
   double step_frequency = walker_->getStepFrequency();
   double time_delta = walker_->getTimeDelta();
@@ -719,8 +737,10 @@ void LegStepper::updatePosition()
   }
 }
 
-/***********************************************************************************************************************
- * Generates control nodes for each quartic bezier curve of swing tip trajectory calculation
+/*******************************************************************************************************************//**
+ * Generates control nodes for each quartic bezier curve of swing tip trajectory calculation.
+ * @param[in] bezier_scaler Scaler used to normalise the distance between control nodes for stance/swing bezier curves
+ * which have differing delta time values.
 ***********************************************************************************************************************/
 void LegStepper::generateSwingControlNodes(double bezier_scaler)
 {
@@ -769,8 +789,9 @@ void LegStepper::generateSwingControlNodes(double bezier_scaler)
   swing_2_nodes_[4][2] = stance_nodes_[0][2];
 }
 
-/***********************************************************************************************************************
- * Generates control nodes for quartic bezier curve of stance tip trajectory calculation
+/*******************************************************************************************************************//**
+ * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.
+ * @param[in] stride_vector A vector defining the stride which the leg is to step as part of the step cycle trajectory.
 ***********************************************************************************************************************/
 void LegStepper::generateStanceControlNodes(Vector3d stride_vector)
 {

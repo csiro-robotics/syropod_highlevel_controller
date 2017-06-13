@@ -190,10 +190,10 @@ struct Parameter
 public:
   /**
    * Initialisation function which self populates parameter data from ros parameter server.
-   * @input[in] n Ros node handle to use to acquire data from ros parameter server
-   * @input[in] name_input The unique name of the parameter to look for on ros parameter server
-   * @input[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
-   * @input[in] required_input Bool denoting if this parameter is required to be initialised.
+   * @param[in] n Ros node handle to use to acquire data from ros parameter server
+   * @param[in] name_input The unique name of the parameter to look for on ros parameter server
+   * @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
+   * @param[in] required_input Bool denoting if this parameter is required to be initialised.
    */
   inline void init(ros::NodeHandle n, string name_input,
                    string base_parameter_name = "/hexapod/parameters/",
@@ -221,10 +221,10 @@ struct AdjustableParameter : public Parameter<map<string, double>>
 public:
   /**
     * Initialisation function which self populates parameter data from ros parameter server.
-    * @input[in] n Ros node handle to use to acquire data from ros parameter server
-    * @input[in] name_input The unique name of the parameter to look for on ros parameter server
-    * @input[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
-    * @input[in] required_input Bool denoting if this parameter is required to be initialised.
+    * @param[in] n Ros node handle to use to acquire data from ros parameter server
+    * @param[in] name_input The unique name of the parameter to look for on ros parameter server
+    * @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
+    * @param[in] required_input Bool denoting if this parameter is required to be initialised.
     */
   inline void init(ros::NodeHandle n, string name_input,
                     string base_parameter_name = "/hexapod/parameters/",

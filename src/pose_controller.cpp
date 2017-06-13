@@ -859,7 +859,7 @@ void PoseController::updateAutoPose(void)
   bool sync_with_step_cycle = (pose_frequency_ == -1.0);
   if (sync_with_step_cycle)
   {
-    master_phase = leg_stepper->getPhase();
+    master_phase = leg_stepper->getPhase() + 1; // Correction for calculating auto pose before iterating walk phase
   }
   else
   {
@@ -1104,16 +1104,18 @@ Pose AutoPoser::updatePose(int phase)
   }
 
   // Pose if in correct phase
-  if (phase >= start_phase && phase <= end_phase && allow_posing_)
+  if (phase >= start_phase && phase < end_phase && allow_posing_)
   {
-    int iteration = phase - start_phase;
+    int iteration = phase - start_phase + 1;
     int num_iterations = end_phase - start_phase;
 
     Vector3d zero(0.0, 0.0, 0.0);
     Vector3d position_control_nodes[5] = {zero, zero, zero, zero, zero};
     Vector3d rotation_control_nodes[5] = {zero, zero, zero, zero, zero};
+    
+    bool first_half = iteration <= num_iterations / 2; // Flag for 1st vs 2nd half of posing cycle
 
-    if (iteration <= num_iterations / 2)
+    if (first_half)
     {
       position_control_nodes[3] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
       position_control_nodes[4] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
@@ -1128,15 +1130,25 @@ Pose AutoPoser::updatePose(int phase)
       rotation_control_nodes[1] = Vector3d(roll_amplitude_, pitch_amplitude_, yaw_amplitude_);
     }
 
-    // Extra iteration required to keep continuity between time inputs. (i.e. time input = 0.0->1.0, 0.0->1.0)
-    double delta_t = 2.0 / num_iterations;
-    int extra_iteration = (iteration <= num_iterations / 2) ? 0 : 1;
-    double time_input = (iteration + extra_iteration) % (1 + num_iterations / 2) * delta_t;
+    double delta_t = 1.0 / (num_iterations / 2.0);
+    int offset = (first_half ? 0 : num_iterations / 2.0); // Offsets iteration count for second half of posing cycle
+    double time_input = (iteration - offset) * delta_t;
 
     Vector3d position = quarticBezier(position_control_nodes, time_input);
     Vector3d rotation = quarticBezier(rotation_control_nodes, time_input);
 
     return_pose = Pose(position, Quat(rotation));
+    
+    ROS_DEBUG_COND(false,
+                  "AUTOPOSE_DEBUG %d - ITERATION: %d\t\t"
+                  "TIME: %f\t\t"
+                  "ORIGIN: %f:%f:%f\t\t"
+                  "POS: %f:%f:%f\t\t"
+                  "TARGET: %f:%f:%f\n",
+                  id_number_, iteration, setPrecision(time_input, 3),
+                  position_control_nodes[0][0], position_control_nodes[0][1], position_control_nodes[0][2],
+                  position[0], position[1], position[2],
+                  position_control_nodes[4][0], position_control_nodes[4][1], position_control_nodes[4][2]);
   }
 
   return return_pose;
@@ -1403,8 +1415,10 @@ void LegPoser::updateAutoPose(int phase)
     Vector3d rotation_amplitude = poser_->getAutoPose().rotation_.toEulerAngles();
     Vector3d position_control_nodes[5] = {zero, zero, zero, zero, zero};
     Vector3d rotation_control_nodes[5] = {zero, zero, zero, zero, zero};
+    
+    bool first_half = iteration <= num_iterations / 2; // Flag for 1st vs 2nd half of posing cycle
 
-    if (iteration <= num_iterations / 2)
+    if (first_half)
     {
       position_control_nodes[2] = position_amplitude;
       position_control_nodes[3] = position_amplitude;
@@ -1423,9 +1437,9 @@ void LegPoser::updateAutoPose(int phase)
       rotation_control_nodes[2] = rotation_amplitude;
     }
 
-		double delta_t = 2.0 / num_iterations;
-    int extra_iteration = (iteration <= num_iterations / 2) ? 0 : 1;
-    double time_input = (iteration + extra_iteration) % (1 + num_iterations / 2) * delta_t;
+		double delta_t = 1.0 / (num_iterations / 2.0);
+    int offset = (first_half ? 0 : num_iterations / 2.0); // Offsets iteration count for second half of posing cycle
+    double time_input = (iteration - offset) * delta_t;
 
     Vector3d position = quarticBezier(position_control_nodes, time_input);
     Vector3d rotation = quarticBezier(rotation_control_nodes, time_input);
