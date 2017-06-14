@@ -1,12 +1,12 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H
 #define SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H
 /*******************************************************************************************************************//**
- *  \file    pose_controller.h
- *  \brief   Handles control of hexapod body posing. Part of simple hexapod controller.
+ *  @file    pose_controller.h
+ *  @brief   Handles control of hexapod body posing. Part of simple hexapod controller.
  *
- *  \author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  \date    June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -276,29 +276,29 @@ private:
   Pose impedance_pose_ ;  ///! Pose to correct impedance control based sagging, a component of total applied body pose.
   Pose default_pose_;     ///! Default pose calculated for different loading patterns
   
-  int transition_step_ = 0;                     ///! The current transition step in the sequence being executed
+  int transition_step_ = 0;                     ///! The current transition step in the sequence being executed.
   int transition_step_count_ = 0;               ///! The total number of transition steps in the sequence being executed
-  bool set_target_ = true;                      ///! Flags if the new tip target is to be calculated and set
-  bool proximity_alert_ = false;                ///! Flags if a joint has moved beyond the limit proximity buffer
-  bool horizontal_transition_complete_ = false; ///! Flags if the horizontal transition has completed without error
-  bool vertical_transition_complete_ = false;   ///! Flags if the vertical transition has completed without error
-  bool first_sequence_execution_ = true;        ///! Flags if the controller has executed its first sequence
-  bool reset_transition_sequence_ = true;       ///! Flags if the saved transition sequence needs to be regenerated  
-  int legs_ready_for_direct_ = 0;               ///! Number of legs ready for the direct startup sequence
+  bool set_target_ = true;                      ///! Flags if the new tip target is to be calculated and set.
+  bool proximity_alert_ = false;                ///! Flags if a joint has moved beyond the limit proximity buffer.
+  bool horizontal_transition_complete_ = false; ///! Flags if the horizontal transition has completed without error.
+  bool vertical_transition_complete_ = false;   ///! Flags if the vertical transition has completed without error.
+  bool first_sequence_execution_ = true;        ///! Flags if the controller has executed its first sequence.
+  bool reset_transition_sequence_ = true;       ///! Flags if the saved transition sequence needs to be regenerated.
+  int legs_ready_for_direct_ = 0;               ///! Number of legs ready for the direct startup sequence.
   
-  vector<AutoPoser*> auto_poser_container_;         ///! Object containing all Auto Poser objects
-  PosingState auto_posing_state_ = POSING_COMPLETE; ///! The state of auto posing
-  int pose_phase_ = 0;                              ///! The current phase used in auto posing if not synced to walk
-  double pose_frequency_ = 0.0;                     ///! The pose frequency used in determining auto pose phase length
-  int pose_phase_length_ = 0;                       ///! The phase length of the auto posing cycle
-  int normaliser_ = 1;                              ///! The value used to scale the base posing cycle start/end ratios
+  vector<AutoPoser*> auto_poser_container_;         ///! Object containing all Auto Poser objects.
+  PosingState auto_posing_state_ = POSING_COMPLETE; ///! The state of auto posing.
+  int pose_phase_ = 0;                              ///! The current phase used in auto posing if not synced to walk.
+  double pose_frequency_ = 0.0;                     ///! The pose frequency used in determining auto pose phase length.
+  int pose_phase_length_ = 0;                       ///! The phase length of the auto posing cycle.
+  int normaliser_ = 1;                              ///! The value used to scale the base posing cycle start/end ratios.
   
-  Vector3d rotation_absement_error_;  ///! Difference between current and desired rotation absement for IMU posing PID
-  Vector3d rotation_position_error_;  ///! Difference between current and desired rotation position for IMU posing PID
-  Vector3d rotation_velocity_error_;  ///! Difference between current and desired rotation velocity for IMU posing PID
+  Vector3d rotation_absement_error_;  ///! Difference between current and desired rotation absement for IMU posing PID.
+  Vector3d rotation_position_error_;  ///! Difference between current and desired rotation position for IMU posing PID.
+  Vector3d rotation_velocity_error_;  ///! Difference between current and desired rotation velocity for IMU posing PID.
   
-  map<int, Leg*>::iterator leg_it_;     ///! Leg iteration member variable used to minimise code
-  map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code
+  map<int, Leg*>::iterator leg_it_;     ///! Leg iteration member variable used to minimise code.
+  map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code.
 };
 
 /*******************************************************************************************************************//**
@@ -313,42 +313,42 @@ class AutoPoser
 public:
   /**
    * Auto poser contructor.
-   * @param[in] poser Pointer to the Pose Controller object
-   * @param[in] id Int defining the id number of the created Auto Poser object
+   * @param[in] poser Pointer to the Pose Controller object.
+   * @param[in] id Int defining the id number of the created Auto Poser object.
    */
   AutoPoser(PoseController* poser, int id);
   
-  /** Accessor for id number of Auto Poser object */
+  /** Accessor for id number of Auto Poser object. */
   inline int getIDNumber(void) { return id_number_; };
   
-  /** Returns true is Auto Poser is allowed to update its pose (i.e. has not completed posing) */
+  /** Returns true is Auto Poser is allowed to update its pose (i.e. has not completed posing). */
   inline bool isPosing(void) { return allow_posing_; };
   
-  /** Modifier for pose cycle start phase */
+  /** Modifier for pose cycle start phase. */
   inline void setStartPhase(int start_phase) { start_phase_ = start_phase; };
   
-  /** Modifier for pose cycle end  phase*/
+  /** Modifier for pose cycle end  phase. */
   inline void setEndPhase(int end_phase) { end_phase_ = end_phase; };
   
-  /** Modifier for amplitude of x axis component of linear translation in auto pose */
+  /** Modifier for amplitude of x axis component of linear translation in auto pose. */
   inline void setXAmplitude(double x) { x_amplitude_ = x; };
   
-  /** Modifier for amplitude of y axis component of linear translation in auto pose */
+  /** Modifier for amplitude of y axis component of linear translation in auto pose. */
   inline void setYAmplitude(double y) { y_amplitude_ = y; };
   
-  /** Modifier for amplitude of z axis component of linear translation in auto pose */
+  /** Modifier for amplitude of z axis component of linear translation in auto pose. */
   inline void setZAmplitude(double z) { z_amplitude_ = z; };
   
-  /** Modifier for amplitude of roll component of angular rotation in auto pose */
+  /** Modifier for amplitude of roll component of angular rotation in auto pose. */
   inline void setRollAmplitude(double roll) { roll_amplitude_ = roll; };
   
-  /** Modifier for amplitude of pitch component of angular rotation in auto pose */
+  /** Modifier for amplitude of pitch component of angular rotation in auto pose. */
   inline void setPitchAmplitude(double pitch) { pitch_amplitude_ = pitch; };
   
-  /** Modifier for amplitude of yaw component of angular rotation in auto pose */
+  /** Modifier for amplitude of yaw component of angular rotation in auto pose. */
   inline void setYawAmplitude(double yaw) { yaw_amplitude_ = yaw; };
   
-  /** Resets checks used for defining completion of auto posing cycle */
+  /** Resets checks used for defining completion of auto posing cycle. */
   inline void resetChecks(void) 
   { 
     start_check_ = false;
@@ -367,20 +367,20 @@ public:
   Pose updatePose(int phase);
   
 private:
-  PoseController* poser_;       ///! Pointer to pose controller object
-  int id_number_;               ///! Identification number of Auto Poser object
-  int start_phase_;             ///! Phase value denoting start of posing cycle
-  int end_phase_;               ///! Phase value denoting end of posing cycle
-  bool start_check_;            ///! Flag denoting if the posing cycle should start / has started
-  pair<bool, bool> end_check_;  ///! Pair of flags which together denote is the posing cycle should end / has ended
-  bool allow_posing_ = false;   ///! Flag denoting if the Auto Poser is allowed to continue updating the pose output
+  PoseController* poser_;       ///! Pointer to pose controller object.
+  int id_number_;               ///! Identification number of Auto Poser object.
+  int start_phase_;             ///! Phase value denoting start of posing cycle.
+  int end_phase_;               ///! Phase value denoting end of posing cycle.
+  bool start_check_;            ///! Flag denoting if the posing cycle should start / has started.
+  pair<bool, bool> end_check_;  ///! Pair of flags which together denote is the posing cycle should end / has ended.
+  bool allow_posing_ = false;   ///! Flag denoting if the Auto Poser is allowed to continue updating the pose output.
   
-  double x_amplitude_;      ///! Amplitude of x axis component of linear translation in auto pose
-  double y_amplitude_;      ///! Amplitude of y axis component of linear translation in auto pose
-  double z_amplitude_;      ///! Amplitude of z axis component of linear translation in auto pose
-  double roll_amplitude_;   ///! Amplitude of roll component of angular rotation in auto pose
-  double pitch_amplitude_;  ///! Amplitude of pitch component of angular rotation in auto pose
-  double yaw_amplitude_;    ///! Amplitude of yaw component of angular rotation in auto pose
+  double x_amplitude_;      ///! Amplitude of x axis component of linear translation in auto pose.
+  double y_amplitude_;      ///! Amplitude of y axis component of linear translation in auto pose.
+  double z_amplitude_;      ///! Amplitude of z axis component of linear translation in auto pose.
+  double roll_amplitude_;   ///! Amplitude of roll component of angular rotation in auto pose.
+  double pitch_amplitude_;  ///! Amplitude of pitch component of angular rotation in auto pose.
+  double yaw_amplitude_;    ///! Amplitude of yaw component of angular rotation in auto pose.
 };
 
 /*******************************************************************************************************************//**

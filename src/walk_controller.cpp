@@ -1,10 +1,10 @@
 /*******************************************************************************************************************//**
- *  \file    walk_controller.cpp
- *  \brief   Handles control of hexapod walking. Part of simple hexapod controller.
+ *  @file    walk_controller.cpp
+ *  @brief   Handles control of hexapod walking. Part of simple hexapod controller.
  *
- *  \author  Fletcher Talbot
- *  \date    June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -35,8 +35,7 @@ WalkController::WalkController(Model* model, Parameters* params)
 /*******************************************************************************************************************//**
  * Initialises walk controller by calculating default walking stance tip positions and creating LegStepper objects for
  * each leg. In this process calculates various ancilary variables such as workspace radius and maximum body height.
- * @todo Redesign algorithm for generating default stance tip positions to work for all form factors 
- * (iterative trial/error?)
+ * @todo Redesign algorithm for generating default stance tip positions to work for all form factors.
  * @todo Implement leg span scale parameter to change the 'width' of the stance.
 ***********************************************************************************************************************/
 void WalkController::init(void)
@@ -315,8 +314,8 @@ void WalkController::setGaitParams(Parameters* params)
  * Updates all legs in the walk cycle. Calculates stride vectors for all legs from robot body velocity inputs and calls
  * trajectory update functions for each leg to update individual tip positions. Also manages the overall walk state via
  * state machine and input velocities as well as the individual step state of each leg as they progress through stance
- * amd swing states.
- * @params[in] linear_velocity_input A vector input for the desired linear velocity of the robot body in the x/y plane.
+ * and swing states.
+ * @params[in] linear_velocity_input An input for the desired linear velocity of the robot body in the x/y plane.
  * @params[in] angular_velocity_input An input for the desired angular velocity of the robot body about the z axis.
 ***********************************************************************************************************************/
 void WalkController::updateWalk(Vector2d linear_velocity_input, double angular_velocity_input)

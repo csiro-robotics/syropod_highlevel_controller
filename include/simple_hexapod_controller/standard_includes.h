@@ -1,12 +1,12 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_STANDARD_INCLUDES_H
 #define SIMPLE_HEXAPOD_CONTROLLER_STANDARD_INCLUDES_H
 /*******************************************************************************************************************//**
- *  \file    standard_includes.h
- *  \brief   Collection of standard libaries and common functions. Part of simple hexapod controller.
+ *  @file    standard_includes.h
+ *  @brief   Collection of standard libaries and common functions. Part of simple hexapod controller.
  *
- *  \author Fletcher Talbot
- *  \date   June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -28,6 +28,7 @@
 #include <simple_hexapod_controller/DynamicConfig.h>
 
 #include <tf/transform_broadcaster.h>
+#include <tf2/transform_datatypes.h>
 
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int8.h>
@@ -58,76 +59,46 @@ using namespace Eigen;
 using namespace std;
 using namespace std_msgs;
 
-/***********************************************************************************************************************
- * Math helper functions
-***********************************************************************************************************************/
-
-// Performs the modulo operation with adherence to Euclidean division
+/**
+ * Performs the modulo operation with adherence to Euclidean division.
+ * @param[in] a The dividend for the operation.
+ * @param[in] b The divisor for the operation.
+ */
 template <class T>
 inline T mod(const T &a, const T &b) { return (a % b + b) % b; };
 
+/**
+ * Performs the square operation.
+ * @param[in] val The value to be squared.
+ */
 template <class T>
 inline T sqr(const T &val) { return val * val; };
 
+/**
+ * Returns 1 or -1 depending on the sign of the input.
+ * @param[in] val The input value.
+ */
 template <class T>
 inline T sign(const T &val) { return (val > 0 ? 1 : -1); };
 
+/**
+ * Rounds the input number to the nearest integer.
+ * @param[in] x The input number.
+ */
 inline int roundToInt(double x) { return (x >= 0 ? int(x + 0.5) : -int(0.5 - x)); };
 
+/**
+ * Rounds the input number to the nearest EVEN integer.
+ * @param[in] x The input number.
+ */
 inline int roundToEvenInt(double x) { return (int(x) % 2 == 0 ? int(x) : int(x) + 1); };
 
-inline double random(double min, double max) { return (min + (max - min) * (double(rand()) / double(RAND_MAX))); };
-
-inline Vector3d absVector(const Vector3d &a) { return Vector3d(abs(a[0]), abs(a[1]), abs(a[2])); };
-
-// Returns mean of elements in the list
-template <class T>
-inline T mean(const vector<T> &list)
-{
-  ROS_ASSERT(list.size() > 0);
-  T result = list[0];
-  for (unsigned int i = 1; i < list.size(); i++)
-  {
-    result += list[i];
-  }
-  result /= double(list.size());
-  return result;
-}
-
-// Returns median of elements in the list (For even number of elements, returns the mean of the two medians)
-template <class T>
-inline T median(vector<T> list)
-{
-  typename vector<T>::iterator first = list.begin();
-  typename vector<T>::iterator last = list.end();
-  typename vector<T>::iterator middle = first + ((last - first) / 2);
-  nth_element(first, middle, last);  // can specify comparator as optional 4th arg
-  if (list.size() % 2) // odd
-  {
-    return *middle;
-  }
-  else
-  {
-    typename vector<T>::iterator middle2 = middle + 1;
-    nth_element(first, middle2, last);
-    return (*middle + *middle2) / 2.0;
-  }
-}
-
-/***********************************************************************************************************************
- * Min/Max clamping functions
-***********************************************************************************************************************/
-
-inline Vector3d maxVector(const Vector3d &a, const Vector3d &b)
-{
-  return Vector3d(max(a[0], b[0]), max(a[1], b[1]), max(a[2], b[2]));
-}
-
-inline Vector3d minVector(const Vector3d &a, const Vector3d &b)
-{
-  return Vector3d(min(a[0], b[0]), min(a[1], b[1]), min(a[2], b[2]));
-}
-
+/**
+ * Returns the input value 'clamped' within min and max limits.
+ * @param[in] value The input value.
+ * @param[in] min_value The minimum limit.
+ * @param[in] max_value The maximum limit.
+ */
 template <class T>
 inline T clamped(const T &value, const T &min_value, const T &max_value)
 {
@@ -135,35 +106,46 @@ inline T clamped(const T &value, const T &min_value, const T &max_value)
   return max(min_value, min(value, max_value));
 }
 
+/**
+ * Returns the input vector scaled such that the magnitude does not exceed the input magnitude.
+ * @param[in] value The input vector.
+ * @param[in] magnitude The maximum magnitude.
+ */
 template <class T>
 inline T clamped(const T &value, double magnitude)
 {
-  double mag_sqr = value.norm();
-  if (mag_sqr > magnitude)
-    return value * (magnitude / mag_sqr);
-  return value;
+  return value.norm() > magnitude ? (value * (magnitude / value.norm())) : value;
 }
 
-/***********************************************************************************************************************
- * Formating functions
-***********************************************************************************************************************/
-
+/**
+ * Returns the input value with a precision defined by the precision input. (Eg: 1.00001 @ precision = 3 -> 1.000)
+ * @param[in] value The input value.
+ * @param[in] precision The required precision.
+ */
 inline double setPrecision(double value, int precision)
 {
-  double return_value = roundToInt(value*pow(10, precision))/pow(10, precision);
-  return return_value;
+  return roundToInt(value*pow(10, precision))/pow(10, precision);
 }
 
+/**
+ * Returns a string representation of the input value.
+ * @param[in] number The input value.
+ */
 template <typename T>
-inline std::string numberToString ( T number )
+inline string numberToString ( T number )
 {
   ostringstream ss;
   ss << number;
   return ss.str();
 }
 
+/**
+ * Returns a string formatted using the same input arguments as rosconsole.
+ * @param[in] format The input string.
+ * @param[in] args The list of arguments to populate the format string.
+ */
 template<typename ... Args>
-inline string stringFormat( const std::string& format, Args ... args )
+inline string stringFormat( const string& format, Args ... args )
 {
   size_t size = snprintf( nullptr, 0, format.c_str(), args ... ) + 1; // Extra space for '\0'
   unique_ptr<char[]> buf( new char[ size ] ); 
@@ -171,11 +153,12 @@ inline string stringFormat( const std::string& format, Args ... args )
   return string( buf.get(), buf.get() + size - 1 ); // We don't want the '\0' inside
 }
 
-/***********************************************************************************************************************
- * Bezier curve functions
-***********************************************************************************************************************/
-
-// 3rd order bezier curve function
+/**
+ * Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input 
+ * control nodes.
+ * @param[in] points An array of control node vectors.
+ * @param[in] t A time input from 0.0 to 1.0.
+ */
 template <class T>
 inline T cubicBezier(T *points, double t) 
 {
@@ -184,7 +167,12 @@ inline T cubicBezier(T *points, double t)
          points[3] * (t * t * t);
 }
 
-// Derivative of 3rd order bezier curve function
+/**
+ * Returns a vector representing a 3d point at a given time input along the derivative of a 3rd order bezier curve 
+ * defined by input control nodes.
+ * @param[in] points An array of control node vectors.
+ * @param[in] t A time input from 0.0 to 1.0.
+ */
 template <class T>
 inline T cubicBezierDot(T *points, double t)
 {
@@ -193,7 +181,12 @@ inline T cubicBezierDot(T *points, double t)
           3 * t * t * (points[3] - points[2]));
 }
 
-// 4th order bezier curve function
+/**
+ * Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input 
+ * control nodes.
+ * @param[in] points An array of control node vectors.
+ * @param[in] t A time input from 0.0 to 1.0.
+ */
 template <class T>
 inline T quarticBezier(T *points, double t)
 {
@@ -202,7 +195,12 @@ inline T quarticBezier(T *points, double t)
          points[3] * (4.0 * t * t * t * s) + points[4] * (t * t * t * t);
 }
 
-// Derivative of 4th order bezier curve function
+/**
+ * Returns a vector representing a 3d point at a given time input along the derivative of a 4th order bezier curve 
+ * defined by input control nodes.
+ * @param[in] points An array of control node vectors.
+ * @param[in] t A time input from 0.0 to 1.0.
+ */
 template <class T>
 inline T quarticBezierDot(T *points, double t)
 {
@@ -211,9 +209,13 @@ inline T quarticBezierDot(T *points, double t)
           12.0 * s * t * t * (points[3] - points[2]) + 4.0 * t * t * t * (points[4] - points[3]));
 }
 
-/***********************************************************************************************************************
- * DH Matrix generation
-***********************************************************************************************************************/
+/**
+ * Generates a classical Denavit–Hartenberg (DH) matrix from DH parameters.
+ * @param[in] d The DH parameter representing offset along previous z-axis to the common normal.
+ * @param[in] theta The DH parameter representing angle about previous z axis, from old x-axis to new x-axis.
+ * @param[in] r The DH parameter representing length of the common normal.
+ * @param[in] alpha The DH parameter representing angle about common normal, form old z-axis to new z-axis.
+ */
 inline Matrix4d createDHMatrix(double d, double theta, double r, double alpha)
 {
   Matrix4d m;
@@ -224,14 +226,41 @@ inline Matrix4d createDHMatrix(double d, double theta, double r, double alpha)
   return m;
 }
 
-/***********************************************************************************************************************
- * Jacobian function declarations (see jacobian.cpp for definitions)
-***********************************************************************************************************************/
+/**
+ * Generates a Jacobian for a single degree of freedom system from DH parameters.
+ * @param[in] dh A vector of DH parameters for each joint in the system.
+ */
 MatrixXd createJacobian1DOF(vector<map<string, double>> dh);
+
+/**
+ * Generates a Jacobian for 2 degree of freedom system from DH parameters.
+ * @param[in] dh A vector of DH parameters for each joint in the system.
+ */
 MatrixXd createJacobian2DOF(vector<map<string, double>> dh);
+
+/**
+ * Generates a Jacobian for 3 degree of freedom system from DH parameters.
+ * @param[in] dh A vector of DH parameters for each joint in the system.
+ */
 MatrixXd createJacobian3DOF(vector<map<string, double>> dh);
+
+/**
+ * Generates a Jacobian for 4 degree of freedom system from DH parameters.
+ * @param[in] dh A vector of DH parameters for each joint in the system.
+ */
 MatrixXd createJacobian4DOF(vector<map<string, double>> dh);
+
+/**
+ * Generates a Jacobian for 5 degree of freedom system from DH parameters.
+ * @param[in] dh A vector of DH parameters for each joint in the system.
+ */
 MatrixXd createJacobian5DOF(vector<map<string, double>> dh);
+
+/**
+ * Generates a Jacobian for 6 degree of freedom system from DH parameters.
+ * @param[in] dh A vector of DH parameters for each joint in the system.
+ * @todo Create definition for this function.
+ */
 MatrixXd createJacobian6DOF(vector<map<string, double>> dh);
 
 /***********************************************************************************************************************

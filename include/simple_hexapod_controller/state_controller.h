@@ -1,12 +1,12 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H
 #define SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H
 /*******************************************************************************************************************//**
- *  \file    state_controller.h
- *  \brief   Top level controller that handles state of hexapod. Part of simple hexapod controller.
+ *  @file    state_controller.h
+ *  @brief   Top level controller that handles state of hexapod. Part of simple hexapod controller.
  *
- *  \author Fletcher Talbot (fletcher.talbot@csiro.au)
- *  \date   June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies

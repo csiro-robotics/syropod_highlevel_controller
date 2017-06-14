@@ -1,12 +1,12 @@
 #ifndef SIMPLE_HEXAPOD_CONTROLLER_POSE_H
 #define SIMPLE_HEXAPOD_CONTROLLER_POSE_H
 /*******************************************************************************************************************//**
- *  \file    pose.h
- *  \brief   Custom class definition of hexapod pose. Part of simple hexapod controller.
+ *  @file    pose.h
+ *  @brief   Custom class definition of hexapod pose. Part of simple hexapod controller.
  *
- *  \author Fletcher Talbot
- *  \date   June 2017
- *  \version 0.5.0
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -60,6 +60,8 @@ public:
     Vector3d position_;
     Quat rotation_;
 };
+
+
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
