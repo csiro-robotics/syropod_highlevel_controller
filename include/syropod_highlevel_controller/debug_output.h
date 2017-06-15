@@ -1,8 +1,8 @@
-#ifndef SIMPLE_HEXAPOD_CONTROLLER_DEBUG_OUTPUT_H
-#define SIMPLE_HEXAPOD_CONTROLLER_DEBUG_OUTPUT_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_DEBUG_OUTPUT_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_DEBUG_OUTPUT_H
 /*******************************************************************************************************************//**
  *  @file    debug_output.h
- *  @brief   Handles publishing of hexapod info for debugging in RVIZ. Part of simple hexapod controller.
+ *  @brief   Handles publishing of Syropod model info for debugging in RVIZ.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -95,4 +95,4 @@ private:
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SIMPLE_HEXAPOD_CONTROLLER_DEBUG_OUTPUT_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_DEBUG_OUTPUT_H */

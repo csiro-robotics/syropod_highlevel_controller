@@ -1,6 +1,6 @@
 /*******************************************************************************************************************//**
  *  @file    main.cpp
- *  @brief   Top level file of simple hexapod controller.
+ *  @brief   Top level file of Syropod High-Level Controller (SHC).
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -17,7 +17,7 @@
  *
 ***********************************************************************************************************************/
 
-#include "simple_hexapod_controller/state_controller.h"
+#include "syropod_highlevel_controller/state_controller.h"
 
 #define ACQUISTION_TIME 10 // Max time controller will wait to acquire intitial joint states (seconds)
 
@@ -28,7 +28,7 @@
 ***********************************************************************************************************************/
 int main(int argc, char* argv[])
 {
-  ros::init(argc, argv, "simple_hexapod_controller");
+  ros::init(argc, argv, "syropod_highlevel_controller");
   ros::NodeHandle n;
   ros::NodeHandle n_priv("~");
 

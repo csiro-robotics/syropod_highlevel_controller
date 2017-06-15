@@ -1,6 +1,6 @@
 /*******************************************************************************************************************//**
  *  @file    impedance_controller.cpp
- *  @brief   Impedance controller. Part of simple hexapod controller.
+ *  @brief   Handles executiong of the impedance controller.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -17,7 +17,7 @@
  *
 ***********************************************************************************************************************/
 
-#include "../include/simple_hexapod_controller/impedance_controller.h"
+#include "../include/syropod_highlevel_controller/impedance_controller.h"
 
 /*******************************************************************************************************************//**
  * ImpedanceController class constructor. Assigns pointers to robot model object and parameter data storage object and

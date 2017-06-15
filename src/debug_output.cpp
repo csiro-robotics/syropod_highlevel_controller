@@ -1,6 +1,6 @@
 /*******************************************************************************************************************//**
  *  @file    debug_output.cpp
- *  @brief   Handles publishing of hexapod info for debugging in RVIZ. Part of simple hexapod controller.
+ *  @brief   Handles publishing of Syropod model info for debugging in RVIZ.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -17,7 +17,7 @@
  *
 ***********************************************************************************************************************/
 
-#include "simple_hexapod_controller/debug_output.h"
+#include "syropod_highlevel_controller/debug_output.h"
 
 /*******************************************************************************************************************//**
  * Constructor for debug output class. Sets up publishers for the visualisation markers and initialises odometry.

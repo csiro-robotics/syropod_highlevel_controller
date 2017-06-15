@@ -1,6 +1,6 @@
 /*******************************************************************************************************************//**
  *  @file    state_controller.cpp
- *  @brief   Top level controller that handles state of hexapod. Part of simple hexapod controller.
+ *  @brief   Top level controller that handles state of Syropod.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -17,7 +17,7 @@
  *
 ***********************************************************************************************************************/
  
-#include "simple_hexapod_controller/state_controller.h"
+#include "syropod_highlevel_controller/state_controller.h"
 
 /*******************************************************************************************************************//**
  * StateController class constructor. Initialises parameters, creates robot model object, sets up ros topic
@@ -104,7 +104,7 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   {
     Leg* leg = leg_it_->second;
     string topic_name = node_name + "/" + leg->getIDName() + "/state";
-    leg->setStatePublisher(n_.advertise<simple_hexapod_controller::legState>(topic_name, 1000));
+    leg->setStatePublisher(n_.advertise<syropod_highlevel_controller::legState>(topic_name, 1000));
     leg->setASCStatePublisher(n_.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); //TODO
 
     // If debugging in gazebo, setup joint command publishers
@@ -113,7 +113,7 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
         Joint* joint = joint_it_->second;
-        joint->desired_position_publisher_ = n_.advertise<Float64>("/hexapod/" + joint->id_name_ + "/command", 1000);
+        joint->desired_position_publisher_ = n_.advertise<Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
       }
     }
   }
@@ -188,7 +188,7 @@ void StateController::loop(void)
     }
   }
 
-  // Hexapod state machine
+  // Syropod state machine
   if (transition_state_flag_)
   {
     transitionSystemState();
@@ -226,47 +226,47 @@ void StateController::transitionSystemState(void)
       legs_ready += int(joints_ready == leg->getJointCount());
     }
 
-    // Hexapod estimated to be in PACKED state
+    // Syropod estimated to be in PACKED state
     if (legs_packed == model_->getLegCount())
     {
       if (!params_.start_up_sequence.data)
       {
-        ROS_FATAL("\nHexapod currently in packed state and cannot run direct startup sequence.\n"
-                  "Either manually unpack hexapod or set start_up_sequence to true in config file\n");
+        ROS_FATAL("\nSyropod currently in packed state and cannot run direct startup sequence.\n"
+                  "Either manually unpack Syropod or set start_up_sequence to true in config file\n");
         //ros::shutdown();
       }
       else
       {
         robot_state_ = PACKED;
-        ROS_INFO("\nHexapod currently in PACKED state.\n");
+        ROS_INFO("\nSyropod currently in PACKED state.\n");
       }
     }
-    // Hexapod estimated to be in READY state
+    // Syropod estimated to be in READY state
     if (legs_ready == model_->getLegCount())
     {
       if (!params_.start_up_sequence.data)
       {
         robot_state_ = OFF;
-        ROS_INFO("Hexapod is ready for direct transition to RUNNING state.");
+        ROS_INFO("Syropod is ready for direct transition to RUNNING state.");
       }
       else
       {
         robot_state_ = READY;
-        ROS_INFO("\nHexapod currently in READY state.\n");
+        ROS_INFO("\nSyropod currently in READY state.\n");
       }
     }    
-    // Hexapod state unknown
+    // Syropod state unknown
     else if (!params_.start_up_sequence.data)
     {
       robot_state_ = OFF;
       ROS_WARN("\nstart_up_sequence parameter is set to false, "
-               "ensure hexapod is off the ground and joints are within limits before transitioning system state.\n");
+               "ensure Syropod is off the ground and joints are within limits before transitioning system state.\n");
     }
     else
     {
       robot_state_ = PACKED;
-      ROS_WARN("\nHexapod state is unknown. Future state transitions may be undesireable, "
-               "recommend ensuring hexapod is off the ground before proceeding.\n");
+      ROS_WARN("\nSyropod state is unknown. Future state transitions may be undesireable, "
+               "recommend ensuring Syropod is off the ground before proceeding.\n");
     }
     new_robot_state_ = robot_state_;
   }
@@ -274,7 +274,7 @@ void StateController::transitionSystemState(void)
   else if (robot_state_ == OFF && new_robot_state_ == RUNNING && !params_.start_up_sequence.data)
   {
     int progress = poser_->directStartup();
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning directly to RUNNING state (%d%%). . .\n", progress);
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning directly to RUNNING state (%d%%). . .\n", progress);
     if (progress == PROGRESS_COMPLETE)
     {
       robot_state_ = RUNNING;
@@ -285,29 +285,29 @@ void StateController::transitionSystemState(void)
   else if (robot_state_ == RUNNING && new_robot_state_ == OFF && !params_.start_up_sequence.data)
   {
     transition_state_flag_ = false;
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod cannot transition from RUNNING state."
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod cannot transition from RUNNING state."
                       " Set start_up_sequence parameter true to enable that functionality.\n");
   }
-  // PACKED -> READY (Unpack Hexapod)
+  // PACKED -> READY (Unpack Syropod)
   else if (robot_state_ == PACKED && new_robot_state_ == READY)
   {
     int progress = poser_->unpackLegs(PACK_TIME / params_.step_frequency.current_value);
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to READY state (%d%%). . .\n", progress);
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning to READY state (%d%%). . .\n", progress);
     if (progress == PROGRESS_COMPLETE)
     {
       robot_state_ = READY;
-      ROS_INFO("\nState transition complete. Hexapod is in READY state.\n");
+      ROS_INFO("\nState transition complete. Syropod is in READY state.\n");
     }
   }
-  // READY -> PACKED (Pack Hexapod)
+  // READY -> PACKED (Pack Syropod)
   else if (robot_state_ == READY && new_robot_state_ == PACKED)
   {
     int progress = poser_->packLegs(PACK_TIME / params_.step_frequency.current_value);
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to PACKED state (%d%%). . .\n", progress);
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning to PACKED state (%d%%). . .\n", progress);
     if (progress == PROGRESS_COMPLETE)
     {
       robot_state_ = PACKED;
-      ROS_INFO("\nState transition complete. Hexapod is in PACKED state.\n");
+      ROS_INFO("\nState transition complete. Syropod is in PACKED state.\n");
     }
   }
   // READY -> RUNNING (Initate start up sequence to step to walking stance)
@@ -315,11 +315,11 @@ void StateController::transitionSystemState(void)
   {
     int progress = poser_->executeSequence(START_UP);
     string progress_string = (progress == -1 ? "Generating Sequence" : (numberToString(progress) + "%"));
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to RUNNING state (%s). . .\n", progress_string.c_str());
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning to RUNNING state (%s). . .\n", progress_string.c_str());
     if (progress == PROGRESS_COMPLETE)
     {
       robot_state_ = RUNNING;
-      ROS_INFO("\nState transition complete. Hexapod is in RUNNING state. Ready to walk.\n");
+      ROS_INFO("\nState transition complete. Syropod is in RUNNING state. Ready to walk.\n");
     }
   }
   // RUNNING -> READY (Initiate shut down sequence to step from walking stance to ready stance)
@@ -340,11 +340,11 @@ void StateController::transitionSystemState(void)
     else
     {
       int progress = poser_->executeSequence(SHUT_DOWN);
-      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nHexapod transitioning to READY state (%d%%). . .\n", progress);
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning to READY state (%d%%). . .\n", progress);
       if (progress == PROGRESS_COMPLETE)
       {
         robot_state_ = READY;
-        ROS_INFO("\nState transition complete. Hexapod is in READY state.\n");
+        ROS_INFO("\nState transition complete. Syropod is in READY state.\n");
       }
     }
   }
@@ -391,8 +391,8 @@ void StateController::runningState(void)
     angular_velocity_input_ = angular_cruise_velocity_;
   }
 
-  // Update tip positions unless hexapod is undergoing gait switch, parameter adjustment or leg state transition
-  // (which all only occur once the hexapod has stopped walking)
+  // Update tip positions unless Syropod is undergoing gait switch, parameter adjustment or leg state transition
+  // (which all only occur once the Syropod has stopped walking)
   if (!((gait_change_flag_ || parameter_adjust_flag_ || toggle_primary_leg_state_ || toggle_secondary_leg_state_) &&
       walker_->getWalkState() == STOPPED))
   {
@@ -452,12 +452,12 @@ void StateController::adjustParameter(void)
       }
     }
   }
-  // Force hexapod to stop walking
+  // Force Syropod to stop walking
   else
   {
     linear_velocity_input_ = Vector2d(0.0, 0.0);
     angular_velocity_input_ = 0.0;
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping hexapod to adjust parameters . . .\n");
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to adjust parameters . . .\n");
   }
 }
 
@@ -483,12 +483,12 @@ void StateController::changeGait(void)
     gait_change_flag_ = false;
     ROS_INFO("\nNow using %s mode.\n", params_.gait_type.data.c_str());
   }
-  // Force hexapod to stop walking
+  // Force Syropod to stop walking
   else
   {
     linear_velocity_input_ = Vector2d(0.0, 0.0);
     angular_velocity_input_ = 0.0;
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping hexapod to change gait . . .\n");
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to change gait . . .\n");
   }
 }
 
@@ -594,10 +594,10 @@ void StateController::legStateToggle(void)
       }
     }
   }
-  // Force hexapod to stop walking
+  // Force Syropod to stop walking
   else
   {
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping hexapod to transition leg state . . .\n");
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to transition leg state . . .\n");
     linear_velocity_input_ = Vector2d(0.0, 0.0);
     angular_velocity_input_ = 0.0;
   }
@@ -653,7 +653,7 @@ void StateController::publishLegState(void)
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    simple_hexapod_controller::legState msg;
+    syropod_highlevel_controller::legState msg;
     Leg* leg = leg_it_->second;
     LegStepper* leg_stepper = leg->getLegStepper();
     LegPoser* leg_poser = leg->getLegPoser();
@@ -1233,7 +1233,7 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
  * @param[in] level Unused
  * @see config/dynamic_parameter.cfg
 ***********************************************************************************************************************/
-void StateController::dynamicParameterCallback(simple_hexapod_controller::DynamicConfig& config, uint32_t level)
+void StateController::dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig& config, uint32_t level)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1535,7 +1535,7 @@ void StateController::initParameters(void)
   params_.combined_control_interface.init(n_, "combined_control_interface");
   params_.imu_rotation_offset.init(n_, "imu_rotation_offset");
   // Model parameters
-  params_.hexapod_type.init(n_, "hexapod_type");
+  params_.syropod_type.init(n_, "syropod_type");
   params_.leg_id.init(n_, "leg_id");
   params_.joint_id.init(n_, "joint_id");
   params_.link_id.init(n_, "link_id");
@@ -1627,13 +1627,13 @@ void StateController::initParameters(void)
   params_.adjustable_map.insert(AdjustableMapType::value_type(FORCE_GAIN, &params_.force_gain));
 
   // Dynamic reconfigure server and callback setup
-  dynamic_reconfigure_server_ = new dynamic_reconfigure::Server<simple_hexapod_controller::DynamicConfig>(mutex_);
-  dynamic_reconfigure::Server<simple_hexapod_controller::DynamicConfig>::CallbackType callback_type;
+  dynamic_reconfigure_server_ = new dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>(mutex_);
+  dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>::CallbackType callback_type;
   callback_type = boost::bind(&StateController::dynamicParameterCallback, this, _1, _2);
   dynamic_reconfigure_server_->setCallback(callback_type);
 
   // Set min/max/default values for dynamic reconfigure server
-  simple_hexapod_controller::DynamicConfig config_max, config_min, config_default;
+  syropod_highlevel_controller::DynamicConfig config_max, config_min, config_default;
   config_max.step_frequency = params_.step_frequency.max_value;
   config_min.step_frequency = params_.step_frequency.min_value;
   config_default.step_frequency = params_.step_frequency.default_value;
@@ -1693,7 +1693,7 @@ void StateController::initGaitParameters(GaitDesignation gait_selection)
       break;
   }
 
-  string base_gait_parameters_name = "/hexapod/gait_parameters/";
+  string base_gait_parameters_name = "/syropod/gait_parameters/";
   params_.stance_phase.init(n_, "stance_phase", base_gait_parameters_name + params_.gait_type.data + "/");
   params_.swing_phase.init(n_, "swing_phase", base_gait_parameters_name + params_.gait_type.data + "/");
   params_.phase_offset.init(n_, "phase_offset", base_gait_parameters_name + params_.gait_type.data + "/");
@@ -1705,7 +1705,7 @@ void StateController::initGaitParameters(GaitDesignation gait_selection)
 ***********************************************************************************************************************/
 void StateController::initAutoPoseParameters(void)
 {
-  string base_auto_pose_parameters_name = "/hexapod/auto_pose_parameters/";
+  string base_auto_pose_parameters_name = "/syropod/auto_pose_parameters/";
   if (params_.auto_pose_type.data == "auto")
   {
     base_auto_pose_parameters_name += (params_.gait_type.data + "_pose/");

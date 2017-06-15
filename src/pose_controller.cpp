@@ -1,6 +1,6 @@
 /*******************************************************************************************************************//**
  *  @file    pose_controller.cpp
- *  @brief   Handles control of hexapod body posing. Part of simple hexapod controller.
+ *  @brief   Handles control of Syropod body posing.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -17,7 +17,7 @@
  *
 ***********************************************************************************************************************/
 
-#include "../include/simple_hexapod_controller/pose_controller.h"
+#include "../include/syropod_highlevel_controller/pose_controller.h"
 
 /*******************************************************************************************************************//**
  * PoseController class constructor. Iterates through legs in robot model and generates and assigns a leg poser object.

@@ -1,6 +1,6 @@
 /*******************************************************************************************************************//**
  *  @file    walk_controller.cpp
- *  @brief   Handles control of hexapod walking. Part of simple hexapod controller.
+ *  @brief   Handles control of Syropod walking.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -17,7 +17,7 @@
  *
  **********************************************************************************************************************/
 
-#include "../include/simple_hexapod_controller/walk_controller.h"
+#include "../include/syropod_highlevel_controller/walk_controller.h"
 
 /*******************************************************************************************************************//**
  * Constructor for the walk controller.

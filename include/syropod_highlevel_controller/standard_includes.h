@@ -1,8 +1,8 @@
-#ifndef SIMPLE_HEXAPOD_CONTROLLER_STANDARD_INCLUDES_H
-#define SIMPLE_HEXAPOD_CONTROLLER_STANDARD_INCLUDES_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H
 /*******************************************************************************************************************//**
  *  @file    standard_includes.h
- *  @brief   Collection of standard libaries and common functions. Part of simple hexapod controller.
+ *  @brief   Collection of standard libaries and common functions.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -25,7 +25,7 @@
 #include <ros/exceptions.h>
 
 #include <dynamic_reconfigure/server.h>
-#include <simple_hexapod_controller/DynamicConfig.h>
+#include <syropod_highlevel_controller/DynamicConfig.h>
 
 #include <tf/transform_broadcaster.h>
 #include <tf2/transform_datatypes.h>
@@ -265,4 +265,4 @@ MatrixXd createJacobian6DOF(vector<map<string, double>> dh);
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SIMPLE_HEXAPOD_CONTROLLER_STANDARD_INCLUDES_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H */

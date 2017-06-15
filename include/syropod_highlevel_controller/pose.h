@@ -1,8 +1,8 @@
-#ifndef SIMPLE_HEXAPOD_CONTROLLER_POSE_H
-#define SIMPLE_HEXAPOD_CONTROLLER_POSE_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_POSE_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_POSE_H
 /*******************************************************************************************************************//**
  *  @file    pose.h
- *  @brief   Custom class definition of hexapod pose. Part of simple hexapod controller.
+ *  @brief   Custom class definition of Syropod pose.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -65,4 +65,4 @@ public:
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SIMPLE_HEXAPOD_CONTROLLER_POSE_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_POSE_H */

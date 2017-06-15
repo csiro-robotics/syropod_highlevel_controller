@@ -1,6 +1,6 @@
 /*******************************************************************************************************************//**
  *  @file    model.cpp
- *  @brief   Describes the hexapod model including all legs, joints and links. Part of simple hexapod controller.
+ *  @brief   Describes the Syropod model including all legs, joints and links.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -17,7 +17,7 @@
  *
 ***********************************************************************************************************************/
 
-#include "../include/simple_hexapod_controller/model.h"
+#include "../include/syropod_highlevel_controller/model.h"
 
 /*******************************************************************************************************************//**
  * Contructor for robot model object - initialises member variables from parameters and creates leg objects.

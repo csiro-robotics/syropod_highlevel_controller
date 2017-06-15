@@ -1,8 +1,8 @@
-#ifndef SIMPLE_HEXAPOD_CONTROLLER_IMPEDANCE_CONTROLLER_H
-#define SIMPLE_HEXAPOD_CONTROLLER_IMPEDANCE_CONTROLLER_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_IMPEDANCE_CONTROLLER_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_IMPEDANCE_CONTROLLER_H
 /*******************************************************************************************************************//**
  *  @file    impedance_controller.h
- *  @brief   Impedance controller. Part of simple hexapod controller.
+ *  @brief   Handles executiong of the impedance controller.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -90,4 +90,4 @@ private:
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SIMPLE_HEXAPOD_CONTROLLER_IMPEDANCE_CONTROLLER_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_IMPEDANCE_CONTROLLER_H */

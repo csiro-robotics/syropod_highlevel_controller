@@ -1,8 +1,8 @@
-#ifndef SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H
-#define SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H
 /*******************************************************************************************************************//**
  *  @file    parameters_and_states.h
- *  @brief   Defines various hexapod and system parameters and states. Part of simple hexapod controller.
+ *  @brief   Defines various Syropod and system parameters and states.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -196,7 +196,7 @@ public:
    * @param[in] required_input Bool denoting if this parameter is required to be initialised.
    */
   inline void init(ros::NodeHandle n, string name_input,
-                   string base_parameter_name = "/hexapod/parameters/",
+                   string base_parameter_name = "/syropod/parameters/",
                    bool required_input = true)
   {
     name = name_input;
@@ -227,7 +227,7 @@ public:
     * @param[in] required_input Bool denoting if this parameter is required to be initialised.
     */
   inline void init(ros::NodeHandle n, string name_input,
-                    string base_parameter_name = "/hexapod/parameters/",
+                    string base_parameter_name = "/syropod/parameters/",
                     bool required_input = true)
   {
     name = name_input;
@@ -276,7 +276,7 @@ struct Parameters
   Parameter<vector<double>> imu_rotation_offset;  ///! Vector describing the physical rotation of any onboard IMU.
 
   // Model parameters
-  Parameter<string> 	hexapod_type;               ///! The type of the robot described by these parameters.
+  Parameter<string> 	syropod_type;               ///! The type of the robot described by these parameters.
   Parameter<vector<string>> leg_id;               ///! A vector of identification names for each leg of the robot.
   Parameter<vector<string>> joint_id;             ///! A vector of identification names for each joint of each leg.
   Parameter<vector<string>> link_id;              ///! A vector of identification names for each link of each leg.
@@ -354,5 +354,5 @@ struct Parameters
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SIMPLE_HEXAPOD_CONTROLLER_PARAMETERS_AND_STATES_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H */
   

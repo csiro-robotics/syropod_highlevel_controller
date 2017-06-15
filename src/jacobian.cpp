@@ -17,7 +17,7 @@
  *
 ***********************************************************************************************************************/
 
-#include "../include/simple_hexapod_controller/standard_includes.h"
+#include "../include/syropod_highlevel_controller/standard_includes.h"
 
 /*******************************************************************************************************************//**
  * Generates a Jacobian matrix for a 1 degree of freedom leg from input DH parameters (derived analytically)

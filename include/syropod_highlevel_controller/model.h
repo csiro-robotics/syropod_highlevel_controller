@@ -1,8 +1,8 @@
-#ifndef SIMPLE_HEXAPOD_CONTROLLER_MODEL_H
-#define SIMPLE_HEXAPOD_CONTROLLER_MODEL_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_MODEL_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_MODEL_H
 /*******************************************************************************************************************//**
  *  @file    model.h
- *  @brief   Describes the hexapod model including all legs, joints and links. Part of simple hexapod controller.
+ *  @brief   Describes the robot model including all legs, joints and links.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -23,7 +23,7 @@
 #include "parameters_and_states.h"
 #include "quat.h"
 #include "pose.h"
-#include "simple_hexapod_controller/legState.h"
+#include "syropod_highlevel_controller/legState.h"
 
 #define IK_TOLERANCE 0.005 // Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
 #define HALF_BODY_DEPTH 0.05 // Threshold used to estimate if leg tip has broken the plane of the robot body. (m)
@@ -245,7 +245,7 @@ public:
     * Publishes the given message via the leg state pubisher object.
     * @param[in] msg The leg state message to be published.
     */
-  inline void publishState(simple_hexapod_controller::legState msg) { leg_state_publisher_.publish(msg); };
+  inline void publishState(syropod_highlevel_controller::legState msg) { leg_state_publisher_.publish(msg); };
 
   /**
     * Publishes the given message via the ASC leg state pubisher object.
@@ -527,7 +527,7 @@ public:
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SIMPLE_HEXAPOD_CONTROLLER_MODEL_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_MODEL_H */
 
 
 

@@ -50,15 +50,15 @@ For information on parameters see readme in config folder.
 
 ## Outputs:
 ### Dynamixel Motor Interface:
-* Desired joint position for each individual joint (*/hexapod/\*leg_name\*\_\*joint_name\*\_joint/command*)
-* Desired joint state array for all joints (*/desired\_hexapod\_joint\_states*)
+* Desired joint position for each individual joint (*/syropod/\*LEG_ID\*\_\*JOINT_ID\*\_joint/command*)
+* Desired joint state array for all joints (*/desired\_joint\_state*)
 
 ### Misc.
 * Current desired body velocity (*/syropod_highlevel_controller/body\_velocity*)
 * Current desired body pose (*/syropod_highlevel_controller/pose*)
 * IMU data output (*/syropod_highlevel_controller/imu\_data*)
-* ASC Hexapod specific message for toggling of magnetic feet (bool of whether each leg is in stance state or not)(*/leg\_state\_\*leg\*\_\*side\*\_bool*)(To be removed)
-* Leg state (*/hexapod/\*leg\*\_\*side\*\_leg/state*):
+* ASC Hexapod specific message for toggling of magnetic feet (bool of whether each leg is in stance state or not)(*/leg\_state\_\*LEG_ID\*\_bool*)(To be removed)
+* Leg state (*/syropod_highlevel_controller/\*LEG_ID\*\_leg/state*):
     * header: Header with timestamp
     * leg_name: Leg designation
     * walker_tip_position: Desired tip position generated from the walk controller.
@@ -118,6 +118,7 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Added leg name mapping
     - Added leg state message to consolidate all leg debugging topics
 - v0.5.0
+    - Name change from simple_hexapod_controller to syropod_highlevel_controller, aka SHC.
     - Full refactor of controller.
     - Conversion to new coordinate system, adhering to ROS REP103
     - Overhaul of generation of robot model using DH parameters.

@@ -1,8 +1,8 @@
-#ifndef SIMPLE_HEXAPOD_CONTROLLER_QUAT_H
-#define SIMPLE_HEXAPOD_CONTROLLER_QUAT_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_QUAT_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_QUAT_H
 /*******************************************************************************************************************//**
  *  @file    quat.h
- *  @brief   Custom class definition of Quaternion data type. Part of simple hexapod controller.
+ *  @brief   Custom class definition of Quaternion data type.
  *
  *  @author  Fletcher Talbot
  *  @date    June 2017
@@ -133,4 +133,4 @@ public:
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SIMPLE_HEXAPOD_CONTROLLER_QUAT_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_QUAT_H */

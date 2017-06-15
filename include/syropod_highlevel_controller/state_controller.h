@@ -1,8 +1,8 @@
-#ifndef SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H
-#define SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_STATE_CONTROLLER_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_STATE_CONTROLLER_H
 /*******************************************************************************************************************//**
  *  @file    state_controller.h
- *  @brief   Top level controller that handles state of hexapod. Part of simple hexapod controller.
+ *  @brief   Top level controller that handles state of Syropod.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -279,7 +279,7 @@ public:
    * @param[in] level Unused
    * @see config/dynamic_parameter.cfg
    */
-	void dynamicParameterCallback(simple_hexapod_controller::DynamicConfig &config, uint32_t level);
+	void dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig &config, uint32_t level);
 
   /**
    * Callback handling the transformation of IMU data from imu frame to base link frame
@@ -390,7 +390,7 @@ private:
   ros::Publisher translation_pose_error_publisher_;   ///! Publisher for topic "/translation_pose_error"
   
 	boost::recursive_mutex mutex_; ///! Mutex used in setup of dynamic reconfigure server
-	dynamic_reconfigure::Server<simple_hexapod_controller::DynamicConfig>* dynamic_reconfigure_server_;
+	dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>* dynamic_reconfigure_server_;
 
   Model* model_;                    ///! Pointer to robot model object
   WalkController* walker_;          ///! Pointer to walk controller object
@@ -446,4 +446,4 @@ private:
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SIMPLE_HEXAPOD_CONTROLLER_STATE_CONTROLLER_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_STATE_CONTROLLER_H */

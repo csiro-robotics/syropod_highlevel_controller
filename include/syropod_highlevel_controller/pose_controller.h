@@ -1,8 +1,8 @@
-#ifndef SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H
-#define SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_POSE_CONTROLLER_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_POSE_CONTROLLER_H
 /*******************************************************************************************************************//**
  *  @file    pose_controller.h
- *  @brief   Handles control of hexapod body posing. Part of simple hexapod controller.
+ *  @brief   Handles control of Syropod body posing.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    June 2017
@@ -518,4 +518,4 @@ private:
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SIMPLE_HEXAPOD_CONTROLLER_POSE_CONTROLLER_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_POSE_CONTROLLER_H */
