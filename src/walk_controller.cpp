@@ -262,8 +262,7 @@ void WalkController::setGaitParams(Parameters* params)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     Leg* leg = leg_it_->second;
-    int index = leg->getIDNumber();
-    int multiplier = params_->offset_multiplier.data[index];
+    int multiplier = params_->offset_multiplier.data[leg->getIDName()];
     LegStepper* leg_stepper = leg->getLegStepper();
     int phase_offset = (base_phase_offset * multiplier) % phase_length_;
     leg_stepper->setPhaseOffset(phase_offset);

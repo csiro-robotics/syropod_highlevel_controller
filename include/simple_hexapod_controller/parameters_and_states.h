@@ -321,24 +321,24 @@ struct Parameters
   AdjustableParameter force_gain;            ///! The value used to scale the default tip force input.
 
   // Gait parameters
-  Parameter<int> stance_phase;              ///! The ratio of the entire step cycle which is in 'stance'.
-  Parameter<int> swing_phase;               ///! The ratio of the entire step cycle which is in 'swing'.
-  Parameter<int> phase_offset;              ///! The base phase offset between step cycles of successive legs.
-  Parameter<vector<int>> offset_multiplier; ///! The leg dependent multiplier used to set the actual step cycle offset
+  Parameter<int> stance_phase;                   ///! The ratio of the entire step cycle which is in 'stance'.
+  Parameter<int> swing_phase;                    ///! The ratio of the entire step cycle which is in 'swing'.
+  Parameter<int> phase_offset;                   ///! The base phase offset between step cycles of successive legs.
+  Parameter<map<string, int>> offset_multiplier; ///! The leg dependent multiplier used to set the step cycle offset.
 
   //Auto pose parameters
-  Parameter<double> pose_frequency;                  ///! The frequency at which all auto posing cycles run.
-  Parameter<int> pose_phase_length;                  ///! The length of all auto posing cycles.
-  Parameter<vector<int>> pose_phase_starts;          ///! The phase at which each auto pose cycle starts.
-  Parameter<vector<int>> pose_phase_ends;            ///! The phase at which each auto pose cycle ends.
-  Parameter<vector<int>> pose_negation_phase_starts; ///! The phase where each leg starts to negate applied auto posing.
-  Parameter<vector<int>> pose_negation_phase_ends;   ///! The phase where each leg stops negating applied auto posing.
-  Parameter<vector<double>> x_amplitudes;            ///! The max amplitudes of x posing in each auto pose cycle.
-  Parameter<vector<double>> y_amplitudes;            ///! The max amplitudes of y posing in each auto pose cycle.
-  Parameter<vector<double>> z_amplitudes;            ///! The max amplitudes of z posing in each auto pose cycle.
-  Parameter<vector<double>> roll_amplitudes;         ///! The max amplitudes of roll posing in each auto pose cycle.
-  Parameter<vector<double>> pitch_amplitudes;        ///! The max amplitudes of pitch posing in each auto pose cycle.
-  Parameter<vector<double>> yaw_amplitudes;          ///! The max amplitudes of yaw posing in each auto pose cycle.
+  Parameter<double> pose_frequency;                       ///! The frequency at which all auto posing cycles run.
+  Parameter<int> pose_phase_length;                       ///! The length of all auto posing cycles.
+  Parameter<vector<int>> pose_phase_starts;               ///! The phase at which each auto pose cycle starts.
+  Parameter<vector<int>> pose_phase_ends;                 ///! The phase at which each auto pose cycle ends.
+  Parameter<map<string, int>> pose_negation_phase_starts; ///! The phase where leg starts to negate applied auto posing.
+  Parameter<map<string, int>> pose_negation_phase_ends;   ///! The phase where leg stops negating applied auto posing.
+  Parameter<vector<double>> x_amplitudes;                 ///! The max amplitudes of x posing in each auto pose cycle.
+  Parameter<vector<double>> y_amplitudes;                 ///! The max amplitudes of y posing in each auto pose cycle.
+  Parameter<vector<double>> z_amplitudes;                 ///! The max amplitudes of z posing in each auto pose cycle.
+  Parameter<vector<double>> roll_amplitudes;              ///! The max amplitudes of roll in each auto pose cycle.
+  Parameter<vector<double>> pitch_amplitudes;             ///! The max amplitudes of pitch in each auto pose cycle.
+  Parameter<vector<double>> yaw_amplitudes;               ///! The max amplitudes of yaw in each auto pose cycle.
 
   // Debug Parameters
   Parameter<string> console_verbosity;       ///! The level of verbosity required from the rosconsole output.

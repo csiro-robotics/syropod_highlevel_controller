@@ -77,8 +77,8 @@ void PoseController::setAutoPoseParams(void)
   {
     Leg* leg = leg_it_->second;
     LegPoser* leg_poser = leg->getLegPoser();
-    leg_poser->setPoseNegationPhaseStart(params_->pose_negation_phase_starts.data[leg->getIDNumber()]);
-    leg_poser->setPoseNegationPhaseEnd(params_->pose_negation_phase_ends.data[leg->getIDNumber()]);
+    leg_poser->setPoseNegationPhaseStart(params_->pose_negation_phase_starts.data[leg->getIDName()]);
+    leg_poser->setPoseNegationPhaseEnd(params_->pose_negation_phase_ends.data[leg->getIDName()]);
   }
 
   // Clear any old auto-poser objects and re-populate container
@@ -1073,6 +1073,16 @@ Pose AutoPoser::updatePose(int phase)
   Pose return_pose = Pose::identity();
   int start_phase = start_phase_ * poser_->getNormaliser();
   int end_phase = end_phase_ * poser_->getNormaliser();
+  
+  // Changes start/end phases from zero to phase length value (which is equivalent)
+  if (start_phase == 0)
+  {
+    start_phase = poser_->getPhaseLength();
+  }  
+  if (end_phase == 0)
+  {
+    end_phase = poser_->getPhaseLength();
+  }
 
   //Handles phase overlapping master phase start/end
   if (start_phase > end_phase)
@@ -1391,24 +1401,34 @@ int LegPoser::stepToPosition(Vector3d target_tip_position, Pose target_pose,
 ***********************************************************************************************************************/
 void LegPoser::updateAutoPose(int phase)
 {
-  int phase_start = pose_negation_phase_start_ * poser_->getNormaliser();
-  int phase_end = pose_negation_phase_end_ * poser_->getNormaliser();
+  int start_phase = pose_negation_phase_start_ * poser_->getNormaliser();
+  int end_phase = pose_negation_phase_end_ * poser_->getNormaliser();
   int negation_phase = phase;
+  
+  // Changes start/end phases from zero to phase length value (which is equivalent)
+  if (start_phase == 0)
+  {
+    start_phase = poser_->getPhaseLength();
+  }
+  if (end_phase == 0)
+  {
+    end_phase = poser_->getPhaseLength();
+  }
 
   //Handles phase overlapping master phase start/end
-  if (phase_start > phase_end)
+  if (start_phase > end_phase)
   {
-    phase_end += poser_->getPhaseLength();
-    if (negation_phase < phase_start)
+    end_phase += poser_->getPhaseLength();
+    if (negation_phase < start_phase)
     {
       negation_phase += poser_->getPhaseLength();
     }
   }
 
-  if (negation_phase >= phase_start && negation_phase < phase_end && !stop_negation_)
+  if (negation_phase >= start_phase && negation_phase < end_phase && !stop_negation_)
   {
-    int iteration = negation_phase - phase_start + 1;
-    int num_iterations = phase_end - phase_start;
+    int iteration = negation_phase - start_phase + 1;
+    int num_iterations = end_phase - start_phase;
 
     Vector3d zero(0.0, 0.0, 0.0);
     Vector3d position_amplitude = poser_->getAutoPose().position_;

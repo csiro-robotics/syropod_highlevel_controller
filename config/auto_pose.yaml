@@ -14,9 +14,8 @@ hexapod:
       pose_phase_starts: [5, 7, 9, 11, 1, 3] #Per phase (step order: AR,CL,BL,AL,CR,BR)
       pose_phase_ends:   [7, 9, 11, 1, 3, 5]
 
-      #Per leg (leg order: AR,BR,CR,CL,BL,AL)
-      pose_negation_phase_starts: [5, 3, 1, 7, 9, 11]
-      pose_negation_phase_ends:   [7, 5, 3, 9, 11, 1]
+      pose_negation_phase_starts: {AR: 5, BR: 3, CR: 1, CL: 7, BL: 9, AL: 11}
+      pose_negation_phase_ends:   {AR: 7, BR: 5, CR: 3, CL: 9, BL: 11, AL: 1}
 
       x_amplitudes:     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       y_amplitudes:     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -34,9 +33,8 @@ hexapod:
       pose_phase_starts: [1, 3] #Per phase (step order: AR/BL/CR,AL/BR/CL)
       pose_phase_ends: [3, 1]
 
-      #Per leg (leg order: AR,BR,CR,CL,BL,AL)
-      pose_negation_phase_starts: [1, 3, 1, 3, 1, 3]
-      pose_negation_phase_ends: [3, 1, 3, 1, 3, 1]
+      pose_negation_phase_starts: {AR: 1, BR: 3, CR: 1, CL: 3, BL: 1, AL: 3}
+      pose_negation_phase_ends: {AR: 3, BR: 1, CR: 3, CL: 1, BL: 3, AL: 1}
 
       x_amplitudes: [0.0, 0.0]
       y_amplitudes: [0.0, 0.0]
@@ -54,9 +52,8 @@ hexapod:
       pose_phase_starts: [2, 3, 4, 5, 0, 1] #Per phase (step order: AR,CL,BR,AL,CR,BL)
       pose_phase_ends: [4, 5, 0, 1, 2, 3]
 
-      #Per leg (leg order: AR,BR,CR,CL,BL,AL)
-      pose_negation_phase_starts: [2, 4, 0, 3, 1, 5]
-      pose_negation_phase_ends: [4, 0, 2, 5, 3, 1]
+      pose_negation_phase_starts: {AR: 2, BR: 4, CR: 0, CL: 3, BL: 1, AL: 5}
+      pose_negation_phase_ends: {AR: 4, BR: 0, CR: 2, CL: 5, BL: 3, AL: 1}
 
       x_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       y_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -74,9 +71,8 @@ hexapod:
       pose_phase_starts: [1, 2, 0] #Per phase (step order: AR/CL,BR/BL,AL/CR)
       pose_phase_ends: [2, 0, 1]
 
-      #Per leg (leg order: AR,BR,CR,CL,BL,AL)
-      pose_negation_phase_starts: [1, 2, 0, 1, 2, 0]
-      pose_negation_phase_ends: [2, 0, 1, 2, 0, 1]
+      pose_negation_phase_starts: {AR: 1, BR: 2, CR: 0, CL: 1, BL: 2, AL: 0}
+      pose_negation_phase_ends: {AR: 2, BR: 0, CR: 1, CL: 2, BL: 0, AL: 1}
 
       x_amplitudes: [0.0, 0.0, 0.0]
       y_amplitudes: [0.0, 0.0, 0.0]
