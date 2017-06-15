@@ -1,283 +1,367 @@
 # Syropod Parameter File Readme 
 
-## General Parameters:
-
-### /hexapod/parameters/hexapod_type:             
-    String ID of the hexapod type associated with this set of config parameters.
-	    (type: string)(example: "zee")
+## Control Parameters:
     
-### hexapod/parameters/time_delta:            
-	Value used in setting ros loop frequency which denotes time period between cycles.
-		(type: double)(default: 0.02)(unit: seconds)
+### hexapod/parameters/time_delta:
+    Value used in setting ros loop frequency which denotes time period between cycles.
+      (type: double)
+      (default: 0.02)
+      (unit: seconds)
+		
+### /hexapod/parameters/manual_posing:
+    Sets whether manual posing system is on/off. Manual posing allows for the manual posing of the body independent of the walking cycle and additive to any other posing.
+      (type: bool)
+      (default: true)
+    
+### /hexapod/parameters/auto_posing: 
+    Sets whether auto posing system is on/off. Auto posing adjusts pose of body according to custom posing cycle defined in config/auto_pose.yaml parameters. (see config/readme.md)
+      (type: bool)
+      (default: false)
+    
+### /hexapod/parameters/impedance_control:
+    Determines if impedance control is currently turned on/off.
+      (type: bool)
+      (default: false)
+    
+### /hexapod/parameters/inclination_posing:
+    Determines if inclination posing compendation system is on/off. This system adds x/y linear posing to the robot body to align the assumed centre of mass of the body directly above the support polygon of the legs whilst on inclined terrain, as detected by onboard IMU. (Requires IMU correctly set up.)
+      (type: bool)
+      (default: false)
 	
-### /hexapod/parameters/imu_compensation:
-    Sets whether IMU-Compensation mode is on/off. IMU compensation mode requires PID tuning and IMU correctly set up.
-	    (type: bool)(default: false)
-    
-### /hexapod/parameters/auto_compensation: 
-    Sets whether Auto-Compenation mode is on/off. Auto compensation adjusts pitch/roll of body to compensate for body sag into lifted leg.
-	    (type: bool)(default: false)
-    
-### /hexapod/parameters/manual_compensation:
-    Sets whether Manual-Compensation mode is on/off. Manual compensation allows for the manual posing of the body independent of the walking cycle and additive to auto-compensation.
-    (type: bool)(default: true)
-  
-### /hexapod/parameters/gait_type:
-    String ID of the default gait to be used by the hexapod.
-	    (type: string)(default: tripod_gait)
+### /hexapod/parameters/imu_posing:
+    Determines if imu posing compensation system is on/off. This system adds pitch/roll posing to the robot body to align it perpendicularly to gravity as detected via on-board IMU. (Requires PID tuning and IMU correctly set up.)
+      (type: bool)
+      (default: false)
 
-## Physical Parameters
-
-### /hexapod/parameters/physical_leg_offsets/root_offset_**:      
-    3D vector describing the physical offset of the root (first joint) of each leg from
-    the body centre (origin).
-	    (type: [double, double, double])(unit: metres)
-    
-### /hexapod/parameters/physical_leg_offsets/hip_offset_**:       
-    3D vector describing the physical offset of the hip (second joint) of each leg from
-    the root joint of the same leg at a root joint value of zero.
-	    (type: [double, double, double])(unit: metres)
-    
-### /hexapod/parameters/physical_leg_offsets/knee_offset_**:      
-    3D vector describing the physical offset of the knee (third joint) of each leg from
-    the hip joint of the same leg at a hip joint value of zero.
-	    (type: [double, double, double])(unit: metres)
-    
-### /hexapod/parameters/physical_leg_offsets/tip_offset_**:
-    3D vector describing the physical offset of the tip of each leg from the knee joint
-    of the same leg at a knee joint value of zero.
-	    (type: [double, double, double])(unit: metres)
+## Hardware Parameters:
   
-### /hexapod/parameters/stance_leg_yaws:                  
-    Denotes the required default stance offset angle of the yaw joint 'zero' from the 
-    x-axis (lateral).
-	    (type: [double, double, double])(unit: radians)
-	    (example: [0.785, 0, -0.785] sets the zero yaw position for the front legs to be 45 deg from the x-axis (lateral axis), 0 deg for the middle legs and -45 deg for the rear.)
-
-### /hexapod/parameters/physical_yaw_offsets:             
-    Denotes the physical yaw joint motor axis offset from the x-axis (lateral axis).
-	    (type: [double, double, double])(unit: radians)
-	    (example: [0.523, 0.0, -0.523] means the front yaw motors are aligned 60 deg from the x-axis, the middle motors are aligned parallel to the x-axis and the rear are mounted -60 deg from the x-axis.)
-
-### /hexapod/parameters/physical_knee_offset:
-	Denotes the physical knee joint motor axis offset.
-		 (type: double)(unit: radians)
-  
-### /hexapod/parameters/joint_limits/yaw_limits:          
-    Limits for angle of first joint of each leg position.
-	    (type: [double, double, double])(unit: radians) 
-	    (example: [0.785, 0.523, 1.57] gives: front legs a yaw range of -45->45 deg, middle legs a yaw range of -60->60 deg and rear legs a yaw range of -90->90 deg.)
+### /hexapod/parameters/individual_control_interface:
+    Determines if desired joint position commands are output on a 'per joint' basis. (i.e. Each joint has it's own joint position command topic.)
+      (type: bool)
+      (default: true)
     
-### /hexapod/parameters/joint_limits/hip_limits:          
-    Upper and lower limits for each and every hip joint. 
-	    (type: [double, double])(unit: radians) 
-	    (example: [-0.785, 1.57] gives each hip joint a range of -45->90 deg.)
+### /hexapod/parameters/combined_control_interface:
+    Determines if desired joint state commands are output combined on a single topic. (eg: "/desired_joint_states)
+      (type: bool)
+      (default: true)
     
-### /hexapod/parameters/joint_limits/knee_limits:         
-    Upper and lower limits for each and every knee joint.
-	    (type: [double, double])(unit: radians)  
-	    (example: [-0.523, 3.14] gives each hip joint a range of -60->180 deg.)
-  
-### /hexapod/parameters/joint_max_angular_speeds:         
-    Maximum angular speeds for joint angles ([yaw, hip, knee]). If the calculated tip trajectory requires exceeding these values then joint velocities are capped at max.
-	    (type: [double, double, double])(unit: radians/s) 
-   
-### /hexapod/parameters/dynamixel_interface:
-    Determines which motor interface to use (dynamixel or dynamixelPro) - set false if using dynamixel pro motors and set true for all simulations.
-	    (type: bool)(default: true)
+### /hexapod/parameters/imu_rotation_offset:
+    The static euler angle rotation to apply to all IMU data in order to rotate it into the correct robot frame coordinate system.
+      (type: [double, double, double])
+      (unit: radians)
+	    
+## Model Parameters
+### /hexapod/parameters/hexapod_type:
+    String ID of the hexapod type associated with this set of config parameters.
+      (type: string)
+      (example: "max")
+    
+### /hexapod/parameters/leg_id:
+    Array of strings which are used to name and identify each leg in the robot model. Legs should be identified clockwise from the front-right most leg.
+      (type: [string, string, string, ... string])
+      (example: [AR, BR, CR, CL, BL, AL])
+    
+### /hexapod/parameters/joint_id:
+    Array of strings which are used to name and identify each 'potential' joint in a leg in the robot model. Joints should be identified from the robot body to the leg tip.
+      (type: [string, string, string, ... string])
+      (example: [coxa, femur, tibia])
+    
+### /hexapod/parameters/link_id:
+    Array of strings which are used to name and identify each 'potential' link in a leg in the robot model. Links should be identified from a MANDATORY link named 'base' at the robot body and down to the leg tip.
+      (type: [string, string, string, ... string])
+      (example: [base, coxa, femur, tibia])
+    
+### /hexapod/parameters/leg_DOF:
+    Map of leg_id (see /hexapod/parameters/leg_id) and corresponding degrees of freedom (number of joints) in that leg.
+      (type: {string: double, string: double, string: double, ... string: double})
+      (example: {AR: 3, BR: 3, CR: 3, CL: 5, BL: 3, AL: 3})
+    
+### /hexapod/parameters/leg_stance_yaws:
+    Map of leg_id and the corresponding stance plane yaw about the z-axis in the robot frame.
+      (type: {string: double, string: double, string: double, ... string: double})
+      (example: {AR: -0.785, BR: -1.57, CR: -2.355, CL: 2.355, BL: 1.57, AL: 0.785})
+      (unit: radians)
+
+## Joint Parameters
+
+### /hexapod/parameters/*leg_id*_*joint_id*_joint_parameters:
+    Map of parameters for each joint corresponding to various joint characteristics:
+      offset: The difference between the zero point for the joint in the robot model and the zero point for the motor actuating that joint in hardware. (unit: radians)
+      min: The minimum limit of the joint position in the robot model.
+      max: The maximum limit of the joint position in the robot model.
+      packed: The joint position in the robot model which defines the joint as being in a 'packed' state.
+      unpacked: The joint position in the robot model which defines the joint as being in a 'unpacked' state.
+      max_vel: The maximum allowable joint velocity in the robot model.
+      (type: {string: double, string: double, string: double, string: double, string: double, string: double})
+      (example: AR_coxa_joint_parameters:  {offset: 0.0, min: -0.785, max: 0.785, packed: -1.57, unpacked 0.0, max_vel: 5.0})
+    
+### /hexapod/parameters/*leg_id*_*joint_id*_link_parameters:
+    Map of parameters for each link corresponding to classical Denavit–Hartenberg parameters for describing the transformation of joints connected by the link:
+      d: The DH parameter representing offset along previous z-axis to the common normal.
+      theta: The DH parameter representing angle about previous z axis, from old x-axis to new x-axis.
+      r: The DH parameter representing length of the common normal.
+      alpha: The DH parameter representing angle about common normal, form old z-axis to new z-axis.
+      (type: {string: double, string: double, string: double, string: double})
+      (example: AR_femur_link_parameters: {d: 0.0, theta: 0.0, r: 0.07000, alpha: 0.0})
 
 ## Walk Controller Parameters:
 
-### /hexapod/parameters/walk_controller/step_frequency:
-    Number of full steps (full swing/stance transition) taken per second (in TRIPOD mode). For other gaits the effective step frequency is adjusted according to swing ratio defined in the gait parameters.
-	    (type: double) (default: 1.0)(unit: steps/s (Hz))
-    
-### /hexapod/parameters/walk_controller/step_clearance: 
-    Defines the max step clearance height above ground level as a percentage of max body-height.
-	    (type: double)(default:0.1)(unit: percentage (i.e. 0.0->1.0))
-    
-### /hexapod/parameters/walk_controller/stance_depth: 
-    Defines the max 'depth' that the stance phase of the each step attains as a percentage of max body height. 
-	    (type: double)(default:0.0)(unit: percentage (i.e. 0.0->1.0))
-    
-### /hexapod/parameters/walk_controller/body_clearance: 
-    Defines the max body clearance height above ground level as a percentage of max body-height. A value of -1.0 sets the body clearance to be optimally calculated to maximise tip footprint radius and therefore allowable stride length.
-	    (type: double)(default: -1.0)(unit: percentage (i.e. 0.0->1.0))
-    
-### /hexapod/parameters/walk_controller/leg_span_scale:
-    Modifies the effective horizontal range of each leg in order to force a more narrow (<1.0) or wide (>1.0) stance. The controller will crash if the forced leg span causes the body clearance to no longer be achievable.
-	    (type: double)(default: 1.0)(unit: percentage (i.e. 0.0->1.0))
- 
-### /hexapod/parameters/walk_controller/max_linear_acceleration:
-    Maximum linear acceleration of the body. Set to -1.0 to have it auto calculated for conservative operation.
-	    (type: double)(default: -1.0)(unit: m/s/s)
-    
-### /hexapod/parameters/walk_controller/max_angular_acceleration: 
-	Maximum angular acceleration of the body. Set to -1.0 to have it auto calculated for conservative operation.
-		(type: double)(default: -1.0)(unit: rad/s/s)
-  
-### /hexapod/parameters/walk_controller/footprint_downscale:
-    Scales operating tip footprint workspace down from maximum calculated footprint to give the tip a factor of safety for instances where is may need to stray from the operating footprint in order to maintain body velocity.
-	    (type: double)(default: 0.8)(unit: percentage (i.e. 0.0->1.0))
-  
-### /hexapod/parameters/walk_controller/interface_setup_speed:
-	Sets speed of motors (rad/s).
-		(type: double)(default: 2.5)(unit: rad/s)
+### /hexapod/parameters/gait_type:
+    String ID of the default gait to be used by the Syropod.
+      (type: string)
+      (default: tripod_gait)
 
-### /hexapod/parameters/walk_controller/velocity_input_mode:
-	Determines if velocity input mode is 'throttle' or 'real'.
-	Throttle mode means the walk controller expects a value of 0.0->1.0  for a percentage of the max attainable speed.
-	Real mode means the walk controller expects a real-world velocity input (metres/s & rad/s) and will attempt to meet that input (within limitations)
-		(type: string)(default: throttle)
+### /hexapod/parameters/step_frequency:
+    Number of full steps (full swing/stance transition) taken per second (in TRIPOD mode). For other gaits the effective step frequency is adjusted according to swing ratio defined in the gait parameters.
+    Note: This is an dynamically adjustable parameter and thus consists of a map of values which describe the possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 1.0, min: 0.001, max: 2.0, step: 0.1})
+      (unit: steps/s (Hz))
+    
+### /hexapod/parameters/step_clearance: 
+    Defines the desired clearance of the leg tip above the default position during swing period of step cycle.
+    Note: This is an dynamically adjustable parameter and thus consists of a map of values which describe the possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 0.1, min: 0.01, max: 0.05, step: 0.005})
+      (unit: metres)
+    
+### /hexapod/parameters/step_depth: 
+    Defines the desired depth of the leg tip below the default position during stance period of step cycle. height. 
+    Note: This is an dynamically adjustable parameter and thus consists of a map of values which describe the possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 0.0, min: 0.0, max: 0.05, step: 0.005})
+      (unit: metres)
+    
+### /hexapod/parameters/body_clearance:
+    Defines the desired clearance of the body above the default tip positions, limited to maximum possible height determined by morphology.
+    Note: This is an dynamically adjustable parameter and thus consists of a map of values which describe the possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 0.3, min: 0.1, max: 0.5, step: 0.05})
+      (unit: metres)
+    
+### /hexapod/parameters/leg_span:
+    Placeholder - currently does nothing.
+    Note: This is an dynamically adjustable parameter and thus consists of a map of values which describe the possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 0.0, min: 0.0, max: 0.0, step: 0.0})
+      (unit: metres)
+      
+### /hexapod/parameters/velocity_input_mode:
+    String which defines the type of velocity input required:
+      throttle: The controller expects all velocity inputs to be between 0.0 and 1.0 which describe a real world velocity input of zero to the maximum possible body velocities.
+      real: The controller expects all velocity inputs to be in real world SI units, limited to maximum possible body velocities.
+      (type: string)
+      (default: throttle)
+      
+### /hexapod/parameters/force_cruise_velocity:
+    Bool which denotes whether defined cruise velocity inputs (see below) are used in cruise control mode. Alternatively, the velocity inputs at the time of cruise control activation will be kept constant.
+      (type: bool)
+      (default: true)
+    
+### /hexapod/parameters/linear_cruise_velocity:
+    A map of linear velocities and the values to be used as constant linear body velocity input when 'force cruise velocity' is true and cruise control is active.
+      (type: {string: double, string: double})
+      (default: {x: 0.001, y: 0.0)
+      (units: metres/s)
+    
+### /hexapod/parameters/angular_cruise_velocity:
+    An angular velocity value to be used as constant angular body velocity input when 'force cruise velocity' is true and cruise control is active.
+      (type: double)
+      (default: 0.0)
+      (units: radians/s)
 		
 ## Pose Controller Parameters:
 
-### /hexapod/parameters/pose_controller/start_up_sequence:
-    Determines if hexapod uses predefined unpacking/packing & startup/shutdown procedures. If false the hexapod will move legs DIRECTLY from initial positions to required positions for walking.
-		(type: bool)(default: false)
-    
-### /hexapod/parameters/pose_controller/move_legs_sequentially:
-    Determines whether legs are moved sequentially or simultaneously in the chosen startup 
-    procedure.
-	    (type: bool)(default: false)
+### /hexapod/parameters/auto_pose_type:
+    String which defines the auto-posing cycle to be used (if auto posing feature is activated).
+    These auto-posing cycle names are defined in config/auto_pose.yaml. Setting this parameters to 'auto'
+    will append the current gait selection name and attempt to choose an associate auto-pose cycle (i.e. tripod_gait_pose).
+      (type: string)
+      (default: auto)
+
+### /hexapod/parameters/start_up_sequence:
+    Determines if hexapod attempts unpacking/packing & startup/shutdown procedures. If false the hexapod will move legs DIRECTLY from initial positions to required positions for walking.
+      (type: bool)
+      (default: false)
     
 ### /hexapod/parameters/pose_controller/time_to_start:
     Determines the length of time in which to complete a DIRECT startup sequence 
     (i.e. start_up_sequence == false)
-	    (type: bool)(default: 12.0)(unit: seconds)
+	    (type: bool)
+	    (default: 12.0)
+	    (unit: seconds)
     
-### /hexapod/parameters/pose_controller/imu_pose_compensation/**_compensation/**_gain:
-    PID gains for translational/rotational imu pose compensation. WARNING: requires tuning to prevent unstable compensation, check all values before using imu compensation.
-	    (type: double)(default: 0.0)
+### /hexapod/parameters/rotation_pid_gains:
+    A map of PID controller gains for the IMU posing system. (Requires PID tuning to develop gain values)
+      (type: {string: double, string: double, string: double})
+      (default: {p: 0.0, i: 0.0, d: 0.0})
 
-### /hexapod/parameters/pose_controller/auto_pose_compensation/**_amplitude: 
-    Sets amplitude of pitch, roll and vertical translation used in auto_compensation mode.
-	    (type: double)(default: 0.01)(unit: radians or metres)
-
-### /hexapod/parameters/pose_controller/manual_pose_compensation/max_translation: 
-    Sets the maximum translational posing of the body along the x,y,z axes.
-	    (type: [double, double, double])(unit: metres)
+### /hexapod/parameters/max_translation: 
+    Map defining the maximum linear translational posing of the body along the x,y,z axes.
+	    (type: {string: double, string: double, string: double})
+	    (example: {x: 0.1, y: 0.2, z: 0.3})
+	    (unit: metres)
 	    
-### /hexapod/parameters/pose_controller/manual_pose_compensation/max_rotation: 
-    Sets the maximum rotational posing of the body around the x,y,z axes.
-	    (type: [double, double, double])(unit: radians)
+### /hexapod/parameters/max_rotation: 
+    Map defining the maximum angular rotational posing of the body around the x,y,z axes (roll/pitch/yaw).
+	    (type: {string: double, string: double, string: double})
+	    (example: {roll: 0.2, pitch: 0.4, yaw: 0.6})
+	    (unit: radians)
     
-### /hexapod/parameters/pose_controller/manual_pose_compensation/max_translation_velocity: 
+### /hexapod/parameters/max_translation_velocity: 
     Sets the maximum translational posing VELOCITY of the body along the x,y,z axes.
-	    (type: double)(default: 0.05)(unit: metres/s) 
+	    (type: double)
+	    (default: 0.05)
+	    (unit: metres/s) 
 	    
-### /hexapod/parameters/pose_controller/manual_pose_compensation/max_rotation_velocity: 
-    Sets the maximum rotational posing VELOCITY of the body around the x,y,z axes.
-	    (type: double)(default: 0.01)(unit: rad/s) 
+### /hexapod/parameters/max_rotation_velocity: 
+    Sets the maximum rotational posing VELOCITY of the body around the x,y,z axes (roll/pitch/yaw).
+	    (type: double)
+	    (default: 0.01)
+	    (unit: rad/s) 
 
-### /hexapod/parameters/pose_controller/manual_leg_manipulation/leg_manipulation_mode:
+### /hexapod/parameters/leg_manipulation_mode:
 	Sets the leg manipulation mode between controlling the tip position ('tip_control') vs each individual joint position ('joint_control').
-		(type: string)(default: joint_control)		
-    
-### /hexapod/parameters/pose_controller/packed_joint_positions/**_packed_joint_positions:
-    Denotes the joint angles for each joint [yaw, hip, knee] in the "packed" state.
-	    (type: [double, double, double])(unit: radians)
-    
-### /hexapod/parameters/pose_controller/unpacked_joint_positions/**_unpacked_joint_positions:
-    Denotes the joint angles for each joint [yaw, hip, knee] in the "unpacked" state.
-	    (type: [double, double, double])(unit: radians)
+		(type: string)
+		(default: tip_control)
     
 ## Impedance Control Parameters:
-
-### /hexapod/parameters/impedance_controller/impedance_control:
-    Determines if impedance control is currently turned on/off.
-	     (type: bool)(default: true)
 	     
-### /hexapod/parameters/impedance_controller/dynamic_stiffness:
+### /hexapod/parameters/dynamic_stiffness:
     Determines if dynamic stiffness mode is on where set virtual stiffness is scaled determined on whether an individual leg is swinging or adjacent to a swinging leg.
-	     (type: bool)(default: true)
+	     (type: bool)
+	     (default: true)
     
-### /hexapod/parameters/impedance_controller/impedance_input: (default: joint_effort)
-    Determines input method for impedance. Either 'joint_effort' for using effort values from joint motors OR 'tip_force' for using pressure readings from tip sensors (MAX - Large Hexapod).
-		 (type: string)(default: joint_effort)
+### /hexapod/parameters/use_joint_effort:
+    Determines if force input method for impedance control uses joint efforts. Set to false if robot has tip force sensing capabilities.
+		 (type: bool)
+		 (default: false)
     
-### /hexapod/parameters/impedance_controller/virtual_mass:
+### /hexapod/parameters/virtual_mass:
     Virtual mass variable used in impedance controller spring-mass-damper virtualisation.
-	    (type: double)
+    Note: This is a dynamically adjustable parameter and thus consists of a map of values which describe the possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 10, min: 1, max: 100, step: 5})
     
-### /hexapod/parameters/impedance_controller/integrator_step_time:
+### /hexapod/parameters/integrator_step_time:
     Time step used in impedance controller function.
 	    (type: double)
+	    (default: 0.5)
     
-### /hexapod/parameters/impedance_controller/virtual_stiffness:
+### /hexapod/parameters/virtual_stiffness:
     Virtual stiffness variable used in impedance controller spring-mass-damper virtualisation.
-	    (type: double)
+    Note: This is a dynamically adjustable parameter and thus consists of a map of values which describe the possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 10, min: 1, max: 50, step: 5})
 
-### /hexapod/parameters/impedance_controller/load_stiffness_scaler:
+### /hexapod/parameters/load_stiffness_scaler:
     Value used to scale the set virtual stiffness up when an individual leg is adjacent to a swinging leg and therefore under increased load.
 	    (type: double)
+	    (default: 5.0)
 	    
-### /hexapod/parameters/impedance_controller/swing_stiffness_scaler:
+### /hexapod/parameters/swing_stiffness_scaler:
     Value used to scale the set virtual stiffness down when an individual leg is swinging.
 	    (type: double)
+	    (default: 0.1)
     
-### /hexapod/parameters/impedance_controller/virtual_damping_ratio:
+### /hexapod/parameters/virtual_damping_ratio:
     Virtual damping ratio variable used in impedance controller spring-mass-damper virtualisation.
-	    (type: double)
+	  Note: This is a dynamically adjustable parameter and thus consists of a map of values which describe the possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 0.8, min: 0.1, max: 10.0, step: 0.05})
     
-### /hexapod/parameters/impedance_controller/force_gain:
-    Gain used to scale impedance values used in impedance controller.
-	    (type: double)
+### /hexapod/parameters/force_gain:
+    Gain used to scale input tip force values used in impedance controller.
+	  Note: This is a dynamically adjustable parameter and thus consists of a map of values which describe the possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 0.1, min: 0.001, max: 100.0, step: 1.0})
 
 ## Debug Parameters:
-
-### /hexapod/debug_parameters/testing:
-    Turns on/off ability to perform 'test' runs with constant velocity input over a set time period. Tests start/stop using X Button.
-	    (type: bool)(default: false)
     
-### /hexapod/debug_parameters/test_time_length:
-    Sets time length for test. A zero value sets an infinite test time length which can only be manually ended.
-	    (type: bool)(default: 0.0)
-    
-### /hexapod/debug_parameters/test_linear_velocity:
-    Sets constant linear body velocity input used in test. Note default is a full forward velocity input.
-		(type: [double, double])(default: [0.0, 1.0])(unit: percentage (i.e. 0.0->1.0)) 
-
-### /hexapod/debug_parameters/test_angular_velocity:
-    Sets constant angular body velocity input used in test.
-		(type: double)(default: 0.0)(unit: percentage (i.e. 0.0->1.0)) 
-    
-### /hexapod/debug_parameters/console_verbosity: 
+### /hexapod/parameters/console_verbosity: 
     Sets rosconsole verbosity levels. Options include: 'debug', 'info', 'warning', 'error', 'fatal'.
-	    (type: string)(default: info)
+	    (type: string)
+	    (default: info)
     
-### /hexapod/debug_parameters/debug_move_to_joint_position:
-    Allows debug output from moveToJointPosition function in poseController.
-	    (type: bool)(default: false)
+### /hexapod/parameters/debug_move_to_joint_position:
+    Allows debug output from moveToJointPosition function in pose controller.
+	    (type: bool)
+	    (default: false)
     
-### /hexapod/debug_parameters/debug_step_to_position:
-    Allows debug output from stepToPosition function in poseController.
-        (type: bool)(default: false)
+### /hexapod/parameters/debug_step_to_position:
+    Allows debug output from stepToPosition function in pose controller.
+        (type: bool)
+        (default: false)
     
-### /hexapod/debug_parameters/debug_swing_trajectory: 
-    Allows debug output from swing part of updatePosition function in walkController.
-        (type: bool)(default: false)
+### /hexapod/parameters/debug_swing_trajectory: 
+    Allows debug output from swing trajectory generation in walk controller.
+        (type: bool)
+        (default: false)
     
-### /hexapod/debug_parameters/debug_stance_trajectory:
-    Allows debug output from stance part of updatePosition function in walkController.
-        (type: bool)(default: false)
+### /hexapod/parameters/debug_stance_trajectory:
+    Allows debug output from stance trajectory generation in walk controller.
+        (type: bool)
+        (default: false)
     
-### /hexapod/debug_parameters/debug_manual_compensation_translation: 
-    Allows debug output from translation part of manualCompensation function in poseController.
-        (type: bool)(default: false)
+### /hexapod/parameters/execute_sequence: 
+    Allows debug output from executeSequence function in pose controller. Also used to optimise joint 'unpacked' parameter.
+        (type: bool)
+        (default: false)
+        
+### /hexapod/parameters/debug_IK:
+    Allows debug output from inverse kinematics engine.
+        (type: bool)
+        (default: false)
     
+### /hexapod/parameters/debug_rviz:
+    Turns on output for use in simulation in RVIZ.
+        (type: bool)
+        (default: false)
+        
+### /hexapod/parameters/debug_rviz_static_display:
+    Determines if RVIZ visualisation has a static body position.
+        (type: bool)
+        (default: false)
     
-### /hexapod/debug_parameters/debug_manual_compensation_rotation: 
-    Allows debug output from rotation part of manualCompensation function in poseController.
-        (type: bool)(default: false)
-    
-### /hexapod/debug_parameters/debug_rviz:
-    Turns on output for use in simulation in rviz.
-        (type: bool)(default: false)
-    
-## Gait Parameters:
+## Gait Parameters (config/gait.yaml):
 
-### /hexapod/gait_parameters/*gait_name*/stance_phase:      
+### /hexapod/gait_parameters/*gait_name*/stance_phase:
     Ratio of step phase in the 'stance' state (on ground)
 	    (type: int)
     
@@ -291,48 +375,88 @@
     
 ### /hexapod/gait_parameters/*gait_name*/offset_multiplier: 
     Multiplier for phase_offset which determines phase offset for each leg. 
-	    (type: [int, int, int, int, int, int])
-    Offset multiplier values are assigned in the following order: 
-      front_left (leg = 0, side = 0), 
-      front_right (leg = 0, side = 1),
-      middle_left (leg = 1, side = 0),
-      middle_right (leg = 1, side = 1),
-      rear_left (leg = 2, side = 0),
-      rear_right (leg = 2, side = 1)
+	    (type: [int, int, int, ... int])
+    Offset multiplier values are assigned clockwise from the front-right most leg (as per leg_id parameter)
+      (eg: AR, BR, CR, CL, BL, AL)
 
-	  Example:     tripod_gait has stance:swing:offset ratio of 1:1:1. 
-		          Assuming a total phase length of 1000: 
-			            500 iterations (50%) of the step are stance, 
-			            500 iterations (50%) of the step are swing
+	  Example:
+      tripod_gait has stance:swing:offset ratio of 2:2:2. 
+		  Assuming a total phase length of 1000: 
+        500 iterations (50%) of the step are stance, 
+			  500 iterations (50%) of the step are swing
                         
-	            The base phase offset is 500 iterations (50%).
-	            With a offset_multiplier of [0,1,1,0,0,1] legs:
-	              front_left, middle_right and rear_left have an effective offset
-	              of 0*500 = 0 iterations (0%)
-	              front_right, middle_left and rear_right have an effective offset
-	              of 1*500 = 500 iterations (50%)
+	      The base phase offset is 500 iterations (50%).
+	      With a offset_multiplier of [0,1,0,1,0,1], legs:
+          AR, CR and BL legs have an effective offset of 0*500 = 0 iterations (0%)
+          BL, CL and AL legs have an effective offset of 1*500 = 500 iterations (50%)
             
-	  Example:     wave_gait has stance:swing:offset ratio of 5:1:1. 
-		          Assuming a total phase length of 600: 
-		            500 iterations (83.33%) of the step are stance, 
-		            100 iterations (16.67%) of the step are swing 
+	  Example: 
+      wave_gait has stance:swing:offset ratio of 10:2:2. 
+		  Assuming a total phase length of 600: 
+        500 iterations (83.33%) of the step are stance, 
+        100 iterations (16.67%) of the step are swing 
             
-	            The base phase offset is 100 iterations (16.67%).
-	            With a offset_multiplier of [2,5,3,0,4,1] legs:
-	              front_left has an offset of 2*100 = 200 iterations (33.33%)
-	              front_right has an offset of 5*100 = 500 iterations (83.33%)
-	              middle_left has an offset of 3*100 = 300 iterations (50%)
-	              middle_right has an offset of 0*100 = 0 iterations (0%)
-	              rear_left has an offset of 4*100 = 400 iterations (66.67%)
-	              rear_right has an offset of 1*100 = 100 iterations (16.67%)
+	      The base phase offset is 100 iterations (16.67%).
+        With a offset_multiplier of [2,3,4,1,0,5], legs:
+          AR has an offset of 2*100 = 200 iterations (33.33%)
+          BR has an offset of 3*100 = 300 iterations (50%)
+          CR has an offset of 4*100 = 400 iterations (66.67%)
+          CL has an offset of 1*100 = 100 iterations (16.67%)
+          BL has an offset of 0*100 = 0 iterations (0%)
+          AL has an offset of 5*100 = 500 iterations (83.33%)
               
-            Note that for this example the swing state starts at iteration 250
-            (swing_start = stance_phase/2 = 500/2 = 250) and therefore these offsets
-            give a swing order of:
-              front_left, 
-              rear_right, 
-              middle_right, 
-              front_right, 
-              rear_left, 
-              front_left
- 
+          Note that for this example the swing state starts at iteration 250
+          (swing_start = stance_phase/2 = 500/2 = 250) and therefore these offsets
+          give a swing order of:
+            AR, CL, BL, AL, CR, BR, AR ...
+            
+## Auto Pose Parameters (config/auto_pose.yaml):
+
+### /hexapod/auto_pose_parameters/*auto_pose_name*/pose_frequency:
+    The freuency that this auto pose cycle repeats. Set to -1.0 to sync with step cycle.
+    (type: double)
+    (default: -1.0)
+    
+### /hexapod/auto_pose_parameters/*auto_pose_name*/pose_phase_length:
+    The length of the base auto pose cycle.
+    (type: int)
+    
+### /hexapod/auto_pose_parameters/*auto_pose_name*/pose_phase_starts:
+    An array of phases which signify the start for each of any number of auto_pose cycles. Auto pose cycles may overlap and if so will superpose.
+    (type: [int, int, int ... int])
+    
+### /hexapod/auto_pose_parameters/*auto_pose_name*/pose_phase_ends:
+    An array of phases which signify the end for each of any number of auto_pose cycles. Auto pose cycles may overlap and if so will superpose.
+    (type: [int, int, int ... int])
+    
+### /hexapod/auto_pose_parameters/*auto_pose_name*/pose_negation_phase_starts:
+    An array of phases which signify the start for EACH LEG to negate any auto posing applied to it by auto-pose cycles.
+    (type: [int, int, int ... int])
+
+### /hexapod/auto_pose_parameters/*auto_pose_name*/pose_negation_phase_ends:
+    An array of phases which signify the end for EACH LEG to negate any auto posing applied to it by auto-pose cycles.
+    (type: [int, int, int ... int])
+    
+### /hexapod/auto_pose_parameters/*auto_pose_name*/x_amplitudes:
+    An array of values which define the amplitude of translational linear body posing in the x-axis for each of any number of auto pose cycles.
+    (type: [double, double, double ... double])
+    
+### /hexapod/auto_pose_parameters/*auto_pose_name*/y_amplitudes:
+    An array of values which define the amplitude of translational linear body posing in the y-axis for each of any number of auto pose cycles.
+    (type: [double, double, double ... double])
+    
+### /hexapod/auto_pose_parameters/*auto_pose_name*/z_amplitudes:
+    An array of values which define the amplitude of translational linear body posing in the z-axis for each of any number of auto pose cycles.
+    (type: [double, double, double ... double])
+    
+### /hexapod/auto_pose_parameters/*auto_pose_name*/roll_amplitudes:
+    An array of values which define the amplitude of rotational angular body posing about the x-axis (roll) for each of any number of auto pose cycles.
+    (type: [double, double, double ... double])
+    
+### /hexapod/auto_pose_parameters/*auto_pose_name*/pitch_amplitudes:
+    An array of values which define the amplitude of rotational angular body posing about the y-axis (pitch) for each of any number of auto pose cycles.
+    (type: [double, double, double ... double])
+
+### /hexapod/auto_pose_parameters/*auto_pose_name*/yaw_amplitudes:
+    An array of values which define the amplitude of rotational angular body posing about the z-axis (yaw) for each of any number of auto pose cycles.
+    (type: [double, double, double ... double])
