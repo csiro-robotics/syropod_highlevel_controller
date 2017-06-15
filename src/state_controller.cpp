@@ -37,39 +37,39 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   debug_.setTimeDelta(params_.time_delta.data);
 
   // Hexapod Remote topic subscriptions
-  system_state_subscriber_            = n_.subscribe("hexapod_remote/system_state", 1,
+  system_state_subscriber_            = n_.subscribe("syropod_remote/system_state", 1,
                                                      &StateController::systemStateCallback, this);
-  robot_state_subscriber_             = n_.subscribe("hexapod_remote/robot_state", 1,
+  robot_state_subscriber_             = n_.subscribe("syropod_remote/robot_state", 1,
                                                      &StateController::robotStateCallback, this);
-  desired_velocity_subscriber_        = n_.subscribe("hexapod_remote/desired_velocity", 1,
+  desired_velocity_subscriber_        = n_.subscribe("syropod_remote/desired_velocity", 1,
                                                      &StateController::bodyVelocityInputCallback, this);
-  desired_pose_subscriber_            = n_.subscribe("hexapod_remote/desired_pose", 1,
+  desired_pose_subscriber_            = n_.subscribe("syropod_remote/desired_pose", 1,
                                                      &StateController::bodyPoseInputCallback, this);
-  posing_mode_subscriber_             = n_.subscribe("hexapod_remote/posing_mode", 1,
+  posing_mode_subscriber_             = n_.subscribe("syropod_remote/posing_mode", 1,
                                                      &StateController::posingModeCallback, this);
-  pose_reset_mode_subscriber_         = n_.subscribe("hexapod_remote/pose_reset_mode", 1,
+  pose_reset_mode_subscriber_         = n_.subscribe("syropod_remote/pose_reset_mode", 1,
                                                      &StateController::poseResetCallback, this);
-  gait_selection_subscriber_          = n_.subscribe("hexapod_remote/gait_selection", 1,
+  gait_selection_subscriber_          = n_.subscribe("syropod_remote/gait_selection", 1,
                                                      &StateController::gaitSelectionCallback, this);
-  cruise_control_mode_subscriber_     = n_.subscribe("hexapod_remote/cruise_control_mode", 1,
+  cruise_control_mode_subscriber_     = n_.subscribe("syropod_remote/cruise_control_mode", 1,
                                                      &StateController::cruiseControlCallback, this);
-  auto_navigation_mode_subscriber_    = n_.subscribe("hexapod_remote/auto_navigation_mode", 1,
+  auto_navigation_mode_subscriber_    = n_.subscribe("syropod_remote/auto_navigation_mode", 1,
                                                      &StateController::autoNavigationCallback, this);
-  primary_leg_selection_subscriber_   = n_.subscribe("hexapod_remote/primary_leg_selection", 1,
+  primary_leg_selection_subscriber_   = n_.subscribe("syropod_remote/primary_leg_selection", 1,
                                                      &StateController::primaryLegSelectionCallback, this);
-  primary_leg_state_subscriber_       = n_.subscribe("hexapod_remote/primary_leg_state", 1,
+  primary_leg_state_subscriber_       = n_.subscribe("syropod_remote/primary_leg_state", 1,
                                                      &StateController::primaryLegStateCallback, this);
-  primary_tip_velocity_subscriber_    = n_.subscribe("hexapod_remote/primary_tip_velocity", 1,
+  primary_tip_velocity_subscriber_    = n_.subscribe("syropod_remote/primary_tip_velocity", 1,
                                                      &StateController::primaryTipVelocityInputCallback, this);
-  secondary_leg_selection_subscriber_ = n_.subscribe("hexapod_remote/secondary_leg_selection", 1,
+  secondary_leg_selection_subscriber_ = n_.subscribe("syropod_remote/secondary_leg_selection", 1,
                                                      &StateController::secondaryLegSelectionCallback, this);
-  secondary_leg_state_subscriber_     = n_.subscribe("hexapod_remote/secondary_leg_state", 1,
+  secondary_leg_state_subscriber_     = n_.subscribe("syropod_remote/secondary_leg_state", 1,
                                                      &StateController::secondaryLegStateCallback, this);
-  secondary_tip_velocity_subscriber_  = n_.subscribe("hexapod_remote/secondary_tip_velocity",
+  secondary_tip_velocity_subscriber_  = n_.subscribe("syropod_remote/secondary_tip_velocity",
                                                      1, &StateController::secondaryTipVelocityInputCallback, this);
-  parameter_selection_subscriber_     = n_.subscribe("hexapod_remote/parameter_selection", 1,
+  parameter_selection_subscriber_     = n_.subscribe("syropod_remote/parameter_selection", 1,
                                                      &StateController::parameterSelectionCallback, this);
-  parameter_adjustment_subscriber_    = n_.subscribe("hexapod_remote/parameter_adjustment", 1,
+  parameter_adjustment_subscriber_    = n_.subscribe("syropod_remote/parameter_adjustment", 1,
                                                      &StateController::parameterAdjustCallback, this);
 
   // Motor and other sensor topic subscriptions
@@ -818,7 +818,7 @@ void StateController::RVIZDebugging(bool static_display)
 
 /*******************************************************************************************************************//**
  * Callback handling the desired system state. Sends message to user interface when system enters OPERATIONAL state.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/system_state"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/system_state"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::systemStateCallback(const std_msgs::Int8& input)
@@ -836,7 +836,7 @@ void StateController::systemStateCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback handling the desired robot state.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/robot_state"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/robot_state"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::robotStateCallback(const std_msgs::Int8& input)
@@ -886,7 +886,7 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback for the input body velocity
- * @param[in] input The Twist geometry message provided by the subscribed ros topic "hexapod_remote/desired_velocity"
+ * @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_velocity"
 ***********************************************************************************************************************/
 void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& input)
 {
@@ -896,7 +896,7 @@ void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& inpu
 
 /*******************************************************************************************************************//**
  * Callback for the input body pose velocity (x/y/z linear translation and roll/pitch/yaw angular rotation velocities)
- * @param[in] input The Twist geometry message provided by the subscribed ros topic "hexapod_remote/desired_pose"
+ * @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_pose"
 ***********************************************************************************************************************/
 void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
 {
@@ -910,7 +910,7 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
 
 /*******************************************************************************************************************//**
  * Callback handling the desired posing mode and sending state messages to user interface.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/posing_mode"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/posing_mode"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::posingModeCallback(const std_msgs::Int8& input)
@@ -921,7 +921,7 @@ void StateController::posingModeCallback(const std_msgs::Int8& input)
     if (new_posing_mode != posing_mode_)
     {
       posing_mode_ = new_posing_mode;
-      switch (posing_mode_) //Used only for user message, control handled by hexapod_remote
+      switch (posing_mode_) //Used only for user message, control handled by syropod_remote
       {
         case (NO_POSING):
           ROS_INFO("\nPosing mode set to NO_POSING. "
@@ -946,7 +946,7 @@ void StateController::posingModeCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback handling desired pose reset mode
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/pose_reset_mode"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/pose_reset_mode"
 ***********************************************************************************************************************/
 void StateController::poseResetCallback(const std_msgs::Int8& input)
 {
@@ -961,7 +961,7 @@ void StateController::poseResetCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback handling the desired gait selection.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/gait_selection"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/gait_selection"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
@@ -980,7 +980,7 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
 /*******************************************************************************************************************//**
  * Callback handling the cruise control mode and sending state messages to user interface. Determines cruise velocity
  * from either parameters or current velocitiy inputs.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/cruise_control_mode"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/cruise_control_mode"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::cruiseControlCallback(const std_msgs::Int8& input)
@@ -1019,7 +1019,7 @@ void StateController::cruiseControlCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback handling the auto navigation mode and sending state messages to user interface.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/auto_navigation_mode"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/auto_navigation_mode"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::autoNavigationCallback(const std_msgs::Int8& input)
@@ -1044,7 +1044,7 @@ void StateController::autoNavigationCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback handling the selection of the leg as the primary leg for manual manipulation.
- * @param[in] input The Int8 standard message provided by the subscribed topic "hexapod_remote/primary_leg_selection"
+ * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/primary_leg_selection"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::primaryLegSelectionCallback(const std_msgs::Int8& input)
@@ -1070,7 +1070,7 @@ void StateController::primaryLegSelectionCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback handling the selection of the leg as the secondary leg for manual manipulation.
- * @param[in] input The Int8 standard message provided by the subscribed topic "hexapod_remote/secondary_leg_selection"
+ * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/secondary_leg_selection"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::secondaryLegSelectionCallback(const std_msgs::Int8& input)
@@ -1096,7 +1096,7 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback handling the toggling the state of the primary selected leg.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/primary_leg_state"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/primary_leg_state"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
@@ -1127,7 +1127,7 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback handling the toggling the state of the secondary selected leg.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/secondary_leg_state"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/secondary_leg_state"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
@@ -1158,7 +1158,7 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
 
 /*******************************************************************************************************************//**
  * Callback for the input manual tip velocity (in cartesian space) for the primary selected leg
- * @param[in] input The Point geometry message provided by the subscribed topic "hexapod_remote/primary_tip_velocity"
+ * @param[in] input The Point geometry message provided by the subscribed topic "syropod_remote/primary_tip_velocity"
 ***********************************************************************************************************************/
 void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point& input)
 {
@@ -1167,7 +1167,7 @@ void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point
 
 /*******************************************************************************************************************//**
  * Callback for the input manual tip velocity (in cartesian space) for the secondary selected leg
- * @param[in] input The Point geometry message provided by the subscribed topic "hexapod_remote/secondary_tip_velocity"
+ * @param[in] input The Point geometry message provided by the subscribed topic "syropod_remote/secondary_tip_velocity"
 ***********************************************************************************************************************/
 void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point& input)
 {
@@ -1176,7 +1176,7 @@ void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Poi
 
 /*******************************************************************************************************************//**
  * Callback handling the desired parameter selection and sending state messages to user interface.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/parameter_selection"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/parameter_selection"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
@@ -1203,7 +1203,7 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
 /*******************************************************************************************************************//**
  * Callback handling the desired selected parameter adjustment. Sets a new value for the selected parameter by adding
  * or subtracting the (parameter defined) adjustment value according to the input direction and clamped with limits.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/parameter_adjustment"
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/parameter_adjustment"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
 void StateController::parameterAdjustCallback(const std_msgs::Int8& input)

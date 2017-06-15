@@ -159,46 +159,46 @@ public:
 
   /**
    * Callback handling the desired system state. Sends message to user interface when system enters OPERATIONAL state.
-   * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/system_state"
+   * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/system_state"
    * @see parameters_and_states.h
    */
   void systemStateCallback(const Int8 &input);
   
   /**
    * Callback handling the desired robot state.
-   * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/robot_state"
+   * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/robot_state"
    * @see parameters_and_states.h
    */
   void robotStateCallback(const std_msgs::Int8 &input);
   
   /**
    * Callback for the input body velocity
-   * @param[in] input The Twist geometry message provided by the subscribed ros topic "hexapod_remote/desired_velocity"
+   * @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_velocity"
    */
   void bodyVelocityInputCallback(const geometry_msgs::Twist &input);
   
   /**
    * Callback for the input body pose velocity (x/y/z linear translation and roll/pitch/yaw angular rotation velocities)
-   * @param[in] input The Twist geometry message provided by the subscribed ros topic "hexapod_remote/desired_pose"
+   * @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_pose"
    */
   void bodyPoseInputCallback(const geometry_msgs::Twist &input);
   
   /**
    * Callback handling the desired posing mode and sending state messages to user interface.
-   * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/posing_mode"
+   * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/posing_mode"
    * @see parameters_and_states.h
    */
   void posingModeCallback(const std_msgs::Int8 &input);
   
   /**
    * Callback handling desired pose reset mode
-   * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/pose_reset_mode"
+   * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/pose_reset_mode"
    */
   void poseResetCallback(const std_msgs::Int8 &input);
   
   /**
    * Callback handling the desired gait selection.
-   * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/gait_selection"
+   * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/gait_selection"
    * @see parameters_and_states.h
    */
   void gaitSelectionCallback(const std_msgs::Int8 &input);
@@ -206,61 +206,61 @@ public:
   /**
    * Callback handling the cruise control mode and sending state messages to user interface. Determines cruise velocity
    * from either parameters or current velocitiy inputs.
-   * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/cruise_control_mode"
+   * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/cruise_control_mode"
    * @see parameters_and_states.h
    */
   void cruiseControlCallback(const std_msgs::Int8 &input);
   
   /**
    * Callback handling the auto navigation mode and sending state messages to user interface.
-   * @param[in] input The Int8 standard message provided by the subscribed topic "hexapod_remote/auto_navigation_mode"
+   * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/auto_navigation_mode"
    * @see parameters_and_states.h
    */
   void autoNavigationCallback(const std_msgs::Int8 &input);
   
   /**
    * Callback handling the selection of the leg as the primary leg for manual manipulation.
-   * @param[in] input The Int8 standard message provided by the subscribed topic "hexapod_remote/primary_leg_selection"
+   * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/primary_leg_selection"
    * @see parameters_and_states.h
    */
   void primaryLegSelectionCallback(const std_msgs::Int8 &input);
   
   /**
    * Callback handling the selection of the leg as the secondary leg for manual manipulation.
-   * @param[in] input The Int8 standard message provided by the topic "hexapod_remote/secondary_leg_selection"
+   * @param[in] input The Int8 standard message provided by the topic "syropod_remote/secondary_leg_selection"
    * @see parameters_and_states.h
    */
   void secondaryLegSelectionCallback(const std_msgs::Int8 &input);
   
   /**
    * Callback handling the toggling the state of the primary selected leg.
-   * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/primary_leg_state"
+   * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/primary_leg_state"
    * @see parameters_and_states.h
    */
   void primaryLegStateCallback(const std_msgs::Int8 &input);
   
   /**
    * Callback handling the toggling the state of the secondary selected leg.
-   * @param[in] input The Int8 standard message provided by the subscribed ros topic "hexapod_remote/secondary_leg_state"
+   * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/secondary_leg_state"
    * @see parameters_and_states.h
    */
   void secondaryLegStateCallback(const std_msgs::Int8 &input);
   
   /**
    * Callback for the input manual tip velocity (in cartesian space) for the primary selected leg
-   * @param[in] input The Point geometry message provided by the subscribed topic "hexapod_remote/primary_tip_velocity"
+   * @param[in] input The Point geometry message provided by the subscribed topic "syropod_remote/primary_tip_velocity"
    */
   void primaryTipVelocityInputCallback(const geometry_msgs::Point &input);
   
   /**
    * Callback for the input manual tip velocity (in cartesian space) for the secondary selected leg
-   * @param[in] input The Point geometry message provided by the topic "hexapod_remote/secondary_tip_velocity"
+   * @param[in] input The Point geometry message provided by the topic "syropod_remote/secondary_tip_velocity"
    */
   void secondaryTipVelocityInputCallback(const geometry_msgs::Point &input);
   
   /**
    * Callback handling the desired parameter selection and sending state messages to user interface.
-   * @param[in] input The Int8 standard message provided by the subscribed topic "hexapod_remote/parameter_selection"
+   * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/parameter_selection"
    * @see parameters_and_states.h
    */
   void parameterSelectionCallback(const std_msgs::Int8 &input);
@@ -268,7 +268,7 @@ public:
   /**
    * Callback handling the desired selected parameter adjustment. Sets a new value for the selected parameter by adding
    * or subtracting the (parameter defined) adjustment value according to the input direction and clamped with limits.
-   * @param[in] input The Int8 standard message provided by the subscribed topic "hexapod_remote/parameter_adjustment"
+   * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/parameter_adjustment"
    * @see parameters_and_states.h
    */
   void parameterAdjustCallback(const std_msgs::Int8 &input);
@@ -355,23 +355,23 @@ public:
 private:
   ros::NodeHandle n_;                                 ///! Ros node handle
   
-  ros::Subscriber system_state_subscriber_;           ///! Subscriber for topic "hexapod_remote/system_state"
-  ros::Subscriber robot_state_subscriber_;            ///! Subscriber for topic "hexapod_remote/robot_state"  
-  ros::Subscriber desired_velocity_subscriber_;       ///! Subscriber for topic "hexapod_remote/desired_velocity"
-  ros::Subscriber desired_pose_subscriber_;           ///! Subscriber for topic "hexapod_remote/desired_pose"
-  ros::Subscriber posing_mode_subscriber_;            ///! Subscriber for topic "hexapod_remote/posing_mode"
-  ros::Subscriber pose_reset_mode_subscriber_;        ///! Subscriber for topic "hexapod_remote/pose_reset_mode"
-  ros::Subscriber gait_selection_subscriber_;         ///! Subscriber for topic "hexapod_remote/gait_selection"
-  ros::Subscriber cruise_control_mode_subscriber_;    ///! Subscriber for topic "hexapod_remote/cruise_control_mode"
-  ros::Subscriber auto_navigation_mode_subscriber_;   ///! Subscriber for topic "hexapod_remote/auto_navigation_mode"
-  ros::Subscriber primary_leg_selection_subscriber_;  ///! Subscriber for topic "hexapod_remote/primary_leg_selection"
-  ros::Subscriber primary_leg_state_subscriber_;      ///! Subscriber for topic "hexapod_remote/primary_leg_state"
-  ros::Subscriber primary_tip_velocity_subscriber_;   ///! Subscriber for topic "hexapod_remote/primary_tip_velocity"
-  ros::Subscriber secondary_leg_selection_subscriber_;///! Subscriber for topic "hexapod_remote/secondary_leg_selection"
-  ros::Subscriber secondary_leg_state_subscriber_;    ///! Subscriber for topic "hexapod_remote/secondary_leg_state"
-  ros::Subscriber secondary_tip_velocity_subscriber_; ///! Subscriber for topic "hexapod_remote/secondary_tip_velocity"
-  ros::Subscriber parameter_selection_subscriber_;    ///! Subscriber for topic "hexapod_remote/parameter_selection"
-  ros::Subscriber parameter_adjustment_subscriber_;   ///! Subscriber for topic "hexapod_remote/parameter_adjustment"
+  ros::Subscriber system_state_subscriber_;           ///! Subscriber for topic "syropod_remote/system_state"
+  ros::Subscriber robot_state_subscriber_;            ///! Subscriber for topic "syropod_remote/robot_state"  
+  ros::Subscriber desired_velocity_subscriber_;       ///! Subscriber for topic "syropod_remote/desired_velocity"
+  ros::Subscriber desired_pose_subscriber_;           ///! Subscriber for topic "syropod_remote/desired_pose"
+  ros::Subscriber posing_mode_subscriber_;            ///! Subscriber for topic "syropod_remote/posing_mode"
+  ros::Subscriber pose_reset_mode_subscriber_;        ///! Subscriber for topic "syropod_remote/pose_reset_mode"
+  ros::Subscriber gait_selection_subscriber_;         ///! Subscriber for topic "syropod_remote/gait_selection"
+  ros::Subscriber cruise_control_mode_subscriber_;    ///! Subscriber for topic "syropod_remote/cruise_control_mode"
+  ros::Subscriber auto_navigation_mode_subscriber_;   ///! Subscriber for topic "syropod_remote/auto_navigation_mode"
+  ros::Subscriber primary_leg_selection_subscriber_;  ///! Subscriber for topic "syropod_remote/primary_leg_selection"
+  ros::Subscriber primary_leg_state_subscriber_;      ///! Subscriber for topic "syropod_remote/primary_leg_state"
+  ros::Subscriber primary_tip_velocity_subscriber_;   ///! Subscriber for topic "syropod_remote/primary_tip_velocity"
+  ros::Subscriber secondary_leg_selection_subscriber_;///! Subscriber for topic "syropod_remote/secondary_leg_selection"
+  ros::Subscriber secondary_leg_state_subscriber_;    ///! Subscriber for topic "syropod_remote/secondary_leg_state"
+  ros::Subscriber secondary_tip_velocity_subscriber_; ///! Subscriber for topic "syropod_remote/secondary_tip_velocity"
+  ros::Subscriber parameter_selection_subscriber_;    ///! Subscriber for topic "syropod_remote/parameter_selection"
+  ros::Subscriber parameter_adjustment_subscriber_;   ///! Subscriber for topic "syropod_remote/parameter_adjustment"
   ros::Subscriber imu_data_subscriber_;               ///! Subscriber for topic "/imu/data"
   ros::Subscriber joint_state_subscriber_;            ///! Subscriber for topic "/joint_states"
   ros::Subscriber tip_force_subscriber_;              ///! Subscriber for topic "/motor_encoders"
