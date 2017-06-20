@@ -22,57 +22,144 @@ For information on parameters see readme in config folder.
 * Optional inclination compensation which strives to keep body centre of gravity over the estimated centre of support whilst walking on inclined planes.
 * Optional bespoke automatic body posing system which poses each robot leg cyclically as defined by auto-pose parameters. (see config/readme.md)
 * Cruise control mode which may either force a constant predefined input velocity for the Syropod or set the current input velocity as constant.
-* Auto navigation mode which when combined with the correct sensing capabilities and running hexapod_auto_navigation node, give autonomous navigation with obstacles avoidance to an input waypoint.
+* Auto navigation mode which when combined with the correct sensing capabilities and running syropod_auto_navigation node, give autonomous navigation with obstacles avoidance to an input waypoint.
 
   
 ## Inputs:
-### Hexapod\_Remote:
-* Desired system state (*hexapod\_remote/system\_state*)
-* Desired robot state (*hexapod\_remote/robot\_state*)
-* Desired walking velocity (*hexapod\_remote/desired\_velocity*)
-* Desired body pose (*hexapod\_remote/desired\_pose*)
-* Posing mode (*hexapod\_remote/posing\_mode*)
-* Pose reset mode (*hexapod\_remote/pose\_reset\_mode*)
-* Gait selection (*hexapod\_remote/gait\_mode*)
-* Cruise control mode (*hexapod\_remote/cruise\_control\_mode*)
-* Auto-navigation mode (*hexapod\_remote/auto\_navigation\_mode*)
-* Leg selection commands (*hexapod\_remote/primary\_leg\_selection*) (*hexapod\_remote/secondary\_leg\_selection*)
-* Desired leg state commands (*hexapod\_remote/primary\_leg\_state*) (*hexapod\_remote/secondary\_leg\_state*)
-* Desired leg tip/joint velocity commands (*hexapod\_remote/primary\_tip\_velocity*) (*hexapod\_remote/secondary\_tip\_velocity*)
-* Parameter selection command (*hexapod\_remote/param\_selection*)
-* Parameter adjustment command (*hexapod\_remote/param\_adjustment*)
+### Syropod\_Remote:
+* System State:
+    * Description: The desired state of the entire Syropod High-level Controller system.
+    * Topic: "*/syropod\_remote/system\_state*"
+    * Type: std_msgs::Int8
+* Robot State:
+    * Description: The desired state of the robot.
+    * Topic: "*/syropod\_remote/robot_state*"
+    * Type: std_msgs::Int8
+* Desired Velocity:
+    * Description: The desired body velocity of the robot.
+    * Topic: "*/syropod\_remote/desired\_velocity*"
+    * Type: geometry_msgs::Twist
+* Desired Pose:
+    * Description: The desired body pose of the robot.
+    * Topic: "*/syropod\_remote/desired\_pose*"
+    * Type: geometry_msgs::Twist
+* Posing Mode:
+    * Description: The desired manual body posing input mode.
+    * Topic: "*/syropod\_remote/posing\_mode*"
+    * Type: std_msgs::Int8
+* Pose Reset Mode:
+    * Description: The desired manual body pose reset mode.
+    * Topic: "*/syropod\_remote/pose\_reset\_mode*"
+    * Type: std_msgs::Int8
+Gait Selection:
+    * Description: The desired gait selection for the walk controller of the robot.
+    * Topic: "*/syropod\_remote/gait\_selection*"
+    * Type: std_msgs::Int8
+Cruise Control Mode:
+    * Description: The desired cruise control mode.
+    * Topic: "*/syropod\_remote/cruise\_control\_mode*"
+    * Type: std_msgs::Int8
+Auto-Nagivation Mode:
+    * Description: The desired auto-navigation mode.
+    * Topic: "*/syropod\_remote/auto\_navigation\_mode*"
+    * Type: std_msgs::Int8
+Primary Leg Selection:
+    * Description: The desired leg selected for primary manipulation.
+    * Topic: "*/syropod\_remote/primary\_leg\_selection*"
+    * Type: std_msgs::Int8
+Primary Leg State:
+    * Description: The desired state of the leg selected for primary manipulation.
+    * Topic: "*/syropod\_remote/primary\_leg\_state*"
+    * Type: std_msgs::Int8
+Primary Tip Velocity:
+    * Description: The desired tip velocity for the leg selected for primary manipulation.
+    * Topic: "*/syropod\_remote/primary\_tip\_velocity*"
+    * Type: geometry_msgs::Point
+Secondary Leg Selection:
+    * Description: The desired leg selected for secondary manipulation.
+    * Topic: "*/syropod\_remote/secondary\_leg\_selection*"
+    * Type: std_msgs::Int8
+Secondary Leg State:
+    * Description: The desired state of the leg selected for secondary manipulation.
+    * Topic: "*/syropod\_remote/secondary\_leg\_state*"
+    * Type: std_msgs::Int8
+Secondary Tip Velocity:
+    * Description: The desired tip velocity for the leg selected for secondary manipulation.
+    * Topic: "*/syropod\_remote/secondary\_tip\_velocity*"
+    * Type: geometry_msgs::Point
+Parameter Selection:
+    * Description: The desired parameter selection for possible adjustment.
+    * Topic: "*/syropod\_remote/parameter\_selection*"
+    * Type: std_msgs::Int8
+Parameter Adjustment:
+    * Description: The desired adjustment of the selected parameter (increment/decrement).
+    * Topic: "*/syropod\_remote/parameter\_adjustment*"
+    * Type: std_msgs::Int8
 
 ### Motor and Sensor Inputs
-* IMU data input (*/imu/data*)
-* Tip force data (*/motor\_encoders*) (MAX) (To be removed)
-* Individual tip force data (*/AR_prs*) (*/BR_prs*) (*/CR_prs*) (*/CL_prs*) (*/BL_prs*) (*/AL_prs*) (To be removed)
-* Joint state data (*/joint\_states*)
+* IMU Data:
+    * Description: The input data from onboard IMU.
+    * Topic: "*/imu/data*"
+    * Type: sensor_msgs::Imu
+* Tip Force Data:  (To be removed)
+    * Description: The pressure sensor signals from leg tips of Syropod. (MAX)
+    * Topic: "*/motor\_encoders*
+    * Type: sensor_msgs::JointState
+Individual Tip Force Data:  (To be removed)
+    * Description: The pressure sensor signals from leg tips of Syropod. (Flexipod)
+    * Topic: *"/AR\_prs" && "/BR\_prs" && "/CR\_prs" && "/CL\_prs" && "/BL\_prs" && "/AL\_prs"*
+    * Type: std_msgs::UInt16
+Joint State Data:
+    * Description: The actual state of joints within the Syropod as published by hardware.
+    * Topic: "*/joint\_states*"
+    * Type: sensor_msgs::JointState
 
 ## Outputs:
 ### Dynamixel Motor Interface:
-* Desired joint position for each individual joint (*/syropod/\*LEG_ID\*\_\*JOINT_ID\*\_joint/command*)
-* Desired joint state array for all joints (*/desired\_joint\_state*)
+* Desired Joint Position (per joint)
+    * Description: Desired joint position for each individual joint.
+    * Topic: "*/syropod/\*LEG_ID\*\_\*JOINT_ID\*\_joint/command*"
+    * Type: std_msgs::Float64
+* Desired Joint State (combined)
+    * Description: Desired joint state array for all joints.
+    * Topic: "*/desired\_joint\_state*"
+    * Type: sensor_msgs::JointState
 
 ### Misc.
-* Current desired body velocity (*/syropod_highlevel_controller/body\_velocity*)
-* Current desired body pose (*/syropod_highlevel_controller/pose*)
-* IMU data output (*/syropod_highlevel_controller/imu\_data*)
-* ASC Hexapod specific message for toggling of magnetic feet (bool of whether each leg is in stance state or not)(*/leg\_state\_\*LEG_ID\*\_bool*)(To be removed)
-* Leg state (*/syropod_highlevel_controller/\*LEG_ID\*\_leg/state*):
-    * header: Header with timestamp
-    * leg_name: Leg designation
-    * walker_tip_position: Desired tip position generated from the walk controller.
-    * poser_tip_position: Desired tip position with applied posing (poser).
-    * model_tip_position: Desired tip position finalised by the model inverse/forward kinematics (model).
-    * model_tip_velocity: Desired tip velocity finalised by the model inverse/forward kinematics (model).
-    * joint_positions: Array of desired joint positions for each joint.
-    * joint_velocities: Array of desired joint velocities for each joint.
-    * stance_progress: Progress along stance state (0.0->1.0 OR -1 if not in stance)
-    * swing_progress: Progress along swing state (0.0->1.0 OR -1 if not in swing)
-    * auto_pose: The automatic cyclic posing applied to this leg from the auto-pose system.
-    * tip_force: Tip force used in impedance control calculations
-    * delta_z: Vertical tip position offset - output of impedance control.
-    * virtual_stiffness: Current virtual stiffness used in impedance control calculations 
+* Body Velocity:
+    * Description: The desired velocity of the robot body.
+    * Topic: "*/syropod_highlevel_controller/body\_velocity*"
+    * Type: geometry_msgs::Twist
+* Body Pose:
+    * Description: The desired pose of the robot body.
+    * Topic: "*/syropod_highlevel_controller/pose*"
+    * Type: geometry_msgs::Twist
+* IMU Data Ouput:
+    * Description: Output of IMU after being transformed into robot frame.
+    * Topic: "*/syropod_highlevel_controller/imu\_data*"
+    * Type: sensor_msgs::Imu
+* ASC Hexapod State: (To be removed)
+    * Description: ASC Hexapod specific message for toggling of magnetic feet (bool of whether each leg is in stance state or not)
+    * Topic: "*/leg\_state\_\*LEG_ID\*\_bool*"
+    * Type: std_msgs::Bool
+* Leg State:
+    * Description: The leg state message combines several leg specific data for use in debugging.
+      * header: Header with timestamp
+      * leg_name: Leg designation
+      * walker_tip_position: Desired tip position generated from the walk controller.
+      * poser_tip_position: Desired tip position with applied posing (poser).
+      * model_tip_position: Desired tip position finalised by the model inverse/forward kinematics (model).
+      * model_tip_velocity: Desired tip velocity finalised by the model inverse/forward kinematics (model).
+      * joint_positions: Array of desired joint positions for each joint.
+      * joint_velocities: Array of desired joint velocities for each joint.
+      * stance_progress: Progress along stance state (0.0->1.0 OR -1 if not in stance)
+      * swing_progress: Progress along swing state (0.0->1.0 OR -1 if not in swing)
+      * auto_pose: The automatic cyclic posing applied to this leg from the auto-pose system.
+      * tip_force: Tip force used in impedance control calculations
+      * delta_z: Vertical tip position offset - output of impedance control.
+      * virtual_stiffness: Current virtual stiffness used in impedance control calculations 
+    * Topic: "*/syropod_highlevel_controller/\*LEG_ID\*\_leg/state*"
+    * Type: syropod_highlevel_controller::LegState (custom message)
 
 ## Changelog:
 
@@ -123,7 +210,7 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Conversion to new coordinate system, adhering to ROS REP103
     - Overhaul of generation of robot model using DH parameters.
     - Overhaul of inverse/forward kinematics engine to handle up to 5 DOF legs.
-    - New control scheme (see hexapod_remote readme)
+    - New control scheme (see syropod_remote readme)
     - Redesigned start-ip/shut-down sequences.
     - New bespoke auto posing system (see config/readme.md)
     - Implementation of dynamic_reconfigure for key parameters.
