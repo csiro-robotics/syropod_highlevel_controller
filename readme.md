@@ -8,6 +8,7 @@ Please use readme in launch folder of individual platform for information on set
 
 For information on parameters see readme in config folder.
 
+
 ## Features
 * Fully configurable for a variety of platform designs with differing physical characteristics, including up to eight legs each with up to 5 degrees of freedom.
 * Four dynamically switchable gait options (Wave, Amble, Ripple and Tripod) plus ability to easily design custom gaits. (see config/readme.md)
@@ -24,123 +25,124 @@ For information on parameters see readme in config folder.
 * Cruise control mode which may either force a constant predefined input velocity for the Syropod or set the current input velocity as constant.
 * Auto navigation mode which when combined with the correct sensing capabilities and running syropod_auto_navigation node, give autonomous navigation with obstacles avoidance to an input waypoint.
 
-  
+
 ## Inputs:
 ### Syropod\_Remote:
 * System State:
     * Description: The desired state of the entire Syropod High-level Controller system.
-    * Topic: "*/syropod\_remote/system\_state*"
+    * Topic: */syropod\_remote/system\_state*
     * Type: std_msgs::Int8
 * Robot State:
     * Description: The desired state of the robot.
-    * Topic: "*/syropod\_remote/robot_state*"
+    * Topic: */syropod\_remote/robot_state*
     * Type: std_msgs::Int8
 * Desired Velocity:
     * Description: The desired body velocity of the robot.
-    * Topic: "*/syropod\_remote/desired\_velocity*"
+    * Topic: */syropod\_remote/desired\_velocity*
     * Type: geometry_msgs::Twist
 * Desired Pose:
     * Description: The desired body pose of the robot.
-    * Topic: "*/syropod\_remote/desired\_pose*"
+    * Topic: */syropod\_remote/desired\_pose*
     * Type: geometry_msgs::Twist
 * Posing Mode:
     * Description: The desired manual body posing input mode.
-    * Topic: "*/syropod\_remote/posing\_mode*"
+    * Topic: */syropod\_remote/posing\_mode*
     * Type: std_msgs::Int8
 * Pose Reset Mode:
     * Description: The desired manual body pose reset mode.
-    * Topic: "*/syropod\_remote/pose\_reset\_mode*"
+    * Topic: */syropod\_remote/pose\_reset\_mode*
     * Type: std_msgs::Int8
-Gait Selection:
+* Gait Selection:
     * Description: The desired gait selection for the walk controller of the robot.
-    * Topic: "*/syropod\_remote/gait\_selection*"
+    * Topic: */syropod\_remote/gait\_selection*
     * Type: std_msgs::Int8
-Cruise Control Mode:
+* Cruise Control Mode:
     * Description: The desired cruise control mode.
-    * Topic: "*/syropod\_remote/cruise\_control\_mode*"
+    * Topic: */syropod\_remote/cruise\_control\_mode*
     * Type: std_msgs::Int8
-Auto-Nagivation Mode:
+* Auto-Nagivation Mode:
     * Description: The desired auto-navigation mode.
-    * Topic: "*/syropod\_remote/auto\_navigation\_mode*"
+    * Topic: */syropod\_remote/auto\_navigation\_mode*
     * Type: std_msgs::Int8
-Primary Leg Selection:
+* Primary Leg Selection:
     * Description: The desired leg selected for primary manipulation.
-    * Topic: "*/syropod\_remote/primary\_leg\_selection*"
+    * Topic: */syropod\_remote/primary\_leg\_selection*
     * Type: std_msgs::Int8
-Primary Leg State:
+* Primary Leg State:
     * Description: The desired state of the leg selected for primary manipulation.
-    * Topic: "*/syropod\_remote/primary\_leg\_state*"
+    * Topic: */syropod\_remote/primary\_leg\_state*
     * Type: std_msgs::Int8
-Primary Tip Velocity:
+* Primary Tip Velocity:
     * Description: The desired tip velocity for the leg selected for primary manipulation.
-    * Topic: "*/syropod\_remote/primary\_tip\_velocity*"
+    * Topic: */syropod\_remote/primary\_tip\_velocity*
     * Type: geometry_msgs::Point
-Secondary Leg Selection:
+* Secondary Leg Selection:
     * Description: The desired leg selected for secondary manipulation.
-    * Topic: "*/syropod\_remote/secondary\_leg\_selection*"
+    * Topic: */syropod\_remote/secondary\_leg\_selection*
     * Type: std_msgs::Int8
-Secondary Leg State:
+* Secondary Leg State:
     * Description: The desired state of the leg selected for secondary manipulation.
-    * Topic: "*/syropod\_remote/secondary\_leg\_state*"
+    * Topic: */syropod\_remote/secondary\_leg\_state*
     * Type: std_msgs::Int8
-Secondary Tip Velocity:
+* Secondary Tip Velocity:
     * Description: The desired tip velocity for the leg selected for secondary manipulation.
-    * Topic: "*/syropod\_remote/secondary\_tip\_velocity*"
+    * Topic: */syropod\_remote/secondary\_tip\_velocity*
     * Type: geometry_msgs::Point
-Parameter Selection:
+* Parameter Selection:
     * Description: The desired parameter selection for possible adjustment.
-    * Topic: "*/syropod\_remote/parameter\_selection*"
+    * Topic: */syropod\_remote/parameter\_selection*
     * Type: std_msgs::Int8
-Parameter Adjustment:
+* Parameter Adjustment:
     * Description: The desired adjustment of the selected parameter (increment/decrement).
-    * Topic: "*/syropod\_remote/parameter\_adjustment*"
+    * Topic: */syropod\_remote/parameter\_adjustment*
     * Type: std_msgs::Int8
 
 ### Motor and Sensor Inputs
 * IMU Data:
     * Description: The input data from onboard IMU.
-    * Topic: "*/imu/data*"
+    * Topic: */imu/data*
     * Type: sensor_msgs::Imu
 * Tip Force Data:  (To be removed)
     * Description: The pressure sensor signals from leg tips of Syropod. (MAX)
-    * Topic: "*/motor\_encoders*
+    * Topic: */motor\_encoders*
     * Type: sensor_msgs::JointState
 Individual Tip Force Data:  (To be removed)
     * Description: The pressure sensor signals from leg tips of Syropod. (Flexipod)
-    * Topic: *"/AR\_prs" && "/BR\_prs" && "/CR\_prs" && "/CL\_prs" && "/BL\_prs" && "/AL\_prs"*
+    * Topic: */AR\_prs && /BR\_prs && /CR\_prs && /CL\_prs && /BL\_prs && /AL\_prs*
     * Type: std_msgs::UInt16
 Joint State Data:
     * Description: The actual state of joints within the Syropod as published by hardware.
-    * Topic: "*/joint\_states*"
+    * Topic: "*/joint\_states*
     * Type: sensor_msgs::JointState
+
 
 ## Outputs:
 ### Dynamixel Motor Interface:
 * Desired Joint Position (per joint)
     * Description: Desired joint position for each individual joint.
-    * Topic: "*/syropod/\*LEG_ID\*\_\*JOINT_ID\*\_joint/command*"
+    * Topic: */syropod/\*LEG_ID\*\_\*JOINT_ID\*\_joint/command*
     * Type: std_msgs::Float64
 * Desired Joint State (combined)
     * Description: Desired joint state array for all joints.
-    * Topic: "*/desired\_joint\_state*"
+    * Topic: */desired\_joint\_state*
     * Type: sensor_msgs::JointState
 
 ### Misc.
 * Body Velocity:
     * Description: The desired velocity of the robot body.
-    * Topic: "*/syropod_highlevel_controller/body\_velocity*"
+    * Topic: */syropod_highlevel_controller/body\_velocity*
     * Type: geometry_msgs::Twist
 * Body Pose:
     * Description: The desired pose of the robot body.
-    * Topic: "*/syropod_highlevel_controller/pose*"
+    * Topic: */syropod_highlevel_controller/pose*
     * Type: geometry_msgs::Twist
 * IMU Data Ouput:
     * Description: Output of IMU after being transformed into robot frame.
-    * Topic: "*/syropod_highlevel_controller/imu\_data*"
+    * Topic: */syropod_highlevel_controller/imu\_data*
     * Type: sensor_msgs::Imu
 * ASC Hexapod State: (To be removed)
     * Description: ASC Hexapod specific message for toggling of magnetic feet (bool of whether each leg is in stance state or not)
-    * Topic: "*/leg\_state\_\*LEG_ID\*\_bool*"
+    * Topic: */leg\_state\_\*LEG_ID\*\_bool*
     * Type: std_msgs::Bool
 * Leg State:
     * Description: The leg state message combines several leg specific data for use in debugging.
@@ -158,8 +160,9 @@ Joint State Data:
       * tip_force: Tip force used in impedance control calculations
       * delta_z: Vertical tip position offset - output of impedance control.
       * virtual_stiffness: Current virtual stiffness used in impedance control calculations 
-    * Topic: "*/syropod_highlevel_controller/\*LEG_ID\*\_leg/state*"
+    * Topic: */syropod_highlevel_controller/\*LEG_ID\*\_leg/state*
     * Type: syropod_highlevel_controller::LegState (custom message)
+
 
 ## Changelog:
 
