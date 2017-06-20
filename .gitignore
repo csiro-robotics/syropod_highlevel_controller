@@ -1,3 +1,49 @@
-.kdev4/
-simple_hexapod_controller.kdev4
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# OS X
+.DS_Store
+
+# LaTeX
+*.aux
+*.bbl
+*.blg
+*.log
+*.gz
+*.out
+*.toc
+
+# Editors
+.cproject
+.project
+.settings
+*.pydevproject
+*.pyc
+*.idea
+*.sublime*
+
+# Others
+*~
+*.kate-swp
+*.kdev*
+
 
