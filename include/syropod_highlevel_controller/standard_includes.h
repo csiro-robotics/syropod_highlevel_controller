@@ -25,7 +25,6 @@
 #include <ros/exceptions.h>
 
 #include <dynamic_reconfigure/server.h>
-#include <syropod_highlevel_controller/DynamicConfig.h>
 
 #include <tf/transform_broadcaster.h>
 #include <tf2/transform_datatypes.h>
@@ -37,6 +36,7 @@
 
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/JointState.h>
+#include <sensor_msgs/Joy.h>
 
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Point.h>

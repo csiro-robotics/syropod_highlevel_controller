@@ -106,11 +106,11 @@ For information on parameters see readme in config folder.
     * Description: The pressure sensor signals from leg tips of Syropod. (MAX)
     * Topic: */motor\_encoders*
     * Type: sensor_msgs::JointState
-Individual Tip Force Data:  (To be removed)
+* Individual Tip Force Data:  (To be removed)
     * Description: The pressure sensor signals from leg tips of Syropod. (Flexipod)
     * Topic: */AR\_prs && /BR\_prs && /CR\_prs && /CL\_prs && /BL\_prs && /AL\_prs*
     * Type: std_msgs::UInt16
-Joint State Data:
+* Joint State Data:
     * Description: The actual state of joints within the Syropod as published by hardware.
     * Topic: "*/joint\_states*
     * Type: sensor_msgs::JointState

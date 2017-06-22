@@ -23,7 +23,7 @@
 #include "parameters_and_states.h"
 #include "quat.h"
 #include "pose.h"
-#include "syropod_highlevel_controller/legState.h"
+#include "syropod_highlevel_controller/LegState.h"
 
 #define IK_TOLERANCE 0.005 // Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
 #define HALF_BODY_DEPTH 0.05 // Threshold used to estimate if leg tip has broken the plane of the robot body. (m)
@@ -245,7 +245,7 @@ public:
     * Publishes the given message via the leg state pubisher object.
     * @param[in] msg The leg state message to be published.
     */
-  inline void publishState(syropod_highlevel_controller::legState msg) { leg_state_publisher_.publish(msg); };
+  inline void publishState(syropod_highlevel_controller::LegState msg) { leg_state_publisher_.publish(msg); };
 
   /**
     * Publishes the given message via the ASC leg state pubisher object.

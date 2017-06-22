@@ -22,6 +22,8 @@
 #include "standard_includes.h"
 #include "parameters_and_states.h"
 
+#include "syropod_highlevel_controller/DynamicConfig.h"
+
 #include "walk_controller.h"
 #include "pose_controller.h"
 #include "model.h"

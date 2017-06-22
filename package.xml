@@ -48,8 +48,6 @@
   <build_depend>dynamixel_msgs</build_depend>
   <build_depend>dynamixel_controllers</build_depend>
   <build_depend>message_generation</build_depend>
-  
-
 
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>

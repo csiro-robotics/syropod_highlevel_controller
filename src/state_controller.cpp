@@ -32,7 +32,7 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   initParameters();
 
   // Create robot model
-  model_ = new Model(&params_);
+  model_ = new Model(&params_);  
 
   debug_.setTimeDelta(params_.time_delta.data);
 
@@ -104,7 +104,7 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   {
     Leg* leg = leg_it_->second;
     string topic_name = node_name + "/" + leg->getIDName() + "/state";
-    leg->setStatePublisher(n_.advertise<syropod_highlevel_controller::legState>(topic_name, 1000));
+    leg->setStatePublisher(n_.advertise<syropod_highlevel_controller::LegState>(topic_name, 1000));
     leg->setASCStatePublisher(n_.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); //TODO
 
     // If debugging in gazebo, setup joint command publishers
@@ -653,7 +653,7 @@ void StateController::publishLegState(void)
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    syropod_highlevel_controller::legState msg;
+    syropod_highlevel_controller::LegState msg;
     Leg* leg = leg_it_->second;
     LegStepper* leg_stepper = leg->getLegStepper();
     LegPoser* leg_poser = leg->getLegPoser();
