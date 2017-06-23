@@ -323,7 +323,7 @@ public:
     */
   MatrixXd createJacobian(vector<map<string, double>> dh);
 
-  private:
+private:
   Model* model_;                     ///! A pointer to the parent robot model object.
   map<int, Joint*> joint_container_; ///! The container object for all child Joint objects.
   map<int, Link*> link_container_;   ///! The container object for all child Link objects.
@@ -355,6 +355,9 @@ public:
   int group_; ///! Leg stepping coordination group (Either 0 or 1).
 
   double tip_force_ = 0.0; ///! Vertical force estimation on tip.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**
@@ -464,6 +467,8 @@ public:
   double current_position_ = UNASSIGNED_VALUE; ///! The current position of this joint according to hardware.
   double current_velocity_ = UNASSIGNED_VALUE; ///! The current velocity of this joint according to hardware.
   double current_effort_ = UNASSIGNED_VALUE;   ///! The current effort of this joint according to hardware.
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**
@@ -523,6 +528,9 @@ public:
   const string id_name_;        ///! The identification name for the tip.
   Matrix4d current_transform_;  ///! The current transformation matrix between the previous joint and the tip.
   Matrix4d identity_transform_; ///! The identity transformation matrix between the previous joint and the tip.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /***********************************************************************************************************************

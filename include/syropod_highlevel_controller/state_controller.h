@@ -443,7 +443,10 @@ private:
   double angular_cruise_velocity_;            ///! Desired constant angular body velocity for cruise control mode
 
   map<int, Leg*>::iterator leg_it_;     ///! Leg iteration member variable used to minimise code
-	map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code
+  map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code
+
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /***********************************************************************************************************************

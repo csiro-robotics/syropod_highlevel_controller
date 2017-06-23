@@ -43,9 +43,12 @@ class AutoPoser;
 ***********************************************************************************************************************/
 struct ImuData
 {
+public:
   Quat orientation;
   Vector3d linear_acceleration;
   Vector3d angular_velocity;
+  
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**
@@ -299,6 +302,9 @@ private:
   
   map<int, Leg*>::iterator leg_it_;     ///! Leg iteration member variable used to minimise code.
   map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**
@@ -514,6 +520,9 @@ private:
   vector<Vector3d> transition_positions_; ///! Vector of tip positions to target during sequence transitions.
 
   bool leg_completed_step_ = false; ///! Flag denoting if leg has completed its required step in a sequence.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /***********************************************************************************************************************

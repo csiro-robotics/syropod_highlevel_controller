@@ -189,6 +189,9 @@ private:
   map<int, Leg*>::iterator leg_it_;     ///! Leg iteration member variable used to minimise code
   map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code.
   map<int, Link*>::iterator link_it_;   ///! Link iteration member variable used to minimise code.
+
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**
@@ -370,6 +373,9 @@ private:
   Vector3d current_tip_velocity_;       ///! The default tip velocity per the walk controller.
   Vector3d swing_origin_tip_position_;  ///! The tip position used as the origin for the bezier curve during swing.
   Vector3d stance_origin_tip_position_; ///! The tip position used as the origin for the bezier curve during stance.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /***********************************************************************************************************************
