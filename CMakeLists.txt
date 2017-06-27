@@ -120,8 +120,7 @@ add_executable(syropod_highlevel_controller_node src/main.cpp src/model.cpp src/
 ## Specify libraries to link a library or executable target against
 target_link_libraries(syropod_highlevel_controller_node ${catkin_LIBRARIES} -fopenmp)
  
-add_dependencies(syropod_highlevel_controller_node syropod_highlevel_controller_cpp syropod_highlevel_controller_generate_messages_cpp syropod_highlevel_controller_gencfg)
-
+add_dependencies(syropod_highlevel_controller_node syropod_highlevel_controller_generate_messages_cpp syropod_highlevel_controller_gencfg)
 
 #############
 ## Install ##
