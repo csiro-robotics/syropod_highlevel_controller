@@ -62,16 +62,16 @@ public:
  * requirements and methods. Generation of a user controlled 'manual' body pose and an IMU feedback based automatic
  * body pose are examples of these sub-poses, which are combined and applied to the robot model body.
 ***********************************************************************************************************************/
-class PoseController
+typedef vector<shared_ptr<AutoPoser>> AutoPoserContainer;
+class PoseController : public enable_shared_from_this<PoseController>
 {
 public:
   /**
-    * PoseController class constructor. Iterates through legs in robot model and generates and assigns a leg pose 
-    * object. Initialises member variables and calls function to initialise auto pose objects.
+    * PoseController class constructor. Initialises member variables.
     * @param[in] model Pointer to the robot model class object
     * @param[in] params Pointer to the parameter struct object
     */
-  PoseController(Model* model, Parameters* params);
+  PoseController(shared_ptr<Model> model, const Parameters& params);
   
   /** Accessor for pose reset mode */
   inline PoseResetMode getPoseResetMode(void) { return pose_reset_mode_; };
@@ -83,7 +83,7 @@ public:
   inline ImuData getImuData(void) { return imu_data_; };
   
   /** Accessor for parameter object */
-  inline Parameters* getParameters(void) { return params_; };
+  inline const Parameters& getParameters(void) { return params_; };
   
   /** Accessor for auto pose */
   inline Pose getAutoPose(void) { return auto_pose_; };
@@ -107,16 +107,16 @@ public:
   inline Vector3d getRotationVelocityError(void) { return rotation_velocity_error_; };
   
   /** Modifier for pose phase length */
-  inline void setPhaseLength(int phase_length) { pose_phase_length_ = phase_length; };
+  inline void setPhaseLength(const int& phase_length) { pose_phase_length_ = phase_length; };
   
   /** Modifier for normalisation value */
-  inline void setNormaliser(int normaliser) { normaliser_ = normaliser; };
+  inline void setNormaliser(const int& normaliser) { normaliser_ = normaliser; };
   
   /** Modifier for pose reset mode */
-  inline void setPoseResetMode(PoseResetMode mode) { pose_reset_mode_ = mode; };
+  inline void setPoseResetMode(const PoseResetMode& mode) { pose_reset_mode_ = mode; };
   
   /** Modifier for imu data */
-  inline void setImuData(Quat orientation, Vector3d linear_acceleration, Vector3d angular_velocity)
+  inline void setImuData(const Quat& orientation, const Vector3d& linear_acceleration, const Vector3d& angular_velocity)
   {
     imu_data_.orientation = orientation;
     imu_data_.linear_acceleration = linear_acceleration;
@@ -124,7 +124,7 @@ public:
   }
   
   /** Modifier for manual pose velocity input */
-  inline void setManualPoseInput(Vector3d translation, Vector3d rotation) 
+  inline void setManualPoseInput(const Vector3d& translation, const Vector3d& rotation) 
   {
     translation_velocity_input_ = translation;
     rotation_velocity_input_ = rotation;
@@ -140,6 +140,12 @@ public:
     impedance_pose_ = Pose::identity();
     default_pose_ = Pose::identity();
   }
+  
+  /**
+   * Iterates through legs in robot model and generates and assigns a leg poser object. Calls function to initialise 
+   * auto pose objects. Seperated from constructor due to shared_from_this constraints.
+   */
+  void init(void);
 
   /**
    * Initialises auto poser container and populates with auto poser class objects as defined by auto poser parameters.
@@ -163,7 +169,7 @@ public:
    * @see parameters_and_states.h (for SequenceSelection definition)
    * @todo Make sequential leg stepping coordination an option instead of only simultaneous (direct) & groups (tripod)
    */
-  int executeSequence(SequenceSelection sequence);
+  int executeSequence(const SequenceSelection& sequence);
 
   /**
    * Iterates through legs in robot model and attempts to move them simultaneously in a linear trajectory directly from 
@@ -197,7 +203,7 @@ public:
    * @param[in] time_to_pack The time period in which to execute the packing maneuver.
    * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
    */
-  int packLegs(double time_to_pack);
+  int packLegs(const double& time_to_pack);
   
   /**
    * Iterate through legs in robot model and directly move joints into 'unpacked' configuration as defined by joint 
@@ -205,14 +211,14 @@ public:
    * @param[in] time_to_unpack The time period in which to execute the packing maneuver.
    * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
    */
-  int unpackLegs(double time_to_unpack);
+  int unpackLegs(const double& time_to_unpack);
 
   /**
    * Depending on parameter flags, calls multiple posing functions and combines individual poses to update the current
    * desired pose of the robot model.
    * @param[in] body_height Desired height of the body above ground level - used in inclination posing.
    */
-  void updateCurrentPose(double body_height);
+  void updateCurrentPose(const double& body_height);
   
   /**
    * Generates a manual pose to be applied to the robot model, based on linear (x/y/z) and angular (roll/pitch/yaw)
@@ -243,7 +249,7 @@ public:
    * the vertically projected centre of the support polygon in accordance with the inclination of the terrain.
    * @param[in] body_height The desired height of the body centre, vertically from the ground.
    */
-  void updateInclinationPose(double body_height);
+  void updateInclinationPose(const double& body_height);
   
   /**
    * Attempts to generate a pose (z linear translation only) which corrects for sagging of the body due to the impedance
@@ -259,9 +265,9 @@ public:
   void calculateDefaultPose(void);
 
 private:
-  Model* model_;       ///! Pointer to robot model object.
-  ImuData imu_data_;   ///! Imu data structure.
-  Parameters* params_; ///! Pointer to parameter data structure for storing parameter variables.
+  shared_ptr<Model> model_;  ///! Pointer to robot model object.
+  ImuData imu_data_;         ///! Imu data structure.
+  const Parameters& params_; ///! Pointer to parameter data structure for storing parameter variables.
   
   PoseResetMode pose_reset_mode_;         ///! Mode for controlling which posing axes to reset to zero.
   Vector3d translation_velocity_input_;   ///! Velocity input for controlling the translation component of manual pose.
@@ -289,19 +295,19 @@ private:
   bool reset_transition_sequence_ = true;       ///! Flags if the saved transition sequence needs to be regenerated.
   int legs_ready_for_direct_ = 0;               ///! Number of legs ready for the direct startup sequence.
   
-  vector<AutoPoser*> auto_poser_container_;         ///! Object containing all Auto Poser objects.
+  AutoPoserContainer auto_poser_container_;         ///! Object containing all Auto Poser objects.
   PosingState auto_posing_state_ = POSING_COMPLETE; ///! The state of auto posing.
   int pose_phase_ = 0;                              ///! The current phase used in auto posing if not synced to walk.
-  double pose_frequency_ = 0.0;                     ///! The pose frequency used in determining auto pose phase length.
+  double pose_frequency_ = 0.0;                     ///! The frequency used in determining auto-pose phase length.
   int pose_phase_length_ = 0;                       ///! The phase length of the auto posing cycle.
-  int normaliser_ = 1;                              ///! The value used to scale the base posing cycle start/end ratios.
+  int normaliser_ = 1;                              ///! The value used to scale base posing cycle start/end ratios.
   
   Vector3d rotation_absement_error_;  ///! Difference between current and desired rotation absement for IMU posing PID.
   Vector3d rotation_position_error_;  ///! Difference between current and desired rotation position for IMU posing PID.
   Vector3d rotation_velocity_error_;  ///! Difference between current and desired rotation velocity for IMU posing PID.
   
-  map<int, Leg*>::iterator leg_it_;     ///! Leg iteration member variable used to minimise code.
-  map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code.
+  LegContainer::iterator leg_it_;     ///! Leg iteration member variable used to minimise code.
+  JointContainer::iterator joint_it_; ///! Joint iteration member variable used to minimise code.
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -322,7 +328,7 @@ public:
    * @param[in] poser Pointer to the Pose Controller object.
    * @param[in] id Int defining the id number of the created Auto Poser object.
    */
-  AutoPoser(PoseController* poser, int id);
+  AutoPoser(shared_ptr<PoseController> poser, const int& id);
   
   /** Accessor for id number of Auto Poser object. */
   inline int getIDNumber(void) { return id_number_; };
@@ -331,28 +337,28 @@ public:
   inline bool isPosing(void) { return allow_posing_; };
   
   /** Modifier for pose cycle start phase. */
-  inline void setStartPhase(int start_phase) { start_phase_ = start_phase; };
+  inline void setStartPhase(const int& start_phase) { start_phase_ = start_phase; };
   
   /** Modifier for pose cycle end  phase. */
-  inline void setEndPhase(int end_phase) { end_phase_ = end_phase; };
+  inline void setEndPhase(const int& end_phase) { end_phase_ = end_phase; };
   
   /** Modifier for amplitude of x axis component of linear translation in auto pose. */
-  inline void setXAmplitude(double x) { x_amplitude_ = x; };
+  inline void setXAmplitude(const double& x) { x_amplitude_ = x; };
   
   /** Modifier for amplitude of y axis component of linear translation in auto pose. */
-  inline void setYAmplitude(double y) { y_amplitude_ = y; };
+  inline void setYAmplitude(const double& y) { y_amplitude_ = y; };
   
   /** Modifier for amplitude of z axis component of linear translation in auto pose. */
-  inline void setZAmplitude(double z) { z_amplitude_ = z; };
+  inline void setZAmplitude(const double& z) { z_amplitude_ = z; };
   
   /** Modifier for amplitude of roll component of angular rotation in auto pose. */
-  inline void setRollAmplitude(double roll) { roll_amplitude_ = roll; };
+  inline void setRollAmplitude(const double& roll) { roll_amplitude_ = roll; };
   
   /** Modifier for amplitude of pitch component of angular rotation in auto pose. */
-  inline void setPitchAmplitude(double pitch) { pitch_amplitude_ = pitch; };
+  inline void setPitchAmplitude(const double& pitch) { pitch_amplitude_ = pitch; };
   
   /** Modifier for amplitude of yaw component of angular rotation in auto pose. */
-  inline void setYawAmplitude(double yaw) { yaw_amplitude_ = yaw; };
+  inline void setYawAmplitude(const double& yaw) { yaw_amplitude_ = yaw; };
   
   /** Resets checks used for defining completion of auto posing cycle. */
   inline void resetChecks(void) 
@@ -373,13 +379,13 @@ public:
   Pose updatePose(int phase);
   
 private:
-  PoseController* poser_;       ///! Pointer to pose controller object.
-  int id_number_;               ///! Identification number of Auto Poser object.
-  int start_phase_;             ///! Phase value denoting start of posing cycle.
-  int end_phase_;               ///! Phase value denoting end of posing cycle.
-  bool start_check_;            ///! Flag denoting if the posing cycle should start / has started.
-  pair<bool, bool> end_check_;  ///! Pair of flags which together denote is the posing cycle should end / has ended.
-  bool allow_posing_ = false;   ///! Flag denoting if the Auto Poser is allowed to continue updating the pose output.
+  shared_ptr<PoseController> poser_; ///! Pointer to pose controller object.
+  int id_number_;                    ///! Identification number of Auto Poser object.
+  int start_phase_;                  ///! Phase value denoting start of posing cycle.
+  int end_phase_;                    ///! Phase value denoting end of posing cycle.
+  bool start_check_;                 ///! Flag denoting if the posing cycle should start / has started.
+  pair<bool, bool> end_check_;       ///! Pair of flags which together denote if posing cycle should end / has ended.
+  bool allow_posing_ = false;        ///! Flag denoting if the Auto Poser is allowed to continue updating pose output.
   
   double x_amplitude_;      ///! Amplitude of x axis component of linear translation in auto pose.
   double y_amplitude_;      ///! Amplitude of y axis component of linear translation in auto pose.
@@ -404,7 +410,7 @@ public:
    * @param[in] poser Pointer to the Pose Controller object.
    * @param[in] leg Pointer to the parent leg object associated with the create Leg Poser object.
    */
-  LegPoser(PoseController* poser, Leg* leg);
+  LegPoser(shared_ptr<PoseController> poser, shared_ptr<Leg> leg);
   
   /** Accessor for current tip position according to the Leg Poser object. */
   inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
@@ -416,40 +422,40 @@ public:
   inline Pose getAutoPose(void) { return auto_pose_; };
   
   /** Accessor for phase start of auto pose negation cycle. */
-  inline int getPoseNegationPhaseStart() { return pose_negation_phase_start_; };
+  inline int getPoseNegationPhaseStart(void) { return pose_negation_phase_start_; };
   
   /** Accessor for phase end of auto pose negation cycle. */
-  inline int getPoseNegationPhaseEnd() { return pose_negation_phase_end_; };
+  inline int getPoseNegationPhaseEnd(void) { return pose_negation_phase_end_; };
   
   /** Returns true if leg has completed its required step in a sequence. */
   inline bool getLegCompletedStep(void) { return leg_completed_step_; };
 
   /** Modifier for current tip position according to the Leg Poser object. */
-  inline void setCurrentTipPosition(Vector3d current) { current_tip_position_ = current; };
+  inline void setCurrentTipPosition(const Vector3d& current) { current_tip_position_ = current; };
   
   /** Modifier for target tip position. */
-  inline void setTargetTipPosition(Vector3d target) { target_tip_position_ = target; };
+  inline void setTargetTipPosition(const Vector3d& target) { target_tip_position_ = target; };
   
   /** Modifier for auto pose. */
-  inline void setAutoPose(Pose auto_pose) { auto_pose_ = auto_pose; };
+  inline void setAutoPose(const Pose& auto_pose) { auto_pose_ = auto_pose; };
   
   /** Modifier for phase start of auto pose negation cycle. */
-  inline void setPoseNegationPhaseStart(int start) { pose_negation_phase_start_ = start; };
+  inline void setPoseNegationPhaseStart(const int& start) { pose_negation_phase_start_ = start; };
   
   /** Modifier for phase end of auto pose negation cycle. */
-  inline void setPoseNegationPhaseEnd(int end) { pose_negation_phase_end_ = end; };
+  inline void setPoseNegationPhaseEnd(const int& end) { pose_negation_phase_end_ = end; };
   
   /** Modifier for the flag which denotes if leg has completed its required step in a sequence. */
-  inline void setLegCompletedStep(bool complete) { leg_completed_step_ = complete; };
+  inline void setLegCompletedStep(const bool& complete) { leg_completed_step_ = complete; };
   
   /** Accessor to the transition tip position at the requested index. */
-  inline Vector3d getTransitionPosition(int index) { return transition_positions_[index]; }
+  inline Vector3d getTransitionPosition(const int& index) { return transition_positions_[index]; }
   
   /** Returns true if the transition position, of the requested index, exists. */
-  inline bool hasTransitionPosition(int index) { return int(transition_positions_.size()) > index; };
+  inline bool hasTransitionPosition(const int& index) { return int(transition_positions_.size()) > index; };
   
   /** Adds tip position to vector of transition tip positions. */
-  inline void addTransitionPosition(Vector3d transition) { transition_positions_.push_back(transition); };
+  inline void addTransitionPosition(const Vector3d& transition) { transition_positions_.push_back(transition); };
   
   /** Clears all tip positions from the vector of transition tip positions. */
   inline void resetTransitionSequence(void) { transition_positions_.clear(); };
@@ -471,7 +477,7 @@ public:
    * @param[in] time_to_move The time period in which to complete this maneuver.
    * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
    */
-  int moveToJointPosition(vector<double> target_joint_positions, double time_to_move);
+  int moveToJointPosition(const vector<double>& target_joint_positions, const double& time_to_move);
   
   /**
    * Uses bezier curves to smoothly update (over many iterations) the desired tip position of the leg associated with 
@@ -485,8 +491,8 @@ public:
    * be applied to the target tip position.
    * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
    */
-  int stepToPosition(Vector3d target_tip_position, Pose target_pose,
-                      double lift_height, double time_to_step, bool apply_delta_z = true);
+  int stepToPosition(const Vector3d& target_tip_position, Pose target_pose,
+                     const double& lift_height, const double& time_to_step, const bool& apply_delta_z = true);
   
   /**
    * Sets a pose for this Leg Poser which negates the default auto pose applied to the robot body. The negation pose is
@@ -497,11 +503,11 @@ public:
    * which define the output pose.
    * @see config/auto_pose.yaml
    */
-  void updateAutoPose(int phase);
+  void updateAutoPose(const int& phase);
 
 private:
-  PoseController* poser_; ///! Pointer to pose controller object.
-  Leg* leg_;              ///! Pointer to the parent leg object.
+  shared_ptr<PoseController> poser_; ///! Pointer to pose controller object.
+  shared_ptr<Leg> leg_;              ///! Pointer to the parent leg object.
 
   Pose auto_pose_;                    ///! Leg specific auto pose (based off body auto pose negated where required).
   int pose_negation_phase_start_ = 0; ///! Phase start of auto pose negation cycle.
@@ -517,7 +523,7 @@ private:
   Vector3d current_tip_position_; ///! Current tip position according to the pose controller.
   Vector3d target_tip_position_;  ///! Target tip position used in bezier curve equations.
 
-  vector<Vector3d> transition_positions_; ///! Vector of tip positions to target during sequence transitions.
+  vector<Vector3d, aligned_allocator<Vector3d>> transition_positions_; ///! Vector of transition target tip positions.
 
   bool leg_completed_step_ = false; ///! Flag denoting if leg has completed its required step in a sequence.
   

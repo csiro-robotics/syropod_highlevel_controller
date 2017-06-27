@@ -41,7 +41,7 @@ public:
   inline void resetMarkerID(void) { marker_id_ = 0; };
   
   /** Modifier for the time_delta_ member variable */
-  inline void setTimeDelta(double time_delta) { time_delta_ = time_delta; };
+  inline void setTimeDelta(const double& time_delta) { time_delta_ = time_delta; };
   
   /**
    * Updates the odometry pose of the robot body from velocity inputs
@@ -49,28 +49,28 @@ public:
    * @param[in] angular_body_velocity The angular velocity of the robot body
    * @param[in] height The desired height of the robot body above ground
    */
-  void updatePose(Vector2d linear_body_velocity, double angular_body_velocity, double height);
+  void updatePose(const Vector2d& linear_body_velocity, const double& angular_body_velocity, const double& height);
 
   /**
    * Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
    * linking the origin points of each joint and tip of each leg.
    * @param[in] model A pointer to the robot model object
    */
-  void generateRobotModel(Model* model);
+  void generateRobotModel(shared_ptr<Model> model);
   
   /**
    * Publishes visualisation markers which represent the trajectory of the tip of the input leg.
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
    * @param[in] current_pose The current pose of the body in the robot model - modifies the tip trajectory
    */
-  void generateTipTrajectory(Leg* leg, Pose current_pose);
+  void generateTipTrajectory(shared_ptr<Leg> leg, const Pose& current_pose);
   
   /**
    * Publishes visualisation markers which represent the control nodes of the three bezier curves used to control tip 
    * trajectory of the input leg.
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
    */
-  void generateBezierCurves(Leg* leg);
+  void generateBezierCurves(shared_ptr<Leg> leg);
   
   /**
    * Publishes visualisation markers which represent the walking workspace of the input leg as well as the current 
@@ -78,7 +78,7 @@ public:
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
    * @param[in] walker A pointer to the walk controller object.
    */
-  void generateWorkspace(Leg* leg, WalkController* walker);
+  void generateWorkspace(shared_ptr<Leg> leg, shared_ptr<WalkController> walker);
 	
 private:
 	ros::NodeHandle n_;                        ///! Ros node handle

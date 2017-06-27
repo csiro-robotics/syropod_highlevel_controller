@@ -55,13 +55,13 @@ public:
    * @todo Refactor tip force subscribers into single callback to topic /tip_forces
    * @todo Remove ASC publisher object
    */
-  StateController(ros::NodeHandle n);
+  StateController(const ros::NodeHandle& n);
   
   /** StateController object destructor */
   ~StateController(void);
 
   /** Accessor for parameter member */
-  inline Parameters* getParameters(void) { return &params_; };
+  inline const Parameters& getParameters(void) { return params_; };
   
   /** Accessor for system state member */
   inline SystemState getSystemState(void) { return system_state_; };
@@ -70,7 +70,10 @@ public:
   inline bool jointPositionsInitialised(void) { return joint_positions_initialised_; };
   
   /** Initialises the model by calling the model object function initLegs() */
-  inline void initModel(bool use_default_joint_positions = false) { model_->initLegs(use_default_joint_positions); };
+  inline void initModel(const bool& use_default_joint_positions = false)
+  { 
+    model_->initLegs(use_default_joint_positions); 
+  };
 
   /**
    * StateController initialiser function. Initialises member variables: robot state, gait selection and initalisation
@@ -88,7 +91,7 @@ public:
    * Acquires gait selection defined parameter values from the ros param server and initialises parameter objects.
    * @param[in] gait_selection The desired gait used to acquire associated parameters off the parameter server
    */
-  void initGaitParameters(GaitDesignation gait_selection);
+  void initGaitParameters(const GaitDesignation& gait_selection);
   
   /** Acquires auto pose parameter values from the ros param server and initialises parameter objects. */
 	void initAutoPoseParameters(void);
@@ -102,7 +105,7 @@ public:
    * Handles transitions of robot state and moves the robot as required for the new state.
    * The transition from one state to another may require several iterations through this function before ending.
    */
-  void transitionSystemState(void);
+  void transitionRobotState(void);
   /**
    * Loops whilst robot is in RUNNING state.
    * Coordinates changes of gait, parameter adjustments, leg state toggling and the application of cruise control.
@@ -157,53 +160,53 @@ public:
    * @param[in] static_display Flag which determines if the vizualisation is kept statically in place at the origin
    * @todo Implement calculation of actual body velocity
    */
-  void RVIZDebugging(bool static_display = false);
+  void RVIZDebugging(const bool& static_display = false);
 
   /**
    * Callback handling the desired system state. Sends message to user interface when system enters OPERATIONAL state.
    * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/system_state"
    * @see parameters_and_states.h
    */
-  void systemStateCallback(const Int8 &input);
+  void systemStateCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the desired robot state.
    * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/robot_state"
    * @see parameters_and_states.h
    */
-  void robotStateCallback(const std_msgs::Int8 &input);
+  void robotStateCallback(const std_msgs::Int8& input);
   
   /**
    * Callback for the input body velocity
    * @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_velocity"
    */
-  void bodyVelocityInputCallback(const geometry_msgs::Twist &input);
+  void bodyVelocityInputCallback(const geometry_msgs::Twist& input);
   
   /**
    * Callback for the input body pose velocity (x/y/z linear translation and roll/pitch/yaw angular rotation velocities)
    * @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_pose"
    */
-  void bodyPoseInputCallback(const geometry_msgs::Twist &input);
+  void bodyPoseInputCallback(const geometry_msgs::Twist& input);
   
   /**
    * Callback handling the desired posing mode and sending state messages to user interface.
    * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/posing_mode"
    * @see parameters_and_states.h
    */
-  void posingModeCallback(const std_msgs::Int8 &input);
+  void posingModeCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling desired pose reset mode
    * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/pose_reset_mode"
    */
-  void poseResetCallback(const std_msgs::Int8 &input);
+  void poseResetCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the desired gait selection.
    * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/gait_selection"
    * @see parameters_and_states.h
    */
-  void gaitSelectionCallback(const std_msgs::Int8 &input);
+  void gaitSelectionCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the cruise control mode and sending state messages to user interface. Determines cruise velocity
@@ -211,61 +214,61 @@ public:
    * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/cruise_control_mode"
    * @see parameters_and_states.h
    */
-  void cruiseControlCallback(const std_msgs::Int8 &input);
+  void cruiseControlCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the auto navigation mode and sending state messages to user interface.
    * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/auto_navigation_mode"
    * @see parameters_and_states.h
    */
-  void autoNavigationCallback(const std_msgs::Int8 &input);
+  void autoNavigationCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the selection of the leg as the primary leg for manual manipulation.
    * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/primary_leg_selection"
    * @see parameters_and_states.h
    */
-  void primaryLegSelectionCallback(const std_msgs::Int8 &input);
+  void primaryLegSelectionCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the selection of the leg as the secondary leg for manual manipulation.
    * @param[in] input The Int8 standard message provided by the topic "syropod_remote/secondary_leg_selection"
    * @see parameters_and_states.h
    */
-  void secondaryLegSelectionCallback(const std_msgs::Int8 &input);
+  void secondaryLegSelectionCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the toggling the state of the primary selected leg.
    * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/primary_leg_state"
    * @see parameters_and_states.h
    */
-  void primaryLegStateCallback(const std_msgs::Int8 &input);
+  void primaryLegStateCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the toggling the state of the secondary selected leg.
    * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/secondary_leg_state"
    * @see parameters_and_states.h
    */
-  void secondaryLegStateCallback(const std_msgs::Int8 &input);
+  void secondaryLegStateCallback(const std_msgs::Int8& input);
   
   /**
    * Callback for the input manual tip velocity (in cartesian space) for the primary selected leg
    * @param[in] input The Point geometry message provided by the subscribed topic "syropod_remote/primary_tip_velocity"
    */
-  void primaryTipVelocityInputCallback(const geometry_msgs::Point &input);
+  void primaryTipVelocityInputCallback(const geometry_msgs::Point& input);
   
   /**
    * Callback for the input manual tip velocity (in cartesian space) for the secondary selected leg
    * @param[in] input The Point geometry message provided by the topic "syropod_remote/secondary_tip_velocity"
    */
-  void secondaryTipVelocityInputCallback(const geometry_msgs::Point &input);
+  void secondaryTipVelocityInputCallback(const geometry_msgs::Point& input);
   
   /**
    * Callback handling the desired parameter selection and sending state messages to user interface.
    * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/parameter_selection"
    * @see parameters_and_states.h
    */
-  void parameterSelectionCallback(const std_msgs::Int8 &input);
+  void parameterSelectionCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the desired selected parameter adjustment. Sets a new value for the selected parameter by adding
@@ -273,7 +276,7 @@ public:
    * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/parameter_adjustment"
    * @see parameters_and_states.h
    */
-  void parameterAdjustCallback(const std_msgs::Int8 &input);
+  void parameterAdjustCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling new configurations from a dynamic reconfigure client and assigning new values for adjustment.
@@ -281,21 +284,21 @@ public:
    * @param[in] level Unused
    * @see config/dynamic_parameter.cfg
    */
-	void dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig &config, uint32_t level);
+	void dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig& config, const uint32_t& level);
 
   /**
    * Callback handling the transformation of IMU data from imu frame to base link frame
    * @param[in] data The Imu sensor message provided by the subscribed ros topic "/imu/data"
    * @todo Use tf2 for transformation between frames rather than parameters
    */
-  void imuCallback(const sensor_msgs::Imu &data);
+  void imuCallback(const sensor_msgs::Imu& data);
   
   /**
    * Callback which handles acquisition of joint states from motor drivers. Attempts to populate joint objects with 
    * available current position/velocity/effort and flags if all joint objects have received an initial current position
    * @param[in] joint_states The JointState sensor message provided by the subscribed ros topic "/joint_states"
    */
-  void jointStatesCallback(const sensor_msgs::JointState &joint_states);
+  void jointStatesCallback(const sensor_msgs::JointState& joint_states);
   
   /**
    * Callback handling and normalising the MAX specific pressure sensor data
@@ -304,7 +307,7 @@ public:
    * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
    * @todo Parameterise the normalisation variables
    */
-  void tipForceCallback(const sensor_msgs::JointState &raw_tip_forces);
+  void tipForceCallback(const sensor_msgs::JointState& raw_tip_forces);
   
   /**
    * Callback handling and normalising the Flexipod (AR leg) specific pressure sensor data
@@ -312,7 +315,7 @@ public:
    * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
    * @todo Parameterise the normalisation variables
    */
-  void tipForceCallbackAR(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force);
   
   /**
    * Callback handling and normalising the Flexipod (BR leg) specific pressure sensor data
@@ -320,7 +323,7 @@ public:
    * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
    * @todo Parameterise the normalisation variables
    */
-  void tipForceCallbackBR(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force);
   
   /**
    * Callback handling and normalising the Flexipod (CR leg) specific pressure sensor data
@@ -328,7 +331,7 @@ public:
    * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
    * @todo Parameterise the normalisation variables
    */
-  void tipForceCallbackCR(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force);
   
   /**
    * Callback handling and normalising the Flexipod (CL leg) specific pressure sensor data
@@ -336,7 +339,7 @@ public:
    * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
    * @todo Parameterise the normalisation variables
    */
-  void tipForceCallbackCL(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force);
   
   /**
    * Callback handling and normalising the Flexipod (BL leg) specific pressure sensor data
@@ -344,7 +347,7 @@ public:
    * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
    * @todo Parameterise the normalisation variables
    */
-  void tipForceCallbackBL(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force);
   
   /**
    * Callback handling and normalising the Flexipod (AL leg) specific pressure sensor data
@@ -352,7 +355,7 @@ public:
    * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
    * @todo Parameterise the normalisation variables
    */
-  void tipForceCallbackAL(const std_msgs::UInt16 &raw_tip_force);
+  void tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force);
   
 private:
   ros::NodeHandle n_;                                 ///! Ros node handle
@@ -389,17 +392,16 @@ private:
   ros::Publisher imu_data_publisher_;                 ///! Publisher for topic "/imu_data"
   ros::Publisher body_velocity_publisher_;            ///! Publisher for topic "/body_velocity"
   ros::Publisher rotation_pose_error_publisher_;      ///! Publisher for topic "/rotation_pose_error"
-  ros::Publisher translation_pose_error_publisher_;   ///! Publisher for topic "/translation_pose_error"
   
 	boost::recursive_mutex mutex_; ///! Mutex used in setup of dynamic reconfigure server
 	dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>* dynamic_reconfigure_server_;
 
-  Model* model_;                    ///! Pointer to robot model object
-  WalkController* walker_;          ///! Pointer to walk controller object
-  PoseController* poser_;           ///! Pointer to pose controller object
-  ImpedanceController* impedance_;  ///! Pointer to impedance controller object
-  DebugOutput debug_;               ///! Debug class object used for RVIZ visualization
-  Parameters params_;               ///! Parameter data structure for storing parameter variables
+  shared_ptr<Model> model_;                    ///! Pointer to robot model object
+  shared_ptr<WalkController> walker_;          ///! Pointer to walk controller object
+  shared_ptr<PoseController> poser_;           ///! Pointer to pose controller object
+  shared_ptr<ImpedanceController> impedance_;  ///! Pointer to impedance controller object
+  DebugOutput debug_;                          ///! Debug class object used for RVIZ visualization
+  Parameters params_;                          ///! Parameter data structure for storing parameter variables
 	
 	bool initialised_ = false; ///! Flags if the state controller has initialised
 
@@ -422,8 +424,8 @@ private:
   LegDesignation secondary_leg_selection_ = LEG_UNDESIGNATED; ///! Current secondary leg selection designation
   LegState primary_leg_state_ = WALKING;                      ///! State of primary leg selection
   LegState secondary_leg_state_ = WALKING;                    ///! State of secondary leg selection
-  Leg* primary_leg_;                                          ///! Pointer to leg object of primary leg selection
-  Leg* secondary_leg_;                                        ///! Pointer to leg object of secondary leg selection
+  shared_ptr<Leg> primary_leg_;                               ///! Pointer to leg object of primary leg selection
+  shared_ptr<Leg> secondary_leg_;                             ///! Pointer to leg object of secondary leg selection
   
   int manual_leg_count_ = 0;                  ///! Count of legs that are currently in manual manipulation mode
 
@@ -442,8 +444,8 @@ private:
   Vector2d linear_cruise_velocity_;           ///! Desired constant linear body velocity for cruise control mode
   double angular_cruise_velocity_;            ///! Desired constant angular body velocity for cruise control mode
 
-  map<int, Leg*>::iterator leg_it_;     ///! Leg iteration member variable used to minimise code
-  map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code
+  LegContainer::iterator leg_it_;     ///! Leg iteration member variable used to minimise code
+  JointContainer::iterator joint_it_; ///! Joint iteration member variable used to minimise code
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

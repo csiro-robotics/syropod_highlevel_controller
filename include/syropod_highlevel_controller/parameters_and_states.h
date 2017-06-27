@@ -195,9 +195,9 @@ public:
    * @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
    * @param[in] required_input Bool denoting if this parameter is required to be initialised.
    */
-  inline void init(ros::NodeHandle n, string name_input,
-                   string base_parameter_name = "/syropod/parameters/",
-                   bool required_input = true)
+  inline void init(const ros::NodeHandle& n, const string& name_input,
+                   const string& base_parameter_name = "/syropod/parameters/",
+                   const bool& required_input = true)
   {
     name = name_input;
     required = required_input;
@@ -226,9 +226,9 @@ public:
     * @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
     * @param[in] required_input Bool denoting if this parameter is required to be initialised.
     */
-  inline void init(ros::NodeHandle n, string name_input,
-                    string base_parameter_name = "/syropod/parameters/",
-                    bool required_input = true)
+  inline void init(const ros::NodeHandle& n, const string& name_input,
+                   const string& base_parameter_name = "/syropod/parameters/",
+                   const bool& required_input = true)
   {
     name = name_input;
     required = required_input;

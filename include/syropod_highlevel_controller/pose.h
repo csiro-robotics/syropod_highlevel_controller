@@ -27,29 +27,29 @@
 class Pose
 {
 public:
-  inline Pose() {};
-  inline Pose(const Vector3d &position, const Quat &rotation)
+  inline Pose(void) {};
+  inline Pose(const Vector3d& position, const Quat& rotation)
   {
     position_ = position;
     rotation_ = rotation;
   };
   
-  inline Pose operator*(const Quat &quat) const { return Pose(position_, rotation_ * quat); };    
-  inline Vector3d operator*(const Vector3d &vector) const { return position_ + rotation_.rotateVector(vector); };
-  inline bool operator==(const Pose &pose) { return (position_ == pose.position_ && rotation_ == pose.rotation_); };
-  inline bool operator!=(const Pose &pose) { return (position_ != pose.position_ || rotation_ != pose.rotation_); };
-  inline Pose operator~() const { return Pose((~rotation_).rotateVector(-position_), ~rotation_); };
-  inline void operator*=(const Pose &pose)
+  inline Pose operator*(const Quat& quat) const { return Pose(position_, rotation_ * quat); };    
+  inline Vector3d operator*(const Vector3d& vector) const { return position_ + rotation_.rotateVector(vector); };
+  inline bool operator==(const Pose& pose) { return (position_ == pose.position_ && rotation_ == pose.rotation_); };
+  inline bool operator!=(const Pose& pose) { return (position_ != pose.position_ || rotation_ != pose.rotation_); };
+  inline Pose operator~(void) const { return Pose((~rotation_).rotateVector(-position_), ~rotation_); };
+  inline void operator*=(const Pose& pose)
   { 
     position_ += rotation_.rotateVector(pose.position_);
     rotation_ *= pose.rotation_;
   };
   
-  inline Vector3d transformVector(const Vector3d &vec) const { return position_ + rotation_.rotateVector(vec); };
-  inline Vector3d inverseTransformVector(const Vector3d &vec) const { return (~*this).transformVector(vec); };
-  inline void normalize() { rotation_.normalize(); }; // Normalise in-place
-  inline Pose addPose(const Pose &pose) { return Pose(position_ + pose.position_, rotation_ * pose.rotation_); };
-  inline Pose removePose (const Pose &pose) 
+  inline Vector3d transformVector(const Vector3d& vec) const { return position_ + rotation_.rotateVector(vec); };
+  inline Vector3d inverseTransformVector(const Vector3d& vec) const { return (~*this).transformVector(vec); };
+  inline void normalize(void) { rotation_.normalize(); }; // Normalise in-place
+  inline Pose addPose(const Pose& pose) { return Pose(position_ + pose.position_, rotation_ * pose.rotation_); };
+  inline Pose removePose (const Pose& pose) 
   { 
     return Pose(position_ - pose.position_, rotation_ * pose.rotation_.inverse());
   };

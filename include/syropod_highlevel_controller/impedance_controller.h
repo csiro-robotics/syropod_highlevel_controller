@@ -43,7 +43,7 @@ public:
    * @param[in] model Pointer to the robot model class object
    * @param[in] params Pointer to the parameter struct object
    */
-  ImpedanceController(Model* model, Parameters* params);
+  ImpedanceController(shared_ptr<Model> model, const Parameters& params);
   
   /**
    * Impdedance controller initialisation. Assigns integrator step time and force gain for robot model and for each leg
@@ -58,7 +58,7 @@ public:
    * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
    * @todo Refactor the method of generating tip force from joint effort/s and method of determining effort direction.
    */
-  void updateImpedance(bool use_joint_effort);
+  void updateImpedance(const bool& use_joint_effort);
   
   /**
    * Scales virtual stiffness of an input swinging leg and two 'adjacent legs' according to an input reference.
@@ -69,7 +69,7 @@ public:
    * @param[in] leg A pointer to the leg object associated with the stiffness value to be updated.
    * @param[in] scale_reference A double ranging from 0.0->1.0 which controls the scaling of the stiffnesses
    */
-  void updateStiffness(Leg*, double scale_reference);
+  void updateStiffness(shared_ptr<Leg> leg, const double& scale_reference);
   
   /**
    * Scales virtual stiffness of swinging leg and adjacent legs according to the walk cycle of the walk controller.
@@ -81,11 +81,11 @@ public:
    * step cycles to JOINTLY add stiffness to simultaneously adjacent legs.
    * @param[in] walker A pointer to the walk controller
    */
-  void updateStiffness(WalkController *walker);
+  void updateStiffness(shared_ptr<WalkController> walker);
 
 private:
-  Model* model_;        ///! Pointer to the robot model object
-  Parameters* params_;  ///! Pointer to parameter data structure for storing parameter variables.
+  shared_ptr<Model> model_;  ///! Pointer to the robot model object
+  const Parameters& params_; ///! Pointer to parameter data structure for storing parameter variables.
 };
 
 /***********************************************************************************************************************

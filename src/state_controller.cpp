@@ -26,13 +26,15 @@
  * @todo Refactor tip force subscribers into single callback to topic /tip_forces
  * @todo Remove ASC publisher object
 ***********************************************************************************************************************/
-StateController::StateController(ros::NodeHandle n) : n_(n)
+StateController::StateController(const ros::NodeHandle& n) : n_(n)
 {
   // Get parameters from parameter server and initialises parameter map
   initParameters();
 
   // Create robot model
-  model_ = new Model(&params_);  
+  shared_ptr<Parameters> p_params(make_shared<Parameters>(params_));
+  model_ = make_shared<Model>(p_params);
+  model_->generate(p_params);
 
   debug_.setTimeDelta(params_.time_delta.data);
 
@@ -88,10 +90,9 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   //Set up debugging publishers
   string node_name = ros::this_node::getName();
   pose_publisher_ = n_.advertise<geometry_msgs::Twist>(node_name + "/pose", 1000);
-  imu_data_publisher_ = n_.advertise<Float32MultiArray>(node_name + "/imu_data", 1000);
-  body_velocity_publisher_ = n_.advertise<Float32MultiArray>(node_name + "/body_velocity", 1000);
-  rotation_pose_error_publisher_ = n_.advertise<Float32MultiArray>(node_name + "/rotation_pose_error", 1000);
-  translation_pose_error_publisher_ = n_.advertise<Float32MultiArray>(node_name + "/translation_pose_error", 1000);
+  imu_data_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/imu_data", 1000);
+  body_velocity_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/body_velocity", 1000);
+  rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/rotation_pose_error", 1000);
 
   //Set up combined desired joint state publisher
   if (params_.combined_control_interface.data)
@@ -102,18 +103,18 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
   // Set up individual leg state and desired joint state publishers within leg objects
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it_->second;
+    shared_ptr<Leg> leg = leg_it_->second;
     string topic_name = node_name + "/" + leg->getIDName() + "/state";
     leg->setStatePublisher(n_.advertise<syropod_highlevel_controller::LegState>(topic_name, 1000));
     leg->setASCStatePublisher(n_.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); //TODO
-
     // If debugging in gazebo, setup joint command publishers
     if (params_.individual_control_interface.data)
     {
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
-        Joint* joint = joint_it_->second;
-        joint->desired_position_publisher_ = n_.advertise<Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
+        shared_ptr<Joint> joint = joint_it_->second;
+        joint->desired_position_publisher_ = 
+          n_.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
       }
     }
   }
@@ -124,10 +125,6 @@ StateController::StateController(ros::NodeHandle n) : n_(n)
 ***********************************************************************************************************************/
 StateController::~StateController(void)
 {
-  delete model_;
-  delete walker_;
-  delete poser_;
-  delete impedance_;
 }
 
 /*******************************************************************************************************************//**
@@ -154,10 +151,13 @@ void StateController::init(void)
     gait_selection_ = AMBLE_GAIT;
   }
 
-  // Create controller objects
-  walker_ = new WalkController(model_, &params_);
-  poser_ = new PoseController(model_, &params_);
-  impedance_ = new ImpedanceController(model_, &params_);
+  // Create controller objects and smart pointers
+  walker_ = make_shared<WalkController>(model_, params_);
+  walker_->init();
+  poser_ = make_shared<PoseController>(model_, params_);
+  poser_->init();
+  impedance_ = make_shared<ImpedanceController>(model_, params_);
+  impedance_->init();
 
   robot_state_ = UNKNOWN;
 
@@ -191,7 +191,7 @@ void StateController::loop(void)
   // Syropod state machine
   if (transition_state_flag_)
   {
-    transitionSystemState();
+    transitionRobotState();
   }
   else if (robot_state_ == RUNNING)
   {
@@ -203,7 +203,7 @@ void StateController::loop(void)
  * Handles transitions of robot state and moves the robot as required for the new state. 
  * The transition from one state to another may require several iterations through this function before ending.
 ***********************************************************************************************************************/
-void StateController::transitionSystemState(void)
+void StateController::transitionRobotState(void)
 {
   // UNKNOWN -> OFF/PACKED/READY/RUNNING
   if (robot_state_ == UNKNOWN)
@@ -213,12 +213,12 @@ void StateController::transitionSystemState(void)
     int legs_ready = 0;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      Leg* leg = leg_it_->second;
+      shared_ptr<Leg> leg = leg_it_->second;
       int joints_packed = 0;
       int joints_ready = 0;
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
-        Joint* joint = joint_it_->second;
+        shared_ptr<Joint> joint = joint_it_->second;
         joints_packed += int(abs(joint->current_position_ - joint->packed_position_) < JOINT_TOLERANCE);
         joints_ready += int(abs(joint->current_position_ - joint->unpacked_position_) < JOINT_TOLERANCE);
       }
@@ -409,8 +409,8 @@ void StateController::runningState(void)
     // Model uses posed tip positions, adds deltaZ from impedance controller and applies inverse kinematics on each leg
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      Leg* leg = leg_it_->second;
-      LegPoser* leg_poser = leg->getLegPoser();
+      shared_ptr<Leg> leg = leg_it_->second;
+      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
       leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
       leg->applyIK(params_.debug_IK.data);
     }
@@ -471,7 +471,7 @@ void StateController::changeGait(void)
   if (walker_->getWalkState() == STOPPED)
   {
     initGaitParameters(gait_selection_);
-    walker_->setGaitParams(&params_);
+    walker_->setGaitParams();
     
     // For auto compensation find associated auto posing parameters for new gait
     if (params_.auto_posing.data && params_.auto_pose_type.data == "auto")
@@ -502,17 +502,17 @@ void StateController::legStateToggle(void)
   if (walker_->getWalkState() == STOPPED)
   {
     // Choose primary or secondary leg state to transition
-    Leg* leg; //Transitioning leg
-    LegState* new_leg_state;
+    shared_ptr<Leg> leg; //Transitioning leg
+    shared_ptr<LegState> new_leg_state;
     if (toggle_primary_leg_state_)
     {
       leg = model_->getLegByIDNumber(primary_leg_selection_);
-      new_leg_state = &primary_leg_state_;
+      new_leg_state = make_shared<LegState>(primary_leg_state_);
     }
     else if (toggle_secondary_leg_state_)
     {
       leg = model_->getLegByIDNumber(secondary_leg_selection_);
-      new_leg_state = &secondary_leg_state_;
+      new_leg_state = make_shared<LegState>(secondary_leg_state_);
     }
     string leg_name = leg->getIDName();
 
@@ -614,11 +614,11 @@ void StateController::publishDesiredJointState(void)
   
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it_->second;
-    map<int, Joint*>::iterator joint_it;
+    shared_ptr<Leg> leg = leg_it_->second;
+    JointContainer::iterator joint_it;
     for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
     {
-      Joint* joint = joint_it->second;
+      shared_ptr<Joint> joint = joint_it->second;
       joint->prev_desired_position_ = joint->desired_position_;
       
       if (params_.combined_control_interface.data)
@@ -654,9 +654,9 @@ void StateController::publishLegState(void)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     syropod_highlevel_controller::LegState msg;
-    Leg* leg = leg_it_->second;
-    LegStepper* leg_stepper = leg->getLegStepper();
-    LegPoser* leg_poser = leg->getLegPoser();
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     msg.header.stamp = ros::Time::now();
     msg.leg_name.data = leg->getIDName().c_str();
     
@@ -679,7 +679,7 @@ void StateController::publishLegState(void)
     //Joint positions/velocities
     for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
     {
-      Joint* joint = joint_it_->second;
+      shared_ptr<Joint> joint = joint_it_->second;
       msg.joint_positions.data.push_back(joint->desired_position_);
       msg.joint_velocities.data.push_back(joint->desired_velocity_);
       msg.joint_efforts.data.push_back(joint->desired_effort_);
@@ -793,7 +793,7 @@ void StateController::publishRotationPoseError(void)
  * @param[in] static_display Flag which determines if the vizualisation is kept statically in place at the origin
  * @todo Implement calculation of actual body velocity
 ***********************************************************************************************************************/
-void StateController::RVIZDebugging(bool static_display)
+void StateController::RVIZDebugging(const bool& static_display)
 {
   Vector2d linear_velocity = walker_->getDesiredLinearVelocity(); //TODO
   linear_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
@@ -805,7 +805,7 @@ void StateController::RVIZDebugging(bool static_display)
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it_->second;
+    shared_ptr<Leg> leg = leg_it_->second;
     debug_.generateTipTrajectory(leg, model_->getCurrentPose());
     if (static_display && walker_->getWalkState() != STOPPED)
     {
@@ -1233,7 +1233,8 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
  * @param[in] level Unused
  * @see config/dynamic_parameter.cfg
 ***********************************************************************************************************************/
-void StateController::dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig& config, uint32_t level)
+void StateController::dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig& config,
+                                               const uint32_t& level)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1363,9 +1364,9 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
   {
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      Leg* leg = leg_it_->second;
+      shared_ptr<Leg> leg = leg_it_->second;
       string joint_name(joint_states.name[i]);
-      Joint* joint = leg->getJointByIDName(joint_name);
+      shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
       if (joint != NULL)
       {
         joint->current_position_ = joint_states.position[i] - joint->position_offset_;
@@ -1387,11 +1388,11 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
     joint_positions_initialised_ = true;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      Leg* leg = leg_it_->second;
-      map<int, Joint*>::iterator joint_it;
+      shared_ptr<Leg> leg = leg_it_->second;
+      JointContainer::iterator joint_it;
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
-        Joint* joint = joint_it->second;
+        shared_ptr<Joint> joint = joint_it->second;
         if (joint->current_position_ == UNASSIGNED_VALUE)
         {
           joint_positions_initialised_ = false;
@@ -1412,7 +1413,7 @@ void StateController::tipForceCallback(const sensor_msgs::JointState& raw_tip_fo
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    Leg* leg = leg_it_->second;
+    shared_ptr<Leg> leg = leg_it_->second;
     double force_offset = 1255.0;
     double max_force = 1000.0;
     double min_force = 0.0;
@@ -1429,7 +1430,7 @@ void StateController::tipForceCallback(const sensor_msgs::JointState& raw_tip_fo
 ***********************************************************************************************************************/
 void StateController::tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force)
 {
-  Leg* leg = model_->getLegByIDName("AR");
+  shared_ptr<Leg> leg = model_->getLegByIDName("AR");
   double force_offset = 23930.0;
   double max_force = 1000.0;
   double min_force = 0.0;
@@ -1445,7 +1446,7 @@ void StateController::tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force)
 ***********************************************************************************************************************/
 void StateController::tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force)
 {
-  Leg* leg = model_->getLegByIDName("BR");
+  shared_ptr<Leg> leg = model_->getLegByIDName("BR");
   double force_offset = 23845.0;
   double max_force = 1000.0;
   double min_force = 0.0;
@@ -1461,7 +1462,7 @@ void StateController::tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force)
 ***********************************************************************************************************************/
 void StateController::tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force)
 {
-  Leg* leg = model_->getLegByIDName("CR");
+  shared_ptr<Leg> leg = model_->getLegByIDName("CR");
   double force_offset = 23930.0;
   double max_force = 1000.0;
   double min_force = 0.0;
@@ -1477,7 +1478,7 @@ void StateController::tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force)
 ***********************************************************************************************************************/
 void StateController::tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force)
 {
-  Leg* leg = model_->getLegByIDName("CL");
+  shared_ptr<Leg> leg = model_->getLegByIDName("CL");
   double force_offset = 23895.0;
   double max_force = 1000.0;
   double min_force = 0.0;
@@ -1493,7 +1494,7 @@ void StateController::tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force)
 ***********************************************************************************************************************/
 void StateController::tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force)
 {
-  Leg* leg = model_->getLegByIDName("BL");
+  shared_ptr<Leg> leg = model_->getLegByIDName("BL");
   double force_offset = 23775.0;
   double max_force = 1000.0;
   double min_force = 0.0;
@@ -1509,7 +1510,7 @@ void StateController::tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force)
 ***********************************************************************************************************************/
 void StateController::tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force)
 {
-  Leg* leg = model_->getLegByIDName("AL");
+  shared_ptr<Leg> leg = model_->getLegByIDName("AL");
   double force_offset = 23920.0;
   double max_force = 1000.0;
   double min_force = 0.0;
@@ -1672,7 +1673,7 @@ void StateController::initParameters(void)
  * Acquires gait selection defined parameter values from the ros param server and initialises parameter objects.
  * @param[in] gait_selection The desired gait used to acquire associated parameters off the parameter server
 ***********************************************************************************************************************/
-void StateController::initGaitParameters(GaitDesignation gait_selection)
+void StateController::initGaitParameters(const GaitDesignation& gait_selection)
 {
   switch (gait_selection)
   {

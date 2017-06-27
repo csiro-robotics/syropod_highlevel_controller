@@ -38,7 +38,8 @@ DebugOutput::DebugOutput(void)
  * @param[in] angular_body_velocity The angular velocity of the robot body
  * @param[in] height The desired height of the robot body above ground
 ***********************************************************************************************************************/
-void DebugOutput::updatePose(Vector2d linear_body_velocity, double angular_body_velocity, double height)
+void DebugOutput::updatePose(const Vector2d& linear_body_velocity, 
+                             const double& angular_body_velocity, const double& height)
 {
   Vector3d linear_body_velocity_3d = Vector3d(linear_body_velocity[0], linear_body_velocity[1], 0);
   Vector3d angular_body_velocity_3d = Vector3d(0.0, 0.0, angular_body_velocity);
@@ -51,7 +52,7 @@ void DebugOutput::updatePose(Vector2d linear_body_velocity, double angular_body_
  * linking the origin points of each joint and tip of each leg.
  * @param[in] model A pointer to the robot model object
 ***********************************************************************************************************************/
-void DebugOutput::generateRobotModel(Model* model)
+void DebugOutput::generateRobotModel(shared_ptr<Model> model)
 {
   visualization_msgs::Marker leg_line_list;
   leg_line_list.header.frame_id = "/fixed_frame";
@@ -72,10 +73,10 @@ void DebugOutput::generateRobotModel(Model* model)
   Vector3d previous_body_position = pose.transformVector(Vector3d(0.0, 0.0, 0.0));
   Vector3d initial_body_position = pose.transformVector(Vector3d(0.0, 0.0, 0.0));
 
-  map<int, Leg*>::iterator leg_it;
+  LegContainer::iterator leg_it;
   for (leg_it = model->getLegContainer()->begin(); leg_it != model->getLegContainer()->end(); ++leg_it)
   {
-    Leg* leg = leg_it->second;
+    shared_ptr<Leg> leg = leg_it->second;
 
     // Generate line segment between 1st joint of each leg (creating body)
     point.x = previous_body_position[0];
@@ -83,7 +84,7 @@ void DebugOutput::generateRobotModel(Model* model)
     point.z = previous_body_position[2];
     leg_line_list.points.push_back(point);
 
-    Joint* first_joint = leg->getJointContainer()->begin()->second;
+    shared_ptr<Joint> first_joint = leg->getJointContainer()->begin()->second;
     Vector3d first_joint_position = pose.transformVector(first_joint->getPositionRobotFrame());
     point.x = first_joint_position[0];
     point.y = first_joint_position[1];
@@ -99,7 +100,7 @@ void DebugOutput::generateRobotModel(Model* model)
     }
 
     // Generate line segment between joint positions
-    map<int, Joint*>::iterator joint_it; //Start at second joint
+    JointContainer::iterator joint_it; //Start at second joint
     for (joint_it = ++leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
     {
       point.x = previous_joint_position[0];
@@ -107,7 +108,7 @@ void DebugOutput::generateRobotModel(Model* model)
       point.z = previous_joint_position[2];
       leg_line_list.points.push_back(point);
       
-      Joint* joint = joint_it->second;
+      shared_ptr<Joint> joint = joint_it->second;
       Vector3d joint_position = pose.transformVector(joint->getPositionRobotFrame());
       point.x = joint_position[0];
       point.y = joint_position[1];
@@ -149,7 +150,7 @@ void DebugOutput::generateRobotModel(Model* model)
  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
  * @param[in] current_pose The current pose of the body in the robot model - modifies the tip trajectory
 ***********************************************************************************************************************/
-void DebugOutput::generateTipTrajectory(Leg* leg, Pose current_pose)
+void DebugOutput::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& current_pose)
 {
   Pose pose = odometry_pose_.addPose(current_pose);
 
@@ -182,7 +183,7 @@ void DebugOutput::generateTipTrajectory(Leg* leg, Pose current_pose)
  * trajectory of the input leg.
  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
 ***********************************************************************************************************************/
-void DebugOutput::generateBezierCurves(Leg* leg)
+void DebugOutput::generateBezierCurves(shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker swing_1_nodes;
   swing_1_nodes.header.frame_id = "/fixed_frame";
@@ -225,7 +226,7 @@ void DebugOutput::generateBezierCurves(Leg* leg)
   stance_nodes.color.a = 1;
   stance_nodes.lifetime = ros::Duration(time_delta_);
   
-  LegStepper* leg_stepper = leg->getLegStepper();
+  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
   
   for (int i = 0; i < 5; ++i) // For each of 5 control nodes
   {
@@ -267,11 +268,11 @@ void DebugOutput::generateBezierCurves(Leg* leg)
  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
  * @param[in] walker A pointer to the walk controller object
 ***********************************************************************************************************************/
-void DebugOutput::generateWorkspace(Leg* leg, WalkController* walker)
+void DebugOutput::generateWorkspace(shared_ptr<Leg> leg, shared_ptr<WalkController> walker)
 {
-  LegStepper* leg_stepper = leg->getLegStepper();
+  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
   double workspace_radius = walker->getWorkspaceRadius();
-  double workspace_height = walker->getParameters()->step_clearance.current_value;
+  double workspace_height = walker->getParameters().step_clearance.current_value;
   double stride_length = walker->getStrideLength();
   
   visualization_msgs::Marker workspace;

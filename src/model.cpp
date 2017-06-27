@@ -20,32 +20,42 @@
 #include "../include/syropod_highlevel_controller/model.h"
 
 /*******************************************************************************************************************//**
- * Contructor for robot model object - initialises member variables from parameters and creates leg objects.
+ * Contructor for robot model object - initialises member variables from parameters.
  * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-Model::Model(Parameters* params)
+Model::Model(shared_ptr<Parameters> params)
   : leg_count_(params->leg_id.data.size())
   , time_delta_(params->time_delta.data)
   , current_pose_(Pose::identity())
 {
+}
+
+/*******************************************************************************************************************//**
+ * Generates child leg objects. Separated from constructor due to shared_from_this() constraints.
+ * @param[in] params A pointer to the parameter data structure.
+***********************************************************************************************************************/
+void Model::generate(shared_ptr<Parameters> params)
+{
   for (int i = 0; i < leg_count_; ++i)
   {
-    Leg* leg = new Leg(this, i, params);
-    leg_container_.insert(map<int, Leg*>::value_type(i, leg));
+    shared_ptr<Leg> leg = make_shared<Leg>(shared_from_this(), i, params);
+    leg->generate(params);
+    leg_container_.insert(LegContainer::value_type(i, leg));
   }
 }
+  
 
 /*******************************************************************************************************************//**
  * Iterate through legs in robot model and have them run their initialisation.
  * @param[in] use_default_joint_positions Flag denoting if the leg should initialise using default joint position values
  * for any joint with unknown current position values.
 ***********************************************************************************************************************/
-void Model::initLegs(bool use_default_joint_positions)
+void Model::initLegs(const bool& use_default_joint_positions)
 {
-  map<int, Leg*>::iterator leg_it;
+  LegContainer::iterator leg_it;
   for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
-    Leg* leg = leg_it->second;
+    shared_ptr<Leg> leg = leg_it->second;
     leg->init(use_default_joint_positions);
   }
 }
@@ -60,10 +70,10 @@ void Model::initLegs(bool use_default_joint_positions)
 bool Model::legsBearingLoad(void)
 {
   double body_height_estimate = 0.0;
-  map<int, Leg*>::iterator leg_it;
+  LegContainer::iterator leg_it;
   for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
-    Leg* leg = leg_it->second;
+    shared_ptr<Leg> leg = leg_it->second;
     body_height_estimate += leg->getCurrentTipPosition()[2];
   }
   return -(body_height_estimate / leg_count_) > HALF_BODY_DEPTH; //TODO Parameterise this value
@@ -71,14 +81,14 @@ bool Model::legsBearingLoad(void)
 
 /*******************************************************************************************************************//**
  * Returns pointer to leg requsted via identification name string input.
- * @param[in] leg_name The identification name of the requested leg object pointer.
+ * @param[in] leg_id_name The identification name of the requested leg object pointer.
 ***********************************************************************************************************************/
-Leg* Model::getLegByIDName(string leg_id_name)
+shared_ptr<Leg> Model::getLegByIDName(const string& leg_id_name)
 {
-  map<int, Leg*>::iterator leg_it;
+  LegContainer::iterator leg_it;
   for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
-    Leg* leg = leg_it->second;
+    shared_ptr<Leg> leg = leg_it->second;
     if (leg->getIDName() == leg_id_name)
     {
       return leg;
@@ -88,14 +98,12 @@ Leg* Model::getLegByIDName(string leg_id_name)
 }
 
 /*******************************************************************************************************************//**
- * Constructor for a robot model leg object. Initialises member variables from parameters and creates child 
- * joint/link/tip objects.
+ * Constructor for a robot model leg object. Initialises member variables from parameters.
  * @param[in] model A pointer to the parent robot model.
  * @param[in] id_number An identification number for this leg object.
  * @param[in] params A pointer to the parameter data structure.
- * @todo Refactor use of null pointer.
 ***********************************************************************************************************************/
-Leg::Leg(Model* model, int id_number, Parameters* params)
+Leg::Leg(shared_ptr<Model> model, const int& id_number, shared_ptr<Parameters> params)
   : model_(model)
   , id_number_(id_number)
   , id_name_(params->leg_id.data[id_number])
@@ -104,24 +112,32 @@ Leg::Leg(Model* model, int id_number, Parameters* params)
   , leg_state_(WALKING)
   , impedance_state_(vector<double>(2))
 {
-  Joint* null_joint; //TODO
-  Link* base_link = new Link(this, null_joint, 0, params);
-  link_container_.insert(map<int, Link*>::value_type(0, base_link));
-  Link* prev_link = base_link;
-  for (int i = 1; i < joint_count_ + 1; ++i)
-  {
-    Joint* new_joint = new Joint(this, prev_link, i, params);
-    Link* new_link = new Link(this, new_joint, i, params);
-    joint_container_.insert(map<int, Joint*>::value_type(i, new_joint));
-    link_container_.insert(map<int, Link*>::value_type(i, new_link));
-    prev_link = new_link;
-  }
-  tip_ = new Tip(this, prev_link);
-
   desired_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
   current_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
   current_tip_velocity_ = Vector3d(0, 0, 0);
   group_ = (id_number % 2); // Even/odd groups
+}
+
+/*******************************************************************************************************************//**
+ * Generates child joint/link/tip objects. Separated from constructor due to shared_from_this() constraints.
+ * @param[in] params A pointer to the parameter data structure.
+ * @todo Refactor use of null pointer.
+***********************************************************************************************************************/
+void Leg::generate(shared_ptr<Parameters> params)
+{
+  shared_ptr<Joint> null_joint; //TODO
+  shared_ptr<Link> base_link = make_shared<Link>(shared_from_this(), null_joint, 0, params);
+  link_container_.insert(LinkContainer::value_type(0, base_link));
+  shared_ptr<Link> prev_link = base_link;
+  for (int i = 1; i < joint_count_ + 1; ++i)
+  {
+    shared_ptr<Joint> new_joint = make_shared<Joint>(shared_from_this(), prev_link, i, params);
+    shared_ptr<Link> new_link = make_shared<Link>(shared_from_this(), new_joint, i, params);
+    joint_container_.insert(JointContainer::value_type(i, new_joint));
+    link_container_.insert(LinkContainer::value_type(i, new_link));
+    prev_link = new_link;
+  }
+  tip_ = make_shared<Tip>(shared_from_this(), prev_link);
 }
 
 /*******************************************************************************************************************//**
@@ -130,12 +146,12 @@ Leg::Leg(Model* model, int id_number, Parameters* params)
  * @param[in] use_default_joint_positions Flag denoting if the leg should initialise using default joint position values
  * for any joint with unknown current position values.
 ***********************************************************************************************************************/
-void Leg::init(bool use_default_joint_positions)
+void Leg::init(const bool& use_default_joint_positions)
 {
-  map<int, Joint*>::iterator joint_it;
+  JointContainer::iterator joint_it;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    Joint* joint = joint_it->second;
+    shared_ptr<Joint> joint = joint_it->second;
     if (use_default_joint_positions && joint->current_position_ == UNASSIGNED_VALUE)
     {
       joint->current_position_ = clamped(0.0, joint->min_position_, joint->max_position_);
@@ -153,12 +169,12 @@ void Leg::init(bool use_default_joint_positions)
  * Returns pointer to joint requested via identification name string input.
  * @param[in] joint_id_name The identification name of the requested joint object pointer.
 ***********************************************************************************************************************/
-Joint* Leg::getJointByIDName(string joint_id_name)
+shared_ptr<Joint> Leg::getJointByIDName(const string& joint_id_name)
 {
-  map<int, Joint*>::iterator joint_it;
+  JointContainer::iterator joint_it;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    Joint* joint = joint_it->second;
+    shared_ptr<Joint> joint = joint_it->second;
     if (joint->id_name_ == joint_id_name)
     {
       return joint;
@@ -171,12 +187,12 @@ Joint* Leg::getJointByIDName(string joint_id_name)
  * Returns pointer to link requested via identification name string input.
  * @param[in] link_id_name The identification name of the requested link object pointer.
 ***********************************************************************************************************************/
-Link* Leg::getLinkByIDName(string link_id_name)
+shared_ptr<Link> Leg::getLinkByIDName(const string& link_id_name)
 {
-  map<int, Link*>::iterator link_it;
+  LinkContainer::iterator link_it;
   for (link_it = link_container_.begin(); link_it != link_container_.end(); ++link_it)
   {
-    Link* link = link_it->second;
+    shared_ptr<Link> link = link_it->second;
     if (link->id_name_ == link_id_name)
     {
       return link;
@@ -190,7 +206,7 @@ Link* Leg::getLinkByIDName(string link_id_name)
  * @param[in] tip_position The input desired tip position 
  * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip position.
 ***********************************************************************************************************************/
-void Leg::setDesiredTipPosition(Vector3d tip_position, bool apply_delta_z)
+void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z)
 {
   // Don't apply delta_z to manually manipulated legs
   apply_delta_z = apply_delta_z && !(leg_state_ == MANUAL || leg_state_ == WALKING_TO_MANUAL);
@@ -213,17 +229,18 @@ void Leg::setDesiredTipPosition(Vector3d tip_position, bool apply_delta_z)
  * @todo Parameterise clamp positions flag
  * @todo Parameterise clamp velocities flag
 ***********************************************************************************************************************/
-double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool clamp_velocities)
+double Leg::applyIK(const bool& debug, const bool& ignore_warnings,
+                    const bool& clamp_positions, const bool& clamp_velocities)
 {
   vector<map<string, double>> dh_parameters;
-  map<int, Joint*>::iterator joint_it;
+  JointContainer::iterator joint_it;
   map<string, double> dh_map;
 
   //Skip first joint dh parameters since it is a fixed transformation
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    Joint* joint = joint_it->second;
-    const Link* reference_link = joint->reference_link_;
+    shared_ptr<Joint> joint = joint_it->second;
+    const shared_ptr<Link> reference_link = joint->reference_link_;
     double joint_angle = reference_link->actuating_joint_->desired_position_;
     dh_map.insert(map<string, double>::value_type("d", reference_link->dh_parameter_d_));
     dh_map.insert(map<string, double>::value_type("theta", reference_link->dh_parameter_theta_ + joint_angle));
@@ -248,7 +265,7 @@ double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool
   //ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
   ik_matrix = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
 
-  Joint* base_joint = joint_container_.begin()->second;
+  shared_ptr<Joint> base_joint = joint_container_.begin()->second;
   Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(false, desired_tip_position_);
   Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(false, current_tip_position_);
   Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
@@ -261,7 +278,7 @@ double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool
   double limit_proximity = 1.0;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
   {
-    Joint* joint = joint_it->second;
+    shared_ptr<Joint> joint = joint_it->second;
     joint->desired_velocity_ = joint_delta_pos[index] / model_->getTimeDelta();
 
     // Clamp joint velocities within limits
@@ -335,21 +352,21 @@ double Leg::applyIK(bool debug, bool ignore_warnings, bool clamp_positions, bool
  * position to new position if requested.
  * @param[in] set_current Flag denoting of the calculated tip position should be set as the current tip position.
 ***********************************************************************************************************************/
-Vector3d Leg::applyFK(bool set_current)
+Vector3d Leg::applyFK(const bool& set_current)
 {
   //Update joint transforms - skip first joint since it's transform is constant
-  map<int, Joint*>::iterator joint_it;
+  JointContainer::iterator joint_it;
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    Joint* joint = joint_it->second;
-    const Link* reference_link = joint->reference_link_;
+    shared_ptr<Joint> joint = joint_it->second;
+    const shared_ptr<Link> reference_link = joint->reference_link_;
     double joint_angle = reference_link->actuating_joint_->desired_position_;
     joint->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
                                                reference_link->dh_parameter_theta_ + joint_angle,
                                                reference_link->dh_parameter_r_,
                                                reference_link->dh_parameter_alpha_);
   }
-  const Link* reference_link = tip_->reference_link_;
+  const shared_ptr<Link> reference_link = tip_->reference_link_;
   double joint_angle = reference_link->actuating_joint_->desired_position_;
   tip_->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
                                             reference_link->dh_parameter_theta_ + joint_angle,
@@ -373,7 +390,7 @@ Vector3d Leg::applyFK(bool set_current)
  * Calls jocobian creation function for requested degrees of freedom.
  * @param[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
 ***********************************************************************************************************************/
-MatrixXd Leg::createJacobian(vector<map<string, double>> dh)
+MatrixXd Leg::createJacobian(const vector<map<string, double>>& dh)
 {
   switch (joint_count_)
   {
@@ -401,7 +418,7 @@ MatrixXd Leg::createJacobian(vector<map<string, double>> dh)
  * @param[in] id_number The identification number for this link.
  * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-Link::Link(Leg* leg, Joint* actuating_joint, int id_number, Parameters* params)
+Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, shared_ptr<Parameters> params)
   : parent_leg_(leg)
   , actuating_joint_(actuating_joint)
   , id_number_(id_number)
@@ -430,7 +447,7 @@ Link::Link(Leg* leg, Joint* actuating_joint, int id_number, Parameters* params)
  * @param[in] id_number The identification number for this joint
  * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-Joint::Joint(Leg* leg, Link* reference_link, int id_number, Parameters* params)
+Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, shared_ptr<Parameters> params)
   : parent_leg_(leg)
   , reference_link_(reference_link)
   , id_number_(id_number)
@@ -466,7 +483,7 @@ Joint::Joint(Leg* leg, Link* reference_link, int id_number, Parameters* params)
  * @param[in] leg A pointer to the parent leg object.
  * @param[in] reference_link A pointer to the reference link object, which is attached to this tip object.
 ***********************************************************************************************************************/
-Tip::Tip(Leg* leg, Link* reference_link)
+Tip::Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link)
   : parent_leg_(leg)
   , reference_link_(reference_link)
   , id_name_(leg->getIDName() + "_tip")

@@ -35,7 +35,7 @@
  * maximum body velocities and accelerations and transformation of input desired body velocities to individual tip 
  * stride vectors.
 ***********************************************************************************************************************/
-class WalkController
+class WalkController : public enable_shared_from_this<WalkController>
 {
 public:
   /**
@@ -43,10 +43,10 @@ public:
     * @param[in] model A pointer to the robot model.
     * @param[in] params A pointer to the parameter data structure.
     */
-  WalkController(Model* model, Parameters* params);
+  WalkController(shared_ptr<Model> model, const Parameters& params);
 
   /** Accessor for pointer to parameter data structure. */
-  inline Parameters* getParameters(void) { return params_; };
+  inline const Parameters& getParameters(void) { return params_; };
 
   /** Accessor for step cycle phase length. */
   inline int getPhaseLength(void) { return phase_length_; };
@@ -100,7 +100,7 @@ public:
     * Modifier for posing state.
     * @param[in] state  The new posing state.
     */
-  inline void setPoseState(PosingState state) { pose_state_ = state; };
+  inline void setPoseState(const PosingState& state) { pose_state_ = state; };
 
   /**
     * Initialises walk controller by calculating default walking stance tip positions and creating LegStepper objects 
@@ -114,9 +114,8 @@ public:
   /**
     * Calculates walk controller walk cycle parameters, normalising base parameters according to step frequency.
     * Calculates max accelerations and speeds from scaled workspaces which accomodate overshoot.
-    * @param[in] params A pointer to the parameter data structure.
     */
-  void setGaitParams(Parameters* params);
+  void setGaitParams(void);
 
   /**
     * Updates all legs in the walk cycle. Calculates stride vectors for all legs from robot body velocity inputs and 
@@ -126,7 +125,7 @@ public:
     * @params[in] linear_velocity_input An input for the desired linear velocity of the robot body in the x/y plane.
     * @params[in] angular_velocity_input An input for the desired angular velocity of the robot body about the z axis.
     */
-  void updateWalk(Vector2d linear_velocity_input, double angular_velocity_input);
+  void updateWalk(const Vector2d& linear_velocity_input, const double& angular_velocity_input);
 
   /**
     * Updates the tip position for legs in the manual state from tip velocity inputs. Two modes are available: joint 
@@ -137,13 +136,13 @@ public:
     * @params[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
     * @params[in] secondary_tip_velocity_input The velocity input to move the 2nd leg tip position in the robot frame.
     */
-  void updateManual(int primary_leg_selection_ID, Vector3d primary_tip_velocity_input,
-                    int secondary_leg_selection_ID, Vector3d secondary_tip_velocity_input);
+  void updateManual(const int& primary_leg_selection_ID, const Vector3d& primary_tip_velocity_input,
+                    const int& secondary_leg_selection_ID, const Vector3d& secondary_tip_velocity_input);
 
 private:
-  Model* model_;          ///! Pointer to robot model object.
-  Parameters* params_;    ///! Pointer to parameter data structure for storing parameter variables.
-  double time_delta_;     ///! The time period of the ros cycle.
+  shared_ptr<Model> model_;  ///! Pointer to robot model object.
+  const Parameters& params_; ///! Pointer to parameter data structure for storing parameter variables.
+  double time_delta_;        ///! The time period of the ros cycle.
 
   WalkState walk_state_ = STOPPED;           ///! The current walk cycle state.
   PosingState pose_state_ = POSING_COMPLETE; ///! The current state of auto posing.
@@ -186,9 +185,9 @@ private:
   int legs_completed_first_step_ = 0; ///! A count of legs whcih have currently completed their first step.
 
   // Iteration variables
-  map<int, Leg*>::iterator leg_it_;     ///! Leg iteration member variable used to minimise code
-  map<int, Joint*>::iterator joint_it_; ///! Joint iteration member variable used to minimise code.
-  map<int, Link*>::iterator link_it_;   ///! Link iteration member variable used to minimise code.
+  LegContainer::iterator leg_it_;     ///! Leg iteration member variable used to minimise code
+  JointContainer::iterator joint_it_; ///! Joint iteration member variable used to minimise code.
+  LinkContainer::iterator link_it_;   ///! Link iteration member variable used to minimise code.
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -210,7 +209,7 @@ public:
     * @param[in] leg A pointer to the parent leg object.
     * @param[in] identity_tip_position The default walking stance tip position about which the step cycle is based.
     */
-  LegStepper(WalkController* walker, Leg* leg, Vector3d identity_tip_position);
+  LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, const Vector3d& identity_tip_position);
 
   /** Accessor for the current tip position according to the walk controller. */
   inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
@@ -255,67 +254,70 @@ public:
     * Accessor for control nodes in the primary swing bezier curve.
     * @param[in] i Index of the control node.
     */
-  inline Vector3d getSwing1ControlNode(int i) { return swing_1_nodes_[i]; };
+  inline Vector3d getSwing1ControlNode(const int& i) { return swing_1_nodes_[i]; };
   
   /**
     * Accessor for control nodes in the secondary swing bezier curve.
     * @param[in] i Index of the control node.
     */
-  inline Vector3d getSwing2ControlNode(int i) { return swing_2_nodes_[i]; };
+  inline Vector3d getSwing2ControlNode(const int& i) { return swing_2_nodes_[i]; };
   
   /**
     * Accessor for control nodes in the stance bezier curve.
     * @param[in] i Index of the control node.
     */
-  inline Vector3d getStanceControlNode(int i) { return stance_nodes_[i]; };
+  inline Vector3d getStanceControlNode(const int& i) { return stance_nodes_[i]; };
 
   /**
     * Modifier for the current tip position according to the walk controller.
     * @param[in] current_tip_position The new current tip position.
     */
-  inline void setCurrentTipPosition(Vector3d current_tip_position) { current_tip_position_ = current_tip_position; };
+  inline void setCurrentTipPosition(const Vector3d& current_tip_position) 
+  { 
+    current_tip_position_ = current_tip_position; 
+  };
   
   /**
     * Modifier for the default tip position according to the walk controller.
     * @param[in] tip_position The new default tip position.
     */
-  inline void setDefaultTipPosition(Vector3d tip_position) { default_tip_position_ = tip_position; };
+  inline void setDefaultTipPosition(const Vector3d& tip_position) { default_tip_position_ = tip_position; };
   
   /**
     * Modifier for the current state of step cycle.
     * @param[in] step_state The new state of the step cycle.
     */
-  inline void setStepState(StepState step_state) { step_state_ = step_state; };
+  inline void setStepState(const StepState& step_state) { step_state_ = step_state; };
   
   /**
     * Modifier for the phase of the step cycle.
     * @param[in] phase The new phase.
     */
-  inline void setPhase(int phase) { phase_ = phase; };
+  inline void setPhase(const int& phase) { phase_ = phase; };
   
   /**
     * Modifier for the phase offset of the step cycle.
     * @param[in] phase_offset The new phase offset.
     */
-  inline void setPhaseOffset(int phase_offset) { phase_offset_ = phase_offset;};
+  inline void setPhaseOffset(const int& phase_offset) { phase_offset_ = phase_offset;};
   
   /**
     * Modifier for the flag denoting if the leg has completed its first step.
     * @param[in] completed_first_step The new value for the flag.
     */
-  inline void setCompletedFirstStep(bool completed_first_step) { completed_first_step_ = completed_first_step; };
+  inline void setCompletedFirstStep(const bool& completed_first_step) { completed_first_step_ = completed_first_step; };
   
   /**
     * Modifier for the flag denoting if the leg in in the correct phase.
     * @param[in] at_correct_phase The new value for the flag.
     */
-  inline void setAtCorrectPhase(bool at_correct_phase) { at_correct_phase_ = at_correct_phase; };
+  inline void setAtCorrectPhase(const bool& at_correct_phase) { at_correct_phase_ = at_correct_phase; };
   
   /**
     * Updates the stride vector with a new value.
     * @param[in] stride_vector The new stride vector.
     */
-  inline void updateStride(Vector2d stride_vector)
+  inline void updateStride(const Vector2d& stride_vector)
   {
     stride_vector_ = Vector3d(stride_vector[0], stride_vector[1], 0.0);
   };
@@ -336,18 +338,18 @@ public:
     * @param[in] bezier_scaler Scaler used to normalise the distance between control nodes for stance/swing bezier 
     * curves which have differing delta time values.
     */
-  void generateSwingControlNodes(double bezier_scaler);
+  void generateSwingControlNodes(const double& bezier_scaler);
   
   /**
     * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.
     * @param[in] stride_vector A vector defining the stride which the leg is to step as part of the step cycle
     * trajectory.
     */
-  void generateStanceControlNodes(Vector3d stride_vector);
+  void generateStanceControlNodes(const Vector3d& stride_vector);
 
 private:
-  WalkController* walker_; ///! Pointer to walk controller object.
-  Leg* leg_;               ///! Pointer to the parent leg object.
+  shared_ptr<WalkController> walker_; ///! Pointer to walk controller object.
+  shared_ptr<Leg> leg_;               ///! Pointer to the parent leg object.
 
   bool at_correct_phase_ = false;     ///! Flag denoting if the leg is at the correct phase per the walk state.
   bool completed_first_step_ = false; ///! Flag denoting if the leg has completed its first step.

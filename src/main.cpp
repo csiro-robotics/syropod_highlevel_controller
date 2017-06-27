@@ -33,27 +33,27 @@ int main(int argc, char* argv[])
   ros::NodeHandle n_priv("~");
 
   StateController state(n);
-  Parameters* params = state.getParameters();
+  const Parameters& params = state.getParameters();
 
   bool set_logger_level_result = false;
 
-  if (params->console_verbosity.data == std::string("debug"))
+  if (params.console_verbosity.data == std::string("debug"))
   {
     set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
   }
-  else if (params->console_verbosity.data == "info")
+  else if (params.console_verbosity.data == "info")
   {
     set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
   }
-  else if (params->console_verbosity.data == "warning")
+  else if (params.console_verbosity.data == "warning")
   {
     set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Warn);
   }
-  else if (params->console_verbosity.data == "error")
+  else if (params.console_verbosity.data == "error")
   {
     set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Error);
   }
-  else if (params->console_verbosity.data == "fatal")
+  else if (params.console_verbosity.data == "fatal")
   {
     set_logger_level_result = ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Fatal);
   }
@@ -64,15 +64,15 @@ int main(int argc, char* argv[])
   }
 
   // Set ros rate from params
-  ros::Rate r(roundToInt(1.0 / params->time_delta.data));
+  ros::Rate r(roundToInt(1.0 / params.time_delta.data));
 
   // Wait specified time to aquire all published joint positions via callback
-  int spin = ACQUISTION_TIME / params->time_delta.data; //Spin cycles from time
+  int spin = ACQUISTION_TIME / params.time_delta.data; //Spin cycles from time
   while (spin--)
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nAcquiring robot state . . .\n");
     // End wait if joints are intitialised or debugging in rviz (joint states will never initialise).
-    if (state.jointPositionsInitialised() || params->debug_rviz.data)
+    if (state.jointPositionsInitialised() || params.debug_rviz.data)
     {
       spin = 0;
     }
@@ -92,10 +92,6 @@ int main(int argc, char* argv[])
   {
     start_message = "Press 'Logitech' button to run controller initialising unknown positions to defaults . . .\n";
     use_default_joint_positions = true;
-    if (!params->debug_rviz.data)
-    {
-      params->start_up_sequence.data = false;
-    }
   }
 
   // Loop waiting for start button press
@@ -127,9 +123,9 @@ int main(int argc, char* argv[])
       state.publishBodyVelocity();
       state.publishRotationPoseError();
 
-      if (params->debug_rviz.data)
+      if (params.debug_rviz.data)
       {
-        state.RVIZDebugging(params->debug_rviz_static_display.data);
+        state.RVIZDebugging(params.debug_rviz_static_display.data);
       }
 
       state.publishDesiredJointState();
