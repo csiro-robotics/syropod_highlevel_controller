@@ -1,254 +1,499 @@
-
-#include "../include/simple_hexapod_controller/model.h"
-
-/***********************************************************************************************************************
- * Initialises leg by calculating leg component lengths and applying forward kinematics for tip position
+/*******************************************************************************************************************//**
+ *  @file    model.cpp
+ *  @brief   Describes the Syropod model including all legs, joints and links.
+ *
+ *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
+ *  @date    June 2017
+ *  @version 0.5.0
+ *
+ *  CSIRO Autonomous Systems Laboratory
+ *  Queensland Centre for Advanced Technologies
+ *  PO Box 883, Kenmore, QLD 4069, Australia
+ *
+ *  (c) Copyright CSIRO 2017
+ *
+ *  All rights reserved, no part of this program may be used
+ *  without explicit permission of CSIRO
+ *
 ***********************************************************************************************************************/
-void Leg::init(double startYaw, double startLiftAngle, double startKneeAngle)
+
+#include "../include/syropod_highlevel_controller/model.h"
+
+/*******************************************************************************************************************//**
+ * Contructor for robot model object - initialises member variables from parameters.
+ * @param[in] params A pointer to the parameter data structure.
+***********************************************************************************************************************/
+Model::Model(shared_ptr<Parameters> params)
+  : leg_count_(params->leg_id.data.size())
+  , time_delta_(params->time_delta.data)
+  , current_pose_(Pose::identity())
 {
-  yaw = startYaw;
-  liftAngle = startLiftAngle;
-  kneeAngle = startKneeAngle;
-  hipLength = hipOffset.norm();
-  femurLength = kneeOffset.norm();
-  femurAngleOffset = atan2(kneeOffset[2], kneeOffset[0]);
-  tibiaLength = tipOffset.norm();
-  tibiaAngleOffset = atan2(tipOffset[2], tipOffset[0]);
-  minLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 
-    2.0*femurLength*tibiaLength*cos(max(0.0, pi-model->minMaxKneeBend[1]))); 
-  maxLegLength = sqrt(sqr(tibiaLength) + sqr(femurLength) - 
-    2.0*femurLength*tibiaLength*cos(pi-max(0.0, model->minMaxKneeBend[0]))); 
+}
+
+/*******************************************************************************************************************//**
+ * Generates child leg objects. Separated from constructor due to shared_from_this() constraints.
+ * @param[in] params A pointer to the parameter data structure.
+***********************************************************************************************************************/
+void Model::generate(shared_ptr<Parameters> params)
+{
+  for (int i = 0; i < leg_count_; ++i)
+  {
+    shared_ptr<Leg> leg = make_shared<Leg>(shared_from_this(), i, params);
+    leg->generate(params);
+    leg_container_.insert(LegContainer::value_type(i, leg));
+  }
+}
+  
+
+/*******************************************************************************************************************//**
+ * Iterate through legs in robot model and have them run their initialisation.
+ * @param[in] use_default_joint_positions Flag denoting if the leg should initialise using default joint position values
+ * for any joint with unknown current position values.
+***********************************************************************************************************************/
+void Model::initLegs(const bool& use_default_joint_positions)
+{
+  LegContainer::iterator leg_it;
+  for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
+  {
+    shared_ptr<Leg> leg = leg_it->second;
+    leg->init(use_default_joint_positions);
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Estimates if the robot is bearing its load on its legs. Estimates the average distance between body and leg tips
+ * and checks if the average breaks the plane of the robot body underside, if so, assume that at least one leg is 
+ * bearing load.
+ * @todo Make more robust by estimating body height above the ground.
+ * @todo Parameterise HALF_BODY_DEPTH
+***********************************************************************************************************************/
+bool Model::legsBearingLoad(void)
+{
+  double body_height_estimate = 0.0;
+  LegContainer::iterator leg_it;
+  for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
+  {
+    shared_ptr<Leg> leg = leg_it->second;
+    body_height_estimate += leg->getCurrentTipPosition()[2];
+  }
+  return -(body_height_estimate / leg_count_) > HALF_BODY_DEPTH; //TODO Parameterise this value
+}
+
+/*******************************************************************************************************************//**
+ * Returns pointer to leg requsted via identification name string input.
+ * @param[in] leg_id_name The identification name of the requested leg object pointer.
+***********************************************************************************************************************/
+shared_ptr<Leg> Model::getLegByIDName(const string& leg_id_name)
+{
+  LegContainer::iterator leg_it;
+  for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
+  {
+    shared_ptr<Leg> leg = leg_it->second;
+    if (leg->getIDName() == leg_id_name)
+    {
+      return leg;
+    }
+  }
+  return NULL;
+}
+
+/*******************************************************************************************************************//**
+ * Constructor for a robot model leg object. Initialises member variables from parameters.
+ * @param[in] model A pointer to the parent robot model.
+ * @param[in] id_number An identification number for this leg object.
+ * @param[in] params A pointer to the parameter data structure.
+***********************************************************************************************************************/
+Leg::Leg(shared_ptr<Model> model, const int& id_number, shared_ptr<Parameters> params)
+  : model_(model)
+  , id_number_(id_number)
+  , id_name_(params->leg_id.data[id_number])
+  , joint_count_(params->leg_DOF.data[id_name_])
+  , stance_leg_yaw_(params->leg_stance_yaws.data[id_name_])
+  , leg_state_(WALKING)
+  , impedance_state_(vector<double>(2))
+{
+  desired_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
+  current_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
+  current_tip_velocity_ = Vector3d(0, 0, 0);
+  group_ = (id_number % 2); // Even/odd groups
+}
+
+/*******************************************************************************************************************//**
+ * Generates child joint/link/tip objects. Separated from constructor due to shared_from_this() constraints.
+ * @param[in] params A pointer to the parameter data structure.
+ * @todo Refactor use of null pointer.
+***********************************************************************************************************************/
+void Leg::generate(shared_ptr<Parameters> params)
+{
+  shared_ptr<Joint> null_joint; //TODO
+  shared_ptr<Link> base_link = make_shared<Link>(shared_from_this(), null_joint, 0, params);
+  link_container_.insert(LinkContainer::value_type(0, base_link));
+  shared_ptr<Link> prev_link = base_link;
+  for (int i = 1; i < joint_count_ + 1; ++i)
+  {
+    shared_ptr<Joint> new_joint = make_shared<Joint>(shared_from_this(), prev_link, i, params);
+    shared_ptr<Link> new_link = make_shared<Link>(shared_from_this(), new_joint, i, params);
+    joint_container_.insert(JointContainer::value_type(i, new_joint));
+    link_container_.insert(LinkContainer::value_type(i, new_link));
+    prev_link = new_link;
+  }
+  tip_ = make_shared<Tip>(shared_from_this(), prev_link);
+}
+
+/*******************************************************************************************************************//**
+ * Initialises leg object by setting desired joint state to default values or to current position (from encoders) and
+ * running forward kinematics for tip position.
+ * @param[in] use_default_joint_positions Flag denoting if the leg should initialise using default joint position values
+ * for any joint with unknown current position values.
+***********************************************************************************************************************/
+void Leg::init(const bool& use_default_joint_positions)
+{
+  JointContainer::iterator joint_it;
+  for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
+  {
+    shared_ptr<Joint> joint = joint_it->second;
+    if (use_default_joint_positions && joint->current_position_ == UNASSIGNED_VALUE)
+    {
+      joint->current_position_ = clamped(0.0, joint->min_position_, joint->max_position_);
+      joint->current_velocity_ = 0.0;
+      joint->current_effort_ = 0.0;
+    }
+    joint->desired_position_ = joint->current_position_;
+    joint->prev_desired_position_ = joint->desired_position_;
+  }
   applyFK();
+  desired_tip_position_ = current_tip_position_;
 }
 
-/***********************************************************************************************************************
- * Applies inverse kinematics to achieve target tip position
+/*******************************************************************************************************************//**
+ * Returns pointer to joint requested via identification name string input.
+ * @param[in] joint_id_name The identification name of the requested joint object pointer.
 ***********************************************************************************************************************/
-Vector3d Leg::applyLocalIK(Vector3d tipTarget)
+shared_ptr<Joint> Leg::getJointByIDName(const string& joint_id_name)
 {
-  // application of cosine rule
-  Vector3d target = tipTarget;
-  target[0] *= mirrorDir;
-  target -= rootOffset; // since rootOffset is fixed in root's space
-  yaw = atan2(target[1], target[0]);
-  Quat quat(Vector3d(0,0,yaw));
-  target = quat.inverseRotateVector(target); // localise
-  
-  target -= hipOffset;
-  ASSERT(abs(target[1]) < 0.01);
-  target[1] = 0; // any offset here cannot be reached
-  double targetLength = target.norm();
-  double targetAngleOffset = atan2(target[2], target[0]);
-  
-  targetLength = clamped(targetLength, minLegLength + 1e-4, maxLegLength - 1e-4); // reachable range
-  double lift = acos((sqr(targetLength)+sqr(femurLength)-sqr(tibiaLength))/(2.0*targetLength*femurLength));
-  liftAngle = targetAngleOffset + lift;
-  double kneeBend = acos(-(sqr(femurLength)+sqr(tibiaLength)-sqr(targetLength))/(2.0*femurLength*tibiaLength));
-  kneeAngle = tibiaAngleOffset + kneeBend;
-  ASSERT(abs(yaw) < 7.0);
-  ASSERT(abs(liftAngle) < 7.0);
-  ASSERT(abs(kneeAngle) < 7.0); 
-  
-  Vector3d resultTipPosition = applyFK();
- 
-  //Debugging Error Check: Any error occurs due to an imperfect vector rotation algorithm 
-  Vector3d diffVec = resultTipPosition - tipTarget;  
-  double errorThreshold = 1e-3;
-  if (diffVec[0] > errorThreshold || diffVec[1] > errorThreshold || diffVec[2] > errorThreshold)
+  JointContainer::iterator joint_it;
+  for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    ROS_WARN("FORWARD KINEMATICS ERROR: %f:%f:%f\n", diffVec[0], diffVec[1], diffVec[2]);  
-  }
-  
-  Vector3d jointPositions = {yaw, liftAngle, kneeAngle};
-  return jointPositions;
-}
-
-/***********************************************************************************************************************
- * Applies forward kinematics
-***********************************************************************************************************************/
-Vector3d Leg::applyFK()
-{
-  localTipPosition = calculateFK(yaw, liftAngle, kneeAngle);
-  model->localTipPositions[legIndex][sideIndex] = localTipPosition;
-  return localTipPosition;
-}
-
-/***********************************************************************************************************************
- * Calculates forward kinematics
-***********************************************************************************************************************/
-Vector3d Leg::calculateFK(double yaw, double liftAngle, double kneeAngle)
-{
-  Vector3d tipPosition;
-  tipPosition = tipOffset;
-  tipPosition = Quat(Vector3d(0, kneeAngle, 0)).rotateVector(tipPosition) + kneeOffset;
-  tipPosition = Quat(Vector3d(0, -liftAngle, 0)).rotateVector(tipPosition) + hipOffset;
-  tipPosition = Quat(Vector3d(0, 0, yaw)).rotateVector(tipPosition) + rootOffset;
-  tipPosition[0] *= mirrorDir;
-  
-  return tipPosition;
-}
-
-/***********************************************************************************************************************
- * Sets leg state
-***********************************************************************************************************************/
-void Leg::setState(LegState legState)
-{
-  state = legState;
-  model->legStates[legIndex][sideIndex] = state;
-}
-
-/***********************************************************************************************************************
- * Defines hexapod model
-***********************************************************************************************************************/
-Model::Model(Parameters params) : 
-  stanceLegYaws(params.stanceLegYaws), 
-  yawLimitAroundStance(params.yawLimits), 
-  minMaxKneeBend(params.kneeLimits), 
-  minMaxHipLift(params.hipLimits), 
-  jointMaxAngularSpeeds(params.jointMaxAngularSpeeds)
-{
-  for (int l = 0; l<3; l++)
-  {
-    for (int s = 0; s<2; s++)
+    shared_ptr<Joint> joint = joint_it->second;
+    if (joint->id_name_ == joint_id_name)
     {
-      Leg &leg = legs[l][s];
-      leg.model = this;
-      leg.legIndex = l;
-      leg.sideIndex = s;
-      leg.rootOffset = params.rootOffset[l][s];
-      leg.hipOffset  = params.hipOffset[l][s];
-      leg.kneeOffset = params.kneeOffset[l][s];
-      leg.tipOffset  = params.tipOffset[l][s];
-      leg.mirrorDir = s ? 1 : -1;
-      leg.init(0,max(0.0,minMaxHipLift[0]),max(0.0,minMaxKneeBend[0]));
-      leg.setState(WALKING);
+      return joint;
     }
   }
+  return NULL;
 }
 
-/***********************************************************************************************************************
- * Set individual leg joint angles
+/*******************************************************************************************************************//**
+ * Returns pointer to link requested via identification name string input.
+ * @param[in] link_id_name The identification name of the requested link object pointer.
 ***********************************************************************************************************************/
-void Model::setLegStartAngles(int side, int leg, const Vector3d &startAngles)
+shared_ptr<Link> Leg::getLinkByIDName(const string& link_id_name)
 {
-  legs[leg][side].init(startAngles[0], startAngles[1], startAngles[2]);
-}
-
-/***********************************************************************************************************************
- * Applies inverse kinematics for target tip positions of legs (not in OFF state) along with deltaZ from impedance cont.
-***********************************************************************************************************************/
-void Model::updateLocal(Vector3d targetTipPositions[3][2], double deltaZ[3][2])
-{
-  for (int l = 0; l<3; l++)
+  LinkContainer::iterator link_it;
+  for (link_it = link_container_.begin(); link_it != link_container_.end(); ++link_it)
   {
-    for (int s = 0; s<2; s++)
+    shared_ptr<Link> link = link_it->second;
+    if (link->id_name_ == link_id_name)
     {
-      Vector3d adjustedPos = targetTipPositions[l][s];
-      if (legs[l][s].state != MANUAL) //Don't apply delta Z to manually manipulated legs
-      {
-	adjustedPos[2] = targetTipPositions[l][s][2] - deltaZ[l][s];
-      }
-      legs[l][s].applyLocalIK(adjustedPos);      
-    }
-  }  
-}
-
-/***********************************************************************************************************************
- * Get locally referenced position values for location of joints from pose (root, hip, knee, tip)
-***********************************************************************************************************************/
-vector<Vector3d> Model::getJointPositions(const Pose &pose)
-{
-  vector<Vector3d> positions;
-  for (int s = 0; s<2; s++)
-  {
-    for (int l = 0; l<3; l++)
-    {
-      Leg &leg = legs[l][s];
-      Pose transform;
-      transform = Pose(leg.rootOffset, Quat(Vector3d(0, 0, leg.yaw)));
-      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
-      transform *= Pose(leg.hipOffset, Quat(Vector3d(0, -leg.liftAngle, 0)));
-      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
-      transform *= Pose(leg.kneeOffset, Quat(Vector3d(0, leg.kneeAngle, 0)));
-      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
-      transform *= Pose(leg.tipOffset, Quat(Vector3d(0, 0, 0)));
-      positions.push_back(pose.transformVector(Vector3d(transform.position[0]*leg.mirrorDir, transform.position[1], transform.position[2])));
-      ASSERT(positions.back().squaredNorm() < 1000.0);
+      return link;
     }
   }
-  return positions;
+  return NULL;
 }
 
-/***********************************************************************************************************************
- * Restrict joint angles to limits
+/*******************************************************************************************************************//**
+ * Sets desired tip position to the input, applying impedance controller vertical offset (delta z) if requested.
+ * @param[in] tip_position The input desired tip position 
+ * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip position.
 ***********************************************************************************************************************/
-void Model::clampToLimits(std::map<int, std::string> legNameMap)
+void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z)
 {
-  // clamp angles and alert if a limit has been hit
-  for (int l = 0; l<3; l++)
+  // Don't apply delta_z to manually manipulated legs
+  apply_delta_z = apply_delta_z && !(leg_state_ == MANUAL || leg_state_ == WALKING_TO_MANUAL);
+
+  desired_tip_position_[0] = tip_position[0];
+  desired_tip_position_[1] = tip_position[1];
+  desired_tip_position_[2] = tip_position[2] + (apply_delta_z ? delta_z_ : 0.0);
+}
+
+/*******************************************************************************************************************//**
+ * Applies inverse kinematics to calculate required joint positions to achieve desired tip position. Inverse kinematics
+ * is generated via the calculation of a jacobian for the current state of the leg, which is used as per the Damped 
+ * Least Squares method to generate a change in joint position for each joint. Returns a ratio of the joint closest to
+ * position limits.
+ * @param[in] debug Flag denoting if debug information should be sent to rosconsole.
+ * @param[in] ignore_warnings Flag denoting if all warning messages should be prevented from being sent to rosconsole.
+ * @param[in] clamp_positions Flag denoting if joint positions should adhere to limits.
+ * @param[in] clamp_velocities Flag denoting if joint velocities should adhere to limits.
+ * @todo Calculate optimal DLS coefficient (this value currently works sufficiently)
+ * @todo Parameterise clamp positions flag
+ * @todo Parameterise clamp velocities flag
+***********************************************************************************************************************/
+double Leg::applyIK(const bool& debug, const bool& ignore_warnings,
+                    const bool& clamp_positions, const bool& clamp_velocities)
+{
+  vector<map<string, double>> dh_parameters;
+  JointContainer::iterator joint_it;
+  map<string, double> dh_map;
+
+  //Skip first joint dh parameters since it is a fixed transformation
+  for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    for (int s = 0; s<2; s++)
+    shared_ptr<Joint> joint = joint_it->second;
+    const shared_ptr<Link> reference_link = joint->reference_link_;
+    double joint_angle = reference_link->actuating_joint_->desired_position_;
+    dh_map.insert(map<string, double>::value_type("d", reference_link->dh_parameter_d_));
+    dh_map.insert(map<string, double>::value_type("theta", reference_link->dh_parameter_theta_ + joint_angle));
+    dh_map.insert(map<string, double>::value_type("r", reference_link->dh_parameter_r_));
+    dh_map.insert(map<string, double>::value_type("alpha", reference_link->dh_parameter_alpha_));
+    dh_parameters.push_back(dh_map);
+    dh_map.clear();
+  }
+  //Add tip dh params
+  double joint_angle = tip_->reference_link_->actuating_joint_->desired_position_;
+  dh_map.insert(map<string, double>::value_type("d", tip_->reference_link_->dh_parameter_d_));
+  dh_map.insert(map<string, double>::value_type("theta", tip_->reference_link_->dh_parameter_theta_ + joint_angle));
+  dh_map.insert(map<string, double>::value_type("r", tip_->reference_link_->dh_parameter_r_));
+  dh_map.insert(map<string, double>::value_type("alpha", tip_->reference_link_->dh_parameter_alpha_));
+  dh_parameters.push_back(dh_map);
+
+  MatrixXd j(3, joint_count_);
+  j = createJacobian(dh_parameters);
+
+  MatrixXd identity = Matrix3d::Identity();
+  MatrixXd ik_matrix(joint_count_, 3);
+  //ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
+  ik_matrix = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
+
+  shared_ptr<Joint> base_joint = joint_container_.begin()->second;
+  Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(false, desired_tip_position_);
+  Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(false, current_tip_position_);
+  Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
+  VectorXd joint_delta_pos(joint_count_);
+
+  joint_delta_pos = ik_matrix * leg_frame_tip_position_delta;
+
+  int index = 0;
+  string clamping_events;
+  double limit_proximity = 1.0;
+  for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
+  {
+    shared_ptr<Joint> joint = joint_it->second;
+    joint->desired_velocity_ = joint_delta_pos[index] / model_->getTimeDelta();
+
+    // Clamp joint velocities within limits
+    if (clamp_velocities)  // TODO
     {
-      Leg &leg = legs[l][s];
-      double messageTolerance = 0.017444; //1 degree over limit before warning message
-      if (leg.yaw - stanceLegYaws[l] < -yawLimitAroundStance[l])
+      if (abs(joint->desired_velocity_) > joint->max_angular_speed_)
       {
-	double diff = abs(leg.yaw - (-yawLimitAroundStance[l] + stanceLegYaws[l]));
-	if (diff > messageTolerance)
-	{
-	  ROS_WARN("%s leg has tried to exceed body_coxa joint limit: %f by %f. Clamping body_coxa joint to limit.\n", legNameMap[l*2+s].c_str(), -yawLimitAroundStance[l] + stanceLegYaws[l], diff);
-	}
-	leg.yaw = -yawLimitAroundStance[l] + stanceLegYaws[l];
+        double max_velocity = joint->max_angular_speed_;
+        clamping_events += stringFormat("\n\tType: Velocity\tJoint: %s\tDesired: %f rad/s\tLimited to: %f rad/s",
+                                        joint->id_name_.c_str(), abs(joint->desired_velocity_), max_velocity);
+        joint->desired_velocity_ = clamped(joint->desired_velocity_, -max_velocity, max_velocity);
       }
-      else if (leg.yaw - stanceLegYaws[l] > yawLimitAroundStance[l])
+    }
+    joint->desired_position_ = joint->prev_desired_position_ + joint->desired_velocity_ * model_->getTimeDelta();
+
+    // Clamp joint position within limits
+    if (clamp_positions) // TODO
+    {
+      if (joint->desired_position_ < joint->min_position_)
       {
-	double diff = abs(leg.yaw - (yawLimitAroundStance[l] + stanceLegYaws[l]));
-	if (diff > messageTolerance)
-	{
-	  ROS_WARN("%s leg has tried to exceed body_coxa joint limit: %f by %f. Clamping body_coxa joint to limit.\n", legNameMap[l*2+s].c_str(), yawLimitAroundStance[l] + stanceLegYaws[l], diff);	  
-	}
-	leg.yaw = yawLimitAroundStance[l] + stanceLegYaws[l];        
+        clamping_events += stringFormat("\n\tType: Position\tJoint: %s\tDesired: %f rad\tLimited to: %f rad",
+                                        joint->id_name_.c_str(), joint->desired_position_, joint->min_position_);
+        joint->desired_position_ = joint->min_position_;
       }
-      if (leg.liftAngle < minMaxHipLift[0])
+      else if (joint->desired_position_ > joint->max_position_)
       {
-	double diff = abs(leg.liftAngle - minMaxHipLift[0]);
-	if (diff > messageTolerance)
-	{
-	  ROS_WARN("%s leg has tried to exceed coxa_femur joint limit: %f by %f. Clamping coxa_femur joint to limit.\n", legNameMap[l*2+s].c_str(), minMaxHipLift[0], diff);
-	}
-	leg.liftAngle = minMaxHipLift[0];
+        clamping_events += stringFormat("\n\tType: Position\tJoint: %s\tDesired: %f rad\tLimited to: %f rad",
+                                        joint->id_name_.c_str(), joint->desired_position_, joint->max_position_);
+        joint->desired_position_ = joint->max_position_;
       }
-      else if (leg.liftAngle > minMaxHipLift[1])
+    }
+
+    //Calculates the proximity of the joint closest to one of it's limits. Used for preventing exceeding workspace.
+    // (1.0 = furthest possible from limit, 0.0 = equal to limit)
+    double min_diff = abs(joint->min_position_ - joint->desired_position_);
+    double max_diff = abs(joint->max_position_ - joint->desired_position_);
+    double half_joint_range = (joint->max_position_ - joint->min_position_) / 2.0;
+    limit_proximity = min(limit_proximity, min(min_diff, max_diff) / half_joint_range);
+  }
+
+  Vector3d result = applyFK(); // Apply forward kinematics to get new current tip position
+
+  // Debugging message
+  ROS_DEBUG_COND(id_number_ == 0 && debug,
+                 "\nLeg %s:\n\tDesired tip position from trajectory engine: %f:%f:%f\n\t"
+                 "Resultant tip position from inverse/forward kinematics: %f:%f:%f", id_name_.c_str(),
+                 desired_tip_position_[0], desired_tip_position_[1], desired_tip_position_[2],
+                 result[0], result[1], result[2]);
+
+  // Display warning messages for clamping events and associated inverse kinematic deviations
+  if (!ignore_warnings)
+  {
+    string axis_label[3] = {"x", "y", "z"};
+    for (int i = 0; i < 3; ++i)
+    {
+      if (abs(result[i] - desired_tip_position_[i]) > IK_TOLERANCE)
       {
-	double diff = abs(leg.liftAngle - minMaxHipLift[1]);
-	if (diff > messageTolerance)
-	{
-	  ROS_WARN("%s leg has tried to exceed coxa_femur joint limit: %f by %f. Clamping coxa_femur joint to limit.\n", legNameMap[l*2+s].c_str(), minMaxHipLift[1], diff);
-	}
-	leg.liftAngle = minMaxHipLift[1];
-      }
-      if (leg.kneeAngle < minMaxKneeBend[0])
-      {
-	double diff = abs(leg.kneeAngle - minMaxKneeBend[0]);
-	if (diff > messageTolerance)
-	{
-	  ROS_WARN("%s leg has tried to exceed femur_tibia joint limit: %f by %f. Clamping femur_tibia joint to limit.\n", legNameMap[l*2+s].c_str(), minMaxKneeBend[0], diff);
-	}
-	leg.kneeAngle = minMaxKneeBend[0];
-      }
-      else if (leg.kneeAngle > minMaxKneeBend[1])
-      {
-	double diff = abs(leg.kneeAngle - minMaxKneeBend[1]);
-	if (diff > messageTolerance)
-	{
-	  ROS_WARN("%s leg has tried to exceed femur_tibia joint limit: %f by %f. Clamping femur_tibia joint to limit.\n", legNameMap[l*2+s].c_str(), minMaxKneeBend[1], diff);
-	}
-	leg.kneeAngle = minMaxKneeBend[1];
+        double error_percentage = abs((result[i] - desired_tip_position_[i]) / desired_tip_position_[i]) * 100;
+        ROS_WARN("\nInverse kinematics deviation! Calculated tip %s position of leg %s (%s: %f)"
+                 " differs from desired tip position (%s: %f) by %f%%\nThis is due to clamping events:%s\n",
+                 axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), result[i], axis_label[i].c_str(),
+                 desired_tip_position_[i], error_percentage, clamping_events.c_str());
       }
     }
   }
+  return limit_proximity;
+}
+
+/*******************************************************************************************************************//**
+ * Updates joint transforms and applies forward kinematics to calculate a new tip position. Sets leg current tip 
+ * position to new position if requested.
+ * @param[in] set_current Flag denoting of the calculated tip position should be set as the current tip position.
+***********************************************************************************************************************/
+Vector3d Leg::applyFK(const bool& set_current)
+{
+  //Update joint transforms - skip first joint since it's transform is constant
+  JointContainer::iterator joint_it;
+  for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
+  {
+    shared_ptr<Joint> joint = joint_it->second;
+    const shared_ptr<Link> reference_link = joint->reference_link_;
+    double joint_angle = reference_link->actuating_joint_->desired_position_;
+    joint->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
+                                               reference_link->dh_parameter_theta_ + joint_angle,
+                                               reference_link->dh_parameter_r_,
+                                               reference_link->dh_parameter_alpha_);
+  }
+  const shared_ptr<Link> reference_link = tip_->reference_link_;
+  double joint_angle = reference_link->actuating_joint_->desired_position_;
+  tip_->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
+                                            reference_link->dh_parameter_theta_ + joint_angle,
+                                            reference_link->dh_parameter_r_,
+                                            reference_link->dh_parameter_alpha_);
+
+  //Get world frame position of tip
+  Vector3d tip_position = tip_->getPositionRobotFrame();
+  if (set_current)
+  {
+    if (current_tip_position_[0] != UNASSIGNED_VALUE)
+    {
+      current_tip_velocity_ = (tip_position - current_tip_position_) / model_->getTimeDelta();
+    }
+    current_tip_position_ = tip_position;
+  }
+  return tip_position;
+}
+
+/*******************************************************************************************************************//**
+ * Calls jocobian creation function for requested degrees of freedom.
+ * @param[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
+***********************************************************************************************************************/
+MatrixXd Leg::createJacobian(const vector<map<string, double>>& dh)
+{
+  switch (joint_count_)
+  {
+    case (1):
+      return createJacobian1DOF(dh);
+    case (2):
+      return createJacobian2DOF(dh);
+    case (3):
+      return createJacobian3DOF(dh);
+    case (4):
+      return createJacobian4DOF(dh);
+    case (5):
+      return createJacobian5DOF(dh);
+    case (6):
+      return createJacobian6DOF(dh); //Not implemented
+    default:
+      return MatrixXd::Identity(3, 3);
+  };
+}
+
+/*******************************************************************************************************************//**
+ * Constructor for Link object. Initialises member variables from parameters.
+ * @param[in] leg A pointer to the parent leg object.
+ * @param[in] actuating_joint A pointer to the actuating joint object, from which this link is moved.
+ * @param[in] id_number The identification number for this link.
+ * @param[in] params A pointer to the parameter data structure.
+***********************************************************************************************************************/
+Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, shared_ptr<Parameters> params)
+  : parent_leg_(leg)
+  , actuating_joint_(actuating_joint)
+  , id_number_(id_number)
+  , id_name_(leg->getIDName() + "_" + params->link_id.data[id_number_] + "_link")
+  , dh_parameter_r_(params->link_parameters[leg->getIDNumber()][id_number_].data["r"])
+  , dh_parameter_theta_(params->link_parameters[leg->getIDNumber()][id_number_].data["theta"])
+  , dh_parameter_d_(params->link_parameters[leg->getIDNumber()][id_number_].data["d"])
+  , dh_parameter_alpha_(params->link_parameters[leg->getIDNumber()][id_number_].data["alpha"])
+{
+  if (params->link_parameters[leg->getIDNumber()][id_number_].initialised)
+  {
+    ROS_DEBUG("%s has been initialised with DH parameters: d: %f, theta: %f, r: %f, alpha: %f.",
+              id_name_.c_str(), dh_parameter_d_, dh_parameter_theta_, dh_parameter_r_, dh_parameter_alpha_);
+  }
+  else
+  {
+    ROS_FATAL("Model initialisation error for %s", id_name_.c_str());
+    ros::shutdown();
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Constructor for Joint object. Initialises member variables from parameters and generates initial transform.
+ * @param[in] leg A pointer to the parent leg object.
+ * @param[in] reference_link A pointer to the reference link object, from which this joint actuates.
+ * @param[in] id_number The identification number for this joint
+ * @param[in] params A pointer to the parameter data structure.
+***********************************************************************************************************************/
+Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, shared_ptr<Parameters> params)
+  : parent_leg_(leg)
+  , reference_link_(reference_link)
+  , id_number_(id_number)
+  , id_name_(leg->getIDName() + "_" + params->joint_id.data[id_number_ - 1] + "_joint")
+  , position_offset_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["offset"])
+  , min_position_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["min"])
+  , max_position_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["max"])
+  , packed_position_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["packed"])
+  , unpacked_position_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["unpacked"])
+  , max_angular_speed_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["max_vel"])
+{
+  if (params->joint_parameters[leg->getIDNumber()][id_number_ - 1].initialised)
+  {
+    identity_transform_ = createDHMatrix(reference_link_->dh_parameter_d_,
+                                         reference_link_->dh_parameter_theta_,
+                                         reference_link_->dh_parameter_r_,
+                                         reference_link_->dh_parameter_alpha_);
+    current_transform_ = identity_transform_;
+    ROS_DEBUG("%s has been initialised with parameters:"
+              "offset: %f, min: %f, max: %f, packed: %f, unpacked: %f, max_vel: %f.",
+              id_name_.c_str(), position_offset_, min_position_, max_position_,
+              packed_position_, unpacked_position_, max_angular_speed_);
+  }
+  else
+  {
+    ROS_FATAL("Model initialisation error for %s", id_name_.c_str());
+    ros::shutdown();
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Constructor for Tip object. Initialises member variables from parameters and generates initial transform.
+ * @param[in] leg A pointer to the parent leg object.
+ * @param[in] reference_link A pointer to the reference link object, which is attached to this tip object.
+***********************************************************************************************************************/
+Tip::Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link)
+  : parent_leg_(leg)
+  , reference_link_(reference_link)
+  , id_name_(leg->getIDName() + "_tip")
+{
+  identity_transform_ = createDHMatrix(reference_link_->dh_parameter_d_,
+                                       reference_link_->dh_parameter_theta_,
+                                       reference_link_->dh_parameter_r_,
+                                       reference_link_->dh_parameter_alpha_);
+  current_transform_ = identity_transform_;
 }
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-

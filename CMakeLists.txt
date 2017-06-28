@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(simple_hexapod_controller)
+project(syropod_highlevel_controller)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -11,11 +11,10 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
   geometry_msgs
-  dynamixel_controllers
-  dynamixel_msgs  
+  dynamic_reconfigure
  )
 
-
+generate_dynamic_reconfigure_options(config/dynamic_parameter.cfg)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -53,7 +52,7 @@ find_package(catkin REQUIRED COMPONENTS
 #Generate messages in the 'msg' folder
  add_message_files(
    FILES
-   legState.msg
+   LegState.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -88,16 +87,16 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-#  LIBRARIES simple_hexapod_controller
-  CATKIN_DEPENDS roscpp rospy message_runtime std_msgs sensor_msgs geometry_msgs dynamixel_msgs dynamixel_controllers 
+#  LIBRARIES syropod_highlevel_controller
+  CATKIN_DEPENDS roscpp rospy message_runtime std_msgs sensor_msgs geometry_msgs 
 #  DEPENDS system_lib
 )
-add_definitions(-DEIGEN333_SUPPORT -DDEBUG -std=c++11 -Wall -g -ggdb -O0 -fopenmp -fPIC)
+add_definitions(-DEIGEN3_SUPPORT -DDEBUG -std=c++11 -Wall -g -ggdb -O0 -fopenmp -fPIC)
 
 ###########
 ## Build ##
 ###########
-#FILE(GLOB simple_hexapod_controller_sources "src/*.cpp")
+#FILE(GLOB syropod_highlevel_controller_sources "src/*.cpp")
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
@@ -108,23 +107,20 @@ include_directories(
 )
 
 ## Declare a cpp library
-# add_library(simple_hexapod_controller
-#   src/${PROJECT_NAME}/simple_hexapod_controller.cpp
+# add_library(syropod_highlevel_controller
+#   src/${PROJECT_NAME}/syropod_highlevel_controller.cpp
 # )
 
 ## Declare a cpp executable
-add_executable(simple_hexapod_controller_node src/main.cpp src/model.cpp src/walkController.cpp src/poseController.cpp src/debugOutput.cpp src/dynamixelMotorInterface.cpp src/dynamixelProMotorInterface.cpp src/impedanceController.cpp src/stateController.cpp)#${simple_hexapod_controller_sources})
-add_executable(simple_diagnostics_node src/simpleDiagnostics.cpp)
+add_executable(syropod_highlevel_controller_node src/main.cpp src/model.cpp src/walk_controller.cpp src/pose_controller.cpp src/debug_output.cpp src/impedance_controller.cpp src/state_controller.cpp src/jacobian.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 
 ## Specify libraries to link a library or executable target against
- target_link_libraries(simple_hexapod_controller_node ${catkin_LIBRARIES})
- target_link_libraries(simple_diagnostics_node ${catkin_LIBRARIES})
+target_link_libraries(syropod_highlevel_controller_node ${catkin_LIBRARIES} -fopenmp)
  
-add_dependencies(simple_hexapod_controller_node simple_hexapod_controller_cpp simple_hexapod_controller_generate_messages_cpp)
-
+add_dependencies(syropod_highlevel_controller_node syropod_highlevel_controller_generate_messages_cpp syropod_highlevel_controller_gencfg)
 
 #############
 ## Install ##
@@ -141,7 +137,7 @@ add_dependencies(simple_hexapod_controller_node simple_hexapod_controller_cpp si
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS simple_hexapod_controller simple_hexapod_controller_node
+# install(TARGETS syropod_highlevel_controller syropod_highlevel_controller_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -166,7 +162,7 @@ add_dependencies(simple_hexapod_controller_node simple_hexapod_controller_cpp si
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_simple_hexapod_controller.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_syropod_highlevel_controller.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

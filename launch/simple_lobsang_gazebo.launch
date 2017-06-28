@@ -1,9 +1,0 @@
-<launch>
-        <include file="$(find flexipod_short)/launch/simple_flexipod_short_gazebo.launch" />
-	<include file="$(find hexapod_remote)/launch/hexapod_remote.launch" />
-	<rosparam file="$(find simple_hexapod_controller)/config/lobsang.yaml" command="load"/>
-	<rosparam file="$(find simple_hexapod_controller)/config/gait.yaml" command="load"/>
-	<!--node name="Hexapod" pkg="simple_hexapod_controller" type="simple_hexapod_controller_node"/-->
-	
-	<param name="/hexapod/parameters/impedance_controller/impedance_control" value="false"/>
-</launch>
