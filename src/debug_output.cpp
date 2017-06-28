@@ -43,7 +43,8 @@ void DebugOutput::updatePose(const Vector2d& linear_body_velocity,
 {
   Vector3d linear_body_velocity_3d = Vector3d(linear_body_velocity[0], linear_body_velocity[1], 0);
   Vector3d angular_body_velocity_3d = Vector3d(0.0, 0.0, angular_body_velocity);
-  odometry_pose_ *= Pose(linear_body_velocity_3d, Quat(angular_body_velocity_3d));
+  odometry_pose_.position_ += odometry_pose_.rotation_.rotateVector(linear_body_velocity_3d);
+  odometry_pose_.rotation_ *= Quat(angular_body_velocity_3d);
   odometry_pose_.position_[2] = height;
 }
 
@@ -67,7 +68,10 @@ void DebugOutput::generateRobotModel(shared_ptr<Model> model)
   leg_line_list.color.b = 1;
   leg_line_list.color.a = 1;
 
-  Pose pose = odometry_pose_.addPose(model->getCurrentPose());
+  Pose pose = odometry_pose_;
+  Pose current_pose = model->getCurrentPose();
+  pose.position_ += pose.rotation_.rotateVector(current_pose.position_);
+  pose.rotation_ *= current_pose.rotation_;
 
   geometry_msgs::Point point;
   Vector3d previous_body_position = pose.transformVector(Vector3d(0.0, 0.0, 0.0));
@@ -124,10 +128,10 @@ void DebugOutput::generateRobotModel(shared_ptr<Model> model)
     point.z = previous_joint_position[2];
     leg_line_list.points.push_back(point);
 
-    Vector3d tip_point = pose.transformVector(leg->getCurrentTipPosition());
-    point.x = tip_point[0];
-    point.y = tip_point[1];
-    point.z = tip_point[2];
+    Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
+    point.x = tip_position[0];
+    point.y = tip_position[1];
+    point.z = tip_position[2];
     leg_line_list.points.push_back(point);
   }
 
@@ -152,7 +156,9 @@ void DebugOutput::generateRobotModel(shared_ptr<Model> model)
 ***********************************************************************************************************************/
 void DebugOutput::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& current_pose)
 {
-  Pose pose = odometry_pose_.addPose(current_pose);
+  Pose pose = odometry_pose_;
+  pose.position_ += pose.rotation_.rotateVector(current_pose.position_);
+  pose.rotation_ *= current_pose.rotation_;
 
   visualization_msgs::Marker tip_position_marker;
   tip_position_marker.header.frame_id = "/fixed_frame";

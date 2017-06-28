@@ -39,11 +39,6 @@ public:
   inline bool operator==(const Pose& pose) { return (position_ == pose.position_ && rotation_ == pose.rotation_); };
   inline bool operator!=(const Pose& pose) { return (position_ != pose.position_ || rotation_ != pose.rotation_); };
   inline Pose operator~(void) const { return Pose((~rotation_).rotateVector(-position_), ~rotation_); };
-  inline void operator*=(const Pose& pose)
-  { 
-    position_ += rotation_.rotateVector(pose.position_);
-    rotation_ *= pose.rotation_;
-  };
   
   inline Vector3d transformVector(const Vector3d& vec) const { return position_ + rotation_.rotateVector(vec); };
   inline Vector3d inverseTransformVector(const Vector3d& vec) const { return (~*this).transformVector(vec); };
