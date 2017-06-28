@@ -1,0 +1,129 @@
+########################################################################################################################
+# Syropod 'Default' Parameters
+########################################################################################################################
+
+syropod:
+  parameters:
+########################################################################################################################
+    # Control parameters
+    time_delta: 0.02
+    manual_posing: true
+    auto_posing: false
+    impedance_control: false
+    inclination_posing: false #requires imu
+    imu_posing: false #requires imu
+
+########################################################################################################################
+    # Hardware interface parameters
+    individual_control_interface: true #Use for Gazebo or 'Dynamixel Controller' (OLD)
+    combined_control_interface: true #Use for 'Dynamixel Interface' (NEW)
+    imu_rotation_offset: [0.0, 0.0, 0.0]
+
+########################################################################################################################
+    # Model parameters
+    syropod_type: default
+    leg_id: [AR, BR, CR, CL, BL, AL] # leg_id_name (clockwise from front right leg)
+    joint_id: [coxa, femur, tibia] # joint_id_name
+    link_id: [base, coxa, femur, tibia] # link_id_name (always start with base) 
+    leg_DOF: {AL: 3, AR: 3, BL: 3, BR: 3, CL: 3, CR: 3} # leg_id_name: degrees_of_freedom (num joints) 
+    leg_stance_yaws: {AL: 0.523, AR: -0.523, BL: 1.57, BR: -1.57, CL: 2.617, CR: -2.617}
+
+    # Joint parameters:
+    AR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    AR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
+    AR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    BR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    BR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
+    BR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    CR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    CR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
+    CR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    AL_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    AL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
+    AL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    BL_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    BL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
+    BL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    CL_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    CL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
+    CL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    
+    # Link DH parameters: en.wikipedia.org/wiki/Denavit–Hartenberg_parameters 
+    # Ensure theta values are within joint limits
+    AR_base_link_parameters:  {d: 0.0, theta: -0.523, r: 0.05, alpha: 0.0}
+    AR_coxa_link_parameters:  {d: 0.0, theta: 0.0,    r: 0.05, alpha: 1.57}
+    AR_femur_link_parameters: {d: 0.0, theta: 0.0,    r: 0.05, alpha: 0.0}
+    AR_tibia_link_parameters: {d: 0.0, theta: -0.1,   r: 0.10, alpha: 0.0}
+    BR_base_link_parameters:  {d: 0.0, theta: -1.57,  r: 0.05, alpha: 0.0}
+    BR_coxa_link_parameters:  {d: 0.0, theta: 0.0,    r: 0.05, alpha: 1.57}
+    BR_femur_link_parameters: {d: 0.0, theta: 0.0,    r: 0.05, alpha: 0.0}
+    BR_tibia_link_parameters: {d: 0.0, theta: -0.1,   r: 0.10, alpha: 0.0}
+    CR_base_link_parameters:  {d: 0.0, theta: -2.617, r: 0.05, alpha: 0.0}
+    CR_coxa_link_parameters:  {d: 0.0, theta: 0.0,    r: 0.05, alpha: 1.57}
+    CR_femur_link_parameters: {d: 0.0, theta: 0.0,    r: 0.05, alpha: 0.0}
+    CR_tibia_link_parameters: {d: 0.0, theta: -0.1,   r: 0.10, alpha: 0.0}
+    AL_base_link_parameters:  {d: 0.0, theta: 0.523,  r: 0.05, alpha: 0.0}
+    AL_coxa_link_parameters:  {d: 0.0, theta: 0.0,    r: 0.05, alpha: 1.57}
+    AL_femur_link_parameters: {d: 0.0, theta: 0.0,    r: 0.05, alpha: 0.0}
+    AL_tibia_link_parameters: {d: 0.0, theta: -0.1,   r: 0.10, alpha: 0.0}
+    BL_base_link_parameters:  {d: 0.0, theta: 1.57,   r: 0.05, alpha: 0.0}
+    BL_coxa_link_parameters:  {d: 0.0, theta: 0.0,    r: 0.05, alpha: 1.57}
+    BL_femur_link_parameters: {d: 0.0, theta: 0.0,    r: 0.05, alpha: 0.0}
+    BL_tibia_link_parameters: {d: 0.0, theta: -0.1,   r: 0.10, alpha: 0.0}
+    CL_base_link_parameters:  {d: 0.0, theta: 2.617,  r: 0.05, alpha: 0.0}
+    CL_coxa_link_parameters:  {d: 0.0, theta: 0.0,    r: 0.05, alpha: 1.57}
+    CL_femur_link_parameters: {d: 0.0, theta: 0.0,    r: 0.05, alpha: 0.0}
+    CL_tibia_link_parameters: {d: 0.0, theta: -0.1,   r: 0.10, alpha: 0.0}
+
+########################################################################################################################
+    # Walker parameters
+    gait_type: tripod_gait
+    step_frequency: {default: 1.0, min: 0.001, max: 2.0, step: 0.1} #Reconfigurable
+    step_clearance: {default: 0.01, min: 0.01, max: 0.05, step: 0.005} #Reconfigurable
+    step_depth: 0.0
+    body_clearance: {default: 0.1, min: 0.1, max: 0.3, step: 0.05} #Reconfigurable
+    leg_span: {default: 0.0, min: 0.0, max: 0.0, step: 0.0} #Reconfigurable
+    velocity_input_mode: throttle #real
+    force_cruise_velocity: true
+    linear_cruise_velocity: {x: 0.001, y: 0.0}
+    angular_cruise_velocity: 0.0
+
+########################################################################################################################
+    # Poser parameters
+    auto_pose_type: auto
+    start_up_sequence: false
+    time_to_start: 6.0
+    rotation_pid_gains: {p: 0.0, i: 0.0, d: 0.0}
+    max_translation: {x: 0.05, y: 0.05, z: 0.05}
+    max_rotation: {roll: 0.25, pitch: 0.25, yaw: 0.25}
+    max_translation_velocity: 0.05
+    max_rotation_velocity: 0.1
+    leg_manipulation_mode: tip_control
+
+########################################################################################################################
+    # Impedance controller parameters
+    dynamic_stiffness: true
+    use_joint_effort: false
+    virtual_mass: {default: 10, min: 1, max: 100, step: 5} #Reconfigurable
+    integrator_step_time: 0.5
+    virtual_stiffness: {default: 12.0, min: 1, max: 50, step: 5} #Reconfigurable
+    load_stiffness_scaler: 5.0
+    swing_stiffness_scaler: 0.1
+    virtual_damping_ratio: {default: 0.8, min: 0.1, max: 10.0, step: 0.05} #Reconfigurable
+    force_gain: {default: 0.1, min: 0.001, max: 100, step: 1.0} #Reconfigurable
+    
+########################################################################################################################
+    # Debug parameters
+    console_verbosity: info
+    debug_move_to_joint_position: false
+    debug_step_to_position: false
+    debug_swing_trajectory: false
+    debug_stance_trajectory: false
+    debug_execute_sequence: false
+    debug_ik: false
+    debug_rviz: true
+    debug_rviz_static_display: false
+    
+########################################################################################################################
+########################################################################################################################
+

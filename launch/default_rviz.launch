@@ -1,0 +1,15 @@
+<launch>
+	<include file="$(find syropod_remote)/launch/syropod_remote.launch" />
+	
+	<rosparam file="$(find default_syropod)/config/default.yaml" command="load"/>
+	<rosparam file="$(find default_syropod)/config/gait.yaml" command="load"/>
+	<rosparam file="$(find default_syropod)/config/auto_pose.yaml" command="load"/>
+	
+	<node name="syropod_highlevel_controller" pkg="syropod_highlevel_controller" type="syropod_highlevel_controller_node" output="screen"/>
+	
+	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find syropod_highlevel_controller)/rviz_cfg/SHC_display.rviz"/>
+	
+	<node name="rqt_reconfigure" pkg="rqt_reconfigure" type="rqt_reconfigure"/>	
+	
+	<param name="/syropod/parameters/debug_rviz" value="true"/>
+</launch>
