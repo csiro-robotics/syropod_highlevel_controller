@@ -30,23 +30,23 @@ syropod:
 
     # Joint parameters:
     AR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    AR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
-    AR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    AR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    AR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
     BR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    BR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
-    BR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    BR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    BR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
     CR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    CR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
-    CR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    CR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    CR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
     AL_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    AL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
-    AL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    AL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    AL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
     BL_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    BL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
-    BL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    BL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    BL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
     CL_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    CL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 1.223,  max_vel: 5.0}
-    CL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -2.188, max_vel: 5.0}
+    CL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    CL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
     
     # Link DH parameters: en.wikipedia.org/wiki/Denavit–Hartenberg_parameters 
     # Ensure theta values are within joint limits
@@ -81,7 +81,7 @@ syropod:
     step_frequency: {default: 1.0, min: 0.001, max: 2.0, step: 0.1} #Reconfigurable
     step_clearance: {default: 0.01, min: 0.01, max: 0.05, step: 0.005} #Reconfigurable
     step_depth: 0.0
-    body_clearance: {default: 0.1, min: 0.1, max: 0.3, step: 0.05} #Reconfigurable
+    body_clearance: {default: 0.1, min: 0.01, max: 0.15, step: 0.01} #Reconfigurable
     leg_span: {default: 0.0, min: 0.0, max: 0.0, step: 0.0} #Reconfigurable
     velocity_input_mode: throttle #real
     force_cruise_velocity: true
@@ -91,13 +91,13 @@ syropod:
 ########################################################################################################################
     # Poser parameters
     auto_pose_type: auto
-    start_up_sequence: false
+    start_up_sequence: true
     time_to_start: 6.0
     rotation_pid_gains: {p: 0.0, i: 0.0, d: 0.0}
-    max_translation: {x: 0.05, y: 0.05, z: 0.05}
+    max_translation: {x: 0.025, y: 0.025, z: 0.025}
     max_rotation: {roll: 0.25, pitch: 0.25, yaw: 0.25}
     max_translation_velocity: 0.05
-    max_rotation_velocity: 0.1
+    max_rotation_velocity: 0.2
     leg_manipulation_mode: tip_control
 
 ########################################################################################################################
