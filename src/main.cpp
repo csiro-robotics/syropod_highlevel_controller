@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nAcquiring robot state . . .\n");
     // End wait if joints are intitialised or debugging in rviz (joint states will never initialise).
-    if (state.jointPositionsInitialised() || params.debug_rviz.data)
+    if (state.jointPositionsInitialised())
     {
       spin = 0;
     }
