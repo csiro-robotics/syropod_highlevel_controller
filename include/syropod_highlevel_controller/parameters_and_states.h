@@ -290,7 +290,6 @@ struct Parameters
   Parameter<string> gait_type;                           ///! The default selected gait type 
   AdjustableParameter step_frequency;                    ///! The frequency of complete step cycles (Hz).
   AdjustableParameter step_clearance;                    ///! The stepping clearance of the tip position above default.
-  Parameter<double> step_depth;                          ///! The stepping depth of the tip position below default.
   AdjustableParameter body_clearance;                    ///! The requested height of the robot body above ground.
   AdjustableParameter leg_span;                          ///! TODO Placeholder - currently does nothing
   Parameter<string> velocity_input_mode;                 ///! Determines velocity input as 'real' or 'throttle' based.

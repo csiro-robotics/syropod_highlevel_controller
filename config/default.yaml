@@ -80,7 +80,6 @@ syropod:
     gait_type: tripod_gait
     step_frequency: {default: 1.0, min: 0.001, max: 2.0, step: 0.1} #Reconfigurable
     step_clearance: {default: 0.01, min: 0.01, max: 0.05, step: 0.005} #Reconfigurable
-    step_depth: 0.0
     body_clearance: {default: 0.1, min: 0.01, max: 0.15, step: 0.01} #Reconfigurable
     leg_span: {default: 0.0, min: 0.0, max: 0.0, step: 0.0} #Reconfigurable
     velocity_input_mode: throttle #real

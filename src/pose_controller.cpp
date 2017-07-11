@@ -999,6 +999,12 @@ void PoseController::calculateDefaultPose(void)
 {
   int legs_loaded = 0.0;
   int legs_transitioning_states = 0.0;
+  
+  // Return early if only one leg in model since pointless
+  if (model_->getLegCount() == 1)
+  {
+    return;
+  }
 
   // Check how many legs are load bearing and how many are transitioning states
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -1331,21 +1337,27 @@ int LegPoser::stepToPosition(const Vector3d& target, Pose target_pose,
   int half_swing_iteration = num_iterations / 2;
 
   // Update leg tip position
-  Vector3d control_nodes_primary[4];
-  Vector3d control_nodes_secondary[4];
+  Vector3d control_nodes_primary[5];
+  Vector3d control_nodes_secondary[5];
 
-  // Control nodes for dual 3d cubic bezier curves
+  // Control nodes for dual 3d quartic bezier curves
   control_nodes_primary[0] = origin_tip_position_;
-  control_nodes_primary[1] = control_nodes_primary[0];
-  control_nodes_primary[3] = 0.5 * (target_tip_position + origin_tip_position_);
-  control_nodes_primary[3][2] += lift_height;
-  control_nodes_primary[2] = control_nodes_primary[0];
+  control_nodes_primary[1] = origin_tip_position_;
+  control_nodes_primary[2] = origin_tip_position_;
+  control_nodes_primary[3] = target_tip_position + 0.75 * (origin_tip_position_ - target_tip_position);
+  control_nodes_primary[4] = target_tip_position + 0.5 * (origin_tip_position_ - target_tip_position);
   control_nodes_primary[2][2] += lift_height;
+  control_nodes_primary[3][2] += lift_height;
+  control_nodes_primary[4][2] += lift_height;
 
-  control_nodes_secondary[0] = control_nodes_primary[3];
-  control_nodes_secondary[1] = 2 * control_nodes_secondary[0] - control_nodes_primary[2];
+  control_nodes_secondary[0] = target_tip_position + 0.5 * (origin_tip_position_ - target_tip_position);
+  control_nodes_secondary[1] = target_tip_position + 0.25 * (origin_tip_position_ - target_tip_position);
+  control_nodes_secondary[2] = target_tip_position;
   control_nodes_secondary[3] = target_tip_position;
-  control_nodes_secondary[2] = control_nodes_secondary[3];
+  control_nodes_secondary[4] = target_tip_position;
+  control_nodes_secondary[0][2] += lift_height;
+  control_nodes_secondary[1][2] += lift_height;
+  control_nodes_secondary[2][2] += lift_height;
 
   Vector3d new_tip_position;
   int swing_iteration_count = (master_iteration_count_ + (num_iterations - 1)) % (num_iterations) + 1;
@@ -1355,12 +1367,12 @@ int LegPoser::stepToPosition(const Vector3d& target, Pose target_pose,
   if (swing_iteration_count <= half_swing_iteration)
   {
     time_input = swing_iteration_count * delta_t * 2.0;
-    new_tip_position = cubicBezier(control_nodes_primary, time_input);
+    new_tip_position = quarticBezier(control_nodes_primary, time_input);
   }
   else
   {
     time_input = (swing_iteration_count - half_swing_iteration) * delta_t * 2.0;
-    new_tip_position = cubicBezier(control_nodes_secondary, time_input);
+    new_tip_position = quarticBezier(control_nodes_secondary, time_input);
   }
 
   if (leg_->getIDNumber() == 0) //Reference leg for debugging (AR)

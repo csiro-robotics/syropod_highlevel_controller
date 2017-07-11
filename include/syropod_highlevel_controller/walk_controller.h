@@ -235,9 +235,6 @@ public:
   /** Accessor for desired height of the leg tip above default position during swing period. */
   inline double getSwingHeight(void) { return swing_height_; };
   
-  /** Accessor for desired depth of the leg tip below default position during swing period. */
-  inline double getStanceDepth(void) { return stance_depth_; };
-  
   /** Accessor for the current progress of the swing period in the step cycle (0.0 -> 1.0 || -1.0). */
   inline double getSwingProgress(void) { return swing_progress_; };
   
@@ -328,17 +325,23 @@ public:
   /**
     * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in 
     * tip position using two bezier curves for swing phase and one for stance phase. Each Bezier curve uses 5 control
-    * nodes designed specifically to give a C2 smooth trajectory for the entire step cycle. For stance, the derivative
-    * of the bezier curve is used to ensure correct tip velocity in line with input body velocity commands.
+    * nodes designed specifically to give a C2 smooth trajectory for the entire step cycle.
     */
   void updatePosition(void);
   
   /**
-    * Generates control nodes for each quartic bezier curve of swing tip trajectory calculation.
-    * @param[in] bezier_scaler Scaler used to normalise the distance between control nodes for stance/swing bezier 
-    * curves which have differing delta time values.
+    * Generates control nodes for quartic bezier curve of the 1st half of the swing tip trajectory calculation.
+    * @param[in] initial_tip_velocity Tip velocity vector representing the expected velocity of the tip at the beginning
+    * of swing trajectory generation.
     */
-  void generateSwingControlNodes(const double& bezier_scaler);
+  void generatePrimarySwingControlNodes(const Vector3d& initial_tip_velocity);
+  
+  /**
+    * Generates control nodes for quartic bezier curve of the 2nd half of the swing tip trajectory calculation.
+    * @param[in] final_tip_velocity Tip velocity vector representing the expected velocity of the tip at the end
+    * of swing trajectory generation.
+    */
+  void generateSecondarySwingControlNodes(const Vector3d& final_tip_velocity);
   
   /**
     * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.
@@ -368,7 +371,9 @@ private:
 
   Vector3d stride_vector_; ///! The desired stride vector.
   double swing_height_;    ///! The desired height of the leg tip above default position during swing period.
-  double stance_depth_;    ///! The desired depth of the leg tip below default position during stance period.
+  
+  double swing_delta_t_ = 0.0;
+  double stance_delta_t_ = 0.0;
 
   Vector3d default_tip_position_;       ///! The default tip position per the walk controller.
   Vector3d current_tip_position_;       ///! The current tip position per the walk controller.

@@ -1546,7 +1546,6 @@ void StateController::initParameters(void)
   params_.gait_type.init(n_, "gait_type");
   params_.step_frequency.init(n_, "step_frequency");
   params_.step_clearance.init(n_, "step_clearance");
-  params_.step_depth.init(n_, "step_depth");
   params_.body_clearance.init(n_, "body_clearance");
   params_.leg_span.init(n_, "leg_span");
   params_.velocity_input_mode.init(n_, "velocity_input_mode");

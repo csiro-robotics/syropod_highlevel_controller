@@ -150,18 +150,6 @@
       (default: {default: 0.1, min: 0.01, max: 0.05, step: 0.005})
       (unit: metres)
 
-### /syropod/parameters/step_depth: 
-    Defines the desired depth of the leg tip below the default position during stance period of step cycle. height. 
-    Note: This is an dynamically adjustable parameter and thus consists of a map of values which describe the 
-    possible values of this parameter:
-      default: The default parameter value.
-      min: The minimum allowed parameter value.
-      max: The maximum allowed parameter value.
-      step: The increment/decrement step of this value when adjusted.
-      (type: {string: double, string: double, string: double, string: double})
-      (default: {default: 0.0, min: 0.0, max: 0.05, step: 0.005})
-      (unit: metres)
-
 ### /syropod/parameters/body_clearance:
     Defines the desired clearance of the body above the default tip positions, limited to maximum possible height 
     determined by morphology.
