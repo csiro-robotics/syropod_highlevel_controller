@@ -186,20 +186,29 @@ void WalkController::init(void)
 
     // Add body clearance as z position and set as tip position vector
     Vector3d identity_tip_position(x_position, y_position, -body_clearance_);
-
-    // Check for overlapping workspaces
-    double distance_to_previous_tip_position = (identity_tip_position - previous_identity_position).norm();
-    previous_identity_position = identity_tip_position;
-    if (2.0 * workspace_radius_ > distance_to_previous_tip_position)
+    
+    // Don't check for overlap for first leg
+    if (leg_it_ == model_->getLegContainer()->begin())
     {
-      workspace_radius_ = distance_to_previous_tip_position / 2.0; //Workspace radius ammended to prevent overlapping
-      leg_it_ = model_->getLegContainer()->begin(); //Restart leg identity tip position calculation with new radius
-      previous_identity_position = Vector3d(0, 0, 0);
-    }
-    else
-    {
+      previous_identity_position = identity_tip_position;
       leg->setLegStepper(make_shared<LegStepper>(shared_from_this(), leg, identity_tip_position));
       leg_it_++;
+    }
+    // Check for overlapping workspaces
+    else
+    {
+      double distance_to_previous_tip_position = (identity_tip_position - previous_identity_position).norm();
+      previous_identity_position = identity_tip_position;
+      if (2.0 * workspace_radius_ > distance_to_previous_tip_position)
+      {
+        workspace_radius_ = distance_to_previous_tip_position / 2.0; //Workspace radius ammended to prevent overlapping
+        leg_it_ = model_->getLegContainer()->begin(); //Restart leg identity tip position calculation with new radius
+      }
+      else
+      {
+        leg->setLegStepper(make_shared<LegStepper>(shared_from_this(), leg, identity_tip_position));
+        leg_it_++;
+      }
     }
   }
 
@@ -253,8 +262,8 @@ void WalkController::setGaitParams(void)
   ROS_ASSERT(swing_length_ % 2 == 0);
 
   // Set phase offset and check if leg starts in swing phase (i.e. forced to stance for the 1st step cycle)
-  // If so find this max 'forced stance' phase length which is used in acceleration calculations
-  int max_forced_stance_length = 0;
+  // If so find this max 'stance extension' phase length which is used in acceleration calculations
+  int max_stance_extension = 0;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
@@ -264,45 +273,49 @@ void WalkController::setGaitParams(void)
     leg_stepper->setPhaseOffset(phase_offset);
     if (phase_offset > swing_start_ && phase_offset < swing_end_)  // SWING STATE
     {
-      max_forced_stance_length = max(max_forced_stance_length, swing_end_ - phase_offset);
+      max_stance_extension = max(max_stance_extension, swing_end_ - phase_offset);
     }
   }
 
+  // Set max stride (i.e. max body velocity) to occur at end of 1st swing of leg with maximum stance length extension
+  double time_to_max_stride = (max_stance_extension + stance_length_ + swing_length_) * time_delta_;
+
+  // Calculate initial max speed and acceleration of body
   double on_ground_ratio = double(stance_length_) / double(phase_length_);
-  double time_to_max_stride = (max_forced_stance_length + stance_length_ + swing_length_) * time_delta_;
-
-  // Ensures tip does not exceed workspace whilst accelerating during extended initial stance phase
-  double max_acceleration = (workspace_radius_ * 2.0) / ((on_ground_ratio / step_frequency_) * time_to_max_stride);
-  double max_speed = (workspace_radius_ * 2.0) * step_frequency_ / on_ground_ratio;
-
+  double max_speed = (workspace_radius_ * 2.0) / (on_ground_ratio/step_frequency_);
+  double max_acceleration = max_speed / time_to_max_stride;
+  
   // Calculates max overshoot of tip (in stance phase) outside workspace
-  double overshoot = 0;
+  double stance_overshoot = 0;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     // All referenced swings are the LAST swing phase BEFORE the max velocity (stride length) is reached
     double phase_offset = leg_stepper->getPhaseOffset();
-    double time_to_swing_end = time_to_max_stride - phase_offset * time_delta_;
-    double stride_length = max_acceleration * ((on_ground_ratio / step_frequency_) * time_to_swing_end);
-    double d0 = -stride_length / 2.0; // Distance from default tip position at time of swing end
-    double v0 = max_acceleration * time_to_swing_end; // Tip velocity at time of swing end
     double t = phase_offset * time_delta_; // Time between swing end and max velocity being reached
+    double time_to_swing_end = time_to_max_stride - t;
+    double v0 = max_acceleration * time_to_swing_end; // Tip velocity at time of swing end
+    double stride_length = v0 * (on_ground_ratio/step_frequency_);
+    double d0 = -stride_length / 2.0; // Distance to default tip position at time of swing end    
     double d1 = d0 + v0 * t + 0.5 * max_acceleration * sqr(t); // Distance from default tip position at max velocity
     double d2 = max_speed * (stance_length_ * time_delta_ - t); // Distance from default tip position at end of stance
-    overshoot = max(overshoot, d1 + d2 - workspace_radius_); // Max overshoot distance past workspace limitations
+    stance_overshoot = max(stance_overshoot, d1 + d2 - workspace_radius_); // Max overshoot past workspace limitations
   }
+  
+  // Scale workspace to accomodate stance overshoot
+  double scaled_workspace_radius = (workspace_radius_ / (workspace_radius_ + stance_overshoot)) * workspace_radius_;
 
-  // Scale max stride length within workspace to accomodate known swing overshoot
-  double scaled_workspace = (workspace_radius_ / (workspace_radius_ + overshoot)) * workspace_radius_ * 2.0;
-  double bezier_scaler = swing_length_ / (2.0 * stance_length_);
-  double max_stride_length = scaled_workspace * (1.0 / (1.0 + 0.5 * bezier_scaler)); // Based on trajectory engine
+  // Further scale workspace to accomodate normal max swing overshoot
+  double swing_overshoot = 0.5*max_speed*swing_length_/(2.0*phase_length_*step_frequency_); // From swing node 1
+  scaled_workspace_radius *= (scaled_workspace_radius / (scaled_workspace_radius + swing_overshoot));
 
-  // Distance: max_stride_length_, Time: on_ground_ratio*(1/step_frequency_) where step frequency is FULL step cycles/s)
-  max_linear_speed_ = max_stride_length / (on_ground_ratio / step_frequency_);
-  max_linear_acceleration_ = max_stride_length / ((on_ground_ratio / step_frequency_) * time_to_max_stride);
+  // Distance: scaled_workspace_radius*2.0 (i.e. max stride length)
+  // Time: on_ground_ratio*(1/step_frequency_) where step frequency is FULL step cycles/s)
+  max_linear_speed_ = (scaled_workspace_radius*2.0) / (on_ground_ratio/step_frequency_);
+  max_linear_acceleration_ = max_linear_speed_ / time_to_max_stride;
   max_angular_speed_ = max_linear_speed_ / stance_radius_;
-  max_angular_acceleration_ = max_acceleration / stance_radius_;
+  max_angular_acceleration_ = max_angular_speed_ / time_to_max_stride;
 }
 
 /*******************************************************************************************************************//**
@@ -502,7 +515,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     
     // Update tip positions
-    Vector3d tip_position = leg->getCurrentTipPosition(); //TBD Should be walker tip positions?
+    Vector3d tip_position = leg_stepper->getCurrentTipPosition();
     Vector2d rotation_normal = Vector2d(-tip_position[1], tip_position[0]);
     Vector2d stride_vector = desired_linear_velocity_ + desired_angular_velocity_ * rotation_normal;
     stride_vector *= (on_ground_ratio / step_frequency_);
