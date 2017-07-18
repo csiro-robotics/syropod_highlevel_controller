@@ -42,6 +42,13 @@ public:
     Vector3d vector_part = (ha > 1e-20 ? sin(ha) * rotation_vector.normalized() : Vector3d(0, 0, 0));
     setVectorPart(vector_part);
   }
+  inline Quat(const Quaterniond& eigen_quat)
+  {
+    w_ = double(eigen_quat.w());
+    x_ = double(eigen_quat.x());
+    y_ = double(eigen_quat.y());
+    z_ = double(eigen_quat.z());
+  }
 
   /// Operators
   inline Quat operator~(void) const { return Quat(w_, -x_, -y_, -z_); } // conjugate

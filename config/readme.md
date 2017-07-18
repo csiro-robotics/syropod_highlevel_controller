@@ -126,8 +126,11 @@
       (default: tripod_gait)
 
 ### /syropod/parameters/step_frequency:
-    Number of full steps (full swing/stance transition) taken per second (in TRIPOD mode). For other gaits the 
-    effective step frequency is adjusted according to swing ratio defined in the gait parameters.
+    Number of full steps cycles taken per second assuming a gait with swing ratio of 1.0 (i.e. No stance period).
+    For other gaits the effective step frequency is adjusted according to swing ratio defined 
+    by the gait parameters. Swing ratio is defined as: swing_length / (swing_length + stance_length)
+    Eg: Tripod gait has swing ratio of 0.5 thus effective step frequency is half of parameter value.
+        Wave gait has swing ratio of 0.1666 thus effective step frequency is 1/6th of parameter value.
     Note: This is an dynamically adjustable parameter and thus consists of a map of values which describe the 
     possible values of this parameter:
       default: The default parameter value.

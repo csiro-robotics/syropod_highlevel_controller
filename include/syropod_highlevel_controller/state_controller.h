@@ -289,7 +289,6 @@ public:
   /**
    * Callback handling the transformation of IMU data from imu frame to base link frame
    * @param[in] data The Imu sensor message provided by the subscribed ros topic "/imu/data"
-   * @todo Use tf2 for transformation between frames rather than parameters
    */
   void imuCallback(const sensor_msgs::Imu& data);
   

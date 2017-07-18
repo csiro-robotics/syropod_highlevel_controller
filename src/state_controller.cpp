@@ -76,6 +76,8 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);
+  
+  
   joint_state_subscriber_ = n_.subscribe("/joint_states", 1, &StateController::jointStatesCallback, this);
   
   // TODO Refactor into single callback to topic /tip_forces
@@ -90,7 +92,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   //Set up debugging publishers
   string node_name = ros::this_node::getName();
   pose_publisher_ = n_.advertise<geometry_msgs::Twist>(node_name + "/pose", 1000);
-  imu_data_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/imu_data", 1000);
+  imu_data_publisher_ = n_.advertise<sensor_msgs::Imu>(node_name + "/imu_data", 1000);
   body_velocity_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/body_velocity", 1000);
   rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/rotation_pose_error", 1000);
 
@@ -751,21 +753,21 @@ void StateController::publishPose(void)
 }
 
 /*******************************************************************************************************************//**
- * Publishes current rotation as per the IMU data object (roll, pitch, yaw, x, y, z) for debugging
+ * Publishes current rotation as per the IMU data object for debugging
 ***********************************************************************************************************************/
 void StateController::publishIMUData(void)
 {
-  std_msgs::Float32MultiArray msg;
-  msg.data.clear();
-  msg.data.push_back(poser_->getImuData().orientation.toEulerAngles()[0]);
-  msg.data.push_back(poser_->getImuData().orientation.toEulerAngles()[1]);
-  msg.data.push_back(poser_->getImuData().orientation.toEulerAngles()[2]);
-  msg.data.push_back(poser_->getImuData().linear_acceleration[0]);
-  msg.data.push_back(poser_->getImuData().linear_acceleration[1]);
-  msg.data.push_back(poser_->getImuData().linear_acceleration[2]);
-  msg.data.push_back(poser_->getImuData().angular_velocity[0]);
-  msg.data.push_back(poser_->getImuData().angular_velocity[1]);
-  msg.data.push_back(poser_->getImuData().angular_velocity[2]);
+  sensor_msgs::Imu msg;
+  msg.orientation.w = poser_->getImuData().orientation.w_;
+  msg.orientation.x = poser_->getImuData().orientation.x_;
+  msg.orientation.y = poser_->getImuData().orientation.y_;
+  msg.orientation.z = poser_->getImuData().orientation.z_;
+  msg.angular_velocity.x = poser_->getImuData().angular_velocity[0];
+  msg.angular_velocity.y = poser_->getImuData().angular_velocity[1];
+  msg.angular_velocity.z = poser_->getImuData().angular_velocity[2];
+  msg.linear_acceleration.x = poser_->getImuData().linear_acceleration[0];
+  msg.linear_acceleration.x = poser_->getImuData().linear_acceleration[1];
+  msg.linear_acceleration.x = poser_->getImuData().linear_acceleration[2];
   imu_data_publisher_.publish(msg);
 }
 
@@ -1314,38 +1316,38 @@ void StateController::dynamicParameterCallback(syropod_highlevel_controller::Dyn
 /*******************************************************************************************************************//**
  * Callback handling the transformation of IMU data from imu frame to base link frame
  * @param[in] data The Imu sensor message provided by the subscribed ros topic "/imu/data"
- * @todo Use tf2 for transformation between frames rather than parameters
 ***********************************************************************************************************************/
 void StateController::imuCallback(const sensor_msgs::Imu& data)
 {
   if (system_state_ != SUSPENDED && poser_ != NULL)
   {
-    Vector3d euler_offset;
-    euler_offset[0] = params_.imu_rotation_offset.data[0];
-    euler_offset[1] = params_.imu_rotation_offset.data[1];
-    euler_offset[2] = params_.imu_rotation_offset.data[2];
-    Quat imu_rotation_offset(euler_offset);
+    sensor_msgs::Imu imu_out;
+    imu_out.header.stamp = ros::Time::now();
 
-    Quat raw_orientation;
-    raw_orientation.w_ = data.orientation.w;
-    raw_orientation.x_ = data.orientation.x;
-    raw_orientation.y_ = data.orientation.y;
-    raw_orientation.z_ = data.orientation.z;
+    tf2::Quaternion q;
+    double roll = params_.imu_rotation_offset.data[0];
+    double pitch = params_.imu_rotation_offset.data[1];
+    double yaw = params_.imu_rotation_offset.data[2];
+    q.setRPY(roll, pitch, yaw);
 
-    Vector3d raw_linear_acceleration;
-    raw_linear_acceleration[0] = data.linear_acceleration.x;
-    raw_linear_acceleration[1] = data.linear_acceleration.y;
-    raw_linear_acceleration[2] = data.linear_acceleration.z;
+    // Discard translation, only use orientation for IMU transform
+    Quaterniond rotation(q.w(), q.x(), q.y(), q.z());
+    Transform<double, 3, Affine> transform(rotation);
 
-    Vector3d raw_angular_velocity;
-    raw_angular_velocity[0] = data.angular_velocity.x;
-    raw_angular_velocity[1] = data.angular_velocity.y;
-    raw_angular_velocity[2] = data.angular_velocity.z;
+    Quaterniond orientation = rotation * Quaterniond(data.orientation.w,
+                                                     data.orientation.x,
+                                                     data.orientation.y,
+                                                     data.orientation.z) * rotation.inverse();
 
-    // Rotate raw imu data according to physical imu mounting
-    poser_->setImuData((imu_rotation_offset * raw_orientation) * imu_rotation_offset.inverse(),
-                        imu_rotation_offset.toRotationMatrix() * raw_linear_acceleration,
-                        imu_rotation_offset.toRotationMatrix() * raw_angular_velocity);
+    Vector3d angular_velocity = transform * Vector3d(data.angular_velocity.x,
+                                                     data.angular_velocity.y,
+                                                     data.angular_velocity.z);
+
+    Vector3d linear_acceleration = transform * Vector3d(data.linear_acceleration.x,
+                                                        data.linear_acceleration.y,
+                                                        data.linear_acceleration.z);
+
+    poser_->setImuData(Quat(orientation), linear_acceleration, angular_velocity);
   }
 }
 

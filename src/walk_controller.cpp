@@ -408,7 +408,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
   // State transitions for Walk State Machine
   // State transition: STOPPED->STARTING
   int leg_count = model_->getLegCount();
-  if (walk_state_ == STOPPED && has_velocity_command && pose_state_ == POSING_COMPLETE)
+  if (walk_state_ == STOPPED && has_velocity_command)
   {
     walk_state_ = STARTING;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -434,7 +434,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     walk_state_ = STOPPING;
   }
   // State transition: STOPPING->STOPPED
-  else if (walk_state_ == STOPPING && legs_at_correct_phase_ == leg_count)
+  else if (walk_state_ == STOPPING && legs_at_correct_phase_ == leg_count && pose_state_ == POSING_COMPLETE)
   {
     legs_at_correct_phase_ = 0;
     walk_state_ = STOPPED;

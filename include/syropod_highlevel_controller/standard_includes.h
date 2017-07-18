@@ -26,8 +26,8 @@
 
 #include <dynamic_reconfigure/server.h>
 
-#include <tf/transform_broadcaster.h>
 #include <tf2/transform_datatypes.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int8.h>
@@ -43,6 +43,7 @@
 
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>
+#include <Eigen/Geometry>
 
 #include <boost/iterator/iterator_concepts.hpp>
 
