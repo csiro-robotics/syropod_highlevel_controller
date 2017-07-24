@@ -269,6 +269,8 @@ private:
   ImuData imu_data_;         ///! Imu data structure.
   const Parameters& params_; ///! Pointer to parameter data structure for storing parameter variables.
   
+  shared_ptr<Leg> auto_pose_reference_leg_; ///! Reference leg for auto posing system
+  
   PoseResetMode pose_reset_mode_;         ///! Mode for controlling which posing axes to reset to zero.
   Vector3d translation_velocity_input_;   ///! Velocity input for controlling the translation component of manual pose.
   Vector3d rotation_velocity_input_;      ///! Velocity input for controlling the rotational component of manual pose.

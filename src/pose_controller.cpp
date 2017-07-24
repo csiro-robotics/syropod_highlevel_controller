@@ -85,6 +85,12 @@ void PoseController::setAutoPoseParams(void)
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     leg_poser->setPoseNegationPhaseStart(params_.pose_negation_phase_starts.data.at(leg->getIDName()));
     leg_poser->setPoseNegationPhaseEnd(params_.pose_negation_phase_ends.data.at(leg->getIDName()));
+    
+    // Set reference leg for auto posing system to that which has zero phase offset
+    if (params_.offset_multiplier.data.at(leg->getIDName()) == 0)
+    {
+      auto_pose_reference_leg_ = leg;
+    }
   }
 
   // Clear any old auto-poser objects and re-populate container
@@ -845,8 +851,7 @@ void PoseController::updateManualPose(void)
 ***********************************************************************************************************************/
 void PoseController::updateAutoPose(void)
 {
-  shared_ptr<Leg> leg = model_->getLegByIDNumber(0); //Reference leg
-  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+  shared_ptr<LegStepper> leg_stepper = auto_pose_reference_leg_->getLegStepper();
   auto_pose_ = Pose::identity();
 
   // Update auto posing state
