@@ -8,7 +8,7 @@ syropod:
     # Control parameters
     time_delta: 0.02
     manual_posing: true
-    auto_posing: false
+    auto_posing: true
     impedance_control: false
     inclination_posing: false #requires imu
     imu_posing: false #requires imu
@@ -90,7 +90,7 @@ syropod:
 ########################################################################################################################
     # Poser parameters
     auto_pose_type: auto
-    start_up_sequence: true
+    start_up_sequence: false
     time_to_start: 6.0
     rotation_pid_gains: {p: 0.0, i: 0.0, d: 0.0}
     max_translation: {x: 0.025, y: 0.025, z: 0.025}

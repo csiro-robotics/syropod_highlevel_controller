@@ -99,7 +99,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   //Set up combined desired joint state publisher
   if (params_.combined_control_interface.data)
   {
-    desired_joint_state_publisher_ = n_.advertise<sensor_msgs::JointState>("/desired_joint_state", 1);
+    desired_joint_state_publisher_ = n_.advertise<sensor_msgs::JointState>("/desired_joint_states", 1);
   }
 
   // Set up individual leg state and desired joint state publishers within leg objects
