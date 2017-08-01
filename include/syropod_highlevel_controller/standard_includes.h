@@ -228,43 +228,6 @@ inline Matrix4d createDHMatrix(const double& d, const double& theta, const doubl
   return m;
 }
 
-/**
- * Generates a Jacobian for a single degree of freedom system from DH parameters.
- * @param[in] dh A vector of DH parameters for each joint in the system.
- */
-MatrixXd createJacobian1DOF(const vector<map<string, double>>& dh);
-
-/**
- * Generates a Jacobian for 2 degree of freedom system from DH parameters.
- * @param[in] dh A vector of DH parameters for each joint in the system.
- */
-MatrixXd createJacobian2DOF(const vector<map<string, double>>& dh);
-
-/**
- * Generates a Jacobian for 3 degree of freedom system from DH parameters.
- * @param[in] dh A vector of DH parameters for each joint in the system.
- */
-MatrixXd createJacobian3DOF(const vector<map<string, double>>& dh);
-
-/**
- * Generates a Jacobian for 4 degree of freedom system from DH parameters.
- * @param[in] dh A vector of DH parameters for each joint in the system.
- */
-MatrixXd createJacobian4DOF(const vector<map<string, double>>& dh);
-
-/**
- * Generates a Jacobian for 5 degree of freedom system from DH parameters.
- * @param[in] dh A vector of DH parameters for each joint in the system.
- */
-MatrixXd createJacobian5DOF(const vector<map<string, double>>& dh);
-
-/**
- * Generates a Jacobian for 6 degree of freedom system from DH parameters.
- * @param[in] dh A vector of DH parameters for each joint in the system.
- * @todo Create definition for this function.
- */
-MatrixXd createJacobian6DOF(const vector<map<string, double>>& dh);
-
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
 #endif /* SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H */

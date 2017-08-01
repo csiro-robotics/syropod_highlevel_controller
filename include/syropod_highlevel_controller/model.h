@@ -427,6 +427,24 @@ public:
     Matrix4d transform = zero ? identity_transform_ : current_transform_;
     return (id_number_ == 1) ? transform : reference_link_->actuating_joint_->getBaseTransform(zero)*transform;
   };
+  
+  /**
+    * Returns the transformation matrix from the specified target joint of the robot model to this joint.
+    * @param[in] target_joint Shared pointer to the Joint object defining the target joint for the transformation.
+    */
+  inline Matrix4d getTransformFrom(shared_ptr<Joint> target_joint) const
+  {
+    Matrix4d transform = current_transform_;
+    bool at_target = (id_number_ <= 1 || (target_joint->id_number_ == reference_link_->actuating_joint_->id_number_));
+    if (id_number_ == 1 || (target_joint->id_number_ == reference_link_->actuating_joint_->id_number_))
+    {
+      return transform;
+    }
+    else 
+    {
+      return reference_link_->actuating_joint_->getTransformFrom(target_joint)*transform;
+    }
+  };
 
   /**
     * Returns the position of (or a position relative to) the origin of this joint in the frame of the robot model.
@@ -502,7 +520,7 @@ public:
   Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link);
 
   /**
-    * Returns the positional transformation matrix from the origin of the robot model to the tip.
+    * Returns the transformation matrix from the origin of the robot model to the tip.
     * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
     * zero position for all joints in the kinematic chain.
     */
@@ -510,6 +528,17 @@ public:
   { 
     MatrixXd transform = zero ? identity_transform_ : current_transform_;
     return reference_link_->actuating_joint_->getBaseTransform()*transform; 
+  };
+  
+  /**
+    * Returns the transformation matrix from the specified target joint of the robot model to the tip.
+    * @param[in] target_joint Shared pointer to the Joint object defining the target joint for the transformation.
+    */
+  inline Matrix4d getTransformFrom(shared_ptr<Joint> target_joint) const
+  {
+    Matrix4d transform = current_transform_;
+    bool at_target = (target_joint->id_number_ == reference_link_->actuating_joint_->id_number_);
+    return at_target ? transform : reference_link_->actuating_joint_->getTransformFrom(target_joint)*transform;
   };
 
   /**

@@ -232,36 +232,31 @@ void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z
 double Leg::applyIK(const bool& debug, const bool& ignore_warnings,
                     const bool& clamp_positions, const bool& clamp_velocities)
 {
-  vector<map<string, double>> dh_parameters;
-  JointContainer::iterator joint_it;
-  map<string, double> dh_map;
+  MatrixXd jacobian(6, joint_count_);
+  Vector3d z0(0,0,1);
+  Vector3d p0(0,0,0);
+  shared_ptr<Joint> first_joint = joint_container_.begin()->second;
+  Vector3d pe = tip_->getTransformFrom(first_joint).block<3,1>(0,3);
+  int i = 1;
+  bool ignore_tip_orientation = true;
+  
+  jacobian.block<3,1>(0,0) = z0.cross(pe-p0); //Linear velocity
+  jacobian.block<3,1>(3,0) = ignore_tip_orientation ? Vector3d(0,0,0) : z0; //Angular velocity
 
   //Skip first joint dh parameters since it is a fixed transformation
-  for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
+  JointContainer::iterator joint_it;
+  for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
     shared_ptr<Joint> joint = joint_it->second;
-    const shared_ptr<Link> reference_link = joint->reference_link_;
-    double joint_angle = reference_link->actuating_joint_->desired_position_;
-    dh_map.insert(map<string, double>::value_type("d", reference_link->dh_parameter_d_));
-    dh_map.insert(map<string, double>::value_type("theta", reference_link->dh_parameter_theta_ + joint_angle));
-    dh_map.insert(map<string, double>::value_type("r", reference_link->dh_parameter_r_));
-    dh_map.insert(map<string, double>::value_type("alpha", reference_link->dh_parameter_alpha_));
-    dh_parameters.push_back(dh_map);
-    dh_map.clear();
+    Matrix4d t = joint->getTransformFrom(first_joint);
+    jacobian.block<3,1>(0,i) = t.block<3,1>(0,2).cross(pe-t.block<3,1>(0,3)); //Linear velocity
+    jacobian.block<3,1>(3,i) = ignore_tip_orientation ? Vector3d(0,0,0) : t.block<3,1>(0,2);  //Angular velocity
   }
-  //Add tip dh params
-  double joint_angle = tip_->reference_link_->actuating_joint_->desired_position_;
-  dh_map.insert(map<string, double>::value_type("d", tip_->reference_link_->dh_parameter_d_));
-  dh_map.insert(map<string, double>::value_type("theta", tip_->reference_link_->dh_parameter_theta_ + joint_angle));
-  dh_map.insert(map<string, double>::value_type("r", tip_->reference_link_->dh_parameter_r_));
-  dh_map.insert(map<string, double>::value_type("alpha", tip_->reference_link_->dh_parameter_alpha_));
-  dh_parameters.push_back(dh_map);
+  
+  MatrixXd identity = Matrix<double,6,6>::Identity();
+  MatrixXd ik_matrix(joint_count_, 6);
+  MatrixXd j = jacobian;
 
-  MatrixXd j(3, joint_count_);
-  j = createJacobian(dh_parameters);
-
-  MatrixXd identity = Matrix3d::Identity();
-  MatrixXd ik_matrix(joint_count_, 3);
   //ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
   ik_matrix = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
 
@@ -269,9 +264,13 @@ double Leg::applyIK(const bool& debug, const bool& ignore_warnings,
   Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(false, desired_tip_position_);
   Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(false, current_tip_position_);
   Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
+  MatrixXd delta = Matrix<double,6,1>::Zero();
+  delta(0) = leg_frame_tip_position_delta(0);
+  delta(1) = leg_frame_tip_position_delta(1);
+  delta(2) = leg_frame_tip_position_delta(2);
+  
   VectorXd joint_delta_pos(joint_count_);
-
-  joint_delta_pos = ik_matrix * leg_frame_tip_position_delta;
+  joint_delta_pos = ik_matrix * delta;
 
   int index = 0;
   string clamping_events;
@@ -384,31 +383,6 @@ Vector3d Leg::applyFK(const bool& set_current)
     current_tip_position_ = tip_position;
   }
   return tip_position;
-}
-
-/*******************************************************************************************************************//**
- * Calls jocobian creation function for requested degrees of freedom.
- * @param[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
-***********************************************************************************************************************/
-MatrixXd Leg::createJacobian(const vector<map<string, double>>& dh)
-{
-  switch (joint_count_)
-  {
-    case (1):
-      return createJacobian1DOF(dh);
-    case (2):
-      return createJacobian2DOF(dh);
-    case (3):
-      return createJacobian3DOF(dh);
-    case (4):
-      return createJacobian4DOF(dh);
-    case (5):
-      return createJacobian5DOF(dh);
-    case (6):
-      return createJacobian6DOF(dh); //Not implemented
-    default:
-      return MatrixXd::Identity(3, 3);
-  };
 }
 
 /*******************************************************************************************************************//**
