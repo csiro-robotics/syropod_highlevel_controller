@@ -32,9 +32,8 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   initParameters();
 
   // Create robot model
-  shared_ptr<Parameters> p_params(make_shared<Parameters>(params_));
-  model_ = make_shared<Model>(p_params);
-  model_->generate(p_params);
+  model_ = make_shared<Model>(params_);
+  model_->generate();
 
   debug_.setTimeDelta(params_.time_delta.data);
 
@@ -414,7 +413,7 @@ void StateController::runningState(void)
       shared_ptr<Leg> leg = leg_it_->second;
       shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
       leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
-      leg->applyIK(params_.debug_IK.data);
+      leg->applyIK();
     }
   }
 }
@@ -1544,6 +1543,9 @@ void StateController::initParameters(void)
   params_.link_id.init(n_, "link_id");
   params_.leg_DOF.init(n_, "leg_DOF");
   params_.leg_stance_yaws.init(n_, "leg_stance_yaws");
+  params_.clamp_joint_positions.init(n_, "clamp_joint_positions");
+  params_.clamp_joint_velocities.init(n_, "clamp_joint_velocities");
+  params_.ignore_IK_warnings.init(n_, "ignore_IK_warnings");
   // Walk controller parameters
   params_.gait_type.init(n_, "gait_type");
   params_.step_frequency.init(n_, "step_frequency");

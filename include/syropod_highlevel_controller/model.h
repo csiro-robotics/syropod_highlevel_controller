@@ -51,7 +51,7 @@ public:
     * Contructor for robot model object - initialises member variables from parameters.
     * @param[in] params A pointer to the parameter data structure.
     */
-  Model(shared_ptr<Parameters> params);
+  Model(const Parameters& params);
   
   /** Accessor for leg object container.*/
   inline LegContainer* getLegContainer(void) { return &leg_container_;};
@@ -73,9 +73,8 @@ public:
   
   /**
    * Generates child leg objects. Separated from constructor due to shared_from_this() constraints.
-   * @param[in] params A pointer to the parameter data structure.
    */
-  void generate(shared_ptr<Parameters> params);
+  void generate(void);
   
   /**
    * Iterate through legs in robot model and have them run their initialisation.
@@ -106,6 +105,7 @@ public:
   shared_ptr<Leg> getLegByIDName(const string& leg_id_name);
   
 private:
+  const Parameters& params_;     ///! Pointer to parameter data structure for storing parameter variables.
   LegContainer leg_container_;   ///! The container map for all robot model leg objects.
   int leg_count_;                ///! The number of leg objects within the robot model.
   double time_delta_;            ///! The time period of the ros cycle.
@@ -129,7 +129,7 @@ public:
     * @param[in] id_number An identification number for this leg object.
     * @param[in] params A pointer to the parameter data structure.
     */
-  Leg(shared_ptr<Model> model, const int& id_number, shared_ptr<Parameters> params);
+  Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params_);
 
   /** Accessor for identification name of this leg object. */
   inline string getIDName(void) { return id_name_; };
@@ -262,10 +262,9 @@ public:
   
   /**
    * Generates child joint/link/tip objects. Separated from constructor due to shared_from_this() constraints.
-   * @param[in] params A pointer to the parameter data structure.
    * @todo Refactor use of null pointer.
    */
-  void generate(shared_ptr<Parameters> params);
+  void generate(void);
 
   /**
     * Initialises leg object by setting desired joint state to default values or to current position (from encoders) 
@@ -311,18 +310,11 @@ public:
     * kinematics is generated via the calculation of a jacobian for the current state of the leg, which is used as per
     * the Damped Least Squares method to generate a change in joint position for each joint. Returns a ratio of the 
     * joint closest to position limits.
-    * @param[in] debug Flag denoting if debug information should be sent to rosconsole.
-    * @param[in] ignore_warnings Flag denoting if warning messages should be prevented from being sent to rosconsole.
-    * @param[in] clamp_positions Flag denoting if joint positions should adhere to limits.
-    * @param[in] clamp_velocities Flag denoting if joint velocities should adhere to limits.
+    * @param[in] ignore_tip_orientation Flag denoting if specific orientation of tip is desired or can be ignored
     * @todo Calculate optimal DLS coefficient (this value currently works sufficiently).
-    * @todo Parameterise clamp positions flag.
-    * @todo Parameterise clamp velocities flag.
+    * @todo Remove failsafe for uninitialised clamping flags
     */
-  double applyIK(const bool& debug = false,
-                 const bool& ignore_warnings = false,
-                 const bool& clamp_positions = true,
-                 const bool& clamp_velocities = true);
+  double applyIK(const bool& ignore_tip_orientation = true);
 
   /**
     * Updates joint transforms and applies forward kinematics to calculate a new tip position. Sets leg current tip 
@@ -339,6 +331,7 @@ public:
 
 private:
   shared_ptr<Model> model_;        ///! A pointer to the parent robot model object.
+  const Parameters& params_;       ///! Pointer to parameter data structure for storing parameter variables.
   JointContainer joint_container_; ///! The container object for all child Joint objects.
   LinkContainer link_container_;   ///! The container object for all child Link objects.
   shared_ptr<Tip> tip_;            ///! A pointer to the child Tip object.
@@ -389,7 +382,7 @@ public:
     * @param[in] id_number The identification number for this link.
     * @param[in] params A pointer to the parameter data structure.
     */
-  Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, shared_ptr<Parameters> params);
+  Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params);
   
   const shared_ptr<Leg> parent_leg_;        ///! A pointer to the parent leg object associated with this link.
   const shared_ptr<Joint> actuating_joint_; ///! A pointer to the actuating Joint object associated with this link.
@@ -415,10 +408,10 @@ public:
     * @param[in] id_number The identification number for this joint.
     * @param[in] params A pointer to the parameter data structure.
     */
-  Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, shared_ptr<Parameters> params);
+  Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, const Parameters& params);
 
   /**
-    * Returns the positional transformation matrix from the origin of the robot model to this joint.
+    * Returns the transformation matrix from the origin of the robot model to this joint.
     * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
     * zero position for all joints in the kinematic chain.
     */
@@ -436,14 +429,7 @@ public:
   {
     Matrix4d transform = current_transform_;
     bool at_target = (id_number_ <= 1 || (target_joint->id_number_ == reference_link_->actuating_joint_->id_number_));
-    if (id_number_ == 1 || (target_joint->id_number_ == reference_link_->actuating_joint_->id_number_))
-    {
-      return transform;
-    }
-    else 
-    {
-      return reference_link_->actuating_joint_->getTransformFrom(target_joint)*transform;
-    }
+    return at_target ? transform : reference_link_->actuating_joint_->getTransformFrom(target_joint)*transform;
   };
 
   /**

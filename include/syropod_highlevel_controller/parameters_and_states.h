@@ -282,8 +282,12 @@ struct Parameters
   Parameter<vector<string>> link_id;              ///! A vector of identification names for each link of each leg.
   Parameter<map<string, int>> leg_DOF;            ///! A map of the leg name and its degrees of freedom.
   Parameter<map<string, double>> leg_stance_yaws; ///! A map of the leg name and its stance plane yaw from origin.
+  Parameter<bool> clamp_joint_positions;          ///! A bool denoting if joint position limits are adhered to
+  Parameter<bool> clamp_joint_velocities;         ///! A bool denoting if joint velocity limits are adhered to
+  Parameter<bool> ignore_IK_warnings;             ///! A bool denoting if IK deviation warnings are displayed to user.
   Parameter<map<string, double>> joint_parameters[8][6];///! An array of maps of joint parameter names and values.*
   Parameter<map<string, double>> link_parameters[8][7]; ///! An array of maps of link parameter names and values.*
+  
   // *Max possible: 8 legs with 6 joints and 7 links each.
 
   // Walk controller parameters

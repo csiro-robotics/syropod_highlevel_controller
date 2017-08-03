@@ -275,7 +275,7 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
           time_to_step *= (first_sequence_execution_ ? 2.0:1.0); // Double time for initial sequence
           progress = leg_poser->stepToPosition(target_tip_position, pose, step_height, time_to_step, apply_delta_z);
           leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
-          double limit_proximity = leg->applyIK(params_.debug_IK.data);
+          double limit_proximity = leg->applyIK();
           bool exceeded_workspace = limit_proximity < safety_factor; // Leg attempted to move beyond safe workspace
 
           // Leg has attempted to move beyond workspace so stop transition early
@@ -400,7 +400,7 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
       time_to_step *= (first_sequence_execution_ ? 2.0:1.0);
       progress = leg_poser->stepToPosition(target_tip_position, pose, 0.0, time_to_step, apply_delta_z);
       leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
-      double limit_proximity = leg->applyIK(params_.debug_IK.data);
+      double limit_proximity = leg->applyIK();
       all_legs_within_workspace = all_legs_within_workspace && !(limit_proximity < safety_factor);
       ROS_DEBUG_COND(debug && limit_proximity < safety_factor,
                       "\nLeg %s exceeded safety factor\n", leg->getIDName().c_str());
@@ -486,7 +486,7 @@ int PoseController::directStartup(void) //Simultaneous leg coordination
     Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
     progress = leg_poser->stepToPosition(default_tip_position, model_->getCurrentPose(), 0.0, time_to_start);
     leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
-    leg->applyIK(params_.debug_IK.data);
+    leg->applyIK();
   }
 
   return progress;
@@ -515,7 +515,7 @@ int PoseController::stepToNewStance(void) //Tripod leg coordination
       Vector3d target_tip_position = leg_stepper->getDefaultTipPosition();
       progress = leg_poser->stepToPosition(target_tip_position, model_->getCurrentPose(), step_height, step_time);
       leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
-      leg->applyIK(params_.debug_IK.data);
+      leg->applyIK();
       legs_completed_step_ += int(progress == PROGRESS_COMPLETE);
     }
   }
@@ -584,7 +584,7 @@ int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
 
     progress = leg_poser->stepToPosition(target_tip_position, Pose::identity(), step_height, step_time);
     leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
-    leg->applyIK(params_.debug_IK.data);
+    leg->applyIK();
   }
 
   return progress;

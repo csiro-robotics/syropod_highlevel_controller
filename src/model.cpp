@@ -23,23 +23,23 @@
  * Contructor for robot model object - initialises member variables from parameters.
  * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-Model::Model(shared_ptr<Parameters> params)
-  : leg_count_(params->leg_id.data.size())
-  , time_delta_(params->time_delta.data)
+Model::Model(const Parameters& params)
+  : params_(params)
+  , leg_count_(params_.leg_id.data.size())
+  , time_delta_(params_.time_delta.data)
   , current_pose_(Pose::identity())
 {
 }
 
 /*******************************************************************************************************************//**
  * Generates child leg objects. Separated from constructor due to shared_from_this() constraints.
- * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-void Model::generate(shared_ptr<Parameters> params)
+void Model::generate(void)
 {
   for (int i = 0; i < leg_count_; ++i)
   {
-    shared_ptr<Leg> leg = make_shared<Leg>(shared_from_this(), i, params);
-    leg->generate(params);
+    shared_ptr<Leg> leg = make_shared<Leg>(shared_from_this(), i, params_);
+    leg->generate();
     leg_container_.insert(LegContainer::value_type(i, leg));
   }
 }
@@ -103,12 +103,13 @@ shared_ptr<Leg> Model::getLegByIDName(const string& leg_id_name)
  * @param[in] id_number An identification number for this leg object.
  * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-Leg::Leg(shared_ptr<Model> model, const int& id_number, shared_ptr<Parameters> params)
+Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params)
   : model_(model)
+  , params_(params)
   , id_number_(id_number)
-  , id_name_(params->leg_id.data[id_number])
-  , joint_count_(params->leg_DOF.data[id_name_])
-  , stance_leg_yaw_(params->leg_stance_yaws.data[id_name_])
+  , id_name_(params_.leg_id.data.at(id_number))
+  , joint_count_(params_.leg_DOF.data.at(id_name_))
+  , stance_leg_yaw_(params_.leg_stance_yaws.data.at(id_name_))
   , leg_state_(WALKING)
   , impedance_state_(vector<double>(2))
 {
@@ -120,19 +121,18 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, shared_ptr<Parameters> p
 
 /*******************************************************************************************************************//**
  * Generates child joint/link/tip objects. Separated from constructor due to shared_from_this() constraints.
- * @param[in] params A pointer to the parameter data structure.
  * @todo Refactor use of null pointer.
 ***********************************************************************************************************************/
-void Leg::generate(shared_ptr<Parameters> params)
+void Leg::generate(void)
 {
   shared_ptr<Joint> null_joint; //TODO
-  shared_ptr<Link> base_link = make_shared<Link>(shared_from_this(), null_joint, 0, params);
+  shared_ptr<Link> base_link = make_shared<Link>(shared_from_this(), null_joint, 0, params_);
   link_container_.insert(LinkContainer::value_type(0, base_link));
   shared_ptr<Link> prev_link = base_link;
   for (int i = 1; i < joint_count_ + 1; ++i)
   {
-    shared_ptr<Joint> new_joint = make_shared<Joint>(shared_from_this(), prev_link, i, params);
-    shared_ptr<Link> new_link = make_shared<Link>(shared_from_this(), new_joint, i, params);
+    shared_ptr<Joint> new_joint = make_shared<Joint>(shared_from_this(), prev_link, i, params_);
+    shared_ptr<Link> new_link = make_shared<Link>(shared_from_this(), new_joint, i, params_);
     joint_container_.insert(JointContainer::value_type(i, new_joint));
     link_container_.insert(LinkContainer::value_type(i, new_link));
     prev_link = new_link;
@@ -221,30 +221,24 @@ void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z
  * is generated via the calculation of a jacobian for the current state of the leg, which is used as per the Damped 
  * Least Squares method to generate a change in joint position for each joint. Returns a ratio of the joint closest to
  * position limits.
- * @param[in] debug Flag denoting if debug information should be sent to rosconsole.
- * @param[in] ignore_warnings Flag denoting if all warning messages should be prevented from being sent to rosconsole.
- * @param[in] clamp_positions Flag denoting if joint positions should adhere to limits.
- * @param[in] clamp_velocities Flag denoting if joint velocities should adhere to limits.
+ * @param[in] ignore_tip_orientation Flag denoting if specific orientation of tip is desired or can be ignored
  * @todo Calculate optimal DLS coefficient (this value currently works sufficiently)
- * @todo Parameterise clamp positions flag
- * @todo Parameterise clamp velocities flag
+ * @todo Remove failsafe for uninitialised clamping flags
 ***********************************************************************************************************************/
-double Leg::applyIK(const bool& debug, const bool& ignore_warnings,
-                    const bool& clamp_positions, const bool& clamp_velocities)
+double Leg::applyIK(const bool& ignore_tip_orientation)
 {
-  MatrixXd jacobian(6, joint_count_);
-  Vector3d z0(0,0,1);
-  Vector3d p0(0,0,0);
   shared_ptr<Joint> first_joint = joint_container_.begin()->second;
   Vector3d pe = tip_->getTransformFrom(first_joint).block<3,1>(0,3);
-  int i = 1;
-  bool ignore_tip_orientation = true;
-  
+  Vector3d z0(0,0,1);
+  Vector3d p0(0,0,0);
+
+  MatrixXd jacobian(6, joint_count_);
   jacobian.block<3,1>(0,0) = z0.cross(pe-p0); //Linear velocity
   jacobian.block<3,1>(3,0) = ignore_tip_orientation ? Vector3d(0,0,0) : z0; //Angular velocity
 
   //Skip first joint dh parameters since it is a fixed transformation
   JointContainer::iterator joint_it;
+  int i = 1;
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
     shared_ptr<Joint> joint = joint_it->second;
@@ -281,7 +275,7 @@ double Leg::applyIK(const bool& debug, const bool& ignore_warnings,
     joint->desired_velocity_ = joint_delta_pos[index] / model_->getTimeDelta();
 
     // Clamp joint velocities within limits
-    if (clamp_velocities)  // TODO
+    if (!params_.clamp_joint_velocities.initialised || params_.clamp_joint_velocities.data) //TODO - remove failsafe
     {
       if (abs(joint->desired_velocity_) > joint->max_angular_speed_)
       {
@@ -294,7 +288,7 @@ double Leg::applyIK(const bool& debug, const bool& ignore_warnings,
     joint->desired_position_ = joint->prev_desired_position_ + joint->desired_velocity_ * model_->getTimeDelta();
 
     // Clamp joint position within limits
-    if (clamp_positions) // TODO
+    if (!params_.clamp_joint_positions.initialised || params_.clamp_joint_positions.data) //TODO - remove failsafe
     {
       if (joint->desired_position_ < joint->min_position_)
       {
@@ -321,14 +315,14 @@ double Leg::applyIK(const bool& debug, const bool& ignore_warnings,
   Vector3d result = applyFK(); // Apply forward kinematics to get new current tip position
 
   // Debugging message
-  ROS_DEBUG_COND(id_number_ == 0 && debug,
+  ROS_DEBUG_COND(id_number_ == 0 && params_.debug_IK.data,
                  "\nLeg %s:\n\tDesired tip position from trajectory engine: %f:%f:%f\n\t"
                  "Resultant tip position from inverse/forward kinematics: %f:%f:%f", id_name_.c_str(),
                  desired_tip_position_[0], desired_tip_position_[1], desired_tip_position_[2],
                  result[0], result[1], result[2]);
 
   // Display warning messages for clamping events and associated inverse kinematic deviations
-  if (!ignore_warnings)
+  if (!params_.ignore_IK_warnings.initialised || !params_.ignore_IK_warnings.data)  //TODO - remove failsafe
   {
     string axis_label[3] = {"x", "y", "z"};
     for (int i = 0; i < 3; ++i)
@@ -392,17 +386,17 @@ Vector3d Leg::applyFK(const bool& set_current)
  * @param[in] id_number The identification number for this link.
  * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, shared_ptr<Parameters> params)
+Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params)
   : parent_leg_(leg)
   , actuating_joint_(actuating_joint)
   , id_number_(id_number)
-  , id_name_(leg->getIDName() + "_" + params->link_id.data[id_number_] + "_link")
-  , dh_parameter_r_(params->link_parameters[leg->getIDNumber()][id_number_].data["r"])
-  , dh_parameter_theta_(params->link_parameters[leg->getIDNumber()][id_number_].data["theta"])
-  , dh_parameter_d_(params->link_parameters[leg->getIDNumber()][id_number_].data["d"])
-  , dh_parameter_alpha_(params->link_parameters[leg->getIDNumber()][id_number_].data["alpha"])
+  , id_name_(leg->getIDName() + "_" + params.link_id.data[id_number_] + "_link")
+  , dh_parameter_r_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("r"))
+  , dh_parameter_theta_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("theta"))
+  , dh_parameter_d_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("d"))
+  , dh_parameter_alpha_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("alpha"))
 {
-  if (params->link_parameters[leg->getIDNumber()][id_number_].initialised)
+  if (params.link_parameters[leg->getIDNumber()][id_number_].initialised)
   {
     ROS_DEBUG("%s has been initialised with DH parameters: d: %f, theta: %f, r: %f, alpha: %f.",
               id_name_.c_str(), dh_parameter_d_, dh_parameter_theta_, dh_parameter_r_, dh_parameter_alpha_);
@@ -421,19 +415,19 @@ Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id
  * @param[in] id_number The identification number for this joint
  * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, shared_ptr<Parameters> params)
+Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, const Parameters& params)
   : parent_leg_(leg)
   , reference_link_(reference_link)
   , id_number_(id_number)
-  , id_name_(leg->getIDName() + "_" + params->joint_id.data[id_number_ - 1] + "_joint")
-  , position_offset_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["offset"])
-  , min_position_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["min"])
-  , max_position_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["max"])
-  , packed_position_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["packed"])
-  , unpacked_position_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["unpacked"])
-  , max_angular_speed_(params->joint_parameters[leg->getIDNumber()][id_number_ - 1].data["max_vel"])
+  , id_name_(leg->getIDName() + "_" + params.joint_id.data[id_number_ - 1] + "_joint")
+  , position_offset_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("offset"))
+  , min_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("min"))
+  , max_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max"))
+  , packed_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("packed"))
+  , unpacked_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("unpacked"))
+  , max_angular_speed_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max_vel"))
 {
-  if (params->joint_parameters[leg->getIDNumber()][id_number_ - 1].initialised)
+  if (params.joint_parameters[leg->getIDNumber()][id_number_ - 1].initialised)
   {
     identity_transform_ = createDHMatrix(reference_link_->dh_parameter_d_,
                                          reference_link_->dh_parameter_theta_,
