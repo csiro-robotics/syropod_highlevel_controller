@@ -38,6 +38,8 @@ WalkController::WalkController(shared_ptr<Model> model, const Parameters& params
 ***********************************************************************************************************************/
 void WalkController::init(void)
 {
+  bool debug = true; //TODO Parameterise
+  
   step_clearance_ = params_.step_clearance.current_value;
   body_clearance_ = params_.body_clearance.current_value;
   time_delta_ = params_.time_delta.data;
@@ -63,12 +65,16 @@ void WalkController::init(void)
                                                                link->dh_parameter_r_,
                                                                link->dh_parameter_alpha_);
           Vector4d result = test_transform * Vector4d(0, 0, 0, 1);
+          ROS_INFO_COND(debug, "%s @ %f:\t\tVertical Distance = %f",
+                         joint->id_name_.c_str(), angle, result[2]);
           if (result[2] < furthest_vertical_position) // Origin = zero therefore position results are negative.
           {
             furthest_vertical_position = result[2];
             optimal_angle = angle;
           }
         }
+        ROS_INFO_COND(debug, "\nMax vertical distance achieved (%f) for %s @ %f\n",
+                       furthest_vertical_position, joint->id_name_.c_str(), optimal_angle);
       }
 
       // Updates transform with angle which give greatest vertical displacement
@@ -116,6 +122,8 @@ void WalkController::init(void)
         min_bearing = min(tip_bearing, min_bearing);
         max_bearing = max(tip_bearing, max_bearing);
         double distance_to_ground = abs(body_clearance_ + tip_position[2]);
+        ROS_DEBUG_COND(debug, "%s @ %f:\t\tDistance to ground = %f\t\tTip Bearing = %f",
+                       joint->id_name_.c_str(), angle, distance_to_ground, tip_bearing);
         if (distance_to_ground <= min_distance_to_ground)
         {
           optimal_angle = angle;
@@ -129,6 +137,8 @@ void WalkController::init(void)
 
       // Update joint with optimal angle
       joint->desired_position_ = optimal_angle;
+      ROS_DEBUG_COND(debug, "\nClosest distance to ground (%f) for %s @ %f\n",
+                     min_distance_to_ground, joint->id_name_.c_str(), optimal_angle);
 
       // Check horizontal range of joint
       double horizontal_range = abs(max_bearing - min_bearing);

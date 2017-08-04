@@ -75,6 +75,10 @@ syropod:
     CL_femur_link_parameters: {d: 0.0, theta: 0.0,    r: 0.05, alpha: 0.0}
     CL_tibia_link_parameters: {d: 0.0, theta: -0.1,   r: 0.10, alpha: 0.0}
 
+    clamp_joint_positions: true
+    clamp_joint_velocities: true
+    ignore_IK_warnings: false
+
 ########################################################################################################################
     # Walker parameters
     gait_type: tripod_gait
