@@ -34,7 +34,6 @@ WalkController::WalkController(shared_ptr<Model> model, const Parameters& params
 /*******************************************************************************************************************//**
  * Initialises walk controller by calculating default walking stance tip positions and creating LegStepper objects for
  * each leg. In this process calculates various ancilary variables such as workspace radius and maximum body height.
- * @todo Redesign algorithm for generating default stance tip positions to work for all form factors.
  * @todo Implement leg span scale parameter to change the 'width' of the stance.
 ***********************************************************************************************************************/
 void WalkController::init(void)
@@ -88,85 +87,76 @@ void WalkController::init(void)
   // Check that required body height is possible
   body_clearance_ = min(params_.body_clearance.current_value, maximum_body_height_);
 
-  // Find workspace radius of tip on ground by finding maximum horizontal distance of each tip
-  // TODO Refactor - algorithm needs to be redesigned to work for all form factors
-  double min_horizontal_range = UNASSIGNED_VALUE;
+  // Find workspace radius of tip on ground by finding maximum horizontal reach of each leg on ground.
+  double min_horizontal_reach = UNASSIGNED_VALUE;
   double min_half_stance_yaw_range = UNASSIGNED_VALUE;
+  model_->initLegs(true);
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    resetJointOrientationTracking();
     shared_ptr<Leg> leg = leg_it_->second;
-    double half_stance_yaw_range = UNASSIGNED_VALUE;
-    double distance_to_ground = body_clearance_; // Set initial distance to ground as required body clearance
-    double horizontal_range = 0.0;
-
-    // Skip base link since it is static
+    shared_ptr<Tip> tip = leg->getTip();
+    shared_ptr<Joint> horizontal_joint; // Joint which does majority of actuation in horizontal plane (eg: coxas)
+    shared_ptr<Link> horizontal_link; // Link from the joint which does majority of actuation in horizontal plane
+    double max_horizontal_range = 0.0;
     for (link_it_ = ++leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
     {
+      // Iterates through possible joint angles to find that which places tip closest to ground vertical position
+      double min_distance_to_ground = UNASSIGNED_VALUE;
+      double min_bearing = UNASSIGNED_VALUE;
+      double max_bearing = -UNASSIGNED_VALUE;
+      double optimal_angle = 0.0;
       shared_ptr<Link> link = link_it_->second;
       const shared_ptr<Joint> joint = link->actuating_joint_;
-      joint_twist_ += joint->reference_link_->dh_parameter_alpha_;
-      distance_to_ground += link->dh_parameter_d_ * cos(joint_twist_);
-
-      // Find first joint able to move in x/y plane and assign a half yaw range value for the leg
-      if (abs(joint_twist_) != M_PI / 2 && half_stance_yaw_range == UNASSIGNED_VALUE)
+      for (double angle = joint->max_position_; angle >= joint->min_position_; angle -= JOINT_POSITION_ITERATION)
       {
-        double stance_angle = leg->getStanceLegYaw();
-        double stance_to_min = abs(stance_angle - (joint->reference_link_->dh_parameter_theta_ + joint->min_position_));
-        double stance_to_max = abs(stance_angle - (joint->reference_link_->dh_parameter_theta_ + joint->max_position_));
-        half_stance_yaw_range = min(stance_to_min, stance_to_max);
+        joint->desired_position_ = angle;
+        leg->applyFK(); //Update transforms
+        Vector3d tip_position = tip->getPositionRobotFrame();
+        double tip_bearing = atan2(tip_position[1],tip_position[0]);
+        min_bearing = min(tip_bearing, min_bearing);
+        max_bearing = max(tip_bearing, max_bearing);
+        double distance_to_ground = abs(body_clearance_ + tip_position[2]);
+        if (distance_to_ground <= min_distance_to_ground)
+        {
+          optimal_angle = angle;
+          min_distance_to_ground = distance_to_ground;
+        }
+        else
+        {
+          break; // Diverging from optimal angle to reach ground, so stop.
+        }
       }
 
-      // Joint able to link move vertically - calculate max horizontal range whilst tip touching ground
-      if (joint_twist_ != 0.0)
-      {
-        shared_ptr<Tip> tip = leg->getTip();
-        Vector3d tip_position = tip->getPositionRobotFrame(true);
-        double distance_to_tip = joint->getPositionJointFrame(true, tip_position).norm();
-        double joint_angle;
-        double virtual_link_length;
+      // Update joint with optimal angle
+      joint->desired_position_ = optimal_angle;
 
-        // Tip can reach ground by moving joint position within joint limits
-        if (abs(distance_to_tip * sin(joint_twist_)) > distance_to_ground)
-        {
-          double required_joint_angle = asin(-distance_to_ground / (abs(distance_to_tip * sin(joint_twist_))));
-          joint_angle = clamped(required_joint_angle, joint->min_position_, joint->max_position_);
-          virtual_link_length = (joint_angle == required_joint_angle) ? distance_to_tip : link->dh_parameter_r_;
-        }
-        else if (joint_twist_ > 0.0)
-        {
-          joint_angle = joint->min_position_;
-          virtual_link_length = link->dh_parameter_r_;
-        }
-        else if (joint_twist_ < 0.0)
-        {
-          joint_angle = joint->max_position_;
-          virtual_link_length = link->dh_parameter_r_;
-        }
-        horizontal_range += virtual_link_length * cos(joint_angle);
-        distance_to_ground -= abs(virtual_link_length * sin(joint_angle) * sin(joint_twist_));
-      }
-      // Joint unable to move vertically - add link length to horizontal range
-      else
+      // Check horizontal range of joint
+      double horizontal_range = abs(max_bearing - min_bearing);
+      if (horizontal_range > max_horizontal_range)
       {
-        horizontal_range += link->dh_parameter_r_;
-      }
-
-      // Stop if distance to ground reaches zero
-      if (setPrecision(distance_to_ground, 3) <= 0.0)
-      {
-        break;
+        horizontal_link = link;
+        horizontal_joint = joint;
+        max_horizontal_range = horizontal_range;
       }
     }
 
-    min_horizontal_range = min(min_horizontal_range, horizontal_range);
-    min_half_stance_yaw_range = min(min_half_stance_yaw_range, half_stance_yaw_range);
+    // Get horizontal reach of leg with optimal joint positions.
+    leg->applyFK(); //Update transforms
+    Vector3d tip_position = tip->getPositionFromFrame(Vector3d(0,0,0), horizontal_joint);
+    double horizontal_reach = sqrt(sqr(tip_position[0]) + sqr(tip_position[1]));
+    min_horizontal_reach = min(horizontal_reach, min_horizontal_reach);
+
+    // Get range of designated 'horizontal' joint.
+    double stance_angle = leg->getStanceLegYaw();
+    double joint_zero = horizontal_joint->reference_link_->dh_parameter_theta_ + horizontal_link->dh_parameter_theta_;
+    double stance_to_min = abs(stance_angle - (joint_zero + horizontal_joint->min_position_));
+    double stance_to_max = abs(stance_angle - (joint_zero + horizontal_joint->max_position_));
+    double half_stance_yaw_range = min(stance_to_min, stance_to_max);
+    min_half_stance_yaw_range = min(half_stance_yaw_range, min_half_stance_yaw_range);
   }
 
-  //min_horizontal_range *= params_.leg_span.current_value; //TODO
-
   // Fitting largest circle within sector defined by yaw ranges and horizontal range
-  workspace_radius_ = min_horizontal_range * sin(min_half_stance_yaw_range) / (1 + sin(min_half_stance_yaw_range));
+  workspace_radius_ = min_horizontal_reach * sin(min_half_stance_yaw_range) / (1 + sin(min_half_stance_yaw_range));
 
   // Calculate default stance tip positions as centre of workspace circle on the ground at required body height
   Vector3d previous_identity_position(0, 0, 0);
@@ -181,8 +171,8 @@ void WalkController::init(void)
     double y_position = base_link->dh_parameter_r_ * sin(base_link->dh_parameter_theta_);
 
     // Add x/y distance to centre of workspace circle
-    x_position += (min_horizontal_range - workspace_radius_) * cos(leg->getStanceLegYaw());
-    y_position += (min_horizontal_range - workspace_radius_) * sin(leg->getStanceLegYaw());
+    x_position += (min_horizontal_reach - workspace_radius_) * cos(leg->getStanceLegYaw());
+    y_position += (min_horizontal_reach - workspace_radius_) * sin(leg->getStanceLegYaw());
 
     // Add body clearance as z position and set as tip position vector
     Vector3d identity_tip_position(x_position, y_position, -body_clearance_);

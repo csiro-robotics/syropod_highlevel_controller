@@ -540,6 +540,19 @@ public:
     result = getBaseTransform(zero)*result;
     return Vector3d(result[0], result[1], result[2]);
   };
+  
+  /**
+    * Returns the position of (or a position relative to) the origin of the tip in the frame of the specified joint.
+    * @param[in] tip_frame_position The position relative to the tip frame that is requested in the robot frame.
+    * @param[in] target_joint Shared pointer to the Joint object defining the target frame for relative position.
+    */
+  inline Vector3d getPositionFromFrame(const Vector3d& tip_frame_position,
+                                       shared_ptr<Joint> target_joint) const
+  {
+    Vector4d result(tip_frame_position[0],tip_frame_position[1],tip_frame_position[2],1);
+    result = getTransformFrom(target_joint)*result;
+    return Vector3d(result[0], result[1], result[2]);
+  };
 
   /**
     * Returns the position of (or a position relative to) the origin of the robot model in the frame of the tip.
