@@ -38,10 +38,9 @@ WalkController::WalkController(shared_ptr<Model> model, const Parameters& params
 ***********************************************************************************************************************/
 void WalkController::init(void)
 {
-  bool debug = true; //TODO Parameterise
+  bool debug = false; //TODO Parameterise
   
   step_clearance_ = params_.step_clearance.current_value;
-  body_clearance_ = params_.body_clearance.current_value;
   time_delta_ = params_.time_delta.data;
 
   //Find the maximum body height by finding the min possible vertical tip position for each leg
@@ -91,13 +90,28 @@ void WalkController::init(void)
   }
 
   // Check that required body height is possible
-  body_clearance_ = min(params_.body_clearance.current_value, maximum_body_height_);
+  if (params_.body_clearance.current_value > maximum_body_height_)
+  {
+    ROS_WARN("\nRequested body clearance (%f) is beyond the calculated maximum (%f) and has been limited. "
+             "Consider setting the parameter to a lower value.\n",
+             params_.body_clearance.current_value, maximum_body_height_);
+    body_clearance_ = maximum_body_height_;
+  }
+  else
+  {
+    body_clearance_ = params_.body_clearance.current_value;
+  }
 
   // Find workspace radius of tip on ground by finding maximum horizontal reach of each leg on ground.
   double min_horizontal_reach = UNASSIGNED_VALUE;
   double min_half_stance_yaw_range = UNASSIGNED_VALUE;
-  model_->initLegs(true);
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  
+  // Generate temporary model for use in calculating workspaces and default walking stance positions
+  shared_ptr<Model> temp_model = make_shared<Model>(params_);
+  temp_model->generate();
+  temp_model->initLegs(true);
+  
+  for (leg_it_ = temp_model->getLegContainer()->begin(); leg_it_ != temp_model->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<Tip> tip = leg->getTip();

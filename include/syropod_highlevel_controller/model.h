@@ -129,7 +129,7 @@ public:
     * @param[in] id_number An identification number for this leg object.
     * @param[in] params A pointer to the parameter data structure.
     */
-  Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params_);
+  Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params);
 
   /** Accessor for identification name of this leg object. */
   inline string getIDName(void) { return id_name_; };

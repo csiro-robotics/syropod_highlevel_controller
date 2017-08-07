@@ -52,7 +52,7 @@ Visualization Manager:
       Marker Topic: /syropod_highlevel_controller/debug/robot_model
       Name: Marker
       Namespaces:
-        robot_model: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -60,7 +60,7 @@ Visualization Manager:
       Marker Topic: /syropod_highlevel_controller/debug/workspaces
       Name: Marker
       Namespaces:
-        workspace_markers: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -68,9 +68,7 @@ Visualization Manager:
       Marker Topic: /syropod_highlevel_controller/debug/bezier_curves
       Name: Marker
       Namespaces:
-        primary_swing_control_nodes: true
-        secondary_swing_control_nodes: true
-        stance_control_nodes: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -78,7 +76,7 @@ Visualization Manager:
       Marker Topic: /syropod_highlevel_controller/debug/tip_trajectories
       Name: Marker
       Namespaces:
-        tip_trajectory_markers: true
+        {}
       Queue Size: 100
       Value: true
   Enabled: true
@@ -127,8 +125,6 @@ Visualization Manager:
 Window Geometry:
   "&Time":
     collapsed: false
-  "&Views":
-    collapsed: false
   Displays:
     collapsed: false
   Height: 767
@@ -139,6 +135,8 @@ Window Geometry:
     collapsed: false
   Tool Properties:
     collapsed: false
+  Views:
+    collapsed: false
   Width: 1276
-  X: 3816
+  X: 3840
   Y: 0
