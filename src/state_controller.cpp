@@ -1597,6 +1597,7 @@ void StateController::initParameters(void)
     for (leg_name_it = leg_ids.begin(); leg_name_it != leg_ids.end(); ++leg_name_it, ++leg_id_num)
     {
       string leg_id_name = *leg_name_it;
+      params_.leg_stance_positions[leg_id_num].init(n_, leg_id_name + "_stance_position");
       params_.link_parameters[leg_id_num][0].init(n_, leg_id_name + "_base_link_parameters");
       uint joint_count = params_.leg_DOF.data[leg_id_name];
 

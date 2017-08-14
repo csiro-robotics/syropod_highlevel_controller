@@ -38,9 +38,13 @@ WalkController::WalkController(shared_ptr<Model> model, const Parameters& params
 ***********************************************************************************************************************/
 void WalkController::init(void)
 {
-  body_clearance_ = params_.body_clearance.current_value;
+  time_delta_ = params_.time_delta.data;
   step_clearance_ = params_.step_clearance.current_value;
-  time_delta_ = params_.time_delta.data;  
+  
+  /*
+  body_clearance_ = params_.body_clearance.current_value;
+  
+
   bool debug = params_.debug_workspace_calc.data;
 
   // Find workspace radius of tip on ground by finding maximum horizontal reach of each leg on ground.
@@ -178,7 +182,20 @@ void WalkController::init(void)
         leg_it_++;
       }
     }
+  }*/
+  
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    double x_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("x");
+    double y_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("y");
+    double z_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("z");
+    body_clearance_ = min(abs(z_position), body_clearance_);
+    Vector3d identity_tip_position(x_position, y_position, z_position);
+    leg->setLegStepper(make_shared<LegStepper>(shared_from_this(), leg, identity_tip_position));
   }
+  
+  workspace_radius_ = 0.1;
 
   // Stance radius based around front right leg to ensure positive values
   shared_ptr<Leg> reference_leg = model_->getLegByIDNumber(0);

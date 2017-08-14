@@ -287,6 +287,7 @@ struct Parameters
   Parameter<bool> ignore_IK_warnings;             ///! A bool denoting if IK deviation warnings are displayed to user.
   Parameter<map<string, double>> joint_parameters[8][6];///! An array of maps of joint parameter names and values.*
   Parameter<map<string, double>> link_parameters[8][7]; ///! An array of maps of link parameter names and values.*
+  Parameter<map<string, double>> leg_stance_positions[8];
   
   // *Max possible: 8 legs with 6 joints and 7 links each.
 
