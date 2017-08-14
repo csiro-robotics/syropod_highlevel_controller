@@ -1585,6 +1585,7 @@ void StateController::initParameters(void)
   params_.debug_swing_trajectory.init(n_, "debug_swing_trajectory");
   params_.debug_stance_trajectory.init(n_, "debug_stance_trajectory");
   params_.debug_execute_sequence.init(n_, "debug_execute_sequence");
+  params_.debug_workspace_calc.init(n_, "debug_workspace_calculations");
   params_.debug_IK.init(n_, "debug_ik");
 
   // Init all joint and link parameters per leg

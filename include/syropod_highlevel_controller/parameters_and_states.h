@@ -350,6 +350,7 @@ struct Parameters
   Parameter<bool> debug_swing_trajectory;    ///! Flag determining if swing trajectory generation outputs debug info.
   Parameter<bool> debug_stance_trajectory;   ///! Flag determining if stance trajectory generation outputs debug info.
   Parameter<bool> debug_execute_sequence;    ///! Flag determining if function executeSequence() outputs debug info.
+  Parameter<bool> debug_workspace_calc;      ///! Flag determining if workspace calculations output debug info.
   Parameter<bool> debug_IK;                  ///! Flag determining if inverse kinematics engine outputs debug info.
   Parameter<bool> debug_rviz;                ///! Flag determining if visualisation markers are output for debugging.
   Parameter<bool> debug_rviz_static_display; ///! Flag determining if visualisation markers incoorporate robot odometry.

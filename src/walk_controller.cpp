@@ -38,69 +38,10 @@ WalkController::WalkController(shared_ptr<Model> model, const Parameters& params
 ***********************************************************************************************************************/
 void WalkController::init(void)
 {
-  bool debug = false; //TODO Parameterise
-  
+  body_clearance_ = params_.body_clearance.current_value;
   step_clearance_ = params_.step_clearance.current_value;
-  time_delta_ = params_.time_delta.data;
-
-  //Find the maximum body height by finding the min possible vertical tip position for each leg
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    shared_ptr<Leg> leg = leg_it_->second;
-    Matrix4d transform = Matrix4d::Identity();
-    for (link_it_ = leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
-    {
-      // Iterates through possible joint angles to find that which gives greatest vertical displacement of the link end
-      shared_ptr<Link> link = link_it_->second;
-      const shared_ptr<Joint> joint = link->actuating_joint_;
-      double optimal_angle = 0.0;
-      if (link->id_number_ != 0) //Ignore base link since it is static
-      {
-        double furthest_vertical_position = 0.0;
-        for (double angle = joint->min_position_; angle <= joint->max_position_; angle += JOINT_POSITION_ITERATION)
-        {
-          Matrix4d test_transform = transform * createDHMatrix(link->dh_parameter_d_,
-                                                               link->dh_parameter_theta_ + angle,
-                                                               link->dh_parameter_r_,
-                                                               link->dh_parameter_alpha_);
-          Vector4d result = test_transform * Vector4d(0, 0, 0, 1);
-          ROS_INFO_COND(debug, "%s @ %f:\t\tVertical Distance = %f",
-                         joint->id_name_.c_str(), angle, result[2]);
-          if (result[2] < furthest_vertical_position) // Origin = zero therefore position results are negative.
-          {
-            furthest_vertical_position = result[2];
-            optimal_angle = angle;
-          }
-        }
-        ROS_INFO_COND(debug, "\nMax vertical distance achieved (%f) for %s @ %f\n",
-                       furthest_vertical_position, joint->id_name_.c_str(), optimal_angle);
-      }
-
-      // Updates transform with angle which give greatest vertical displacement
-      transform = transform * createDHMatrix(link->dh_parameter_d_,
-                                             link->dh_parameter_theta_ + optimal_angle,
-                                             link->dh_parameter_r_,
-                                             link->dh_parameter_alpha_);
-    }
-
-    // End result transform gives the furthest possible vertical reach of the leg
-    Vector4d result = transform * Vector4d(0, 0, 0, 1);
-    Vector3d min_vertical_tip_position = Vector3d(result[0], result[1], result[2]);
-    maximum_body_height_ = min(maximum_body_height_, -min_vertical_tip_position[2]);
-  }
-
-  // Check that required body height is possible
-  if (params_.body_clearance.current_value > maximum_body_height_)
-  {
-    ROS_WARN("\nRequested body clearance (%f) is beyond the calculated maximum (%f) and has been limited. "
-             "Consider setting the parameter to a lower value.\n",
-             params_.body_clearance.current_value, maximum_body_height_);
-    body_clearance_ = maximum_body_height_;
-  }
-  else
-  {
-    body_clearance_ = params_.body_clearance.current_value;
-  }
+  time_delta_ = params_.time_delta.data;  
+  bool debug = params_.debug_workspace_calc.data;
 
   // Find workspace radius of tip on ground by finding maximum horizontal reach of each leg on ground.
   double min_horizontal_reach = UNASSIGNED_VALUE;
@@ -117,11 +58,11 @@ void WalkController::init(void)
     shared_ptr<Tip> tip = leg->getTip();
     shared_ptr<Joint> horizontal_joint; // Joint which does majority of actuation in horizontal plane (eg: coxas)
     shared_ptr<Link> horizontal_link; // Link from the joint which does majority of actuation in horizontal plane
+    double min_distance_to_ground = UNASSIGNED_VALUE;
     double max_horizontal_range = 0.0;
     for (link_it_ = ++leg->getLinkContainer()->begin(); link_it_ != leg->getLinkContainer()->end(); ++link_it_)
     {
       // Iterates through possible joint angles to find that which places tip closest to ground vertical position
-      double min_distance_to_ground = UNASSIGNED_VALUE;
       double min_bearing = UNASSIGNED_VALUE;
       double max_bearing = -UNASSIGNED_VALUE;
       double optimal_angle = 0.0;
@@ -143,10 +84,6 @@ void WalkController::init(void)
           optimal_angle = angle;
           min_distance_to_ground = distance_to_ground;
         }
-        else
-        {
-          break; // Diverging from optimal angle to reach ground, so stop.
-        }
       }
 
       // Update joint with optimal angle
@@ -161,7 +98,24 @@ void WalkController::init(void)
         horizontal_link = link;
         horizontal_joint = joint;
         max_horizontal_range = horizontal_range;
+        ROS_DEBUG_COND(debug, "\n%s has horizontal range of %f and has been chosen for 'horizontal joint'\n",
+                       horizontal_joint->id_name_.c_str(), horizontal_range);
       }
+    }
+    
+    //Update possible body clearance
+    if (setPrecision(min_distance_to_ground, 3) > 0.0)
+    {
+      maximum_body_height_ = body_clearance_ - min_distance_to_ground;
+      body_clearance_ = min(body_clearance_, maximum_body_height_ * 0.9); //%90 of max to allow for horizontal workspace
+    }
+
+    // Warn of body clearance clamping
+    if (params_.body_clearance.current_value > maximum_body_height_)
+    {
+      ROS_WARN("\nRequested body clearance (%f) is beyond the calculated maximum (%f) and has been limited. "
+              "Consider setting the parameter to a lower value.\n",
+              params_.body_clearance.current_value, maximum_body_height_);
     }
 
     // Get horizontal reach of leg with optimal joint positions.
@@ -281,6 +235,7 @@ void WalkController::setGaitParams(void)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
+    ROS_ASSERT(params_.offset_multiplier.data.count(leg->getIDName()));
     int multiplier = params_.offset_multiplier.data.at(leg->getIDName());
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     int phase_offset = (base_phase_offset * multiplier) % phase_length_;

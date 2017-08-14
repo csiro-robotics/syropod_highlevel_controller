@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-    start_message = "Press 'Logitech' button to run controller initialising unknown positions to defaults . . .\n";
+    start_message = "\nPress 'Logitech' button to run controller initialising unknown positions to defaults . . .\n";
     use_default_joint_positions = true;
   }
 

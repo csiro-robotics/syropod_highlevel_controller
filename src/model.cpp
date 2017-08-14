@@ -398,12 +398,12 @@ Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id
 {
   if (params.link_parameters[leg->getIDNumber()][id_number_].initialised)
   {
-    ROS_DEBUG("%s has been initialised with DH parameters: d: %f, theta: %f, r: %f, alpha: %f.",
+    ROS_DEBUG("\n%s has been initialised with DH parameters: d: %f, theta: %f, r: %f, alpha: %f.\n",
               id_name_.c_str(), dh_parameter_d_, dh_parameter_theta_, dh_parameter_r_, dh_parameter_alpha_);
   }
   else
   {
-    ROS_FATAL("Model initialisation error for %s", id_name_.c_str());
+    ROS_FATAL("\nModel initialisation error for %s\n", id_name_.c_str());
     ros::shutdown();
   }
 }
@@ -434,14 +434,14 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
                                          reference_link_->dh_parameter_r_,
                                          reference_link_->dh_parameter_alpha_);
     current_transform_ = identity_transform_;
-    ROS_DEBUG("%s has been initialised with parameters:"
-              "offset: %f, min: %f, max: %f, packed: %f, unpacked: %f, max_vel: %f.",
+    ROS_DEBUG("\n%s has been initialised with parameters:"
+              "offset: %f, min: %f, max: %f, packed: %f, unpacked: %f, max_vel: %f.\n",
               id_name_.c_str(), position_offset_, min_position_, max_position_,
               packed_position_, unpacked_position_, max_angular_speed_);
   }
   else
   {
-    ROS_FATAL("Model initialisation error for %s", id_name_.c_str());
+    ROS_FATAL("\nModel initialisation error for %s\n", id_name_.c_str());
     ros::shutdown();
   }
 }
