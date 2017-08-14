@@ -225,7 +225,7 @@ void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z
  * @todo Calculate optimal DLS coefficient (this value currently works sufficiently)
  * @todo Remove failsafe for uninitialised clamping flags
 ***********************************************************************************************************************/
-double Leg::applyIK(const bool& ignore_tip_orientation)
+double Leg::applyIK(const Vector3d& desired_tip_velocity, const bool& ignore_tip_orientation)
 {
   shared_ptr<Joint> first_joint = joint_container_.begin()->second;
   Vector3d pe = tip_->getTransformFrom(first_joint).block<3,1>(0,3);
@@ -259,9 +259,19 @@ double Leg::applyIK(const bool& ignore_tip_orientation)
   Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(false, current_tip_position_);
   Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
   MatrixXd delta = Matrix<double,6,1>::Zero();
-  delta(0) = leg_frame_tip_position_delta(0);
-  delta(1) = leg_frame_tip_position_delta(1);
-  delta(2) = leg_frame_tip_position_delta(2);
+  
+  if (desired_tip_velocity.norm() != 0.0)
+  {
+    delta(0) = leg_frame_tip_position_delta(0);
+    delta(1) = leg_frame_tip_position_delta(1);
+    delta(2) = leg_frame_tip_position_delta(2);
+  }
+  else
+  {
+    delta(0) = desired_tip_velocity[0]*model_->getTimeDelta();
+    delta(1) = desired_tip_velocity[1]*model_->getTimeDelta();
+    delta(2) = desired_tip_velocity[2]*model_->getTimeDelta();
+  }
   
   VectorXd joint_delta_pos(joint_count_);
   joint_delta_pos = ik_matrix * delta;

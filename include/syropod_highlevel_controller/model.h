@@ -314,7 +314,7 @@ public:
     * @todo Calculate optimal DLS coefficient (this value currently works sufficiently).
     * @todo Remove failsafe for uninitialised clamping flags
     */
-  double applyIK(const bool& ignore_tip_orientation = true);
+  double applyIK(const Vector3d& desired_tip_velocity = Vector3d(0,0,0), const bool& ignore_tip_orientation = true);
 
   /**
     * Updates joint transforms and applies forward kinematics to calculate a new tip position. Sets leg current tip 

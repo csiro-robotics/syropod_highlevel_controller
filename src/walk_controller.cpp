@@ -194,8 +194,11 @@ void WalkController::init(void)
     Vector3d identity_tip_position(x_position, y_position, z_position);
     leg->setLegStepper(make_shared<LegStepper>(shared_from_this(), leg, identity_tip_position));
   }
+    
+    
+
   
-  workspace_radius_ = 0.1;
+  workspace_radius_ = 0.05;
 
   // Stance radius based around front right leg to ensure positive values
   shared_ptr<Leg> reference_leg = model_->getLegByIDNumber(0);
@@ -210,6 +213,48 @@ void WalkController::init(void)
 
   // Init gait parameters
   setGaitParams();
+}
+
+void WalkController::generateWorkspace(void)
+{
+  if (workspace_generated_)
+  {
+    return;
+  }
+  
+  map<int, double> workspace;
+
+  // Generate temporary model for use in calculating workspaces and default walking stance positions
+  shared_ptr<Model> temp_model = make_shared<Model>(params_);
+  temp_model->generate();
+  temp_model->initLegs(true);
+  
+  for (leg_it_ = temp_model->getLegContainer()->begin(); leg_it_ != temp_model->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    for (int d=0; d<360; ++d)
+    {
+      double r = (d/360.0)*2*3.14;
+      double vel_mag = 0.1;
+      bool within_limits = true;
+      Vector3d velocity = Vector3d(vel_mag*cos(r), vel_mag*sin(r), 0.0)));
+      double distance_from_default;
+      while (within_limits)
+      {
+        within_limits = (leg->applyIK(velocity);
+      }
+      double current_min = workspace.at(d);
+      workspace.insert(map<int, double>::value_type(d, min(current_min, distance_from_default)));
+      while (distance_from_default != 0.0)
+      {
+        distance_from_default = (leg->getCurrentTipPosition() - leg_stepper->getDefaultTipPosition()).norm();
+        leg->applyIK(-velocity);
+      }
+    }
+  }
+  
+  workspace_generated_ = true;
 }
 
 /*******************************************************************************************************************//**
@@ -314,6 +359,8 @@ void WalkController::setGaitParams(void)
 ***********************************************************************************************************************/
 void WalkController::updateWalk(const Vector2d& linear_velocity_input, const double& angular_velocity_input)
 {
+  generateWorkspace();
+  
   double on_ground_ratio = double(stance_length_) / double(phase_length_);
 
   Vector2d new_linear_velocity;

@@ -138,6 +138,8 @@ public:
     */
   void updateManual(const int& primary_leg_selection_ID, const Vector3d& primary_tip_velocity_input,
                     const int& secondary_leg_selection_ID, const Vector3d& secondary_tip_velocity_input);
+  
+  void generateWorkspace(void);
 
 private:
   shared_ptr<Model> model_;  ///! Pointer to robot model object.
@@ -188,6 +190,8 @@ private:
   LegContainer::iterator leg_it_;     ///! Leg iteration member variable used to minimise code
   JointContainer::iterator joint_it_; ///! Joint iteration member variable used to minimise code.
   LinkContainer::iterator link_it_;   ///! Link iteration member variable used to minimise code.
+  
+  bool workspace_generated_ = false;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
