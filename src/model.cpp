@@ -260,7 +260,7 @@ double Leg::applyIK(const Vector3d& desired_tip_velocity, const bool& ignore_tip
   Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
   MatrixXd delta = Matrix<double,6,1>::Zero();
   
-  if (desired_tip_velocity.norm() != 0.0)
+  if (desired_tip_velocity.norm() == 0.0)
   {
     delta(0) = leg_frame_tip_position_delta(0);
     delta(1) = leg_frame_tip_position_delta(1);

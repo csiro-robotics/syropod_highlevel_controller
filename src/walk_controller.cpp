@@ -215,7 +215,7 @@ void WalkController::init(void)
   setGaitParams();
 }
 
-void WalkController::generateWorkspace(void)
+void WalkController::generateWorkspace(shared_ptr<DebugOutput> debug)
 {
   if (workspace_generated_)
   {
@@ -238,19 +238,25 @@ void WalkController::generateWorkspace(void)
       double r = (d/360.0)*2*3.14;
       double vel_mag = 0.1;
       bool within_limits = true;
-      Vector3d velocity = Vector3d(vel_mag*cos(r), vel_mag*sin(r), 0.0)));
-      double distance_from_default;
-      while (within_limits)
-      {
-        within_limits = (leg->applyIK(velocity);
-      }
-      double current_min = workspace.at(d);
-      workspace.insert(map<int, double>::value_type(d, min(current_min, distance_from_default)));
+      Vector3d velocity = Vector3d(vel_mag*cos(r), vel_mag*sin(r), 0.0);
+      double distance_from_default = UNASSIGNED_VALUE;
       while (distance_from_default != 0.0)
       {
         distance_from_default = (leg->getCurrentTipPosition() - leg_stepper->getDefaultTipPosition()).norm();
         leg->applyIK(-velocity);
+        debug->generateRobotModel(temp_model);
+        ros::spinOnce();
+        ros::Duration(0.02).sleep();
       }
+      while (within_limits)
+      {
+        within_limits = (leg->applyIK(velocity));
+        debug->generateRobotModel(temp_model);
+        ros::spinOnce();
+        ros::Duration(0.02).sleep();
+      }
+      double current_min = workspace.at(d);
+      workspace.insert(map<int, double>::value_type(d, min(current_min, distance_from_default)));
     }
   }
   
@@ -358,9 +364,7 @@ void WalkController::setGaitParams(void)
  * @params[in] angular_velocity_input An input for the desired angular velocity of the robot body about the z axis.
 ***********************************************************************************************************************/
 void WalkController::updateWalk(const Vector2d& linear_velocity_input, const double& angular_velocity_input)
-{
-  generateWorkspace();
-  
+{ 
   double on_ground_ratio = double(stance_length_) / double(phase_length_);
 
   Vector2d new_linear_velocity;

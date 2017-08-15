@@ -29,6 +29,8 @@
 
 #define JOINT_POSITION_ITERATION 0.001 // Joint position iteration value used to find optimal angle (rad)
 
+class DebugOutput;
+
 /*******************************************************************************************************************//**
  * This class handles top level management of the walk cycle state machine and calls each leg's LegStepper object to 
  * update tip trajectories. This class also handles generation of default walk stance tip positions, calculation of
@@ -139,7 +141,7 @@ public:
   void updateManual(const int& primary_leg_selection_ID, const Vector3d& primary_tip_velocity_input,
                     const int& secondary_leg_selection_ID, const Vector3d& secondary_tip_velocity_input);
   
-  void generateWorkspace(void);
+  void generateWorkspace(shared_ptr<DebugOutput> debug);
 
 private:
   shared_ptr<Model> model_;  ///! Pointer to robot model object.

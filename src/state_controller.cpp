@@ -397,6 +397,8 @@ void StateController::runningState(void)
   if (!((gait_change_flag_ || parameter_adjust_flag_ || toggle_primary_leg_state_ || toggle_secondary_leg_state_) &&
       walker_->getWalkState() == STOPPED))
   {
+    walker_->generateWorkspace(make_shared<DebugOutput>(debug_));
+    
     // Update tip positions for walking legs
     walker_->updateWalk(linear_velocity_input_, angular_velocity_input_);
 
