@@ -79,6 +79,7 @@ public:
    * @param[in] walker A pointer to the walk controller object.
    */
   void generateWorkspace(shared_ptr<Leg> leg, shared_ptr<WalkController> walker);
+  void generateWorkspace2(map<int, double> workspace_map, shared_ptr<Model> model, bool perm = false);
 	
 private:
 	ros::NodeHandle n_;                        ///! Ros node handle

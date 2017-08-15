@@ -253,25 +253,20 @@ double Leg::applyIK(const Vector3d& desired_tip_velocity, const bool& ignore_tip
 
   //ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
   ik_matrix = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
+  
+  if (desired_tip_velocity.norm() != 0.0)
+  {
+    desired_tip_position_ = current_tip_position_ + desired_tip_velocity*model_->getTimeDelta();
+  }
 
   shared_ptr<Joint> base_joint = joint_container_.begin()->second;
   Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(false, desired_tip_position_);
   Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(false, current_tip_position_);
   Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
   MatrixXd delta = Matrix<double,6,1>::Zero();
-  
-  if (desired_tip_velocity.norm() == 0.0)
-  {
-    delta(0) = leg_frame_tip_position_delta(0);
-    delta(1) = leg_frame_tip_position_delta(1);
-    delta(2) = leg_frame_tip_position_delta(2);
-  }
-  else
-  {
-    delta(0) = desired_tip_velocity[0]*model_->getTimeDelta();
-    delta(1) = desired_tip_velocity[1]*model_->getTimeDelta();
-    delta(2) = desired_tip_velocity[2]*model_->getTimeDelta();
-  }
+  delta(0) = leg_frame_tip_position_delta(0);
+  delta(1) = leg_frame_tip_position_delta(1);
+  delta(2) = leg_frame_tip_position_delta(2);
   
   VectorXd joint_delta_pos(joint_count_);
   joint_delta_pos = ik_matrix * delta;
@@ -296,6 +291,7 @@ double Leg::applyIK(const Vector3d& desired_tip_velocity, const bool& ignore_tip
       }
     }
     joint->desired_position_ = joint->prev_desired_position_ + joint->desired_velocity_ * model_->getTimeDelta();
+    joint->prev_desired_position_ = joint->desired_position_;
 
     // Clamp joint position within limits
     if (!params_.clamp_joint_positions.initialised || params_.clamp_joint_positions.data) //TODO - remove failsafe

@@ -274,6 +274,50 @@ void DebugOutput::generateBezierCurves(shared_ptr<Leg> leg)
  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
  * @param[in] walker A pointer to the walk controller object
 ***********************************************************************************************************************/
+void DebugOutput::generateWorkspace2(map<int, double> workspace_map, shared_ptr<Model> model, bool perm)
+{
+  LegContainer::iterator leg_it;
+  for (leg_it = model->getLegContainer()->begin(); leg_it != model->getLegContainer()->end(); ++leg_it)
+  {
+    visualization_msgs::Marker workspace;
+    workspace.header.frame_id = "/fixed_frame";
+    workspace.header.stamp = ros::Time::now();
+    workspace.ns = "workspace_markers";
+    workspace.id = marker_id_++;
+    workspace.type = visualization_msgs::Marker::LINE_STRIP;
+    workspace.action = visualization_msgs::Marker::ADD;
+    workspace.scale.x = 0.001;
+    workspace.color.g = 1;
+    workspace.color.b = 1;
+    workspace.color.a = 1;
+    workspace.lifetime = perm ? ros::Duration(100) : ros::Duration(1);
+    shared_ptr<Leg> leg = leg_it->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    geometry_msgs::Point origin_point;
+    origin_point.x = leg_stepper->getDefaultTipPosition()[0];
+    origin_point.y = leg_stepper->getDefaultTipPosition()[1];
+    origin_point.z = 0.0;
+    map<int, double>::iterator it;
+    geometry_msgs::Point first_point;
+    for (it = workspace_map.begin(); it != workspace_map.end(); ++it)
+    {
+      geometry_msgs::Point point;
+      double bearing = (it->first/360.0)*2*3.14;
+      point.x = origin_point.x + it->second*cos(bearing);
+      point.y = origin_point.y + it->second*sin(bearing);
+      point.z = 0.0;
+      if (it == workspace_map.begin())
+      {
+        first_point = point;
+      }
+      //workspace.points.push_back(origin_point);
+      workspace.points.push_back(point);
+    }
+    workspace.points.push_back(first_point);
+    workspace_publisher_.publish(workspace);
+  }
+}
+
 void DebugOutput::generateWorkspace(shared_ptr<Leg> leg, shared_ptr<WalkController> walker)
 {
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
@@ -297,7 +341,7 @@ void DebugOutput::generateWorkspace(shared_ptr<Leg> leg, shared_ptr<WalkControll
   workspace.color.g = 1; //TRANSPARENT CYAN
   workspace.color.b = 1;
   workspace.color.a = 0.1;
-  workspace.lifetime = ros::Duration(time_delta_);
+  //workspace.lifetime = ros::Duration(time_delta_);
 
   visualization_msgs::Marker stride;
   stride.header.frame_id = "/fixed_frame";
