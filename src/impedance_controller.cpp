@@ -3,8 +3,8 @@
  *  @brief   Handles executiong of the impedance controller.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    June 2017
- *  @version 0.5.0
+ *  @date    August 2017
+ *  @version 0.5.2
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -46,7 +46,7 @@ void ImpedanceController::init(void)
 }
 
 /*******************************************************************************************************************//**
- * Iterates through legs in the robot model and updates the vertical tip position offset value (delta_z) for each. 
+ * Iterates through legs in the robot model and updates the vertical tip position offset value (delta_z) for each.
  * The calculation of delta_z is achieved through the use of a classical Runge-Kutta ODE solver with a force input
  * acquired from a tip force callback OR from a joint effort value.
  * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
@@ -78,12 +78,12 @@ void ImpedanceController::updateImpedance(const bool& use_joint_effort)
                     [&](const state_type & x, state_type & dxdt, double t)
                     {
                       dxdt[0] = x[1];
-                      dxdt[1] = -force_input/mass*force_gain - virtual_damping/mass*x[1] - stiffness/mass*x[0];
-                    },
+                      dxdt[1] = -force_input / mass * force_gain - virtual_damping / mass * x[1] - stiffness / mass * x[0];
+                    }, 
                     *impedance_state,
                     0.0,
                     step_time,
-                    step_time/30);
+                    step_time / 30);
     leg->setDeltaZ(-(*impedance_state)[0]);
   }
 }
@@ -110,12 +110,12 @@ void ImpedanceController::updateStiffness(shared_ptr<Leg> leg, const double& sca
   double load_stiffness = virtual_stiffness * (scale_reference * (params_.load_stiffness_scaler.data - 1) + 1);
 
   leg->setVirtualStiffness(swing_stiffness);
-  
+
   if (adjacent_leg_1->getLegState() != MANUAL)
   {
     adjacent_leg_1->setVirtualStiffness(load_stiffness);
   }
-  
+
   if (adjacent_leg_2->getLegState() != MANUAL)
   {
     adjacent_leg_2->setVirtualStiffness(load_stiffness);
@@ -125,10 +125,10 @@ void ImpedanceController::updateStiffness(shared_ptr<Leg> leg, const double& sca
 /*******************************************************************************************************************//**
  * Scales virtual stiffness of swinging leg and adjacent legs according to the walk cycle of the walk controller.
  * The percentage vertical position difference of the swinging leg tip from it's default position is used as a reference
- * value ranging from 0.0 (default tip height) to 1.0 (max swing height). This reference value defines the 
+ * value ranging from 0.0 (default tip height) to 1.0 (max swing height). This reference value defines the
  * characteristic of the curve as stiffness changes from the default stiffness (i.e. scaled by 1.0) to the swing/load
- * stiffness (i.e. scaled by swing/load scaling value). The swing stiffness value is applied to the swinging leg and 
- * load stiffness value applied to the two adjacent legs. The reseting and addition of stiffness allows overlapping 
+ * stiffness (i.e. scaled by swing/load scaling value). The swing stiffness value is applied to the swinging leg and
+ * load stiffness value applied to the two adjacent legs. The reseting and addition of stiffness allows overlapping
  * step cycles to JOINTLY add stiffness to simultaneously adjacent legs.
  * @param[in] walker A pointer to the walk controller
 ***********************************************************************************************************************/

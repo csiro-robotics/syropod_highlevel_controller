@@ -5,8 +5,8 @@
  *  @brief   Collection of standard libaries and common functions.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    June 2017
- *  @version 0.5.0
+ *  @date    August 2017
+ *  @version 0.5.2
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -54,12 +54,24 @@
 #include <stdlib.h>
 #include <memory>
 
-#define UNASSIGNED_VALUE 1e10 // Value used to determine if variable has been assigned
-#define PROGRESS_COMPLETE 100 // Vale denoting 100% and a completion of progress of various functions
-#define THROTTLE_PERIOD 5  // Default throttle period for all throttled rosconsole messages (seconds)
+#define UNASSIGNED_VALUE 1e10 ///< Value used to determine if variable has been assigned
+#define PROGRESS_COMPLETE 100 ///< Vale denoting 100% and a completion of progress of various functions
+#define THROTTLE_PERIOD 5  ///< Default throttle period for all throttled rosconsole messages (seconds)
 
 using namespace Eigen;
 using namespace std;
+
+/**
+ * Converts Degrees to Radians.
+ * @param[in] degrees Value in degrees to be converted to radians.
+ */
+inline double degreesToRadians(const double& degrees) { return degrees / 360.0 * 2.0 * M_PI; };
+
+/**
+ * Converts Radians to Degrees.
+ * @param[in] radians Value in radians to be converted to degrees.
+ */
+inline double radiansToDegrees(const double& radians) { return (radians / (2.0 * M_PI)) * 360.0; };
 
 /**
  * Performs the modulo operation with adherence to Euclidean division.
@@ -126,7 +138,7 @@ inline T clamped(const T& value, const double& magnitude)
  */
 inline double setPrecision(const double& value, const int& precision)
 {
-  return roundToInt(value*pow(10, precision))/pow(10, precision);
+  return roundToInt(value * pow(10, precision)) / pow(10, precision);
 }
 
 /**
@@ -134,7 +146,7 @@ inline double setPrecision(const double& value, const int& precision)
  * @param[in] number The input value.
  */
 template <typename T>
-inline string numberToString (const T& number )
+inline string numberToString(const T& number)
 {
   ostringstream ss;
   ss << number;
@@ -149,20 +161,20 @@ inline string numberToString (const T& number )
 template<typename ... Args>
 inline string stringFormat(const string& format, Args ... args)
 {
-  size_t size = snprintf( nullptr, 0, format.c_str(), args ... ) + 1; // Extra space for '\0'
-  unique_ptr<char[]> buf( new char[ size ] ); 
-  snprintf( buf.get(), size, format.c_str(), args ... );
-  return string( buf.get(), buf.get() + size - 1 ); // We don't want the '\0' inside
+  size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1;   // Extra space for '\0'
+  unique_ptr<char[]> buf(new char[ size ]);
+  snprintf(buf.get(), size, format.c_str(), args ...);
+  return string(buf.get(), buf.get() + size - 1);   // We don't want the '\0' inside
 }
 
 /**
- * Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input 
+ * Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input
  * control nodes.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
  */
 template <class T>
-inline T cubicBezier(T* points, const double& t) 
+inline T cubicBezier(T* points, const double& t)
 {
   double s = 1.0 - t;
   return points[0] * (s * s * s) + points[1] * (3.0 * t * s * s) + points[2] * (3.0 * t * t * s) +
@@ -170,7 +182,7 @@ inline T cubicBezier(T* points, const double& t)
 }
 
 /**
- * Returns a vector representing a 3d point at a given time input along the derivative of a 3rd order bezier curve 
+ * Returns a vector representing a 3d point at a given time input along the derivative of a 3rd order bezier curve
  * defined by input control nodes.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
@@ -184,7 +196,7 @@ inline T cubicBezierDot(T* points, const double& t)
 }
 
 /**
- * Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input 
+ * Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
  * control nodes.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
@@ -198,7 +210,7 @@ inline T quarticBezier(T* points, const double& t)
 }
 
 /**
- * Returns a vector representing a 3d point at a given time input along the derivative of a 4th order bezier curve 
+ * Returns a vector representing a 3d point at a given time input along the derivative of a 4th order bezier curve
  * defined by input control nodes.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
@@ -221,10 +233,10 @@ inline T quarticBezierDot(T* points, const double& t)
 inline Matrix4d createDHMatrix(const double& d, const double& theta, const double& r, const double& alpha)
 {
   Matrix4d m;
-  m << cos(theta), -sin(theta)*cos(alpha),  sin(theta)*sin(alpha), r*cos(theta), 
-       sin(theta),  cos(theta)*cos(alpha), -cos(theta)*sin(alpha), r*sin(theta),
-                0,             sin(alpha),             cos(alpha),            d,
-                0,                      0,                      0,            1;
+  m << cos(theta), -sin(theta)*cos(alpha),  sin(theta)*sin(alpha), r* cos(theta),
+  sin(theta),  cos(theta)*cos(alpha), -cos(theta)*sin(alpha), r* sin(theta),
+  0,             sin(alpha),             cos(alpha),            d,
+  0,                      0,                      0,            1;
   return m;
 }
 

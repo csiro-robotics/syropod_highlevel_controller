@@ -3,8 +3,8 @@
  *  @brief   Top level controller that handles state of Syropod.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    June 2017
- *  @version 0.5.0
+ *  @date    August 2017
+ *  @version 0.5.2
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -16,7 +16,7 @@
  *  without explicit permission of CSIRO
  *
 ***********************************************************************************************************************/
- 
+
 #include "syropod_highlevel_controller/state_controller.h"
 
 /*******************************************************************************************************************//**
@@ -35,7 +35,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   model_ = make_shared<Model>(params_);
   model_->generate();
 
-  debug_.setTimeDelta(params_.time_delta.data);
+  debug_visualiser_.setTimeDelta(params_.time_delta.data);
 
   // Hexapod Remote topic subscriptions
   system_state_subscriber_            = n_.subscribe("syropod_remote/system_state", 1,
@@ -66,8 +66,8 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
                                                      &StateController::secondaryLegSelectionCallback, this);
   secondary_leg_state_subscriber_     = n_.subscribe("syropod_remote/secondary_leg_state", 1,
                                                      &StateController::secondaryLegStateCallback, this);
-  secondary_tip_velocity_subscriber_  = n_.subscribe("syropod_remote/secondary_tip_velocity",
-                                                     1, &StateController::secondaryTipVelocityInputCallback, this);
+  secondary_tip_velocity_subscriber_  = n_.subscribe("syropod_remote/secondary_tip_velocity", 1,
+                                                     &StateController::secondaryTipVelocityInputCallback, this);
   parameter_selection_subscriber_     = n_.subscribe("syropod_remote/parameter_selection", 1,
                                                      &StateController::parameterSelectionCallback, this);
   parameter_adjustment_subscriber_    = n_.subscribe("syropod_remote/parameter_adjustment", 1,
@@ -75,10 +75,10 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);
-  
-  
+
+
   joint_state_subscriber_ = n_.subscribe("/joint_states", 1, &StateController::jointStatesCallback, this);
-  
+
   // TODO Refactor into single callback to topic /tip_forces
   tip_force_subscriber_ = n_.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, this);
   tip_force_subscriber_AR_ = n_.subscribe("/AR_prs", 1, &StateController::tipForceCallbackAR, this);
@@ -114,7 +114,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
         shared_ptr<Joint> joint = joint_it_->second;
-        joint->desired_position_publisher_ = 
+        joint->desired_position_publisher_ =
           n_.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
       }
     }
@@ -153,7 +153,7 @@ void StateController::init(void)
   }
 
   // Create controller objects and smart pointers
-  walker_ = make_shared<WalkController>(model_, params_);
+  walker_ = make_shared<WalkController>(model_, params_, make_shared<DebugVisualiser>(debug_visualiser_));
   walker_->init();
   poser_ = make_shared<PoseController>(model_, params_);
   poser_->init();
@@ -201,7 +201,7 @@ void StateController::loop(void)
 }
 
 /***********************************************************************************************************************
- * Handles transitions of robot state and moves the robot as required for the new state. 
+ * Handles transitions of robot state and moves the robot as required for the new state.
  * The transition from one state to another may require several iterations through this function before ending.
 ***********************************************************************************************************************/
 void StateController::transitionRobotState(void)
@@ -255,7 +255,7 @@ void StateController::transitionRobotState(void)
         robot_state_ = READY;
         ROS_INFO("\nSyropod currently in READY state.\n");
       }
-    }    
+    }
     // Syropod state unknown
     else if (!params_.start_up_sequence.data)
     {
@@ -279,6 +279,7 @@ void StateController::transitionRobotState(void)
     if (progress == PROGRESS_COMPLETE)
     {
       robot_state_ = RUNNING;
+      walker_->generateWorkspace();
       ROS_INFO("\nDirect startup sequence complete. Ready to walk.\n");
     }
   }
@@ -319,6 +320,7 @@ void StateController::transitionRobotState(void)
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning to RUNNING state (%s). . .\n", progress_string.c_str());
     if (progress == PROGRESS_COMPLETE)
     {
+      walker_->generateWorkspace();
       robot_state_ = RUNNING;
       ROS_INFO("\nState transition complete. Syropod is in RUNNING state. Ready to walk.\n");
     }
@@ -332,7 +334,7 @@ void StateController::transitionRobotState(void)
       if (primary_leg_selection_ != LEG_UNDESIGNATED)
       {
         toggle_primary_leg_state_ = primary_leg_->getLegState() == MANUAL;
-      }      
+      }
       if (secondary_leg_selection_ != LEG_UNDESIGNATED)
       {
         toggle_secondary_leg_state_ = (secondary_leg_->getLegState() == MANUAL);
@@ -395,20 +397,18 @@ void StateController::runningState(void)
   // Update tip positions unless Syropod is undergoing gait switch, parameter adjustment or leg state transition
   // (which all only occur once the Syropod has stopped walking)
   if (!((gait_change_flag_ || parameter_adjust_flag_ || toggle_primary_leg_state_ || toggle_secondary_leg_state_) &&
-      walker_->getWalkState() == STOPPED))
+        walker_->getWalkState() == STOPPED))
   {
-    walker_->generateWorkspace(make_shared<DebugOutput>(debug_));
-    
     // Update tip positions for walking legs
     walker_->updateWalk(linear_velocity_input_, angular_velocity_input_);
 
     // Update tip positions for manually controlled legs
     walker_->updateManual(primary_leg_selection_, primary_tip_velocity_input_,
                           secondary_leg_selection_, secondary_tip_velocity_input_);
-    
+
     // Pose controller takes current tip positions from walker and applies pose compensation
     poser_->updateStance();
-    
+
     // Model uses posed tip positions, adds deltaZ from impedance controller and applies inverse kinematics on each leg
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
@@ -421,7 +421,7 @@ void StateController::runningState(void)
 }
 
 /*******************************************************************************************************************//**
- * Handles parameter adjustment. Forces robot velocity input to zero until it is in a STOPPED walk state and then 
+ * Handles parameter adjustment. Forces robot velocity input to zero until it is in a STOPPED walk state and then
  * reinitialises the walk/pose/impedance controllers with the new parameter value to be applied. The pose controller is
  * then called to step to new stance if required.
 ***********************************************************************************************************************/
@@ -430,7 +430,7 @@ void StateController::adjustParameter(void)
   if (walker_->getWalkState() == STOPPED)
   {
     AdjustableParameter* p = dynamic_parameter_;
-    
+
     // Set new parameter value and apply by reinitialising individual controllers.
     if (apply_new_parameter_)
     {
@@ -448,6 +448,7 @@ void StateController::adjustParameter(void)
       int progress = poser_->stepToNewStance();
       if (progress == PROGRESS_COMPLETE)
       {
+        walker_->generateWorkspace();
         parameter_adjust_flag_ = false;
         apply_new_parameter_ = true;
         ROS_INFO("\nParameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
@@ -466,7 +467,7 @@ void StateController::adjustParameter(void)
 
 /*******************************************************************************************************************//**
  * Handles a gait change event. Forces robot velocity input to zero until it is in a STOPPED walk state and then updates
- * gait parameters based on the new gait selection and reinitialises the walk controller with the new parameters. 
+ * gait parameters based on the new gait selection and reinitialises the walk controller with the new parameters.
  * If required the pose controller is reinitialised with new 'auto posing' parameters.
 ***********************************************************************************************************************/
 void StateController::changeGait(void)
@@ -475,14 +476,15 @@ void StateController::changeGait(void)
   {
     initGaitParameters(gait_selection_);
     walker_->setGaitParams();
-    
+    walker_->calculateMaxSpeed();
+
     // For auto compensation find associated auto posing parameters for new gait
     if (params_.auto_posing.data && params_.auto_pose_type.data == "auto")
     {
       initAutoPoseParameters();
       poser_->setAutoPoseParams();
     }
-    
+
     gait_change_flag_ = false;
     ROS_INFO("\nNow using %s mode.\n", params_.gait_type.data.c_str());
   }
@@ -496,8 +498,8 @@ void StateController::changeGait(void)
 }
 
 /*******************************************************************************************************************//**
- * Handles a leg toggle event. Forces robot velocity input to zero until it is in a STOPPED walk state and then 
- * calculates a new default pose based on estimated loading patterns. The leg that is changing state is assigned the 
+ * Handles a leg toggle event. Forces robot velocity input to zero until it is in a STOPPED walk state and then
+ * calculates a new default pose based on estimated loading patterns. The leg that is changing state is assigned the
  * new state and any posing for the new state is executed via the pose controller.
 ***********************************************************************************************************************/
 void StateController::legStateToggle(void)
@@ -553,11 +555,11 @@ void StateController::legStateToggle(void)
     {
       poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       int progress = poser_->poseForLegManipulation();
-      
+
       //Update stiffness for transition to MANUAL state
       if (params_.dynamic_stiffness.data)
       {
-        double scale_reference = double(progress)/PROGRESS_COMPLETE; // 0.0->1.0
+        double scale_reference = double(progress) / PROGRESS_COMPLETE; // 0.0->1.0
         impedance_->updateStiffness(leg, scale_reference);
       }
 
@@ -577,14 +579,14 @@ void StateController::legStateToggle(void)
     {
       poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       int progress = poser_->poseForLegManipulation();
-      
+
       //Update stiffness for transition to WALKING state
       if (params_.dynamic_stiffness.data)
       {
-        double scale_reference = abs(double(progress)/PROGRESS_COMPLETE - 1.0); // 1.0->0.0
+        double scale_reference = abs(double(progress) / PROGRESS_COMPLETE - 1.0); // 1.0->0.0
         impedance_->updateStiffness(leg, scale_reference);
       }
-      
+
       if (progress == PROGRESS_COMPLETE)
       {
         leg->setLegState(WALKING);
@@ -613,8 +615,6 @@ void StateController::legStateToggle(void)
 void StateController::publishDesiredJointState(void)
 {
   sensor_msgs::JointState joint_state_msg;
-  joint_state_msg.header.stamp = ros::Time::now();
-  
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
@@ -623,15 +623,12 @@ void StateController::publishDesiredJointState(void)
     {
       shared_ptr<Joint> joint = joint_it->second;
       joint->prev_desired_position_ = joint->desired_position_;
-      
+
       if (params_.combined_control_interface.data)
       {
-        joint_state_msg.name.push_back(joint->id_name_);
-        joint_state_msg.position.push_back(joint->desired_position_ + joint->position_offset_);
-        joint_state_msg.velocity.push_back(joint->desired_velocity_);
-        joint_state_msg.effort.push_back(joint->desired_effort_);
+        leg->generateDesiredJointStateMsg(&joint_state_msg);
       }
-      
+
       if (params_.individual_control_interface.data)
       {
         std_msgs::Float64 position_command_msg;
@@ -640,7 +637,7 @@ void StateController::publishDesiredJointState(void)
       }
     }
   }
-  
+
   if (params_.combined_control_interface.data)
   {
     desired_joint_state_publisher_.publish(joint_state_msg);
@@ -662,7 +659,7 @@ void StateController::publishLegState(void)
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     msg.header.stamp = ros::Time::now();
     msg.leg_name.data = leg->getIDName().c_str();
-    
+
     // Tip positions
     msg.walker_tip_position.x = leg_stepper->getCurrentTipPosition()[0];
     msg.walker_tip_position.y = leg_stepper->getCurrentTipPosition()[1];
@@ -673,7 +670,7 @@ void StateController::publishLegState(void)
     msg.model_tip_position.x = leg->getCurrentTipPosition()[0];
     msg.model_tip_position.y = leg->getCurrentTipPosition()[1];
     msg.model_tip_position.z = leg->getCurrentTipPosition()[2];
-    
+
     // Tip velocities
     msg.model_tip_velocity.x = leg->getCurrentTipVelocity()[0];
     msg.model_tip_velocity.y = leg->getCurrentTipVelocity()[1];
@@ -792,7 +789,7 @@ void StateController::publishRotationPoseError(void)
 }
 
 /*******************************************************************************************************************//**
- * Sets up velocities for and calls debug output object to publish various debugging visualations via rviz
+ * Sets up velocities for and calls debug visualiser object to publish various debugging visualations via rviz
  * @param[in] static_display Flag which determines if the vizualisation is kept statically in place at the origin
  * @todo Implement calculation of actual body velocity
 ***********************************************************************************************************************/
@@ -803,20 +800,19 @@ void StateController::RVIZDebugging(const bool& static_display)
   double angular_velocity = walker_->getDesiredAngularVelocity();
   angular_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
 
-  debug_.updatePose(linear_velocity, angular_velocity, walker_->getBodyHeight());
-  debug_.generateRobotModel(model_);
+  debug_visualiser_.updatePose(linear_velocity, angular_velocity, walker_->getBodyHeight());
+  debug_visualiser_.generateRobotModel(model_);
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
-    debug_.generateTipTrajectory(leg, model_->getCurrentPose());
+    debug_visualiser_.generateTipTrajectory(leg, model_->getCurrentPose());
     if (static_display && walker_->getWalkState() != STOPPED)
     {
-      debug_.generateBezierCurves(leg);
-      debug_.generateWorkspace(leg, walker_);
+      debug_visualiser_.generateBezierCurves(leg);
+      debug_visualiser_.generateStride(leg);
     }
   }
-  debug_.resetMarkerID();
 }
 
 /*******************************************************************************************************************//**
@@ -845,14 +841,14 @@ void StateController::systemStateCallback(const std_msgs::Int8& input)
 void StateController::robotStateCallback(const std_msgs::Int8& input)
 {
   RobotState input_state = static_cast<RobotState>(int(input.data));
-  
+
   // Wait for any other transitions to complete
   bool ready_for_transition = !(toggle_primary_leg_state_ || toggle_secondary_leg_state_ || parameter_adjust_flag_);
   if (transition_state_flag_ && !ready_for_transition)
   {
     transition_state_flag_ = false;
   }
-  
+
   // In Direct mode, enforce only OFF & RUNNING states
   if (!params_.start_up_sequence.data)
   {
@@ -860,7 +856,7 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
     {
       input_state = OFF;
     }
-    
+
     if (input_state != robot_state_ && !transition_state_flag_)
     {
       new_robot_state_ = input_state;
@@ -1353,35 +1349,19 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
 }
 
 /*******************************************************************************************************************//**
- * Callback which handles acquisition of joint states from motor drivers. Attempts to populate joint objects with 
+ * Callback which handles acquisition of joint states from motor drivers. Attempts to populate joint objects with
  * available current position/velocity/effort and flags if all joint objects have received an initial current position.
  * @param[in] joint_states The JointState sensor message provided by the subscribed ros topic "/joint_states"
 ***********************************************************************************************************************/
 void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_states)
 {
-  bool get_effort_values = (joint_states.effort.size() != 0);
-  bool get_velocity_values = (joint_states.velocity.size() != 0);
-
   // Iterate through message and assign found state values to joint objects
   for (uint i = 0; i < joint_states.name.size(); ++i)
   {
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
       shared_ptr<Leg> leg = leg_it_->second;
-      string joint_name(joint_states.name[i]);
-      shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
-      if (joint != NULL)
-      {
-        joint->current_position_ = joint_states.position[i] - joint->position_offset_;
-        if (get_velocity_values)
-        {
-          joint->current_velocity_ = joint_states.velocity[i];
-        }
-        if (get_effort_values)
-        {
-          joint->current_effort_ = joint_states.effort[i];
-        }
-      }
+      leg->reInit(joint_states);
     }
   }
 
@@ -1407,7 +1387,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
 
 /*******************************************************************************************************************//**
  * Callback handling and normalising the MAX specific pressure sensor data
- * @param[in] raw_tip_forces The JointState sensor message provided by the subscribed ros topic "/motor_encoders" which 
+ * @param[in] raw_tip_forces The JointState sensor message provided by the subscribed ros topic "/motor_encoders" which
  *                       contains the pressure sensor data.
  * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
  * @todo Parameterise the normalisation variables
@@ -1522,7 +1502,7 @@ void StateController::tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force)
 }
 
 /***********************************************************************************************************************
- * Acquires parameter values from the ros param server and initialises parameter objects. Also sets up dynamic 
+ * Acquires parameter values from the ros param server and initialises parameter objects. Also sets up dynamic
  * reconfigure server.
 ***********************************************************************************************************************/
 void StateController::initParameters(void)
@@ -1544,7 +1524,6 @@ void StateController::initParameters(void)
   params_.joint_id.init(n_, "joint_id");
   params_.link_id.init(n_, "link_id");
   params_.leg_DOF.init(n_, "leg_DOF");
-  params_.leg_stance_yaws.init(n_, "leg_stance_yaws");
   params_.clamp_joint_positions.init(n_, "clamp_joint_positions");
   params_.clamp_joint_velocities.init(n_, "clamp_joint_velocities");
   params_.ignore_IK_warnings.init(n_, "ignore_IK_warnings");
@@ -1577,7 +1556,7 @@ void StateController::initParameters(void)
   params_.load_stiffness_scaler.init(n_, "load_stiffness_scaler");
   params_.swing_stiffness_scaler.init(n_, "swing_stiffness_scaler");
   params_.virtual_damping_ratio.init(n_, "virtual_damping_ratio");
-  params_.force_gain.init(n_, "force_gain");  
+  params_.force_gain.init(n_, "force_gain");
   // Debug Parameters
   params_.debug_rviz.init(n_, "debug_rviz");
   params_.debug_rviz_static_display.init(n_, "debug_rviz_static_display");
@@ -1603,7 +1582,7 @@ void StateController::initParameters(void)
       params_.link_parameters[leg_id_num][0].init(n_, leg_id_name + "_base_link_parameters");
       uint joint_count = params_.leg_DOF.data[leg_id_name];
 
-      if (joint_count > params_.joint_id.data.size() || joint_count > params_.link_id.data.size()+1)
+      if (joint_count > params_.joint_id.data.size() || joint_count > params_.link_id.data.size() + 1)
       {
         ROS_FATAL("\nModel initialisation error for leg %s: Insufficient joint or link id's for defined DOF (%d).\n",
                   leg_id_name.c_str(), joint_count);

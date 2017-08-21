@@ -3,8 +3,8 @@
  *  @brief   Describes the Syropod model including all legs, joints and links.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    June 2017
- *  @version 0.5.0
+ *  @date    August 2017
+ *  @version 0.5.2
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -43,7 +43,7 @@ void Model::generate(void)
     leg_container_.insert(LegContainer::value_type(i, leg));
   }
 }
-  
+
 
 /*******************************************************************************************************************//**
  * Iterate through legs in robot model and have them run their initialisation.
@@ -62,7 +62,7 @@ void Model::initLegs(const bool& use_default_joint_positions)
 
 /*******************************************************************************************************************//**
  * Estimates if the robot is bearing its load on its legs. Estimates the average distance between body and leg tips
- * and checks if the average breaks the plane of the robot body underside, if so, assume that at least one leg is 
+ * and checks if the average breaks the plane of the robot body underside, if so, assume that at least one leg is
  * bearing load.
  * @todo Make more robust by estimating body height above the ground.
  * @todo Parameterise HALF_BODY_DEPTH
@@ -109,11 +109,11 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   , id_number_(id_number)
   , id_name_(params_.leg_id.data.at(id_number))
   , joint_count_(params_.leg_DOF.data.at(id_name_))
-  , stance_leg_yaw_(params_.leg_stance_yaws.data.at(id_name_))
   , leg_state_(WALKING)
   , impedance_state_(vector<double>(2))
 {
   desired_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
+  desired_tip_velocity_ = Vector3d(0, 0, 0);
   current_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
   current_tip_velocity_ = Vector3d(0, 0, 0);
   group_ = (id_number % 2); // Even/odd groups
@@ -159,10 +159,64 @@ void Leg::init(const bool& use_default_joint_positions)
       joint->current_effort_ = 0.0;
     }
     joint->desired_position_ = joint->current_position_;
+    joint->desired_velocity_ = joint->current_velocity_;
+    joint->desired_effort_ = joint->current_effort_;
     joint->prev_desired_position_ = joint->desired_position_;
   }
   applyFK();
   desired_tip_position_ = current_tip_position_;
+}
+
+/*******************************************************************************************************************//**
+  * Re-Initialises leg object by setting desired joint state to values from JointState message input and running
+  * forward kinematics for tip position.
+  * @param[in] desired_joint_states JointState message containing desired joint states values for leg object.
+***********************************************************************************************************************/
+void Leg::reInit(const sensor_msgs::JointState& desired_joint_states)
+{
+  bool get_effort_values = (desired_joint_states.effort.size() != 0);
+  bool get_velocity_values = (desired_joint_states.velocity.size() != 0);
+  for (uint i = 0; i < desired_joint_states.name.size(); ++i)
+  {
+    string joint_name(desired_joint_states.name[i]);
+    shared_ptr<Joint> joint = getJointByIDName(joint_name);
+    if (joint != NULL)
+    {
+      joint->current_position_ = desired_joint_states.position[i];
+      if (get_velocity_values)
+      {
+        joint->current_velocity_ = desired_joint_states.velocity[i];
+      }
+      if (get_effort_values)
+      {
+        joint->current_effort_ = desired_joint_states.effort[i];
+      }
+      joint->desired_position_ = joint->current_position_;
+      joint->desired_velocity_ = joint->current_velocity_;
+      joint->desired_effort_ = joint->current_effort_;
+      joint->prev_desired_position_ = joint->desired_position_;
+    }
+  }
+  applyFK();
+  desired_tip_position_ = current_tip_position_;
+}
+
+/*******************************************************************************************************************//**
+  * Generates a JointState message from the desired state of the joints of the leg object.
+  * @param[out] joint_state_msg The output JointState mesage to fill with the state of joints within this leg object.
+***********************************************************************************************************************/
+void Leg::generateDesiredJointStateMsg(sensor_msgs::JointState* joint_state_msg)
+{
+  joint_state_msg->header.stamp = ros::Time::now();
+  JointContainer::iterator joint_it;
+  for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
+  {
+    shared_ptr<Joint> joint = joint_it->second;
+    joint_state_msg->name.push_back(joint->id_name_);
+    joint_state_msg->position.push_back(joint->desired_position_);
+    joint_state_msg->velocity.push_back(joint->desired_velocity_);
+    joint_state_msg->effort.push_back(joint->desired_effort_);
+  }
 }
 
 /*******************************************************************************************************************//**
@@ -203,7 +257,7 @@ shared_ptr<Link> Leg::getLinkByIDName(const string& link_id_name)
 
 /*******************************************************************************************************************//**
  * Sets desired tip position to the input, applying impedance controller vertical offset (delta z) if requested.
- * @param[in] tip_position The input desired tip position 
+ * @param[in] tip_position The input desired tip position
  * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip position.
 ***********************************************************************************************************************/
 void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z)
@@ -218,23 +272,24 @@ void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z
 
 /*******************************************************************************************************************//**
  * Applies inverse kinematics to calculate required joint positions to achieve desired tip position. Inverse kinematics
- * is generated via the calculation of a jacobian for the current state of the leg, which is used as per the Damped 
+ * is generated via the calculation of a jacobian for the current state of the leg, which is used as per the Damped
  * Least Squares method to generate a change in joint position for each joint. Returns a ratio of the joint closest to
  * position limits.
+ * @param[in] simulation_run Flag denoting if this execution is for simulation purposes rather than normal use.
  * @param[in] ignore_tip_orientation Flag denoting if specific orientation of tip is desired or can be ignored
  * @todo Calculate optimal DLS coefficient (this value currently works sufficiently)
  * @todo Remove failsafe for uninitialised clamping flags
 ***********************************************************************************************************************/
-double Leg::applyIK(const Vector3d& desired_tip_velocity, const bool& ignore_tip_orientation)
+double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientation)
 {
   shared_ptr<Joint> first_joint = joint_container_.begin()->second;
-  Vector3d pe = tip_->getTransformFrom(first_joint).block<3,1>(0,3);
-  Vector3d z0(0,0,1);
-  Vector3d p0(0,0,0);
+  Vector3d pe = tip_->getTransformFrom(first_joint).block<3, 1>(0, 3);
+  Vector3d z0(0, 0, 1);
+  Vector3d p0(0, 0, 0);
 
   MatrixXd jacobian(6, joint_count_);
-  jacobian.block<3,1>(0,0) = z0.cross(pe-p0); //Linear velocity
-  jacobian.block<3,1>(3,0) = ignore_tip_orientation ? Vector3d(0,0,0) : z0; //Angular velocity
+  jacobian.block<3, 1>(0, 0) = z0.cross(pe - p0); //Linear velocity
+  jacobian.block<3, 1>(3, 0) = ignore_tip_orientation ? Vector3d(0, 0, 0) : z0; //Angular velocity
 
   //Skip first joint dh parameters since it is a fixed transformation
   JointContainer::iterator joint_it;
@@ -243,44 +298,44 @@ double Leg::applyIK(const Vector3d& desired_tip_velocity, const bool& ignore_tip
   {
     shared_ptr<Joint> joint = joint_it->second;
     Matrix4d t = joint->getTransformFrom(first_joint);
-    jacobian.block<3,1>(0,i) = t.block<3,1>(0,2).cross(pe-t.block<3,1>(0,3)); //Linear velocity
-    jacobian.block<3,1>(3,i) = ignore_tip_orientation ? Vector3d(0,0,0) : t.block<3,1>(0,2);  //Angular velocity
+    jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); //Linear velocity
+    jacobian.block<3, 1>(3, i) = ignore_tip_orientation ? Vector3d(0, 0, 0) : t.block<3, 1>(0, 2); //Angular velocity
   }
-  
-  MatrixXd identity = Matrix<double,6,6>::Identity();
+
+  MatrixXd identity = Matrix<double, 6, 6>::Identity();
   MatrixXd ik_matrix(joint_count_, 6);
   MatrixXd j = jacobian;
 
   //ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
   ik_matrix = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
-  
-  if (desired_tip_velocity.norm() != 0.0)
+
+  if (desired_tip_velocity_.norm() != 0.0)
   {
-    desired_tip_position_ = current_tip_position_ + desired_tip_velocity*model_->getTimeDelta();
+    desired_tip_position_ = current_tip_position_ + desired_tip_velocity_ * model_->getTimeDelta();
   }
 
   shared_ptr<Joint> base_joint = joint_container_.begin()->second;
   Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(false, desired_tip_position_);
   Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(false, current_tip_position_);
   Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
-  MatrixXd delta = Matrix<double,6,1>::Zero();
+  MatrixXd delta = Matrix<double, 6, 1>::Zero();
   delta(0) = leg_frame_tip_position_delta(0);
   delta(1) = leg_frame_tip_position_delta(1);
   delta(2) = leg_frame_tip_position_delta(2);
-  
+
   VectorXd joint_delta_pos(joint_count_);
   joint_delta_pos = ik_matrix * delta;
 
   int index = 0;
   string clamping_events;
-  double limit_proximity = 1.0;
+  double min_limit_proximity = 1.0;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
   {
     shared_ptr<Joint> joint = joint_it->second;
     joint->desired_velocity_ = joint_delta_pos[index] / model_->getTimeDelta();
 
     // Clamp joint velocities within limits
-    if (!params_.clamp_joint_velocities.initialised || params_.clamp_joint_velocities.data) //TODO - remove failsafe
+    if (params_.clamp_joint_velocities.data && !simulation_run)
     {
       if (abs(joint->desired_velocity_) > joint->max_angular_speed_)
       {
@@ -315,7 +370,9 @@ double Leg::applyIK(const Vector3d& desired_tip_velocity, const bool& ignore_tip
     double min_diff = abs(joint->min_position_ - joint->desired_position_);
     double max_diff = abs(joint->max_position_ - joint->desired_position_);
     double half_joint_range = (joint->max_position_ - joint->min_position_) / 2.0;
-    limit_proximity = min(limit_proximity, min(min_diff, max_diff) / half_joint_range);
+    double limit_proximity = half_joint_range != 0 ? min(min_diff, max_diff) / half_joint_range : 1.0;
+    min_limit_proximity = min(limit_proximity, min_limit_proximity);
+    ROS_DEBUG_COND(params_.debug_IK.data && limit_proximity == 0, "\n%s at limit.\n", joint->id_name_.c_str());
   }
 
   Vector3d result = applyFK(); // Apply forward kinematics to get new current tip position
@@ -328,7 +385,7 @@ double Leg::applyIK(const Vector3d& desired_tip_velocity, const bool& ignore_tip
                  result[0], result[1], result[2]);
 
   // Display warning messages for clamping events and associated inverse kinematic deviations
-  if (!params_.ignore_IK_warnings.initialised || !params_.ignore_IK_warnings.data)  //TODO - remove failsafe
+  if (params_.debug_workspace_calc.data && !simulation_run)
   {
     string axis_label[3] = {"x", "y", "z"};
     for (int i = 0; i < 3; ++i)
@@ -343,11 +400,11 @@ double Leg::applyIK(const Vector3d& desired_tip_velocity, const bool& ignore_tip
       }
     }
   }
-  return limit_proximity;
+  return min_limit_proximity;
 }
 
 /*******************************************************************************************************************//**
- * Updates joint transforms and applies forward kinematics to calculate a new tip position. Sets leg current tip 
+ * Updates joint transforms and applies forward kinematics to calculate a new tip position. Sets leg current tip
  * position to new position if requested.
  * @param[in] set_current Flag denoting of the calculated tip position should be set as the current tip position.
 ***********************************************************************************************************************/

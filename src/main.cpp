@@ -3,8 +3,8 @@
  *  @brief   Top level file of Syropod High-Level Controller (SHC).
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    June 2017
- *  @version 0.5.0
+ *  @date    August 2017
+ *  @version 0.5.2
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -19,7 +19,7 @@
 
 #include "syropod_highlevel_controller/state_controller.h"
 
-#define ACQUISTION_TIME 10 // Max time controller will wait to acquire intitial joint states (seconds)
+#define ACQUISTION_TIME 10 ///< Max time controller will wait to acquire intitial joint states (seconds)
 
 /*******************************************************************************************************************//**
  * Main loop. Sets up ros environment including the node handle, rosconsole messaging, loop rate etc. Also creates and

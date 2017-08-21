@@ -5,8 +5,8 @@
  *  @brief   Handles executiong of the impedance controller.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    June 2017
- *  @version 0.5.0
+ *  @date    August 2017
+ *  @version 0.5.2
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -38,13 +38,13 @@ class ImpedanceController
 {
 public:
   /**
-   * ImpedanceController class constructor. Assigns pointers to robot model object and parameter data storage object 
+   * ImpedanceController class constructor. Assigns pointers to robot model object and parameter data storage object
    * and calls initialisation.
    * @param[in] model Pointer to the robot model class object
    * @param[in] params Pointer to the parameter struct object
    */
   ImpedanceController(shared_ptr<Model> model, const Parameters& params);
-  
+
   /**
    * Impdedance controller initialisation. Assigns integrator step time and force gain for robot model and for each leg
    * sets virtual mass/stiffness/damping ratio from parameters.
@@ -59,33 +59,33 @@ public:
    * @todo Refactor the method of generating tip force from joint effort/s and method of determining effort direction.
    */
   void updateImpedance(const bool& use_joint_effort);
-  
+
   /**
    * Scales virtual stiffness of an input swinging leg and two 'adjacent legs' according to an input reference.
    * The input reference ranges between 0.0 and 1.0, and defines the characteristic of the curve as stiffness changes
-   * from the default stiffness (i.e. scaled by 1.0) to the swing/load stiffness (i.e. scaled by swing/load scaling 
-   * value). The swing stiffness value is applied to the swinging leg and load stiffness value applied to the two 
+   * from the default stiffness (i.e. scaled by 1.0) to the swing/load stiffness (i.e. scaled by swing/load scaling
+   * value). The swing stiffness value is applied to the swinging leg and load stiffness value applied to the two
    * adjacent legs.
    * @param[in] leg A pointer to the leg object associated with the stiffness value to be updated.
    * @param[in] scale_reference A double ranging from 0.0->1.0 which controls the scaling of the stiffnesses
    */
   void updateStiffness(shared_ptr<Leg> leg, const double& scale_reference);
-  
+
   /**
    * Scales virtual stiffness of swinging leg and adjacent legs according to the walk cycle of the walk controller.
-   * The percentage vertical position difference of the swinging leg tip from it's default position is used as a 
-   * reference value ranging from 0.0 (default tip height) to 1.0 (max swing height). This reference value defines the 
+   * The percentage vertical position difference of the swinging leg tip from it's default position is used as a
+   * reference value ranging from 0.0 (default tip height) to 1.0 (max swing height). This reference value defines the
    * characteristic of the curve as stiffness changes from the default stiffness (i.e. scaled by 1.0) to the swing/load
-   * stiffness (i.e. scaled by swing/load scaling value). The swing stiffness value is applied to the swinging leg and 
-   * load stiffness value applied to the two adjacent legs. The reseting and addition of stiffness allows overlapping 
+   * stiffness (i.e. scaled by swing/load scaling value). The swing stiffness value is applied to the swinging leg and
+   * load stiffness value applied to the two adjacent legs. The reseting and addition of stiffness allows overlapping
    * step cycles to JOINTLY add stiffness to simultaneously adjacent legs.
    * @param[in] walker A pointer to the walk controller
    */
   void updateStiffness(shared_ptr<WalkController> walker);
 
 private:
-  shared_ptr<Model> model_;  ///! Pointer to the robot model object
-  const Parameters& params_; ///! Pointer to parameter data structure for storing parameter variables.
+  shared_ptr<Model> model_;  ///< Pointer to the robot model object
+  const Parameters& params_; ///< Pointer to parameter data structure for storing parameter variables.
 };
 
 /***********************************************************************************************************************

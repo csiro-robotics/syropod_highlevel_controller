@@ -26,7 +26,6 @@ syropod:
     joint_id: [coxa, femur, tibia] # joint_id_name
     link_id: [base, coxa, femur, tibia] # link_id_name (always start with base) 
     leg_DOF: {AL: 3, AR: 3, BL: 3, BR: 3, CL: 3, CR: 3} # leg_id_name: degrees_of_freedom (num joints) 
-    leg_stance_yaws: {AL: 0.523, AR: -0.523, BL: 1.57, BR: -1.57, CL: 2.617, CR: -2.617}
 
     # Joint parameters:
     AR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
@@ -86,6 +85,14 @@ syropod:
     step_clearance: {default: 0.01, min: 0.01, max: 0.05, step: 0.005} #Reconfigurable
     body_clearance: {default: 0.1, min: 0.01, max: 0.15, step: 0.01} #Reconfigurable
     leg_span: {default: 0.0, min: 0.0, max: 0.0, step: 0.0} #Reconfigurable
+    
+    AR_stance_position: {x: 0.13,  y: -0.075}
+    BR_stance_position: {x: 0.0,   y: -0.15}
+    CR_stance_position: {x: -0.13, y: -0.075}
+    CL_stance_position: {x: -0.13, y: 0.075}
+    BL_stance_position: {x: 0.0,   y: 0.15}
+    AL_stance_position: {x: 0.13,  y: 0.075}
+    
     velocity_input_mode: throttle #real
     force_cruise_velocity: true
     linear_cruise_velocity: {x: 0.001, y: 0.0}
@@ -123,8 +130,9 @@ syropod:
     debug_swing_trajectory: false
     debug_stance_trajectory: false
     debug_execute_sequence: false
+    debug_workspace_calculations: false
     debug_ik: false
-    debug_rviz: true
+    debug_rviz: false
     debug_rviz_static_display: false
     
 ########################################################################################################################

@@ -87,13 +87,6 @@
       (type: {string: double, string: double, string: double, ... string: double})
       (example: {AR: 3, BR: 3, CR: 3, CL: 5, BL: 3, AL: 3})
 
-### /syropod/parameters/leg_stance_yaws:
-    Map of leg_id and the corresponding stance plane yaw about the z-axis in the robot frame.
-      (type: {string: double, string: double, string: double, ... string: double})
-      (example: {AR: -0.785, BR: -1.57, CR: -2.355, CL: 2.355, BL: 1.57, AL: 0.785})
-      (unit: radians)
-
-
 ## Joint Parameters
 ### /syropod/parameters/\*LEG_ID\*_\*JOINT_ID\*_joint_parameters:
     Map of parameters for each joint corresponding to various joint characteristics:
@@ -117,7 +110,21 @@
       alpha: The DH parameter representing angle about common normal, form old z-axis to new z-axis. (unit: radians)
       (type: {string: double, string: double, string: double, string: double})
       (example: AR_femur_link_parameters: {d: 0.0, theta: 0.0, r: 0.07000, alpha: 0.0})
+      
+### /syropod/parameters/clamp_joint_positions:
+    Bool denoting if inverse kinematics function will clamp joint positions to those limits defined in parameters.
+      (default: true)
+      (type: Bool)
 
+### /syropod/parameters/clamp_joint_velocities:
+    Bool denoting if inverse kinematics function will clamp joint velocities to those limits defined in parameters.
+      (default: true)
+      (type: Bool)
+      
+### /syropod/parameters/ignore_IK_warnings:
+    Bool denoting if inverse kinematics function will ignore warnings of deviation from desired position due to exceeding joint position/velocity limits. Ignoring warnings stops warning messages from being sent to rosconsole.
+      (default: true)
+      (type: Bool)
 
 ## Walk Controller Parameters:
 ### /syropod/parameters/gait_type:
@@ -176,6 +183,13 @@
       step: The increment/decrement step of this value when adjusted.
       (type: {string: double, string: double, string: double, string: double})
       (default: {default: 0.0, min: 0.0, max: 0.0, step: 0.0})
+      (unit: metres)
+      
+### /syropod/parameters/\*LEG_ID\*_stance_position:
+    Map of x/y coordinates (in robot frame) of the position of the tip in this leg's default stance.
+      x: x-axis coordinate (positive x-axis is robot forward)
+      y: y-axis coordinate (positive y-axis is robot left)
+      (type: {string: double, string: double})
       (unit: metres)
 
 ### /syropod/parameters/velocity_input_mode:
@@ -371,6 +385,11 @@
 ### /syropod/parameters/execute_sequence: 
     Allows debug output from executeSequence function in pose controller. Also used to optimise joint 'unpacked' 
     parameter.
+        (type: bool)
+        (default: false)
+        
+### /syropod/parameters/debug_workspace_calculations:
+    Allows debug output from workspace calculations in walk controller.
         (type: bool)
         (default: false)
 
