@@ -619,18 +619,16 @@ void StateController::publishDesiredJointState(void)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     JointContainer::iterator joint_it;
-    for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+    if (params_.combined_control_interface.data)
     {
-      shared_ptr<Joint> joint = joint_it->second;
-      joint->prev_desired_position_ = joint->desired_position_;
-
-      if (params_.combined_control_interface.data)
+      leg->generateDesiredJointStateMsg(&joint_state_msg);
+    }
+    
+    if (params_.individual_control_interface.data)
+    {
+      for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
-        leg->generateDesiredJointStateMsg(&joint_state_msg);
-      }
-
-      if (params_.individual_control_interface.data)
-      {
+        shared_ptr<Joint> joint = joint_it->second;
         std_msgs::Float64 position_command_msg;
         position_command_msg.data = joint->desired_position_ + joint->position_offset_;
         joint->desired_position_publisher_.publish(position_command_msg);
@@ -1355,13 +1353,29 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
 ***********************************************************************************************************************/
 void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_states)
 {
+  bool get_effort_values = (joint_states.effort.size() != 0);
+  bool get_velocity_values = (joint_states.velocity.size() != 0);
+
   // Iterate through message and assign found state values to joint objects
   for (uint i = 0; i < joint_states.name.size(); ++i)
   {
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
       shared_ptr<Leg> leg = leg_it_->second;
-      leg->reInit(joint_states);
+      string joint_name(joint_states.name[i]);
+      shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
+      if (joint != NULL)
+      {
+        joint->current_position_ = joint_states.position[i] - joint->position_offset_;
+        if (get_velocity_values)
+        {
+          joint->current_velocity_ = joint_states.velocity[i];
+        }
+        if (get_effort_values)
+        {
+          joint->current_effort_ = joint_states.effort[i];
+        }
+      }
     }
   }
 
