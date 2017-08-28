@@ -91,11 +91,11 @@ void WalkController::init(void)
 
       double distance_to_overlap_1 = UNASSIGNED_VALUE;
       double distance_to_overlap_2 = UNASSIGNED_VALUE;
-      if (bearing_diff_1 < 90 || bearing_diff_1 > 270)
+      if ((bearing_diff_1 < 90 || bearing_diff_1 > 270) && distance_to_adjacent_leg_1 > 0.0)
       {
         distance_to_overlap_1 = distance_to_adjacent_leg_1 / cos(degreesToRadians(bearing_diff_1));
       }
-      if (bearing_diff_2 < 90 || bearing_diff_2 > 270)
+      if ((bearing_diff_2 < 90 || bearing_diff_2 > 270) && distance_to_adjacent_leg_2 > 0.0)
       {
         distance_to_overlap_2 = distance_to_adjacent_leg_2 / cos(degreesToRadians(bearing_diff_2));
       }
@@ -154,6 +154,7 @@ void WalkController::generateWorkspace(void)
     leg->generateDesiredJointStateMsg(&default_joint_states);
 
     // Iterate through search bearings
+    int opposite_bearing = 0;
     for (int search_bearing = 0; search_bearing < 360; search_bearing += BEARING_STEP) // TODO
     {
       if (debug)
@@ -169,7 +170,7 @@ void WalkController::generateWorkspace(void)
       }
       else if (symmetric_workspace)
       {
-        int opposite_bearing = mod(search_bearing + 180, 360);
+        opposite_bearing = mod(search_bearing + 180, 360);
         current_min = min(current_min, workspace_map_.at(opposite_bearing));
       }
 
@@ -206,6 +207,10 @@ void WalkController::generateWorkspace(void)
 
       // Save minimum distance from default tip position (of each leg) as workspace radius for defined search bearing.
       workspace_map_[search_bearing] = min(current_min, distance_from_default);
+      if (symmetric_workspace)
+      {
+        workspace_map_[opposite_bearing] = min(current_min, distance_from_default);
+      }
       absolute_min = min(workspace_map_[search_bearing], absolute_min);
       leg->reInit(default_joint_states); // Reinitialise leg state to default tip position
       leg->setDesiredTipVelocity(Vector3d(0, 0, 0));
