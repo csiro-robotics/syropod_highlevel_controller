@@ -146,8 +146,8 @@ public:
   /** Accessor for the cuurent state of this leg. */
   inline LegState getLegState(void) { return leg_state_; };
 
-  /** Accessor for the current estimated vertical force on the tip of this leg. */
-  inline double getTipForce(void) { return tip_force_; };
+  /** Accessor for the current estimated force vector on the tip of this leg. */
+  inline Vector3d getTipForce(void) { return tip_force_; };
 
   /** Accessor for the current impedance control vertical position offset (delta_z) for this leg.*/
   inline double getDeltaZ(void) { return delta_z_; };
@@ -216,10 +216,10 @@ public:
   inline void setLegPoser(shared_ptr<LegPoser> leg_poser) { leg_poser_ = leg_poser; };
 
   /**
-    * Modifier for the current estimated vertical force on the tip of this leg.
+    * Modifier for the current estimated force vector on the tip of this leg.
     * @param[in] tip_force The new vertical tip force estimate for this leg.
     */
-  inline void setTipForce(const double& tip_force) { tip_force_ = tip_force; };
+  inline void setTipForce(const Vector3d& tip_force) { tip_force_ = tip_force; };
 
   /**
     * Modifier for the current impedance control vertical position offset (delta_z) for this leg.
@@ -320,6 +320,12 @@ public:
     * @param[in] tip_velocity The new tip velocity of this leg object.
     */
   inline void setDesiredTipVelocity(const Vector3d& tip_velocity) { desired_tip_velocity_ = tip_velocity; };
+  
+  /**
+    * Calculates an estimate for the tip force vector acting on this leg, using the calculated state jacobian and 
+    * values for the torque on each joint in the leg.
+    */
+  void calculateTipForce(void);
 
   /**
     * Applies inverse kinematics to calculate required joint positions to achieve desired tip position. Inverse
@@ -377,7 +383,7 @@ private:
 
   int group_; ///< Leg stepping coordination group (Either 0 or 1).
 
-  double tip_force_ = 0.0; ///< Vertical force estimation on tip.
+  Vector3d tip_force_; ///< Force estimation on tip.
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -501,8 +507,8 @@ public:
   double prev_desired_effort_ = 0.0;   ///< The desired angular effort of this joint at the previous iteration.
 
   double current_position_ = UNASSIGNED_VALUE; ///< The current position of this joint according to hardware.
-  double current_velocity_ = UNASSIGNED_VALUE; ///< The current velocity of this joint according to hardware.
-  double current_effort_ = UNASSIGNED_VALUE;   ///< The current effort of this joint according to hardware.
+  double current_velocity_ = 0.0;              ///< The current velocity of this joint according to hardware.
+  double current_effort_ = 0.0;                ///< The current effort of this joint according to hardware.
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

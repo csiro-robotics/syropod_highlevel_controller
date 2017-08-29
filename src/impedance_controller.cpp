@@ -50,7 +50,7 @@ void ImpedanceController::init(void)
  * The calculation of delta_z is achieved through the use of a classical Runge-Kutta ODE solver with a force input
  * acquired from a tip force callback OR from a joint effort value.
  * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
- * @todo Refactor the method of generating tip force from joint effort/s and method of determining effort direction.
+ * @todo Implement impedance control in x/y axis
 ***********************************************************************************************************************/
 void ImpedanceController::updateImpedance(const bool& use_joint_effort)
 {
@@ -61,15 +61,13 @@ void ImpedanceController::updateImpedance(const bool& use_joint_effort)
     shared_ptr<Leg> leg = leg_it->second;
     if (use_joint_effort)
     {
-      double direction = (leg->getIDNumber() >= (model_->getLegCount() / 2) ? -1.0 : 1.0); //Left or right side
-      leg->setTipForce(leg->getJointByIDNumber(2)->current_effort_ * direction); //TODO
+      leg->calculateTipForce();
     }
 
-    double force_input = max(leg->getTipForce(), 0.0);
+    double force_input = min(leg->getTipForce()[2], 0.0); // Use vertical component of tip force vector //TODO
     double damping = leg->getVirtualDampingRatio();
     double stiffness = leg->getVirtualStiffness();
     double mass = leg->getVirtualMass();
-    double force_gain = params_.force_gain.current_value;
     double step_time = params_.integrator_step_time.data;
     state_type* impedance_state = leg->getImpedanceState();
     double virtual_damping = damping * 2 * sqrt(mass * stiffness);
@@ -78,13 +76,13 @@ void ImpedanceController::updateImpedance(const bool& use_joint_effort)
                     [&](const state_type & x, state_type & dxdt, double t)
                     {
                       dxdt[0] = x[1];
-                      dxdt[1] = -force_input / mass * force_gain - virtual_damping / mass * x[1] - stiffness / mass * x[0];
+                      dxdt[1] = -force_input / mass - virtual_damping / mass * x[1] - stiffness / mass * x[0];
                     }, 
                     *impedance_state,
                     0.0,
                     step_time,
                     step_time / 30);
-    leg->setDeltaZ(-(*impedance_state)[0]);
+    leg->setDeltaZ((*impedance_state)[0]);
   }
 }
 

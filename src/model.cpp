@@ -116,6 +116,7 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   desired_tip_velocity_ = Vector3d(0, 0, 0);
   current_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
   current_tip_velocity_ = Vector3d(0, 0, 0);
+  tip_force_ = Vector3d(0.0, 0.0, 0.0);
   group_ = (id_number % 2); // Even/odd groups
 }
 
@@ -268,6 +269,52 @@ void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z
   desired_tip_position_[0] = tip_position[0];
   desired_tip_position_[1] = tip_position[1];
   desired_tip_position_[2] = tip_position[2] + (apply_delta_z ? delta_z_ : 0.0);
+}
+
+/*******************************************************************************************************************//**
+  * Calculates an estimate for the tip force vector acting on this leg, using the calculated state jacobian and 
+  * values for the torque on each joint in the leg.
+  * @todo Implement rotation to tip frame
+***********************************************************************************************************************/
+void Leg::calculateTipForce(void)
+{
+  bool ignore_tip_orientation = true; //TODO Implement rotation to tip frame
+  shared_ptr<Joint> first_joint = joint_container_.begin()->second;
+
+  Vector3d pe = tip_->getTransformFrom(first_joint).block<3, 1>(0, 3);
+  Vector3d z0(0, 0, 1);
+  Vector3d p0(0, 0, 0);
+
+  MatrixXd jacobian(6, joint_count_);
+  jacobian.block<3, 1>(0, 0) = z0.cross(pe - p0); //Linear velocity
+  jacobian.block<3, 1>(3, 0) = ignore_tip_orientation ? Vector3d(0, 0, 0) : z0; //Angular velocity
+
+  VectorXd joint_torques(joint_count_);
+  joint_torques[0] = first_joint->current_effort_;
+  
+  //Skip first joint dh parameters since it is a fixed transformation
+  int i = 1;
+  JointContainer::iterator joint_it;
+  for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
+  {
+    shared_ptr<Joint> joint = joint_it->second;
+    Matrix4d t = joint->getTransformFrom(first_joint);
+    jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); //Linear velocity
+    jacobian.block<3, 1>(3, i) = ignore_tip_orientation ? Vector3d(0, 0, 0) : t.block<3, 1>(0, 2); //Angular velocity
+    joint_torques[i] = joint->current_effort_;
+  }
+
+  // Transpose and invert jacobian
+  MatrixXd identity = Matrix<double, 5, 5>::Identity();
+  MatrixXd jacobian_inverse = jacobian * ((jacobian.transpose()*jacobian + sqr(DLS_COEFFICIENT) * identity).inverse());
+  
+  VectorXd raw_tip_force = jacobian_inverse * joint_torques;
+  
+  // Low pass filter and force gain applied to calculated raw tip force
+  double s = 0.15; // Smoothing Factor
+  tip_force_[0] = s * raw_tip_force[0] * params_.force_gain.current_value + (1 - s) * tip_force_[0];
+  tip_force_[1] = s * raw_tip_force[1] * params_.force_gain.current_value + (1 - s) * tip_force_[1];
+  tip_force_[2] = s * raw_tip_force[2] * params_.force_gain.current_value + (1 - s) * tip_force_[2];
 }
 
 /*******************************************************************************************************************//**

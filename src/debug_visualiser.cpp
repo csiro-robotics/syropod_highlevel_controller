@@ -347,11 +347,46 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   stride.scale.x = 0.01;
   stride.scale.y = 0.015;
   stride.scale.z = 0.02;
-  stride.color.g = 1; //TRANSPARENT GREEN
+  stride.color.g = 1; //GREEN
   stride.color.a = 1;
   stride.lifetime = ros::Duration(time_delta_);
 
   workspace_publisher_.publish(stride);
+}
+
+/*******************************************************************************************************************//**
+  * Publishes visualisation markers which represent the estimated tip force vector for input leg.
+  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+***********************************************************************************************************************/
+void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
+{
+  visualization_msgs::Marker tip_force;
+  tip_force.header.frame_id = "/fixed_frame";
+  tip_force.header.stamp = ros::Time::now();
+  tip_force.ns = "workspace_markers";
+  tip_force.id = TIP_FORCE_MARKER_ID + leg->getIDNumber();
+  tip_force.type = visualization_msgs::Marker::ARROW;
+  tip_force.action = visualization_msgs::Marker::ADD;
+  geometry_msgs::Point origin;
+  geometry_msgs::Point target;
+  origin.x = leg->getCurrentTipPosition()[0] + odometry_pose_.position_[0];
+  origin.y = leg->getCurrentTipPosition()[1] + odometry_pose_.position_[1];
+  origin.z = leg->getCurrentTipPosition()[2] + odometry_pose_.position_[2];
+  target = origin;
+  target.x += leg->getTipForce()[0];
+  target.y += leg->getTipForce()[1];
+  target.z += leg->getTipForce()[2];
+  tip_force.points.push_back(origin);
+  tip_force.points.push_back(target);
+  tip_force.scale.x = 0.01;
+  tip_force.scale.y = 0.015;
+  tip_force.scale.z = 0.02;
+  tip_force.color.b = 1; // MAGENTA
+  tip_force.color.r = 1;
+  tip_force.color.a = 1;
+  tip_force.lifetime = ros::Duration(time_delta_);
+
+  workspace_publisher_.publish(tip_force);
 }
 
 /***********************************************************************************************************************

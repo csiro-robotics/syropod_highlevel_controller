@@ -698,7 +698,7 @@ void StateController::publishLegState(void)
     msg.auto_pose.angular.z = rotation.toEulerAngles()[2];
 
     // Impedance controller
-    msg.tip_force.data = leg->getTipForce();
+    msg.tip_force.data = leg->getTipForce()[2];
     msg.delta_z.data = leg->getDeltaZ();
     msg.virtual_stiffness.data = leg->getVirtualStiffness();
 
@@ -805,6 +805,7 @@ void StateController::RVIZDebugging(const bool& static_display)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     debug_visualiser_.generateTipTrajectory(leg, model_->getCurrentPose());
+    debug_visualiser_.generateTipForce(leg);
     if (static_display && walker_->getWalkState() != STOPPED)
     {
       debug_visualiser_.generateBezierCurves(leg);
@@ -1374,6 +1375,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
         if (get_effort_values)
         {
           joint->current_effort_ = joint_states.effort[i];
+          joint->desired_effort_ = joint->current_effort_;
         }
       }
     }
@@ -1415,7 +1417,7 @@ void StateController::tipForceCallback(const sensor_msgs::JointState& raw_tip_fo
     double max_force = 1000.0;
     double min_force = 0.0;
     double tip_force = clamped(raw_tip_forces.effort[leg->getIDNumber() * 2] - force_offset, min_force, max_force);
-    leg->setTipForce(tip_force);
+    leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
   }
 }
 
@@ -1432,7 +1434,7 @@ void StateController::tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force)
   double max_force = 1000.0;
   double min_force = 0.0;
   double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(tip_force);
+  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
 }
 
 /*******************************************************************************************************************//**
@@ -1448,7 +1450,7 @@ void StateController::tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force)
   double max_force = 1000.0;
   double min_force = 0.0;
   double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(tip_force);
+  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
 }
 
 /*******************************************************************************************************************//**
@@ -1464,7 +1466,7 @@ void StateController::tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force)
   double max_force = 1000.0;
   double min_force = 0.0;
   double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(tip_force);
+  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
 }
 
 /*******************************************************************************************************************//**
@@ -1480,7 +1482,7 @@ void StateController::tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force)
   double max_force = 1000.0;
   double min_force = 0.0;
   double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(tip_force);
+  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
 }
 
 /*******************************************************************************************************************//**
@@ -1496,7 +1498,7 @@ void StateController::tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force)
   double max_force = 1000.0;
   double min_force = 0.0;
   double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(tip_force);
+  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
 }
 
 /*******************************************************************************************************************//**
@@ -1512,7 +1514,7 @@ void StateController::tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force)
   double max_force = 1000.0;
   double min_force = 0.0;
   double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(tip_force);
+  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
 }
 
 /***********************************************************************************************************************

@@ -523,7 +523,7 @@ int PoseController::stepToNewStance(void) //Tripod leg coordination
   // Normalise progress in terms of total procedure
   progress = progress / 2 + current_group_ * 50;
 
-  current_group_ = legs_completed_step_ / (leg_count / 2);
+    current_group_ = legs_completed_step_ / (leg_count / 2);
 
   if (legs_completed_step_ == leg_count)
   {

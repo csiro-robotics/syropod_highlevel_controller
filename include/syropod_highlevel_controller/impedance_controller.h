@@ -56,7 +56,7 @@ public:
    * The calculation of delta_z is achieved through the use of a classical Runge-Kutta ODE solver with a force input
    * acquired from a tip force callback OR from a joint effort value.
    * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
-   * @todo Refactor the method of generating tip force from joint effort/s and method of determining effort direction.
+   * @todo Implement impedance control in x/y axis
    */
   void updateImpedance(const bool& use_joint_effort);
 

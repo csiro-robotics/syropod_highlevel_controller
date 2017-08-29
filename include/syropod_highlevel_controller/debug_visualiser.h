@@ -31,6 +31,7 @@
 #define SWING_BEZIER_CURVE_1_MARKER_ID 30 ///< Base id for bezier curve visualisations
 #define SWING_BEZIER_CURVE_2_MARKER_ID 40 ///< Base id for bezier curve visualisations
 #define STANCE_BEZIER_CURVE_MARKER_ID 50  ///< Base id for bezier curve visualisations
+#define TIP_FORCE_MARKER_ID 60            ///< Base id for tip force vector visualisations
 #define ID_LIMIT 10000                    ///< Id value limit to prevent overflow
 #define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
 
@@ -86,6 +87,12 @@ public:
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
    */
   void generateStride(shared_ptr<Leg> leg);
+  
+  /**
+   * Publishes visualisation markers which represent the estimated tip force vector for input leg.
+   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+   */
+  void generateTipForce(shared_ptr<Leg> leg);
 
 private:
   ros::NodeHandle n_;                        ///< Ros node handle
