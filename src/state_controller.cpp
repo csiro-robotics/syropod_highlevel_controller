@@ -171,6 +171,8 @@ void StateController::init(void)
 ***********************************************************************************************************************/
 void StateController::loop(void)
 {
+  elapsed_time_ += params_.time_delta.data;
+  
   // Posing - updates currentPose for body compensation
   if (robot_state_ != UNKNOWN)
   {
@@ -388,7 +390,8 @@ void StateController::runningState(void)
     legStateToggle();
   }
   // Cruise control (constant velocity input)
-  else if (cruise_control_mode_ == CRUISE_CONTROL_ON)
+  else if (cruise_control_mode_ == CRUISE_CONTROL_ON &&
+          (params_.cruise_control_time_limit.data == 0.0 || elapsed_time_ < params_.cruise_control_time_limit.data))
   {
     linear_velocity_input_ = linear_cruise_velocity_;
     angular_velocity_input_ = angular_cruise_velocity_;
@@ -754,6 +757,8 @@ void StateController::publishPose(void)
 void StateController::publishIMUData(void)
 {
   sensor_msgs::Imu msg;
+  msg.header.stamp = ros::Time::now();
+  msg.header.frame_id = "shc_imu_link";
   msg.orientation.w = poser_->getImuData().orientation.w_;
   msg.orientation.x = poser_->getImuData().orientation.x_;
   msg.orientation.y = poser_->getImuData().orientation.y_;
@@ -991,6 +996,7 @@ void StateController::cruiseControlCallback(const std_msgs::Int8& input)
       cruise_control_mode_ = new_cruise_control_mode;
       if (new_cruise_control_mode == CRUISE_CONTROL_ON)
       {
+        elapsed_time_ = 0.0;
         if (params_.force_cruise_velocity.data)
         {
           // Set cruise velocity according to parameters
@@ -1553,6 +1559,7 @@ void StateController::initParameters(void)
   params_.force_cruise_velocity.init(n_, "force_cruise_velocity");
   params_.linear_cruise_velocity.init(n_, "linear_cruise_velocity");
   params_.angular_cruise_velocity.init(n_, "angular_cruise_velocity");
+  params_.cruise_control_time_limit.init(n_, "cruise_control_time_limit");
   // Pose controller parameters
   params_.auto_pose_type.init(n_, "auto_pose_type");
   params_.start_up_sequence.init(n_, "start_up_sequence");

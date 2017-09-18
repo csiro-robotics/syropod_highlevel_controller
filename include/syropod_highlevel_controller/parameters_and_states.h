@@ -297,11 +297,13 @@ struct Parameters
   AdjustableParameter step_clearance;                    ///< The stepping clearance of the tip position above default.
   AdjustableParameter body_clearance;                    ///< The requested height of the robot body above ground.
   AdjustableParameter leg_span;                          ///< TODO Placeholder - currently does nothing
-  Parameter<map<string, double>> leg_stance_positions[8];///< An array of maps of default tip stance positions.
   Parameter<string> velocity_input_mode;                 ///< Determines velocity input as 'real' or 'throttle' based.
   Parameter<bool> force_cruise_velocity;                 ///< Flag denoting if cruise control mode uses set values.
   Parameter<map<string, double>> linear_cruise_velocity; ///< Set values used in cruise control mode if requested.
   Parameter<double> angular_cruise_velocity;             ///< Set values used in cruise control mode if requested.
+  Parameter<double> cruise_control_time_limit;           ///< Time limit after which cruise control input will zero.
+  Parameter<map<string, double>> leg_stance_positions[8];///< An array of maps of default tip stance positions.
+
 
   // Pose controller parameters
   Parameter<string> auto_pose_type;                     ///< String denoting the default auto posing cycle type.

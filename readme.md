@@ -221,6 +221,14 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Modifications to tip trajectory calculations to maximise stride length and body acceleration.
     - Convertion of walk controller parameters from percentage based to real world values (SI units).
     - Changes to adhere to ROSCPP style guide.
+- v0.5.1
+    - New simpler Inverse Kinematics calculation method
+    - Improved workspace calculation
+- v0.5.2
+    - New iterative search based workspace generation method
+- v0.5.3
+    - Renamed impedance controller to 'admittance controller' and improved to make use of multi-joint effort values
+    - Added time limit to cruise control feature for use in running experiments.
 
 
 
