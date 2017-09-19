@@ -5,8 +5,8 @@
  *  @brief   Collection of standard libaries and common functions.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    August 2017
- *  @version 0.5.2
+ *  @date    September 2017
+ *  @version 0.5.4
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -139,6 +139,39 @@ inline T clamped(const T& value, const double& magnitude)
 inline double setPrecision(const double& value, const int& precision)
 {
   return roundToInt(value * pow(10, precision)) / pow(10, precision);
+}
+
+/**
+ * TODO
+ */
+inline Vector3d quaternionToEulerAngles(const Quaterniond& q)
+{
+  return ((q.normalized()).toRotationMatrix().eulerAngles(0,1,2));
+}
+
+/**
+ * TODO
+ */
+inline Quaterniond eulerAnglesToQuaternion(const Vector3d& v)
+{
+  return Quaterniond(AngleAxisd(v[0], Vector3d::UnitX()) *
+                     AngleAxisd(v[1], Vector3d::UnitY()) *
+                     AngleAxisd(v[2], Vector3d::UnitZ())).normalized();
+}
+
+/**
+ * TODO There are two orientations per quaternion and we want the shorter/smaller difference.
+ */
+inline Quaterniond correctTargetRotation(const Quaterniond& current, const Quaterniond& target)
+{
+  if ((target.normalized()).dot((current.normalized()).conjugate()) < 0.0)
+  {
+    return Quaterniond(-target.w(), -target.x(), -target.y(), -target.z()).normalized();
+  }
+  else
+  {
+    return target.normalized();
+  }
 }
 
 /**

@@ -3,8 +3,8 @@
  *  @brief   Handles publishing of Syropod model info for debugging in RVIZ.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    August 2017
- *  @version 0.5.2
+ *  @date    September 2017
+ *  @version 0.5.4
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -34,17 +34,17 @@ DebugVisualiser::DebugVisualiser(void)
 
 /*******************************************************************************************************************//**
  * Updates the odometry pose of the robot body from velocity inputs
- * @param[in] linear_body_velocity The linear velocity of the robot body in the x/y plane
- * @param[in] angular_body_velocity The angular velocity of the robot body
+ * @param[in] input_linear_body_velocity The linear velocity of the robot body in the x/y plane
+ * @param[in] input_angular_body_velocity The angular velocity of the robot body
  * @param[in] height The desired height of the robot body above ground
 ***********************************************************************************************************************/
-void DebugVisualiser::updatePose(const Vector2d& linear_body_velocity,
-                                 const double& angular_body_velocity, const double& height)
+void DebugVisualiser::updatePose(const Vector2d& input_linear_body_velocity,
+                                 const double& input_angular_body_velocity, const double& height)
 {
-  Vector3d linear_body_velocity_3d = Vector3d(linear_body_velocity[0], linear_body_velocity[1], 0);
-  Vector3d angular_body_velocity_3d = Vector3d(0.0, 0.0, angular_body_velocity);
-  odometry_pose_.position_ += odometry_pose_.rotation_.rotateVector(linear_body_velocity_3d);
-  odometry_pose_.rotation_ *= Quat(angular_body_velocity_3d);
+  Vector3d linear_body_velocity = Vector3d(input_linear_body_velocity[0], input_linear_body_velocity[1], 0);
+  Quaterniond angular_body_velocity = eulerAnglesToQuaternion(Vector3d(0.0, 0.0, input_angular_body_velocity));
+  odometry_pose_.position_ += odometry_pose_.rotation_._transformVector(linear_body_velocity);
+  odometry_pose_.rotation_ *= angular_body_velocity;
   odometry_pose_.position_[2] = height;
 }
 
@@ -70,7 +70,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 
   Pose pose = odometry_pose_;
   Pose current_pose = model->getCurrentPose();
-  pose.position_ += pose.rotation_.rotateVector(current_pose.position_);
+  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
   pose.rotation_ *= current_pose.rotation_;
 
   geometry_msgs::Point point;
@@ -157,7 +157,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& current_pose)
 {
   Pose pose = odometry_pose_;
-  pose.position_ += pose.rotation_.rotateVector(current_pose.position_);
+  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
   pose.rotation_ *= current_pose.rotation_;
 
   visualization_msgs::Marker tip_position_marker;

@@ -3,8 +3,8 @@
  *  @brief   Handles control of Syropod body posing.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    August 2017
- *  @version 0.5.2
+ *  @date    September 2017
+ *  @version 0.5.4
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -30,7 +30,7 @@ PoseController::PoseController(shared_ptr<Model> model, const Parameters& params
 {
   resetAllPosing();
 
-  imu_data_.orientation = Quat::Identity();
+  imu_data_.orientation = Quaterniond::Identity();
   imu_data_.linear_acceleration = Vector3d(0, 0, 0);
   imu_data_.angular_velocity = Vector3d(0, 0, 0);
 
@@ -698,11 +698,13 @@ void PoseController::updateCurrentPose(const double& body_height)
 ***********************************************************************************************************************/
 void PoseController::updateManualPose(void)
 {
+  double time_delta = params_.time_delta.data;
   Vector3d translation_position = manual_pose_.position_;
-  Quat rotation_position = manual_pose_.rotation_;
+  Quaterniond rotation_position = manual_pose_.rotation_;
 
+  /*
   Vector3d default_translation = default_pose_.position_;
-  Vector3d default_rotation = default_pose_.rotation_.toEulerAngles();
+  Vector3d default_rotation = QuaternionToEulerAngles(default_pose_.rotation_);
 
   Vector3d max_translation;
   max_translation[0] = params_.max_translation.data.at("x");
@@ -768,23 +770,26 @@ void PoseController::updateManualPose(void)
 
     if (reset_rotation[i])
     {
-      if (rotation_position.toEulerAngles()[i] < default_rotation[i])
+      if (QuaternionToEulerAngles(rotation_position)[i] < default_rotation[i])
       {
         rotation_velocity_input_[i] = 1.0;
       }
-      else if (rotation_position.toEulerAngles()[i] > default_rotation[i])
+      else if (QuaternionToEulerAngles(rotation_position)[i] > default_rotation[i])
       {
         rotation_velocity_input_[i] = -1.0;
       }
     }
   }
+  */
 
   Vector3d translation_velocity = clamped(translation_velocity_input_, 1.0) * params_.max_translation_velocity.data;
   Vector3d rotation_velocity = clamped(rotation_velocity_input_, 1.0) * params_.max_rotation_velocity.data;
 
-  Vector3d new_translation_position = translation_position + translation_velocity * params_.time_delta.data;
-  Quat new_rotation_position = rotation_position * Quat(Vector3d(rotation_velocity * params_.time_delta.data));
+  Vector3d new_translation_position = translation_position + translation_velocity * time_delta;
+  Quaterniond new_rotation_position = eulerAnglesToQuaternion(rotation_velocity * time_delta) * rotation_position;
+  new_rotation_position = correctTargetRotation(rotation_position, new_rotation_position);
 
+  /*
   Vector3d translation_limit = Vector3d(0, 0, 0);
   Vector3d rotation_limit = Vector3d(0, 0, 0);
 
@@ -811,7 +816,7 @@ void PoseController::updateManualPose(void)
     // Zero velocity when translation position reaches limit
     if (exceeds_positive_translation_limit || exceeds_negative_translation_limit)
     {
-      translation_velocity[i] = (translation_limit[i] - translation_position[i]) / params_.time_delta.data;
+      translation_velocity[i] = (translation_limit[i] - translation_position[i]) / time_delta;
     }
 
     // ROTATION
@@ -825,20 +830,21 @@ void PoseController::updateManualPose(void)
 
     bool positive_rotation_velocity = sign(rotation_velocity[i]) > 0;
     bool exceeds_positive_rotation_limit = positive_rotation_velocity &&
-                                           (new_rotation_position.toEulerAngles()[i] > rotation_limit[i]);
+                                           (QuaternionToEulerAngles(new_rotation_position)[i] > rotation_limit[i]);
     bool exceeds_negative_rotation_limit = !positive_rotation_velocity &&
-                                           (new_rotation_position.toEulerAngles()[i] < rotation_limit[i]);
+                                           (QuaternionToEulerAngles(new_rotation_position)[i] < rotation_limit[i]);
 
     // Zero velocity when rotation position reaches limit
     if (exceeds_positive_rotation_limit || exceeds_negative_rotation_limit)
     {
-      rotation_velocity[i] = (rotation_limit[i] - rotation_position.toEulerAngles()[i]) / params_.time_delta.data;
+      rotation_velocity[i] = (rotation_limit[i] - QuaternionToEulerAngles(rotation_position)[i]) / time_delta;
     }
   }
+  */
 
   // Update position according to limitations
-  manual_pose_.position_ = (translation_position + translation_velocity * params_.time_delta.data);
-  manual_pose_.rotation_ = rotation_position * Quat(Vector3d(rotation_velocity * params_.time_delta.data));
+  manual_pose_.position_ = new_translation_position;//(translation_position + translation_velocity * time_delta);
+  manual_pose_.rotation_ = new_rotation_position;//(eulerAnglesToQuaternion(rotation_velocity * time_delta) * rotation_position).normalized();
   // BUG: ^Adding pitch and roll simultaneously adds unwanted yaw
 }
 
@@ -912,21 +918,14 @@ void PoseController::updateAutoPose(void)
 ***********************************************************************************************************************/
 void PoseController::updateIMUPose(void)
 {
-  Quat target_rotation = manual_pose_.rotation_;
-
-  // There are two orientations per quaternion and we want the shorter/smaller difference.
-  double dot = target_rotation.dot(~imu_data_.orientation);
-  if (dot < 0.0)
-  {
-    target_rotation = -target_rotation;
-  }
+  Quaterniond target_rotation = correctTargetRotation(imu_data_.orientation, manual_pose_.rotation_);
 
   // PID gains
   double kp = params_.rotation_pid_gains.data.at("p");
   double ki = params_.rotation_pid_gains.data.at("i");
   double kd = params_.rotation_pid_gains.data.at("d");
 
-  rotation_position_error_ = imu_data_.orientation.toEulerAngles() - target_rotation.toEulerAngles();
+  rotation_position_error_ = quaternionToEulerAngles(imu_data_.orientation) - quaternionToEulerAngles(target_rotation);
 
   // Integration of angle position error (absement)
   rotation_absement_error_ += rotation_position_error_ * params_.time_delta.data;
@@ -940,7 +939,7 @@ void PoseController::updateIMUPose(void)
                                    kp * rotation_position_error_ +
                                    ki * rotation_absement_error_);
 
-  rotation_correction[2] = target_rotation.toEulerAngles()[2];  // No compensation in yaw rotation
+  rotation_correction[2] = quaternionToEulerAngles(target_rotation)[2];  // No compensation in yaw rotation
 
   if (rotation_correction.norm() > STABILITY_THRESHOLD)
   {
@@ -948,7 +947,7 @@ void PoseController::updateIMUPose(void)
     ros::shutdown();
   }
 
-  imu_pose_.rotation_ = Quat(rotation_correction);
+  imu_pose_.rotation_ = eulerAnglesToQuaternion(rotation_correction);
 }
 
 /*******************************************************************************************************************//**
@@ -958,9 +957,9 @@ void PoseController::updateIMUPose(void)
 ***********************************************************************************************************************/
 void PoseController::updateInclinationPose(const double& body_height)
 {
-  Quat compensation_combined = manual_pose_.rotation_ * auto_pose_.rotation_;
-  Quat compensation_removed = imu_data_.orientation * compensation_combined.inverse();
-  Vector3d euler_angles = compensation_removed.toEulerAngles();
+  Quaterniond compensation_combined = (manual_pose_.rotation_ * auto_pose_.rotation_).normalized();
+  Quaterniond compensation_removed = (imu_data_.orientation * compensation_combined.inverse()).normalized();
+  Vector3d euler_angles = quaternionToEulerAngles(compensation_removed);
 
   double lateral_correction = body_height * tan(euler_angles[0]);
   double longitudinal_correction = -body_height * tan(euler_angles[1]);
@@ -1164,7 +1163,7 @@ Pose AutoPoser::updatePose(int phase)
     Vector3d position = quarticBezier(position_control_nodes, time_input);
     Vector3d rotation = quarticBezier(rotation_control_nodes, time_input);
 
-    return_pose = Pose(position, Quat(rotation));
+    return_pose = Pose(position, eulerAnglesToQuaternion(rotation));
 
     ROS_DEBUG_COND(false,
                    "AUTOPOSE_DEBUG %d - ITERATION: %d\t\t"
@@ -1337,7 +1336,7 @@ int LegPoser::stepToPosition(const Vector3d& target, Pose target_pose,
   // Scales position vector by 0->1.0
   target_pose.position_ *= completion_ratio;
   // Scales rotation quat by 0.0->1.0 (https://en.wikipedia.org/wiki/Slerp)
-  target_pose.rotation_ = Quat::Identity().slerpTo(target_pose.rotation_, completion_ratio);
+  target_pose.rotation_ = Quaterniond::Identity().slerp(completion_ratio, target_pose.rotation_).normalized();
 
   int half_swing_iteration = num_iterations / 2;
 
@@ -1457,7 +1456,7 @@ void LegPoser::updateAutoPose(const int& phase)
 
     Vector3d zero(0.0, 0.0, 0.0);
     Vector3d position_amplitude = poser_->getAutoPose().position_;
-    Vector3d rotation_amplitude = poser_->getAutoPose().rotation_.toEulerAngles();
+    Vector3d rotation_amplitude = quaternionToEulerAngles(poser_->getAutoPose().rotation_);
     Vector3d position_control_nodes[5] = {zero, zero, zero, zero, zero};
     Vector3d rotation_control_nodes[5] = {zero, zero, zero, zero, zero};
 
@@ -1490,7 +1489,7 @@ void LegPoser::updateAutoPose(const int& phase)
     Vector3d rotation = quarticBezier(rotation_control_nodes, time_input);
 
     auto_pose_ = poser_->getAutoPose();
-    auto_pose_ = auto_pose_.removePose(Pose(position, Quat(rotation)));
+    auto_pose_ = auto_pose_.removePose(Pose(position, eulerAnglesToQuaternion(rotation)));
   }
   else
   {

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>syropod_highlevel_controller</name>
-  <version>0.5.2</version>
+  <version>0.5.4</version>
   <description>The syropod_highlevel_controller package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 

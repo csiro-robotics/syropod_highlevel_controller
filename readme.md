@@ -2,7 +2,7 @@
 
 High level controller for CSIRO multi-legged robots (Syropods).
 
-Current version: v0.5.0
+Current version: v0.5.4
 
 Please use readme in launch folder of individual platform for information on setting up platform for use with Syropod High-level Controller.
 
@@ -230,6 +230,6 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Renamed impedance controller to 'admittance controller' and improved to make use of multi-joint effort values
     - Added time limit to cruise control feature for use in running experiments.
 - v0.5.4
-    - Added ability to control desired tip orientation via IK
+    - Removed custom Quat class and instead replaced with Eigen::Quaterniond
     - Removed IMU data transformation - SHC now expects IMU data in ROS REP103 coordinate frame
     - Removed joint offset parameters - SHC now expects all joint offseting to be enacted at the motor driver level

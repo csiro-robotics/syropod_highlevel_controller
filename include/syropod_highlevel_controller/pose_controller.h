@@ -5,8 +5,8 @@
  *  @brief   Handles control of Syropod body posing.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    August 2017
- *  @version 0.5.2
+ *  @date    September 2017
+ *  @version 0.5.4
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -38,13 +38,12 @@
 class AutoPoser;
 
 /*******************************************************************************************************************//**
- * This struct contains data from IMU hardware transformed into the robot frame and in the format of the custom Quat
- * class and Eigen Vector3d class.
+ * This struct contains data from IMU hardware.
 ***********************************************************************************************************************/
 struct ImuData
 {
 public:
-  Quat orientation;
+  Quaterniond orientation;
   Vector3d linear_acceleration;
   Vector3d angular_velocity;
 
@@ -116,9 +115,11 @@ public:
   inline void setPoseResetMode(const PoseResetMode& mode) { pose_reset_mode_ = mode; };
 
   /** Modifier for imu data */
-  inline void setImuData(const Quat& orientation, const Vector3d& linear_acceleration, const Vector3d& angular_velocity)
+  inline void setImuData(const Quaterniond& orientation, 
+                         const Vector3d& linear_acceleration, 
+                         const Vector3d& angular_velocity)
   {
-    imu_data_.orientation = orientation;
+    imu_data_.orientation = orientation.normalized();
     imu_data_.linear_acceleration = linear_acceleration;
     imu_data_.angular_velocity = angular_velocity;
   }

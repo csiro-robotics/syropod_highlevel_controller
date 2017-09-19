@@ -3,8 +3,8 @@
  *  @brief   Top level controller that handles state of Syropod.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    August 2017
- *  @version 0.5.2
+ *  @date    September 2017
+ *  @version 0.5.4
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -692,13 +692,13 @@ void StateController::publishLegState(void)
 
     // Leg specific auto pose
     Vector3d position = leg_poser->getAutoPose().position_;
-    Quat rotation = leg_poser->getAutoPose().rotation_;
+    Quaterniond rotation = leg_poser->getAutoPose().rotation_;
     msg.auto_pose.linear.x = position[0];
     msg.auto_pose.linear.y = position[1];
     msg.auto_pose.linear.z = position[2];
-    msg.auto_pose.angular.x = rotation.toEulerAngles()[0];
-    msg.auto_pose.angular.y = rotation.toEulerAngles()[1];
-    msg.auto_pose.angular.z = rotation.toEulerAngles()[2];
+    msg.auto_pose.angular.x = quaternionToEulerAngles(rotation)[0];
+    msg.auto_pose.angular.y = quaternionToEulerAngles(rotation)[1];
+    msg.auto_pose.angular.z = quaternionToEulerAngles(rotation)[2];
 
     // Impedance controller
     msg.tip_force.data = leg->getTipForce()[2];
@@ -741,13 +741,13 @@ void StateController::publishPose(void)
 {
   geometry_msgs::Twist msg;
   Vector3d position = model_->getCurrentPose().position_;
-  Quat rotation = model_->getCurrentPose().rotation_;
+  Quaterniond rotation = model_->getCurrentPose().rotation_;
   msg.linear.x = position[0];
   msg.linear.y = position[1];
   msg.linear.z = position[2];
-  msg.angular.x = rotation.toEulerAngles()[0];
-  msg.angular.y = rotation.toEulerAngles()[1];
-  msg.angular.z = rotation.toEulerAngles()[2];
+  msg.angular.x = quaternionToEulerAngles(rotation)[0];
+  msg.angular.y = quaternionToEulerAngles(rotation)[1];
+  msg.angular.z = quaternionToEulerAngles(rotation)[2];
   pose_publisher_.publish(msg);
 }
 
@@ -759,16 +759,16 @@ void StateController::publishIMUData(void)
   sensor_msgs::Imu msg;
   msg.header.stamp = ros::Time::now();
   msg.header.frame_id = "shc_imu_link";
-  msg.orientation.w = poser_->getImuData().orientation.w_;
-  msg.orientation.x = poser_->getImuData().orientation.x_;
-  msg.orientation.y = poser_->getImuData().orientation.y_;
-  msg.orientation.z = poser_->getImuData().orientation.z_;
+  msg.orientation.w = poser_->getImuData().orientation.w();
+  msg.orientation.x = poser_->getImuData().orientation.x();
+  msg.orientation.y = poser_->getImuData().orientation.y();
+  msg.orientation.z = poser_->getImuData().orientation.z();
   msg.angular_velocity.x = poser_->getImuData().angular_velocity[0];
   msg.angular_velocity.y = poser_->getImuData().angular_velocity[1];
   msg.angular_velocity.z = poser_->getImuData().angular_velocity[2];
   msg.linear_acceleration.x = poser_->getImuData().linear_acceleration[0];
-  msg.linear_acceleration.x = poser_->getImuData().linear_acceleration[1];
-  msg.linear_acceleration.x = poser_->getImuData().linear_acceleration[2];
+  msg.linear_acceleration.y = poser_->getImuData().linear_acceleration[1];
+  msg.linear_acceleration.z = poser_->getImuData().linear_acceleration[2];
   imu_data_publisher_.publish(msg);
 }
 
@@ -1326,7 +1326,7 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
     Quaterniond orientation(data.orientation.w, data.orientation.x, data.orientation.y, data.orientation.z);
     Vector3d angular_velocity(data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z);
     Vector3d linear_acceleration(data.linear_acceleration.x, data.linear_acceleration.y, data.linear_acceleration.z);
-    poser_->setImuData(Quat(orientation), linear_acceleration, angular_velocity);
+    poser_->setImuData(orientation, linear_acceleration, angular_velocity);
   }
 }
 
