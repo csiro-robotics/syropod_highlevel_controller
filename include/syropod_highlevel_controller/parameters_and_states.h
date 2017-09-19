@@ -274,7 +274,6 @@ struct Parameters
   // Motor Interface parameters
   Parameter<bool> individual_control_interface;   ///< Flag requesting the individual desired joint position format.
   Parameter<bool> combined_control_interface;     ///< Flag requesting the combined desired joint position format.
-  Parameter<vector<double>> imu_rotation_offset;  ///< Vector describing the physical rotation of any onboard IMU.
 
   // Model parameters
   Parameter<string> syropod_type;                 ///< The type of the robot described by these parameters.

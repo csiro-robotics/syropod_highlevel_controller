@@ -492,7 +492,6 @@ public:
 
   ros::Publisher desired_position_publisher_; ///< The ros publisher for publishing desired position values.
 
-  const double position_offset_;   ///< The offset between the zero positions of the robot model and actuating motor.
   const double min_position_;      ///< The minimum position allowed for this joint.
   const double max_position_;      ///< The maximum position allowed for this joint.
   const double packed_position_;   ///< The defined position of this joint in a 'packed' state.

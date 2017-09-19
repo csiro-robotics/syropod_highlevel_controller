@@ -633,7 +633,7 @@ void StateController::publishDesiredJointState(void)
       {
         shared_ptr<Joint> joint = joint_it->second;
         std_msgs::Float64 position_command_msg;
-        position_command_msg.data = joint->desired_position_ + joint->position_offset_;
+        position_command_msg.data = joint->desired_position_;
         joint->desired_position_publisher_.publish(position_command_msg);
       }
     }
@@ -1316,39 +1316,16 @@ void StateController::dynamicParameterCallback(syropod_highlevel_controller::Dyn
 }
 
 /*******************************************************************************************************************//**
- * Callback handling the transformation of IMU data from imu frame to base link frame
+ * Callback handling input IMU data
  * @param[in] data The Imu sensor message provided by the subscribed ros topic "/imu/data"
 ***********************************************************************************************************************/
 void StateController::imuCallback(const sensor_msgs::Imu& data)
 {
   if (system_state_ != SUSPENDED && poser_ != NULL)
   {
-    sensor_msgs::Imu imu_out;
-    imu_out.header.stamp = ros::Time::now();
-
-    tf2::Quaternion q;
-    double roll = params_.imu_rotation_offset.data[0];
-    double pitch = params_.imu_rotation_offset.data[1];
-    double yaw = params_.imu_rotation_offset.data[2];
-    q.setRPY(roll, pitch, yaw);
-
-    // Discard translation, only use orientation for IMU transform
-    Quaterniond rotation(q.w(), q.x(), q.y(), q.z());
-    Transform<double, 3, Affine> transform(rotation);
-
-    Quaterniond orientation = rotation * Quaterniond(data.orientation.w,
-                                                     data.orientation.x,
-                                                     data.orientation.y,
-                                                     data.orientation.z) * rotation.inverse();
-
-    Vector3d angular_velocity = transform * Vector3d(data.angular_velocity.x,
-                                                     data.angular_velocity.y,
-                                                     data.angular_velocity.z);
-
-    Vector3d linear_acceleration = transform * Vector3d(data.linear_acceleration.x,
-                                                        data.linear_acceleration.y,
-                                                        data.linear_acceleration.z);
-
+    Quaterniond orientation(data.orientation.w, data.orientation.x, data.orientation.y, data.orientation.z);
+    Vector3d angular_velocity(data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z);
+    Vector3d linear_acceleration(data.linear_acceleration.x, data.linear_acceleration.y, data.linear_acceleration.z);
     poser_->setImuData(Quat(orientation), linear_acceleration, angular_velocity);
   }
 }
@@ -1373,7 +1350,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
       shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
       if (joint != NULL)
       {
-        joint->current_position_ = joint_states.position[i] - joint->position_offset_;
+        joint->current_position_ = joint_states.position[i];
         if (get_velocity_values)
         {
           joint->current_velocity_ = joint_states.velocity[i];
@@ -1539,7 +1516,6 @@ void StateController::initParameters(void)
   // Hardware interface parameters
   params_.individual_control_interface.init(n_, "individual_control_interface");
   params_.combined_control_interface.init(n_, "combined_control_interface");
-  params_.imu_rotation_offset.init(n_, "imu_rotation_offset");
   // Model parameters
   params_.syropod_type.init(n_, "syropod_type");
   params_.leg_id.init(n_, "leg_id");

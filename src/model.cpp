@@ -530,7 +530,6 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
   , reference_link_(reference_link)
   , id_number_(id_number)
   , id_name_(leg->getIDName() + "_" + params.joint_id.data[id_number_ - 1] + "_joint")
-  , position_offset_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("offset"))
   , min_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("min"))
   , max_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max"))
   , packed_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("packed"))
@@ -545,8 +544,8 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
                                          reference_link_->dh_parameter_alpha_);
     current_transform_ = identity_transform_;
     ROS_DEBUG("\n%s has been initialised with parameters:"
-              "offset: %f, min: %f, max: %f, packed: %f, unpacked: %f, max_vel: %f.\n",
-              id_name_.c_str(), position_offset_, min_position_, max_position_,
+              "min: %f, max: %f, packed: %f, unpacked: %f, max_vel: %f.\n",
+              id_name_.c_str(), min_position_, max_position_,
               packed_position_, unpacked_position_, max_angular_speed_);
   }
   else

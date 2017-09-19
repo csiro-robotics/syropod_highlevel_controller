@@ -229,6 +229,7 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
 - v0.5.3
     - Renamed impedance controller to 'admittance controller' and improved to make use of multi-joint effort values
     - Added time limit to cruise control feature for use in running experiments.
-
-
-
+- v0.5.4
+    - Added ability to control desired tip orientation via IK
+    - Removed IMU data transformation - SHC now expects IMU data in ROS REP103 coordinate frame
+    - Removed joint offset parameters - SHC now expects all joint offseting to be enacted at the motor driver level
