@@ -21,7 +21,6 @@
 
 #include "standard_includes.h"
 #include "parameters_and_states.h"
-#include "quat.h"
 #include "pose.h"
 
 #include "model.h"
@@ -225,7 +224,6 @@ public:
    * Generates a manual pose to be applied to the robot model, based on linear (x/y/z) and angular (roll/pitch/yaw)
    * velocity body posing inputs. Clamps the posing within set limits and resets the pose to zero in specified axes
    * depending on the pose reset mode.
-   * @bug Adding pitch and roll simultaneously adds unwanted yaw - fixed by moving away from using quat.h
    */
   void updateManualPose(void);
 
@@ -280,7 +278,7 @@ private:
   int current_group_ = 0;                 ///< The current leg group executing a stepping maneuver.
 
   bool recalculate_default_pose_ = true;  ///< Determines if the default pose needs to be recalculated.
-
+  
   Pose manual_pose_;      ///< User controlled manual body pose, a component of total applied body pose.
   Pose auto_pose_;        ///< Cyclical custom automatic body pose, a component of total applied body pose.
   Pose imu_pose_;         ///< IMU feedback based automatic body pose, a component of total applied body pose.

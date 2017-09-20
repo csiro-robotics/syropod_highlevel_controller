@@ -19,67 +19,107 @@
  *
 ***********************************************************************************************************************/
 
-#include "quat.h"
-
 /*******************************************************************************************************************//**
- * 3d orientation and position
+ * Class defining a 3d position and rotation using Eigen Vector3 and Quaternion classes
 ***********************************************************************************************************************/
 class Pose
 {
 public:
+  
+  /**
+   * Blank contructor
+   */
   inline Pose(void) {};
+  
+  /**
+   * Pose class constructor
+   */
   inline Pose(const Vector3d& position, const Quaterniond& rotation)
   {
     position_ = position;
     rotation_ = rotation.normalized();
   };
   
-  inline Pose operator*(const Quaterniond& quat) const 
-  { 
-    return Pose(position_, rotation_ * quat);
-  }
-  
-  inline Vector3d operator*(const Vector3d& vector) const 
-  { 
-    return position_ + rotation_._transformVector(vector); 
-  }
-  
+  /**
+   * Operator to check if two poses are equivalent
+   * @params[in] pose The pose that is checked for equivalency against *this
+   */
   inline bool operator==(const Pose& pose)
   { 
     return (position_ == pose.position_ && rotation_.isApprox(pose.rotation_));
   }
 
+  /**
+   * Operator to check if two poses are NOT equivalent
+   * @params[in] pose The pose that is checked for non-equivalency against *this
+   */
   inline bool operator!=(const Pose& pose)
   {
     return (position_ != pose.position_ || !rotation_.isApprox(pose.rotation_));
   }
 
+  /**
+   * Returns inverse of pose
+   */
   inline Pose operator~(void) const 
   { 
     return Pose((rotation_.conjugate())._transformVector(-position_), rotation_.conjugate());
   }
   
+  /**
+   * Transforms an input position into the reference frame of this pose.
+   * @params[in] vec The input vector to be transformed into this pose's reference frame.
+   */
   inline Vector3d transformVector(const Vector3d& vec) const 
   { 
     return position_ + rotation_._transformVector(vec);
   };
   
+  /**
+   * Transforms an input position vector from the reference frame of this pose.
+   * @params[in] vec The input vector to be transformed from this pose's reference frame.
+   */
   inline Vector3d inverseTransformVector(const Vector3d& vec) const 
   { 
     return (~*this).transformVector(vec);
   };
-  inline void normalize(void) { rotation_.normalize(); }; // Normalise in-place
-  inline Pose addPose(const Pose& pose) { return Pose(position_ + pose.position_, rotation_ * pose.rotation_); };
+  
+  /**
+   * Adds input pose to *this pose
+   * @params[in] pose The pose to add from *this pose
+   */
+  inline Pose addPose(const Pose& pose) 
+  {
+    return Pose(position_ + pose.position_, rotation_ * pose.rotation_);
+  }
+  
+  /**
+   * Removes input pose from *this pose
+   * @params[in] pose The pose to remove from *this pose
+   */
   inline Pose removePose (const Pose& pose)
   { 
     return Pose(position_ - pose.position_, rotation_ * pose.rotation_.inverse());
   };
   
-  inline static Pose identity(void) { return Pose(Vector3d(0, 0, 0), Quaterniond(1, 0, 0, 0)); };
-  inline static Pose zero(void) { return Pose(Vector3d(0, 0, 0), Quaterniond(0, 0, 0, 0)); };
+  /**
+   * Returns pose with position and rotation elements set to identity values.
+   */
+  inline static Pose identity(void) 
+  { 
+    return Pose(Vector3d(0, 0, 0), Quaterniond(1, 0, 0, 0)); 
+  }
   
-  Vector3d position_;
-  Quaterniond rotation_;
+  /**
+   * Returns pose with position and rotation elements all set to zero.
+   */
+  inline static Pose zero(void) 
+  { 
+    return Pose(Vector3d(0, 0, 0), Quaterniond(0, 0, 0, 0));
+  }
+  
+  Vector3d position_;     ///< The position element of the pose class
+  Quaterniond rotation_;  ///< The rotation element of the pose class
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

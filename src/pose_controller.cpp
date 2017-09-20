@@ -694,47 +694,45 @@ void PoseController::updateCurrentPose(const double& body_height)
  * Generates a manual pose to be applied to the robot model, based on linear (x/y/z) and angular (roll/pitch/yaw)
  * velocity body posing inputs. Clamps the posing within set limits and resets the pose to zero in specified axes
  * depending on the pose reset mode.
- * @bug Adding pitch and roll simultaneously adds unwanted yaw - fixed by moving away from using quat.h
 ***********************************************************************************************************************/
 void PoseController::updateManualPose(void)
 {
   double time_delta = params_.time_delta.data;
-  Vector3d translation_position = manual_pose_.position_;
-  Quaterniond rotation_position = manual_pose_.rotation_;
+  Vector3d current_position = manual_pose_.position_;
+  Vector3d current_rotation = quaternionToEulerAngles(manual_pose_.rotation_);
+  Vector3d default_position = default_pose_.position_;
+  Vector3d default_rotation = quaternionToEulerAngles(default_pose_.rotation_);
+  Vector3d max_position(params_.max_translation.data.at("x"),
+                        params_.max_translation.data.at("y"),
+                        params_.max_translation.data.at("z"));
+  Vector3d max_rotation(params_.max_rotation.data.at("roll"),
+                        params_.max_rotation.data.at("pitch"),
+                        params_.max_rotation.data.at("yaw"));
 
-  /*
-  Vector3d default_translation = default_pose_.position_;
-  Vector3d default_rotation = QuaternionToEulerAngles(default_pose_.rotation_);
+  Vector3d translation_limit;
+  Vector3d rotation_limit;
+  Vector3d translation_velocity;
+  Vector3d rotation_velocity;
+  Vector3d desired_position;
+  Vector3d desired_rotation;
 
-  Vector3d max_translation;
-  max_translation[0] = params_.max_translation.data.at("x");
-  max_translation[1] = params_.max_translation.data.at("y");
-  max_translation[2] = params_.max_translation.data.at("z");
-  Vector3d max_rotation;
-  max_rotation[0] = params_.max_rotation.data.at("roll");
-  max_rotation[1] = params_.max_rotation.data.at("pitch");
-  max_rotation[2] = params_.max_rotation.data.at("yaw");
-
+  // Populate axis reset values from pose reset mode
   bool reset_translation[3] = { false, false, false };
   bool reset_rotation[3] = { false, false, false };
-
   switch (pose_reset_mode_)
   {
     case (Z_AND_YAW_RESET):
       reset_translation[2] = true;
       reset_rotation[2] = true;
       break;
-
     case (X_AND_Y_RESET):
       reset_translation[0] = true;
       reset_translation[1] = true;
       break;
-
     case (PITCH_AND_ROLL_RESET):
       reset_rotation[0] = true;
       reset_rotation[1] = true;
       break;
-
     case (ALL_RESET):
       reset_translation[0] = true;
       reset_translation[1] = true;
@@ -743,13 +741,11 @@ void PoseController::updateManualPose(void)
       reset_rotation[1] = true;
       reset_rotation[2] = true;
       break;
-
     case (IMMEDIATE_ALL_RESET):
       manual_pose_ = default_pose_;
       return;
-
     case (NO_RESET):  // Do nothing
-    default:  // Do nothing
+    default:
       break;
   }
 
@@ -758,11 +754,12 @@ void PoseController::updateManualPose(void)
   {
     if (reset_translation[i])
     {
-      if (translation_position[i] < default_translation[i])
+      double diff = current_position[i] - default_position[i];
+      if (diff < 0)
       {
         translation_velocity_input_[i] = 1.0;
       }
-      else if (translation_position[i] > default_translation[i])
+      else if (diff > 0)
       {
         translation_velocity_input_[i] = -1.0;
       }
@@ -770,53 +767,43 @@ void PoseController::updateManualPose(void)
 
     if (reset_rotation[i])
     {
-      if (QuaternionToEulerAngles(rotation_position)[i] < default_rotation[i])
+      double diff = current_rotation[i] - default_rotation[i];
+      if (diff < 0)
       {
         rotation_velocity_input_[i] = 1.0;
       }
-      else if (QuaternionToEulerAngles(rotation_position)[i] > default_rotation[i])
+      else if (diff > 0)
       {
         rotation_velocity_input_[i] = -1.0;
       }
     }
-  }
-  */
 
-  Vector3d translation_velocity = clamped(translation_velocity_input_, 1.0) * params_.max_translation_velocity.data;
-  Vector3d rotation_velocity = clamped(rotation_velocity_input_, 1.0) * params_.max_rotation_velocity.data;
+    translation_velocity[i] = translation_velocity_input_[i] * params_.max_translation_velocity.data;
+    rotation_velocity[i] = rotation_velocity_input_[i] * params_.max_rotation_velocity.data;
 
-  Vector3d new_translation_position = translation_position + translation_velocity * time_delta;
-  Quaterniond new_rotation_position = eulerAnglesToQuaternion(rotation_velocity * time_delta) * rotation_position;
-  new_rotation_position = correctTargetRotation(rotation_position, new_rotation_position);
+    desired_position[i] = current_position[i] + translation_velocity[i] * time_delta;
+    desired_rotation[i] = current_rotation[i] + rotation_velocity[i] * time_delta;
 
-  /*
-  Vector3d translation_limit = Vector3d(0, 0, 0);
-  Vector3d rotation_limit = Vector3d(0, 0, 0);
-
-  // Zero velocity input depending on position limitations
-  for (int i = 0; i < 3; i++)  // For each axis (x,y,z)/(roll,pitch,yaw)
-  {
+    // Zero velocity input depending on position limitations
     // TRANSLATION
     // Assign correct translation limit based on velocity direction and reset command
-    translation_limit[i] = sign(translation_velocity[i]) * max_translation[i];
+    translation_limit[i] = sign(translation_velocity[i]) * max_position[i];
 
-    if (reset_translation[i] &&
-        default_translation[i] < max_translation[i] &&
-        default_translation[i] > -max_translation[i])
+    if (reset_translation[i] && default_position[i] < max_position[i] && default_position[i] > -max_position[i])
     {
-      translation_limit[i] = default_translation[i];
+      translation_limit[i] = default_position[i];
     }
 
     bool positive_translation_velocity = sign(translation_velocity[i]) > 0;
     bool exceeds_positive_translation_limit = positive_translation_velocity &&
-                                              (new_translation_position[i] > translation_limit[i]);
+                                              desired_position[i] > translation_limit[i];
     bool exceeds_negative_translation_limit = !positive_translation_velocity &&
-                                              (new_translation_position[i] < translation_limit[i]);
+                                              desired_position[i] < translation_limit[i];
 
     // Zero velocity when translation position reaches limit
     if (exceeds_positive_translation_limit || exceeds_negative_translation_limit)
     {
-      translation_velocity[i] = (translation_limit[i] - translation_position[i]) / time_delta;
+      translation_velocity[i] = (translation_limit[i] - current_position[i]) / time_delta;
     }
 
     // ROTATION
@@ -830,22 +817,23 @@ void PoseController::updateManualPose(void)
 
     bool positive_rotation_velocity = sign(rotation_velocity[i]) > 0;
     bool exceeds_positive_rotation_limit = positive_rotation_velocity &&
-                                           (QuaternionToEulerAngles(new_rotation_position)[i] > rotation_limit[i]);
+                                           desired_rotation[i] > rotation_limit[i];
     bool exceeds_negative_rotation_limit = !positive_rotation_velocity &&
-                                           (QuaternionToEulerAngles(new_rotation_position)[i] < rotation_limit[i]);
+                                           desired_rotation[i] < rotation_limit[i];
 
     // Zero velocity when rotation position reaches limit
     if (exceeds_positive_rotation_limit || exceeds_negative_rotation_limit)
     {
-      rotation_velocity[i] = (rotation_limit[i] - QuaternionToEulerAngles(rotation_position)[i]) / time_delta;
+      rotation_velocity[i] = (rotation_limit[i] - current_rotation[i]) / time_delta;
     }
+    
+    desired_position[i] = current_position[i] + translation_velocity[i] * time_delta;
+    desired_rotation[i] = current_rotation[i] + rotation_velocity[i] * time_delta;
   }
-  */
 
   // Update position according to limitations
-  manual_pose_.position_ = new_translation_position;//(translation_position + translation_velocity * time_delta);
-  manual_pose_.rotation_ = new_rotation_position;//(eulerAnglesToQuaternion(rotation_velocity * time_delta) * rotation_position).normalized();
-  // BUG: ^Adding pitch and roll simultaneously adds unwanted yaw
+  manual_pose_.position_ = desired_position;
+  manual_pose_.rotation_ = eulerAnglesToQuaternion(desired_rotation);
 }
 
 /*******************************************************************************************************************//**

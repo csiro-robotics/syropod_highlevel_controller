@@ -142,36 +142,63 @@ inline double setPrecision(const double& value, const int& precision)
 }
 
 /**
- * TODO
- */
-inline Vector3d quaternionToEulerAngles(const Quaterniond& q)
-{
-  return ((q.normalized()).toRotationMatrix().eulerAngles(0,1,2));
-}
-
-/**
- * TODO
- */
-inline Quaterniond eulerAnglesToQuaternion(const Vector3d& v)
-{
-  return Quaterniond(AngleAxisd(v[0], Vector3d::UnitX()) *
-                     AngleAxisd(v[1], Vector3d::UnitY()) *
-                     AngleAxisd(v[2], Vector3d::UnitZ())).normalized();
-}
-
-/**
- * TODO There are two orientations per quaternion and we want the shorter/smaller difference.
+ * Return rotation with shorter path between identical rotations on quaternion. //TODO Remove?
+ * @params[in] current The reference rotation for the target rotation.
+ * @params[in] target The target rotation to check for shorter rotation path.
  */
 inline Quaterniond correctTargetRotation(const Quaterniond& current, const Quaterniond& target)
 {
-  if ((target.normalized()).dot((current.normalized()).conjugate()) < 0.0)
+  if (current.dot(target) < 0.0)
   {
-    return Quaterniond(-target.w(), -target.x(), -target.y(), -target.z()).normalized();
+    return Quaterniond(-target.w(), -target.x(), -target.y(), -target.z());
   }
   else
   {
-    return target.normalized();
+    return target;
   }
+}
+
+/**
+ * Converts Eigen Quaternion to Euler angles (extrinsic roll/pitch/yaw order)
+ * @params[in] q Eigen Quaterniond of rotation to be converted
+ */
+inline Vector3d quaternionToEulerAngles(const Quaterniond& q)
+{
+  Vector3d euler = (q.normalized()).toRotationMatrix().eulerAngles(0,1,2);
+  // Convert Eigen Euler Angles into +-PI ranges //TODO Refactor
+  if (euler[0] > M_PI/2.0)
+  {
+    euler[0] -= M_PI;
+    if (euler[1] > M_PI/2.0)
+    {
+      euler[1] = -euler[1] + M_PI;
+    }
+    else if (euler[1] < M_PI/2.0)
+    {
+      euler[1] = -euler[1] - M_PI;
+    }
+    if (euler[2] > M_PI/2.0)
+    {
+      euler[2] -= M_PI;
+    }
+    else if (euler[2] < M_PI/2.0)
+    {
+      euler[2] += M_PI;
+    }
+  };
+  return euler;
+}
+
+/**
+ * Converts Euler Angles (extrinsic roll/pitch/yaw order) to Eigen Quaternion
+ * @param[in] v Eigen Vector3d of Euler angles (roll, pitch, yaw) to be converted
+ */
+inline Quaterniond eulerAnglesToQuaternion(const Vector3d& v)
+{
+  Quaterniond q = Quaterniond(AngleAxisd(v[0], Vector3d::UnitX()) *
+                              AngleAxisd(v[1], Vector3d::UnitY()) *
+                              AngleAxisd(v[2], Vector3d::UnitZ()));
+  return correctTargetRotation(Quaterniond::Identity(), q);
 }
 
 /**

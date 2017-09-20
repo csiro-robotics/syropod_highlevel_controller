@@ -21,7 +21,6 @@
 
 #include "standard_includes.h"
 #include "parameters_and_states.h"
-#include "quat.h"
 #include "pose.h"
 #include "syropod_highlevel_controller/LegState.h"
 
