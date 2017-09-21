@@ -77,9 +77,6 @@ public:
   /** Accessor for step clearance. */
   inline double getStepClearance(void) { return step_clearance_; };
 
-  /** Accessor for step depth. */
-  inline double getStepDepth(void) { return step_depth_; };
-
   /** Accessor for default body clearance above ground. */
   inline double getBodyHeight(void) { return body_clearance_; };
 
@@ -91,6 +88,9 @@ public:
 
   /** Accessor for walk cycle state. */
   inline WalkState getWalkState(void) { return walk_state_; };
+  
+  /** Accessor for workspace map. */
+  inline map<int, double> getWorkspaceMap(void) { return workspace_map_; };
 
   /**
     * Modifier for posing state.

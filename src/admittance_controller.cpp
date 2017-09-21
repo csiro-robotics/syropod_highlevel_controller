@@ -64,7 +64,7 @@ void AdmittanceController::updateAdmittance(const bool& use_joint_effort)
       leg->calculateTipForce();
     }
 
-    double force_input = min(leg->getTipForce()[2], 0.0); // Use vertical component of tip force vector //TODO
+    double force_input = max(leg->getTipForce()[2], 0.0); // Use vertical component of tip force vector //TODO
     double damping = leg->getVirtualDampingRatio();
     double stiffness = leg->getVirtualStiffness();
     double mass = leg->getVirtualMass();
@@ -82,7 +82,7 @@ void AdmittanceController::updateAdmittance(const bool& use_joint_effort)
                     0.0,
                     step_time,
                     step_time / 30);
-    leg->setDeltaZ((*admittance_state)[0]);
+    leg->setDeltaZ(clamped(-(*admittance_state)[0], -0.05, 0.05));
   }
 }
 

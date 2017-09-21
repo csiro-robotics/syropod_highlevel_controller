@@ -278,7 +278,6 @@ void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z
 ***********************************************************************************************************************/
 void Leg::calculateTipForce(void)
 {
-  bool ignore_tip_orientation = true; //TODO Implement rotation to tip frame
   shared_ptr<Joint> first_joint = joint_container_.begin()->second;
 
   Vector3d pe = tip_->getTransformFrom(first_joint).block<3, 1>(0, 3);
@@ -287,7 +286,7 @@ void Leg::calculateTipForce(void)
 
   MatrixXd jacobian(6, joint_count_);
   jacobian.block<3, 1>(0, 0) = z0.cross(pe - p0); //Linear velocity
-  jacobian.block<3, 1>(3, 0) = ignore_tip_orientation ? Vector3d(0, 0, 0) : z0; //Angular velocity
+  jacobian.block<3, 1>(3, 0) = z0; //Angular velocity
 
   VectorXd joint_torques(joint_count_);
   joint_torques[0] = first_joint->current_effort_;
@@ -300,15 +299,17 @@ void Leg::calculateTipForce(void)
     shared_ptr<Joint> joint = joint_it->second;
     Matrix4d t = joint->getTransformFrom(first_joint);
     jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); //Linear velocity
-    jacobian.block<3, 1>(3, i) = ignore_tip_orientation ? Vector3d(0, 0, 0) : t.block<3, 1>(0, 2); //Angular velocity
+    jacobian.block<3, 1>(3, i) = t.block<3, 1>(0, 2); //Angular velocity
     joint_torques[i] = joint->current_effort_;
   }
 
   // Transpose and invert jacobian
-  MatrixXd identity = Matrix<double, 5, 5>::Identity();
-  MatrixXd jacobian_inverse = jacobian * ((jacobian.transpose()*jacobian + sqr(DLS_COEFFICIENT) * identity).inverse());
+  MatrixXd identity = MatrixXd::Identity(joint_count_, joint_count_);
+  MatrixXd transformation = jacobian * ((jacobian.transpose()*jacobian + sqr(DLS_COEFFICIENT) * identity).inverse());
   
-  VectorXd raw_tip_force = jacobian_inverse * joint_torques;
+  VectorXd raw_tip_force_leg_frame = transformation * joint_torques;
+  Quaterniond rotation = first_joint->getRotationJointFrame();
+  VectorXd raw_tip_force = rotation._transformVector(raw_tip_force_leg_frame.block<3, 1>(0, 0));
   
   // Low pass filter and force gain applied to calculated raw tip force
   double s = 0.15; // Smoothing Factor

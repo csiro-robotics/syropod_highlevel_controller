@@ -218,7 +218,7 @@ void WalkController::generateWorkspace(void)
       // Display workspace generation
       if (params_.debug_rviz.data && params_.debug_rviz_static_display.data)
       {
-        debug_visualiser_->generateWorkspace(workspace_map_, model_);
+        debug_visualiser_->generateWorkspace(leg, workspace_map_);
         ros::spinOnce();
       }
     }

@@ -77,10 +77,10 @@ public:
 
   /**
    * Publises visualisation markers which represent the workspace for each leg.
+   * @param[in] leg A pointer to a leg of the robot model object
    * @param[in] workspace_map A map of worksapce radii for a range of bearings
-   * @param[in] model A pointer to the robot model object
    */
-  void generateWorkspace(map<int, double> workspace_map, shared_ptr<Model> model);
+  void generateWorkspace(shared_ptr<Leg> leg, map<int, double> workspace_map);
 
   /**
    * Publishes visualisation markers which represent requested stride vector for each leg.

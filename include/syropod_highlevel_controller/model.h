@@ -481,6 +481,20 @@ public:
     result = transform.inverse() * result;
     return Vector3d(result[0], result[1], result[2]);
   };
+  
+  /**
+    * Returns the rotation of (or a rotation relative to) the origin of the robot model in the frame of this joint.
+    * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
+    * zero position for all joints in the kinematic chain.
+    * @param[in] robot_frame_rotation The rotation relative to the robot frame that is requested in the joint frame.
+    */
+  inline Quaterniond getRotationJointFrame(const bool& zero = false,
+                                           const Quaterniond robot_frame_rotation = Quaterniond::Identity()) const
+  {
+    Matrix3d rotation_matrix;
+    rotation_matrix = getBaseTransform(zero).block<3, 3>(0, 0);
+    return (Quaterniond(rotation_matrix).inverse() * robot_frame_rotation).normalized();
+  };
 
   const shared_ptr<Leg> parent_leg_;      ///< A pointer to the parent leg object associated with this joint.
   const shared_ptr<Link> reference_link_; ///< A pointer to the reference Link object associated with this joint.

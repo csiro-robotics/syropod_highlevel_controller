@@ -202,7 +202,6 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_1_nodes.color.g = 1; //YELLOW
   swing_1_nodes.color.r = 1;
   swing_1_nodes.color.a = 1;
-  swing_1_nodes.lifetime = ros::Duration(time_delta_);
 
   visualization_msgs::Marker swing_2_nodes;
   swing_2_nodes.header.frame_id = "/fixed_frame";
@@ -217,7 +216,6 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_2_nodes.color.r = 1; //YELLOW
   swing_2_nodes.color.g = 1;
   swing_2_nodes.color.a = 1;
-  swing_2_nodes.lifetime = ros::Duration(time_delta_);
 
   visualization_msgs::Marker stance_nodes;
   stance_nodes.header.frame_id = "/fixed_frame";
@@ -230,7 +228,6 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   stance_nodes.color.r = 1; //YELLOW
   stance_nodes.color.g = 1;
   stance_nodes.color.a = 1;
-  stance_nodes.lifetime = ros::Duration(time_delta_);
 
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
@@ -270,52 +267,47 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
 
 /*******************************************************************************************************************//**
   * Publises visualisation markers which represent the workspace for each leg.
+  * @param[in] leg A pointer to a leg of the robot model object
   * @param[in] workspace_map A map of worksapce radii for a range of bearings
-  * @param[in] model A pointer to the robot model object
 ***********************************************************************************************************************/
-void DebugVisualiser::generateWorkspace(map<int, double> workspace_map, shared_ptr<Model> model)
+void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> workspace_map)
 {
-  LegContainer::iterator leg_it;
-  for (leg_it = model->getLegContainer()->begin(); leg_it != model->getLegContainer()->end(); ++leg_it)
-  {
-    shared_ptr<Leg> leg = leg_it->second;
-    visualization_msgs::Marker workspace;
-    workspace.header.frame_id = "/fixed_frame";
-    workspace.header.stamp = ros::Time::now();
-    workspace.ns = "workspace_markers";
-    workspace.id = WORKSPACE_ID + leg->getIDNumber();
-    workspace.type = visualization_msgs::Marker::LINE_STRIP;
-    workspace.action = visualization_msgs::Marker::ADD;
-    workspace.scale.x = 0.002;
-    workspace.color.g = 1;
-    workspace.color.b = 1;
-    workspace.color.a = 1;
+  visualization_msgs::Marker workspace;
+  workspace.header.frame_id = "/fixed_frame";
+  workspace.header.stamp = ros::Time::now();
+  workspace.ns = "workspace_markers";
+  workspace.id = WORKSPACE_ID + leg->getIDNumber();
+  workspace.type = visualization_msgs::Marker::LINE_STRIP;
+  workspace.action = visualization_msgs::Marker::ADD;
+  workspace.scale.x = 0.002;
+  workspace.color.g = 1;
+  workspace.color.b = 1;
+  workspace.color.a = 1;
 
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    geometry_msgs::Point origin_point;
-    origin_point.x = leg_stepper->getDefaultTipPosition()[0];
-    origin_point.y = leg_stepper->getDefaultTipPosition()[1];
-    origin_point.z = 0.0;
-    map<int, double>::iterator it;
-    geometry_msgs::Point first_point;
-    for (it = workspace_map.begin(); it != workspace_map.end(); ++it)
+  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+  geometry_msgs::Point origin_point;
+  origin_point.x = leg_stepper->getDefaultTipPosition()[0];
+  origin_point.y = leg_stepper->getDefaultTipPosition()[1];
+  origin_point.z = 0.0;
+  map<int, double>::iterator it;
+  geometry_msgs::Point first_point;
+  for (it = workspace_map.begin(); it != workspace_map.end(); ++it)
+  {
+    if (it->second != UNASSIGNED_VALUE)
     {
-      if (it->second != UNASSIGNED_VALUE)
+      geometry_msgs::Point point;
+      point.x = origin_point.x + it->second * cos(degreesToRadians(it->first));
+      point.y = origin_point.y + it->second * sin(degreesToRadians(it->first));
+      point.z = 0.0;
+      if (it == workspace_map.begin())
       {
-        geometry_msgs::Point point;
-        point.x = origin_point.x + it->second * cos(degreesToRadians(it->first));
-        point.y = origin_point.y + it->second * sin(degreesToRadians(it->first));
-        point.z = 0.0;
-        if (it == workspace_map.begin())
-        {
-          first_point = point;
-        }
-        workspace.points.push_back(point);
+        first_point = point;
       }
+      workspace.points.push_back(point);
     }
-    workspace.points.push_back(first_point);
-    workspace_publisher_.publish(workspace);
   }
+  workspace.points.push_back(first_point);
+  workspace_publisher_.publish(workspace);
 }
 
 
@@ -349,7 +341,6 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   stride.scale.z = 0.02;
   stride.color.g = 1; //GREEN
   stride.color.a = 1;
-  stride.lifetime = ros::Duration(time_delta_);
 
   workspace_publisher_.publish(stride);
 }
@@ -384,7 +375,6 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
   tip_force.color.b = 1; // MAGENTA
   tip_force.color.r = 1;
   tip_force.color.a = 1;
-  tip_force.lifetime = ros::Duration(time_delta_);
 
   workspace_publisher_.publish(tip_force);
 }

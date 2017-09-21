@@ -790,9 +790,11 @@ void StateController::RVIZDebugging(const bool& static_display)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     debug_visualiser_.generateTipTrajectory(leg, model_->getCurrentPose());
-    debug_visualiser_.generateTipForce(leg);
-    if (static_display && walker_->getWalkState() != STOPPED)
+    
+    if (static_display)
     {
+      debug_visualiser_.generateWorkspace(leg, walker_->getWorkspaceMap());
+      debug_visualiser_.generateTipForce(leg);
       debug_visualiser_.generateBezierCurves(leg);
       debug_visualiser_.generateStride(leg);
     }
@@ -1337,7 +1339,9 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
         }
         if (get_effort_values)
         {
-          joint->current_effort_ = joint_states.effort[i];
+          bool reverse_torque = true;
+          n_.getParam("/" + joint->id_name_ + "_reverse_torque", reverse_torque); // TODO Remove
+          joint->current_effort_ = joint_states.effort[i] * (reverse_torque ? -1.0 : 1.0);
           joint->desired_effort_ = joint->current_effort_;
         }
       }
