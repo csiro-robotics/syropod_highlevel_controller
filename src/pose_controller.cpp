@@ -468,27 +468,63 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
 }
 
 /*******************************************************************************************************************//**
- * Iterates through legs in robot model and attempts to move them simultaneously in a linear trajectory directly from
- * their current tip position to its default tip position (as defined by the walk controller). This motion completes in
- * a time limit defined by the parameter time_to_start.
+ * Iterates through legs in robot model and, in simulation, moves them in a linear trajectory directly from
+ * their current tip position to its default tip position (as defined by the walk controller). The joint states for 
+ * each leg are saved for the deafult tip position and then the joint moved inpdependently from initial position to 
+ * saved default positions. This motion completes in a time limit defined by the parameter time_to_start.
  * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
 int PoseController::directStartup(void) //Simultaneous leg coordination
 {
   int progress = 0; // Percentage progress (0%->100%)
+  double time_to_start = params_.time_to_start.data;
 
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  // Run model in simulation to find joint positions for default stance.
+  if (default_joint_positions_[0].size() == 0)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    double time_to_start = params_.time_to_start.data;
-    Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
-    progress = leg_poser->stepToPosition(default_tip_position, model_->getCurrentPose(), 0.0, time_to_start);
-    leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition(), false);
-    leg->applyIK();
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+    {
+      shared_ptr<Leg> leg = leg_it_->second;
+      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      
+      // Create copy of leg at initial state
+      sensor_msgs::JointState initial_joint_states;
+      leg->generateDesiredJointStateMsg(&initial_joint_states);
+      
+      // Move tip linearly to default stance position
+      Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
+      while (progress != PROGRESS_COMPLETE)
+      {
+        progress = leg_poser->stepToPosition(default_tip_position, model_->getCurrentPose(), 0.0, time_to_start);
+        leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
+        leg->applyIK(true);
+      }
+      
+      // Save joint configuration for default stance
+      JointContainer::iterator joint_it;
+      for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+      {
+        shared_ptr<Joint> joint = joint_it->second;
+        default_joint_positions_[leg->getIDNumber()].push_back(joint->desired_position_);
+        joint->prev_desired_position_ = joint->desired_position_;
+      }
+      
+      // Reinitialise leg with initial joint states
+      leg->reInit(initial_joint_states);
+      progress = 0;
+    }
   }
-
+  // Move to default joint positions from initial positions
+  else
+  {
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+    {
+      shared_ptr<Leg> leg = leg_it_->second;
+      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+      progress = leg_poser->moveToJointPosition(default_joint_positions_[leg->getIDNumber()], time_to_start);
+    }
+  }
   return progress;
 }
 
@@ -667,11 +703,11 @@ void PoseController::updateCurrentPose(const double& body_height)
     new_pose = new_pose.addPose(inclination_pose_);
   }
 
-  // Pose to offset average deltaZ from impedance controller and keep body at specificied height
-  if (params_.impedance_control.data)
+  // Pose to offset average deltaZ from admittance controller and keep body at specificied height
+  if (params_.admittance_control.data)
   {
-    updateImpedancePose();
-    new_pose = new_pose.addPose(impedance_pose_);
+    updateAdmittancePose();
+    new_pose = new_pose.addPose(admittance_pose_);
   }
 
   // Auto body pose using IMU feedback
@@ -962,10 +998,10 @@ void PoseController::updateInclinationPose(const double& body_height)
 }
 
 /*******************************************************************************************************************//**
- * Attempts to generate a pose (z linear translation only) which corrects for sagging of the body due to the impedance
+ * Attempts to generate a pose (z linear translation only) which corrects for sagging of the body due to the admittance
  * controller and poses the body at the correct desired height above the ground.
 ***********************************************************************************************************************/
-void PoseController::updateImpedancePose(void)
+void PoseController::updateAdmittancePose(void)
 {
   int loaded_legs = model_->getLegCount();
   double average_delta_z = 0.0;
@@ -979,7 +1015,7 @@ void PoseController::updateImpedancePose(void)
   average_delta_z /= loaded_legs;
 
   double max_translation = params_.max_translation.data.at("z");
-  impedance_pose_.position_[2] = clamped(abs(average_delta_z), -max_translation, max_translation);
+  admittance_pose_.position_[2] = clamped(abs(average_delta_z), -max_translation, max_translation);
 }
 
 /***********************************************************************************************************************
@@ -1280,7 +1316,7 @@ int LegPoser::moveToJointPosition(const vector<double>& target_joint_positions, 
  * @param[in] target_pose A Pose to be linearly applied to the tip position over the course of the maneuver
  * @param[in] lift_height The height which the stepping leg trajectory should reach at its peak.
  * @param[in] time_to_step The time period to complete this maneuver.
- * @param[in] apply_delta_z A bool defining if a vertical offset value (generated by the impedance controller) should
+ * @param[in] apply_delta_z A bool defining if a vertical offset value (generated by the admittance controller) should
  * be applied to the target tip position.
  * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
@@ -1306,7 +1342,7 @@ int LegPoser::stepToPosition(const Vector3d& target, Pose target_pose,
     first_iteration_ = false;
   }
 
-  // Apply delta z to target tip position (used for transitioning to state using impedance control)
+  // Apply delta z to target tip position (used for transitioning to state using admittance control)
   bool manually_manipulated = (leg_->getLegState() == MANUAL || leg_->getLegState()  == WALKING_TO_MANUAL);
   if (apply_delta_z && !manually_manipulated)
   {

@@ -130,7 +130,7 @@ StateController::~StateController(void)
 
 /*******************************************************************************************************************//**
  * StateController initialiser function. Initialises member variables: robot state, gait selection and initalisation
- * flag and creates sub controller objects: WalkController, PoseController and ImpedanceController.
+ * flag and creates sub controller objects: WalkController, PoseController and AdmittanceController.
 ***********************************************************************************************************************/
 void StateController::init(void)
 {
@@ -157,8 +157,8 @@ void StateController::init(void)
   walker_->init();
   poser_ = make_shared<PoseController>(model_, params_);
   poser_->init();
-  impedance_ = make_shared<ImpedanceController>(model_, params_);
-  impedance_->init();
+  admittance_ = make_shared<AdmittanceController>(model_, params_);
+  admittance_->init();
 
   robot_state_ = UNKNOWN;
 
@@ -179,15 +179,16 @@ void StateController::loop(void)
     poser_->updateCurrentPose(walker_->getBodyHeight());
     walker_->setPoseState(poser_->getAutoPoseState()); // Sends pose state from poser to walker
 
-    // Impedance control - updates deltaZ values
-    if (params_.impedance_control.data)
+    // Admittance control - updates deltaZ values
+    if (params_.admittance_control.data)
     {
       // Calculate new stiffness based on walking cycle
       if (walker_->getWalkState() != STOPPED && params_.dynamic_stiffness.data)
       {
-        impedance_->updateStiffness(walker_);
+        admittance_->updateStiffness(walker_);
       }
-      impedance_->updateImpedance(params_.use_joint_effort.data);
+      
+      admittance_->updateAdmittance(params_.use_joint_effort.data);
     }
   }
 
@@ -412,7 +413,7 @@ void StateController::runningState(void)
     // Pose controller takes current tip positions from walker and applies pose compensation
     poser_->updateStance();
 
-    // Model uses posed tip positions, adds deltaZ from impedance controller and applies inverse kinematics on each leg
+    // Model uses posed tip positions, adds deltaZ from admittance controller and applies inverse kinematics on each leg
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
       shared_ptr<Leg> leg = leg_it_->second;
@@ -425,7 +426,7 @@ void StateController::runningState(void)
 
 /*******************************************************************************************************************//**
  * Handles parameter adjustment. Forces robot velocity input to zero until it is in a STOPPED walk state and then
- * reinitialises the walk/pose/impedance controllers with the new parameter value to be applied. The pose controller is
+ * reinitialises the walk/pose/admittance controllers with the new parameter value to be applied. The pose controller is
  * then called to step to new stance if required.
 ***********************************************************************************************************************/
 void StateController::adjustParameter(void)
@@ -439,7 +440,7 @@ void StateController::adjustParameter(void)
     {
       p->current_value = new_parameter_value_;
       walker_->init();
-      impedance_->init();
+      admittance_->init();
       poser_->setAutoPoseParams();
       apply_new_parameter_ = false;
       ROS_INFO("\nAttempting to adjust '%s' parameter to %f. (Default: %f, Min: %f, Max: %f) . . .\n",
@@ -563,7 +564,7 @@ void StateController::legStateToggle(void)
       if (params_.dynamic_stiffness.data)
       {
         double scale_reference = double(progress) / PROGRESS_COMPLETE; // 0.0->1.0
-        impedance_->updateStiffness(leg, scale_reference);
+        admittance_->updateStiffness(leg, scale_reference);
       }
 
       if (progress == PROGRESS_COMPLETE)
@@ -587,7 +588,7 @@ void StateController::legStateToggle(void)
       if (params_.dynamic_stiffness.data)
       {
         double scale_reference = abs(double(progress) / PROGRESS_COMPLETE - 1.0); // 1.0->0.0
-        impedance_->updateStiffness(leg, scale_reference);
+        admittance_->updateStiffness(leg, scale_reference);
       }
 
       if (progress == PROGRESS_COMPLETE)
@@ -700,7 +701,7 @@ void StateController::publishLegState(void)
     msg.auto_pose.angular.y = quaternionToEulerAngles(rotation)[1];
     msg.auto_pose.angular.z = quaternionToEulerAngles(rotation)[2];
 
-    // Impedance controller
+    // Admittance controller
     msg.tip_force.data = leg->getTipForce()[2];
     msg.delta_z.data = leg->getDeltaZ();
     msg.virtual_stiffness.data = leg->getVirtualStiffness();
@@ -749,27 +750,6 @@ void StateController::publishPose(void)
   msg.angular.y = quaternionToEulerAngles(rotation)[1];
   msg.angular.z = quaternionToEulerAngles(rotation)[2];
   pose_publisher_.publish(msg);
-}
-
-/*******************************************************************************************************************//**
- * Publishes current rotation as per the IMU data object for debugging
-***********************************************************************************************************************/
-void StateController::publishIMUData(void)
-{
-  sensor_msgs::Imu msg;
-  msg.header.stamp = ros::Time::now();
-  msg.header.frame_id = "shc_imu_link";
-  msg.orientation.w = poser_->getImuData().orientation.w();
-  msg.orientation.x = poser_->getImuData().orientation.x();
-  msg.orientation.y = poser_->getImuData().orientation.y();
-  msg.orientation.z = poser_->getImuData().orientation.z();
-  msg.angular_velocity.x = poser_->getImuData().angular_velocity[0];
-  msg.angular_velocity.y = poser_->getImuData().angular_velocity[1];
-  msg.angular_velocity.z = poser_->getImuData().angular_velocity[2];
-  msg.linear_acceleration.x = poser_->getImuData().linear_acceleration[0];
-  msg.linear_acceleration.y = poser_->getImuData().linear_acceleration[1];
-  msg.linear_acceleration.z = poser_->getImuData().linear_acceleration[2];
-  imu_data_publisher_.publish(msg);
 }
 
 /*******************************************************************************************************************//**
@@ -1512,7 +1492,7 @@ void StateController::initParameters(void)
   params_.auto_posing.init(n_, "auto_posing");
   params_.manual_posing.init(n_, "manual_posing");
   params_.inclination_posing.init(n_, "inclination_posing");
-  params_.impedance_control.init(n_, "impedance_control");
+  params_.admittance_control.init(n_, "admittance_control");
   // Hardware interface parameters
   params_.individual_control_interface.init(n_, "individual_control_interface");
   params_.combined_control_interface.init(n_, "combined_control_interface");
@@ -1546,7 +1526,7 @@ void StateController::initParameters(void)
   params_.max_rotation.init(n_, "max_rotation");
   params_.max_rotation_velocity.init(n_, "max_rotation_velocity");
   params_.leg_manipulation_mode.init(n_, "leg_manipulation_mode");
-  // Impedance controller parameters
+  // Admittance controller parameters
   params_.dynamic_stiffness.init(n_, "dynamic_stiffness");
   params_.use_joint_effort.init(n_, "use_joint_effort");
   params_.integrator_step_time.init(n_, "integrator_step_time");

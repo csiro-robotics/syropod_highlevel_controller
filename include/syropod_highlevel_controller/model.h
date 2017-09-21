@@ -116,7 +116,7 @@ private:
  * application of both forward and inverse kinematics. This class contains all child Joint, Link and Tip objects
  * associated with the leg.
 ***********************************************************************************************************************/
-typedef vector<double> state_type; //Impedance state used in impedance controller
+typedef vector<double> state_type; //Impedance state used in admittance controller
 typedef map<int, shared_ptr<Joint>> JointContainer;
 typedef map<int, shared_ptr<Link>> LinkContainer;
 class Leg : public enable_shared_from_this<Leg>
@@ -148,20 +148,20 @@ public:
   /** Accessor for the current estimated force vector on the tip of this leg. */
   inline Vector3d getTipForce(void) { return tip_force_; };
 
-  /** Accessor for the current impedance control vertical position offset (delta_z) for this leg.*/
+  /** Accessor for the current admittance control vertical position offset (delta_z) for this leg.*/
   inline double getDeltaZ(void) { return delta_z_; };
 
-  /** Accessor for the virtual mass value used in the impedance control model of this leg.*/
+  /** Accessor for the virtual mass value used in the admittance control model of this leg.*/
   inline double getVirtualMass(void) { return virtual_mass_; };
 
-  /** Accessor for the current virtual stiffness value used in the impedance control model of this leg. */
+  /** Accessor for the current virtual stiffness value used in the admittance control model of this leg. */
   inline double getVirtualStiffness(void) { return virtual_stiffness_; };
 
-  /** Accessor for the virtual damping ratio value used in the impedance control model of this leg. */
+  /** Accessor for the virtual damping ratio value used in the admittance control model of this leg. */
   inline double getVirtualDampingRatio(void) { return virtual_damping_ratio_; };
 
-  /** Accessor for the impedance state object for this leg. */
-  inline state_type* getImpedanceState(void) { return &impedance_state_; };
+  /** Accessor for the admittance state object for this leg. */
+  inline state_type* getAdmittanceState(void) { return &admittance_state_; };
 
   /** Accessor for the container of Joint objects associated with this leg. */
   inline JointContainer* getJointContainer(void) { return &joint_container_; };
@@ -221,25 +221,25 @@ public:
   inline void setTipForce(const Vector3d& tip_force) { tip_force_ = tip_force; };
 
   /**
-    * Modifier for the current impedance control vertical position offset (delta_z) for this leg.
+    * Modifier for the current admittance control vertical position offset (delta_z) for this leg.
     * @param[in] delta_z The new delta_z value for this leg.
     */
   inline void setDeltaZ(const double& delta_z) { delta_z_ = delta_z; };
 
   /**
-    * Modifier for the virtual mass value used in the impedance control model of this leg.
+    * Modifier for the virtual mass value used in the admittance control model of this leg.
     * @param[in] mass The new virtual mass value.
     */
   inline void setVirtualMass(const double& mass) { virtual_mass_ = mass; };
 
   /**
-    * Modifier for the current virtual stiffness value used in the impedance control model of this leg.
+    * Modifier for the current virtual stiffness value used in the admittance control model of this leg.
     * @param[in] stiffness The new virtual stiffness value.
     */
   inline void setVirtualStiffness(const double& stiffness) { virtual_stiffness_ = stiffness; };
 
   /**
-    * Modifier for the virtual damping ratio value used in the impedance control model of this leg.
+    * Modifier for the virtual damping ratio value used in the admittance control model of this leg.
     * @param[in] damping_ratio The new virtual damping ratio value.
     */
   inline void setVirtualDampingRatio(const double& damping_ratio) { virtual_damping_ratio_ = damping_ratio; };
@@ -308,7 +308,7 @@ public:
   shared_ptr<Link> getLinkByIDName(const string& link_id_name);
 
   /**
-    * Sets desired tip position to the input, applying impedance controller vertical offset (delta z) if requested.
+    * Sets desired tip position to the input, applying admittance controller vertical offset (delta z) if requested.
     * @param[in] tip_position The input desired tip position.
     * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip position.
     */
@@ -368,11 +368,11 @@ private:
   ros::Publisher leg_state_publisher_;     ///< The ros publisher object that publishes state messages for this leg.
   ros::Publisher asc_leg_state_publisher_; ///< The ros publisher object that publishes ASC state messages for this leg.
 
-  double delta_z_ = 0.0;         ///< The impedance controller vertical tip position offset value.
-  double virtual_mass_;          ///< The virtual mass of the impedance controller virtual model of this leg.
-  double virtual_stiffness_;     ///< The virtual stiffness of the impedance controller virtual model of this leg.
-  double virtual_damping_ratio_; ///< The virtual damping ratio of the impedance controller virtual model of this leg.
-  state_type impedance_state_;   ///< The impedance state of the impedance controller virtual model of this leg.
+  double delta_z_ = 0.0;         ///< The admittance controller vertical tip position offset value.
+  double virtual_mass_;          ///< The virtual mass of the admittance controller virtual model of this leg.
+  double virtual_stiffness_;     ///< The virtual stiffness of the admittance controller virtual model of this leg.
+  double virtual_damping_ratio_; ///< The virtual damping ratio of the admittance controller virtual model of this leg.
+  state_type admittance_state_;   ///< The admittance state of the admittance controller virtual model of this leg.
 
   Vector3d desired_tip_position_; ///< Desired tip position before applying Inverse/Forward kinematics
   Vector3d desired_tip_velocity_; ///< Desired tip velocity before applying Inverse/Forward kinematics

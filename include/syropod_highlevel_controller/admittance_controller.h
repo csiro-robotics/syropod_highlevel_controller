@@ -1,8 +1,8 @@
-#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_IMPEDANCE_CONTROLLER_H
-#define SYROPOD_HIGHLEVEL_CONTROLLER_IMPEDANCE_CONTROLLER_H
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_ADMITTANCE_CONTROLLER_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_ADMITTANCE_CONTROLLER_H
 /*******************************************************************************************************************//**
- *  @file    impedance_controller.h
- *  @brief   Handles executiong of the impedance controller.
+ *  @file    admittance_controller.h
+ *  @brief   Handles execution of the admittance controller.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    September 2017
@@ -27,26 +27,26 @@
 #include "walk_controller.h"
 
 /***********************************************************************************************************************
- * This class handles the application of an impedance controller to the robot model. Specifically it calculates a
+ * This class handles the application of an admittance controller to the robot model. Specifically it calculates a
  * vertical tip position offset value (delta_z) for each leg of the robot which are modelled as mass/spring/damper
  * systems. The system for each leg is defined by parameterised characteristics (system mass, spring stiffness and
  * damping ratio) and the input to the system is a tip force value scaled by a parameterised force gain. As well as
- * handling calculation of impedance this class handles a dynamic stiffness system which dynamically modifies the
+ * handling calculation of admittance this class handles a dynamic stiffness system which dynamically modifies the
  * stiffness input for the system of each leg depending on the state of the leg and robot.
 ***********************************************************************************************************************/
-class ImpedanceController
+class AdmittanceController
 {
 public:
   /**
-   * ImpedanceController class constructor. Assigns pointers to robot model object and parameter data storage object
+   * AdmittanceController class constructor. Assigns pointers to robot model object and parameter data storage object
    * and calls initialisation.
    * @param[in] model Pointer to the robot model class object
    * @param[in] params Pointer to the parameter struct object
    */
-  ImpedanceController(shared_ptr<Model> model, const Parameters& params);
+  AdmittanceController(shared_ptr<Model> model, const Parameters& params);
 
   /**
-   * Impdedance controller initialisation. Assigns integrator step time and force gain for robot model and for each leg
+   * Admittance controller initialisation. Assigns integrator step time and force gain for robot model and for each leg
    * sets virtual mass/stiffness/damping ratio from parameters.
    */
   void init(void);
@@ -54,11 +54,11 @@ public:
   /**
    * Iterates through legs in the robot model and updates the vertical tip position offset value (delta_z) for each.
    * The calculation of delta_z is achieved through the use of a classical Runge-Kutta ODE solver with a force input
-   * acquired from a tip force callback OR from a joint effort value.
+   * acquired from a tip force callback OR from estimation from joint effort values.
    * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
-   * @todo Implement impedance control in x/y axis
+   * @todo Implement admittance control in x/y axis
    */
-  void updateImpedance(const bool& use_joint_effort);
+  void updateAdmittance(const bool& use_joint_effort);
 
   /**
    * Scales virtual stiffness of an input swinging leg and two 'adjacent legs' according to an input reference.
@@ -90,4 +90,4 @@ private:
 
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
-#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_IMPEDANCE_CONTROLLER_H */
+#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_ADMITTANCE_CONTROLLER_H */

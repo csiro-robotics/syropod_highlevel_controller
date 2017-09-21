@@ -9,7 +9,7 @@ syropod:
     time_delta: 0.02
     manual_posing: true
     auto_posing: true
-    impedance_control: false
+    admittance_control: false
     inclination_posing: false #requires imu
     imu_posing: false #requires imu
 
@@ -17,7 +17,6 @@ syropod:
     # Hardware interface parameters
     individual_control_interface: true #Use for Gazebo or 'Dynamixel Controller' (OLD)
     combined_control_interface: true #Use for 'Dynamixel Interface' (NEW)
-    imu_rotation_offset: [0.0, 0.0, 0.0]
 
 ########################################################################################################################
     # Model parameters
@@ -28,24 +27,24 @@ syropod:
     leg_DOF: {AL: 3, AR: 3, BL: 3, BR: 3, CL: 3, CR: 3} # leg_id_name: degrees_of_freedom (num joints) 
 
     # Joint parameters:
-    AR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    AR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
-    AR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
-    BR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    BR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
-    BR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
-    CR_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    CR_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
-    CR_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
-    AL_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    AL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
-    AL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
-    BL_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    BL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
-    BL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
-    CL_coxa_joint_parameters:  {offset: 0.0, min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
-    CL_femur_joint_parameters: {offset: 0.0, min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
-    CL_tibia_joint_parameters: {offset: 0.0, min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
+    AR_coxa_joint_parameters:  {min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    AR_femur_joint_parameters: {min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    AR_tibia_joint_parameters: {min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
+    BR_coxa_joint_parameters:  {min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    BR_femur_joint_parameters: {min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    BR_tibia_joint_parameters: {min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
+    CR_coxa_joint_parameters:  {min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    CR_femur_joint_parameters: {min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    CR_tibia_joint_parameters: {min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
+    AL_coxa_joint_parameters:  {min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    AL_femur_joint_parameters: {min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    AL_tibia_joint_parameters: {min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
+    BL_coxa_joint_parameters:  {min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    BL_femur_joint_parameters: {min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    BL_tibia_joint_parameters: {min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
+    CL_coxa_joint_parameters:  {min: -0.55,  max: 0.55, packed: -1.57,  unpacked: 0.0,    max_vel: 5.0}
+    CL_femur_joint_parameters: {min: -1.5,   max: 1.5,  packed: 1.9,    unpacked: 0.785,  max_vel: 5.0}
+    CL_tibia_joint_parameters: {min: -2.355, max: -0.1, packed: 1.2,    unpacked: -1.138, max_vel: 5.0}
     
     # Link DH parameters: en.wikipedia.org/wiki/Denavit–Hartenberg_parameters 
     # Ensure theta values are within joint limits
@@ -85,18 +84,19 @@ syropod:
     step_clearance: {default: 0.01, min: 0.01, max: 0.05, step: 0.005} #Reconfigurable
     body_clearance: {default: 0.1, min: 0.01, max: 0.15, step: 0.01} #Reconfigurable
     leg_span: {default: 0.0, min: 0.0, max: 0.0, step: 0.0} #Reconfigurable
-    
+
+    velocity_input_mode: throttle #real
+    force_cruise_velocity: true
+    linear_cruise_velocity: {x: 0.001, y: 0.0}
+    angular_cruise_velocity: 0.0
+    cruise_control_time_limit: 0.0
+
     AR_stance_position: {x: 0.13,  y: -0.075}
     BR_stance_position: {x: 0.0,   y: -0.15}
     CR_stance_position: {x: -0.13, y: -0.075}
     CL_stance_position: {x: -0.13, y: 0.075}
     BL_stance_position: {x: 0.0,   y: 0.15}
     AL_stance_position: {x: 0.13,  y: 0.075}
-    
-    velocity_input_mode: throttle #real
-    force_cruise_velocity: true
-    linear_cruise_velocity: {x: 0.001, y: 0.0}
-    angular_cruise_velocity: 0.0
 
 ########################################################################################################################
     # Poser parameters
@@ -111,7 +111,7 @@ syropod:
     leg_manipulation_mode: tip_control
 
 ########################################################################################################################
-    # Impedance controller parameters
+    # Admittance controller parameters
     dynamic_stiffness: true
     use_joint_effort: false
     virtual_mass: {default: 10, min: 1, max: 100, step: 5} #Reconfigurable

@@ -1,6 +1,6 @@
 /*******************************************************************************************************************//**
- *  @file    impedance_controller.cpp
- *  @brief   Handles executiong of the impedance controller.
+ *  @file    admittance_controller.cpp
+ *  @brief   Handles execution of the admittance controller.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    September 2017
@@ -17,23 +17,23 @@
  *
 ***********************************************************************************************************************/
 
-#include "../include/syropod_highlevel_controller/impedance_controller.h"
+#include "../include/syropod_highlevel_controller/admittance_controller.h"
 
 /*******************************************************************************************************************//**
- * ImpedanceController class constructor. Assigns pointers to robot model object and parameter data storage object.
+ * AdmittanceController class constructor. Assigns pointers to robot model object and parameter data storage object.
  * @param[in] model Pointer to the robot model class object
  * @param[in] params Pointer to the parameter struct object
 ***********************************************************************************************************************/
-ImpedanceController::ImpedanceController(shared_ptr<Model> model, const Parameters& params)
+AdmittanceController::AdmittanceController(shared_ptr<Model> model, const Parameters& params)
   : model_(model)
   , params_(params)
 {
 }
 
 /*******************************************************************************************************************//**
- * Impdedance controller initialisation. For each leg sets virtual mass/stiffness/damping ratio from parameters.
+ * Admittance controller initialisation. For each leg sets virtual mass/stiffness/damping ratio from parameters.
 ***********************************************************************************************************************/
-void ImpedanceController::init(void)
+void AdmittanceController::init(void)
 {
   LegContainer::iterator leg_it;
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
@@ -48,13 +48,13 @@ void ImpedanceController::init(void)
 /*******************************************************************************************************************//**
  * Iterates through legs in the robot model and updates the vertical tip position offset value (delta_z) for each.
  * The calculation of delta_z is achieved through the use of a classical Runge-Kutta ODE solver with a force input
- * acquired from a tip force callback OR from a joint effort value.
+ * acquired from a tip force callback OR from estimation from joint effort values.
  * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
- * @todo Implement impedance control in x/y axis
+ * @todo Implement admittance control in x/y axis
 ***********************************************************************************************************************/
-void ImpedanceController::updateImpedance(const bool& use_joint_effort)
+void AdmittanceController::updateAdmittance(const bool& use_joint_effort)
 {
-  // Get current force value on leg and run impedance calculations to get a vertical tip offset (deltaZ)
+  // Get current force value on leg and run admittance calculations to get a vertical tip offset (deltaZ)
   LegContainer::iterator leg_it;
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
@@ -69,7 +69,7 @@ void ImpedanceController::updateImpedance(const bool& use_joint_effort)
     double stiffness = leg->getVirtualStiffness();
     double mass = leg->getVirtualMass();
     double step_time = params_.integrator_step_time.data;
-    state_type* impedance_state = leg->getImpedanceState();
+    state_type* admittance_state = leg->getAdmittanceState();
     double virtual_damping = damping * 2 * sqrt(mass * stiffness);
     boost::numeric::odeint::runge_kutta4<state_type> stepper;
     integrate_const(stepper,
@@ -78,11 +78,11 @@ void ImpedanceController::updateImpedance(const bool& use_joint_effort)
                       dxdt[0] = x[1];
                       dxdt[1] = -force_input / mass - virtual_damping / mass * x[1] - stiffness / mass * x[0];
                     }, 
-                    *impedance_state,
+                    *admittance_state,
                     0.0,
                     step_time,
                     step_time / 30);
-    leg->setDeltaZ((*impedance_state)[0]);
+    leg->setDeltaZ((*admittance_state)[0]);
   }
 }
 
@@ -94,7 +94,7 @@ void ImpedanceController::updateImpedance(const bool& use_joint_effort)
  * @param[in] leg A pointer to the leg object associated with the stiffness value to be updated.
  * @param[in] scale_reference A double ranging from 0.0->1.0 which controls the scaling of the stiffnesses
 ***********************************************************************************************************************/
-void ImpedanceController::updateStiffness(shared_ptr<Leg> leg, const double& scale_reference)
+void AdmittanceController::updateStiffness(shared_ptr<Leg> leg, const double& scale_reference)
 {
   int leg_id = leg->getIDNumber();
   int adjacent_leg_1_id = mod(leg_id - 1, model_->getLegCount());
@@ -130,7 +130,7 @@ void ImpedanceController::updateStiffness(shared_ptr<Leg> leg, const double& sca
  * step cycles to JOINTLY add stiffness to simultaneously adjacent legs.
  * @param[in] walker A pointer to the walk controller
 ***********************************************************************************************************************/
-void ImpedanceController::updateStiffness(shared_ptr<WalkController> walker)
+void AdmittanceController::updateStiffness(shared_ptr<WalkController> walker)
 {
   // Reset virtual Stiffness each cycle
   LegContainer::iterator leg_it;

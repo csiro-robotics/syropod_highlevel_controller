@@ -137,7 +137,7 @@ For information on parameters see readme in config folder.
     * Topic: */syropod_highlevel_controller/pose*
     * Type: geometry_msgs::Twist
 * IMU Data Ouput:
-    * Description: Output of IMU after being transformed into robot frame.
+    * Description: Output of IMU data
     * Topic: */syropod_highlevel_controller/imu\_data*
     * Type: sensor_msgs::Imu
 * ASC Hexapod State: (To be removed)
@@ -227,9 +227,13 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
 - v0.5.2
     - New iterative search based workspace generation method
 - v0.5.3
-    - Renamed impedance controller to 'admittance controller' and improved to make use of multi-joint effort values
+    - Improved Impedance Controller to make use of multi-joint effort values
+    - Added tip force estimate visualisation
     - Added time limit to cruise control feature for use in running experiments.
 - v0.5.4
+    - *Added ability to set constraints on desired tip rotation in IK engine.
+    - Modified direct startup sequence to operate in joint space instead of tip space to prevent joints jumping if initialised outside limits.
+    - Renamed impedance controller to 'admittance controller'
     - Removed custom Quat class and instead replaced with Eigen::Quaterniond
     - Removed IMU data transformation - SHC now expects IMU data in ROS REP103 coordinate frame
     - Removed joint offset parameters - SHC now expects all joint offseting to be enacted at the motor driver level

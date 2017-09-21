@@ -269,7 +269,7 @@ struct Parameters
   Parameter<bool> auto_posing;         ///< Flad denoting if the auto posing feature is on/off.
   Parameter<bool> manual_posing;       ///< Flad denoting if the manual posing feature is on/off.
   Parameter<bool> inclination_posing;  ///< Flad denoting if the inclination posing feature is on/off.
-  Parameter<bool> impedance_control;   ///< Flad denoting if the impedance control feature is on/off.
+  Parameter<bool> admittance_control;   ///< Flad denoting if the admittance control feature is on/off.
 
   // Motor Interface parameters
   Parameter<bool> individual_control_interface;   ///< Flag requesting the individual desired joint position format.
@@ -315,15 +315,15 @@ struct Parameters
   Parameter<double> max_rotation_velocity;              ///< The maximum allowable angular rotation velocity.
   Parameter<string> leg_manipulation_mode;              ///< String denoting the type of leg manipulation.
 
-  // Impedance controller parameters
+  // Admittance controller parameters
   Parameter<bool> dynamic_stiffness;         ///< Flag denoting whether the virtual stiffness variable is dynamic.
   Parameter<bool> use_joint_effort;          ///< Flag denoting whether the tip force input is derived from joint effort.
-  Parameter<double> integrator_step_time;    ///< The step time used in impedance controller calculations.
-  AdjustableParameter virtual_mass;          ///< The virtual mass value used in impedance controller calculations.
-  AdjustableParameter virtual_stiffness;     ///< The virtual stiffness value used in impedance controller calculations.
+  Parameter<double> integrator_step_time;    ///< The step time used in admittance controller calculations.
+  AdjustableParameter virtual_mass;          ///< The virtual mass value used in admittance controller calculations.
+  AdjustableParameter virtual_stiffness;     ///< The virtual stiffness value used in admittance controller calculations.
   Parameter<double> load_stiffness_scaler;   ///< The value used to scale the virtual stiffness value for loaded legs.
   Parameter<double> swing_stiffness_scaler;  ///< The value used to scale the virtual stiffness value for swinging legs.
-  AdjustableParameter virtual_damping_ratio; ///< The virtual damping value used in impedance controller calculations.
+  AdjustableParameter virtual_damping_ratio; ///< The virtual damping value used in admittance controller calculations.
   AdjustableParameter force_gain;            ///< The value used to scale the default tip force input.
 
   // Gait parameters

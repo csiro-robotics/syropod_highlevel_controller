@@ -52,12 +52,6 @@
       (type: bool)
       (default: true)
 
-### /syropod/parameters/imu_rotation_offset:
-    The static euler angle rotation to apply to all IMU data in order to rotate it into the correct robot frame 
-    coordinate system.
-      (type: [double, double, double])
-      (unit: radians)
-
 ## Model Parameters
 ### /syropod/parameters/syropod_type:
     String ID of the Syropod type associated with this set of config parameters.
@@ -185,12 +179,6 @@
       (default: {default: 0.0, min: 0.0, max: 0.0, step: 0.0})
       (unit: metres)
       
-### /syropod/parameters/\*LEG_ID\*_stance_position:
-    Map of x/y coordinates (in robot frame) of the position of the tip in this leg's default stance.
-      x: x-axis coordinate (positive x-axis is robot forward)
-      y: y-axis coordinate (positive y-axis is robot left)
-      (type: {string: double, string: double})
-      (unit: metres)
 
 ### /syropod/parameters/velocity_input_mode:
     String which defines the type of velocity input required:
@@ -220,7 +208,20 @@
       (type: double)
       (default: 0.0)
       (units: radians/s)
-
+      
+### /syropod/parameters/cruise_control_time_limit:
+    A time limit for cruise control after which all input velocity values default to zero. 
+    Setting this value to zero causes an infinite time limit.
+      (type: double)
+      (default: 0.0)
+      (units: seconds)
+      
+### /syropod/parameters/\*LEG_ID\*_stance_position:
+    Map of x/y coordinates (in robot frame) of the position of the tip in this leg's default stance.
+      x: x-axis coordinate (positive x-axis is robot forward)
+      y: y-axis coordinate (positive y-axis is robot left)
+      (type: {string: double, string: double})
+      (unit: metres)
 
 ## Pose Controller Parameters:
 ### /syropod/parameters/auto_pose_type:

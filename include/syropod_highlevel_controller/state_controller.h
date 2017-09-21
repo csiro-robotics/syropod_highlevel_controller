@@ -29,14 +29,14 @@
 #include "model.h"
 
 #include "debug_visualiser.h"
-#include "impedance_controller.h"
+#include "admittance_controller.h"
 
 #define MAX_MANUAL_LEGS 2 ///< Maximum number of legs able to be manually manipulated simultaneously
 #define PACK_TIME 2.0 ///< Joint transition time during pack/unpack sequences (seconds @ step frequency == 1.0)
 
 /*******************************************************************************************************************//**
  * This class creates and initialises all ros publishers/subscriptions; sub-controllers: Walk Controller,
- * Pose Controller and Impedance Controller; and the parameter handling struct. It handles all the ros publishing and
+ * Pose Controller and Admittance Controller; and the parameter handling struct. It handles all the ros publishing and
  * subscription callbacks and communicates this data among the robot model class and the sub-controller classes.
  * The primary function of this class is to feed desired body velocity inputs to the walk controller and receive
  * generated leg trajectories. These trajectories are then fed to the pose controller where any required body posing is
@@ -77,7 +77,7 @@ public:
 
   /**
    * StateController initialiser function. Initialises member variables: robot state, gait selection and initalisation
-   * flag and creates sub controller objects: WalkController, PoseController and ImpedanceController.
+   * flag and creates sub controller objects: WalkController, PoseController and AdmittanceController.
    */
   void init(void);
 
@@ -114,7 +114,7 @@ public:
   void runningState(void);
   /**
    * Handles parameter adjustment. Forces robot velocity input to zero until it is in a STOPPED walk state and then
-   * reinitialises the walk/pose/impedance controllers with the new parameter value to be applied. The pose controller
+   * reinitialises the walk/pose/admittance controllers with the new parameter value to be applied. The pose controller
    * is then called to step to new stance if required.
    */
   void adjustParameter(void);
@@ -148,9 +148,6 @@ public:
 
   /** Publishes current pose (roll, pitch, yaw, x, y, z) for debugging */
   void publishPose(void);
-
-  /** Publishes current rotation as per the IMU data object (roll, pitch, yaw, x, y, z) for debugging */
-  void publishIMUData(void);
 
   /** Publishes imu pose rotation absement, position and velocity errors used in the PID controller, for debugging */
   void publishRotationPoseError(void);
@@ -395,12 +392,12 @@ private:
   boost::recursive_mutex mutex_; ///< Mutex used in setup of dynamic reconfigure server
   dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>* dynamic_reconfigure_server_;
 
-  shared_ptr<Model> model_;                    ///< Pointer to robot model object
-  shared_ptr<WalkController> walker_;          ///< Pointer to walk controller object
-  shared_ptr<PoseController> poser_;           ///< Pointer to pose controller object
-  shared_ptr<ImpedanceController> impedance_;  ///< Pointer to impedance controller object
-  DebugVisualiser debug_visualiser_;                          ///< Debug class object used for RVIZ visualization
-  Parameters params_;                          ///< Parameter data structure for storing parameter variables
+  shared_ptr<Model> model_;                     ///< Pointer to robot model object
+  shared_ptr<WalkController> walker_;           ///< Pointer to walk controller object
+  shared_ptr<PoseController> poser_;            ///< Pointer to pose controller object
+  shared_ptr<AdmittanceController> admittance_; ///< Pointer to admittance controller object
+  DebugVisualiser debug_visualiser_;            ///< Debug class object used for RVIZ visualization
+  Parameters params_;                           ///< Parameter data structure for storing parameter variables
 
   bool initialised_ = false; ///< Flags if the state controller has initialised
 

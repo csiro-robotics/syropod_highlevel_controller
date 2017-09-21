@@ -110,7 +110,7 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   , id_name_(params_.leg_id.data.at(id_number))
   , joint_count_(params_.leg_DOF.data.at(id_name_))
   , leg_state_(WALKING)
-  , impedance_state_(vector<double>(2))
+  , admittance_state_(vector<double>(2))
 {
   desired_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
   desired_tip_velocity_ = Vector3d(0, 0, 0);
@@ -257,7 +257,7 @@ shared_ptr<Link> Leg::getLinkByIDName(const string& link_id_name)
 }
 
 /*******************************************************************************************************************//**
- * Sets desired tip position to the input, applying impedance controller vertical offset (delta z) if requested.
+ * Sets desired tip position to the input, applying admittance controller vertical offset (delta z) if requested.
  * @param[in] tip_position The input desired tip position
  * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip position.
 ***********************************************************************************************************************/

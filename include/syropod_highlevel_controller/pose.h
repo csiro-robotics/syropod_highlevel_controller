@@ -43,6 +43,7 @@ public:
   /**
    * Operator to check if two poses are equivalent
    * @params[in] pose The pose that is checked for equivalency against *this
+   * @return Bool defining if input and *this pose are equivalent.
    */
   inline bool operator==(const Pose& pose)
   { 
@@ -52,6 +53,7 @@ public:
   /**
    * Operator to check if two poses are NOT equivalent
    * @params[in] pose The pose that is checked for non-equivalency against *this
+   * @return Bool defining if input and *this pose are non-equivalent.
    */
   inline bool operator!=(const Pose& pose)
   {
@@ -60,6 +62,7 @@ public:
 
   /**
    * Returns inverse of pose
+   * @return The inverse of *this pose
    */
   inline Pose operator~(void) const 
   { 
@@ -69,6 +72,7 @@ public:
   /**
    * Transforms an input position into the reference frame of this pose.
    * @params[in] vec The input vector to be transformed into this pose's reference frame.
+   * @return The transformed vector.
    */
   inline Vector3d transformVector(const Vector3d& vec) const 
   { 
@@ -78,6 +82,7 @@ public:
   /**
    * Transforms an input position vector from the reference frame of this pose.
    * @params[in] vec The input vector to be transformed from this pose's reference frame.
+   * @return The inversly transformed vector
    */
   inline Vector3d inverseTransformVector(const Vector3d& vec) const 
   { 
@@ -87,6 +92,7 @@ public:
   /**
    * Adds input pose to *this pose
    * @params[in] pose The pose to add from *this pose
+   * @return The combination of *this pose and input pose
    */
   inline Pose addPose(const Pose& pose) 
   {
@@ -96,6 +102,7 @@ public:
   /**
    * Removes input pose from *this pose
    * @params[in] pose The pose to remove from *this pose
+   * @return The resultant pose after removing input pose from *this pose
    */
   inline Pose removePose (const Pose& pose)
   { 
@@ -104,6 +111,7 @@ public:
   
   /**
    * Returns pose with position and rotation elements set to identity values.
+   * @return The Identity Pose
    */
   inline static Pose identity(void) 
   { 
@@ -112,6 +120,7 @@ public:
   
   /**
    * Returns pose with position and rotation elements all set to zero.
+   * @return The Zero Pose
    */
   inline static Pose zero(void) 
   { 
