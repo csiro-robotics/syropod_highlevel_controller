@@ -791,7 +791,7 @@ void StateController::RVIZDebugging(const bool& static_display)
     shared_ptr<Leg> leg = leg_it_->second;
     debug_visualiser_.generateTipTrajectory(leg, model_->getCurrentPose());
     
-    if (static_display)
+    if (static_display && robot_state_ == RUNNING)
     {
       debug_visualiser_.generateWorkspace(leg, walker_->getWorkspaceMap());
       debug_visualiser_.generateTipForce(leg);

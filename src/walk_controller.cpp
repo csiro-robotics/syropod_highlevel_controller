@@ -174,27 +174,26 @@ void WalkController::generateWorkspace(void)
         current_min = min(current_min, workspace_map_.at(opposite_bearing));
       }
 
-      // Calculate tip velocity from search bearing
-      Vector3d velocity = Vector3d(SEARCH_VELOCITY * cos(degreesToRadians(search_bearing)),
-                                   SEARCH_VELOCITY * sin(degreesToRadians(search_bearing)), 0.0); //TODO
-      leg->setDesiredTipVelocity(velocity); // Force applyIK to use desired velocity mode
+      // Calculate target tip position along search bearing
+      Vector3d origin_tip_position = leg->getCurrentTipPosition();
+      Vector3d target_tip_position = origin_tip_position;
+      target_tip_position[0] += current_min * cos(degreesToRadians(search_bearing));
+      target_tip_position[1] += current_min * sin(degreesToRadians(search_bearing));
 
       // Move tip position linearly along search bearing in search of workspace limit defined by joint limits.
       bool within_limits = true;
       double distance_from_default = 0.0;
-      int search_start = clock();
-      while (within_limits && distance_from_default < current_min)
+      int iteration = 0;
+      while (within_limits && distance_from_default < current_min &&
+             iteration <= WORKSPACE_GENERATION_MAX_ITERATIONS)
       {
-        within_limits = leg->applyIK(true);
+        iteration++;
+        double i = double(iteration) / WORKSPACE_GENERATION_MAX_ITERATIONS; // Interpolation control variable
+        Vector3d desired_tip_position = origin_tip_position * (1.0-i) + target_tip_position * i; //Linearly interpolate
+        leg->setDesiredTipPosition(desired_tip_position, false);
+        
+        within_limits = (leg->applyIK(true, true) != 0.0);
         distance_from_default = Vector3d(leg->getCurrentTipPosition() - leg_stepper->getDefaultTipPosition()).norm();
-        double elapsed_search_time = (clock() - search_start) / double(CLOCKS_PER_SEC);
-        if (elapsed_search_time > WORKSPACE_GENERATION_ERROR_THRESHOLD)
-        {
-          ROS_FATAL("\nUnable to generate workspace for leg %s!."
-                    " Ammend body_clearance or %s_stance position parameter/s in config file\n",
-                    leg->getIDName().c_str(), leg->getIDName().c_str());
-          ROS_BREAK();
-        }
 
         // Display robot model whilst performing workspace limitation search
         if (debug && params_.debug_rviz.data && params_.debug_rviz_static_display.data)
@@ -218,7 +217,10 @@ void WalkController::generateWorkspace(void)
       // Display workspace generation
       if (params_.debug_rviz.data && params_.debug_rviz_static_display.data)
       {
-        debug_visualiser_->generateWorkspace(leg, workspace_map_);
+        for (int i = 0; i <= leg->getIDNumber(); ++i)
+        {
+          debug_visualiser_->generateWorkspace(model_->getLegByIDNumber(i), workspace_map_);
+        }
         ros::spinOnce();
       }
     }

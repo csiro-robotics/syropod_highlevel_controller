@@ -334,6 +334,7 @@ public:
     * @param[in] simulation_run Flag denoting if this execution is for simulation purposes rather than normal use.
     * @param[in] ignore_tip_orientation Flag denoting if specific orientation of tip is desired or can be ignored
     * @todo Calculate optimal DLS coefficient (this value currently works sufficiently).
+    * @todo Modify return value to output zero on IK failure to achieve desired tip position
     */
   double applyIK(const bool& simulation_run = false, const bool& ignore_tip_orientation = true);
 

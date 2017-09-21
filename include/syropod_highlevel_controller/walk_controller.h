@@ -27,9 +27,8 @@
 #include "pose_controller.h"
 #include "debug_visualiser.h"
 
-#define BEARING_STEP 5 ///< Step to increment bearing in workspace generation algorithm (deg)
-#define SEARCH_VELOCITY 0.1 ///< Tip velocity used in searching for workspace limits in generation algorithm. (m/s)
-#define WORKSPACE_GENERATION_ERROR_THRESHOLD 5 ///< Time before assumption that workspace generation has failed. (s)
+#define BEARING_STEP 10 ///< Step to increment bearing in workspace generation algorithm (deg)
+#define WORKSPACE_GENERATION_MAX_ITERATIONS 100 ///< Maximum number of iterations to find limits of workspace
 
 class DebugVisualiser;
 

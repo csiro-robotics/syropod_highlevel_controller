@@ -326,7 +326,7 @@ void Leg::calculateTipForce(void)
  * @param[in] simulation_run Flag denoting if this execution is for simulation purposes rather than normal use.
  * @param[in] ignore_tip_orientation Flag denoting if specific orientation of tip is desired or can be ignored
  * @todo Calculate optimal DLS coefficient (this value currently works sufficiently)
- * @todo Remove failsafe for uninitialised clamping flags
+ * @todo Modify return value to output zero on IK failure to achieve desired tip position
 ***********************************************************************************************************************/
 double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientation)
 {
@@ -356,11 +356,6 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
 
   //ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
   ik_matrix = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
-
-  if (desired_tip_velocity_.norm() != 0.0)
-  {
-    desired_tip_position_ = current_tip_position_ + desired_tip_velocity_ * model_->getTimeDelta();
-  }
 
   shared_ptr<Joint> base_joint = joint_container_.begin()->second;
   Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(false, desired_tip_position_);
@@ -394,10 +389,9 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
       }
     }
     joint->desired_position_ = joint->prev_desired_position_ + joint->desired_velocity_ * model_->getTimeDelta();
-    joint->prev_desired_position_ = joint->desired_position_;
 
     // Clamp joint position within limits
-    if (!params_.clamp_joint_positions.initialised || params_.clamp_joint_positions.data) //TODO - remove failsafe
+    if (params_.clamp_joint_positions.data)
     {
       if (joint->desired_position_ < joint->min_position_)
       {
@@ -412,6 +406,8 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
         joint->desired_position_ = joint->max_position_;
       }
     }
+    
+    joint->prev_desired_position_ = joint->desired_position_;
 
     //Calculates the proximity of the joint closest to one of it's limits. Used for preventing exceeding workspace.
     // (1.0 = furthest possible from limit, 0.0 = equal to limit)
@@ -423,28 +419,29 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
     ROS_DEBUG_COND(params_.debug_IK.data && limit_proximity == 0, "\n%s at limit.\n", joint->id_name_.c_str());
   }
 
-  Vector3d result = applyFK(); // Apply forward kinematics to get new current tip position
+  applyFK(); // Apply forward kinematics to get new current tip position
 
   // Debugging message
   ROS_DEBUG_COND(id_number_ == 0 && params_.debug_IK.data,
                  "\nLeg %s:\n\tDesired tip position from trajectory engine: %f:%f:%f\n\t"
                  "Resultant tip position from inverse/forward kinematics: %f:%f:%f", id_name_.c_str(),
                  desired_tip_position_[0], desired_tip_position_[1], desired_tip_position_[2],
-                 result[0], result[1], result[2]);
+                 current_tip_position_[0], current_tip_position_[1], current_tip_position_[2]);
 
   // Display warning messages for clamping events and associated inverse kinematic deviations
-  if (params_.debug_workspace_calc.data && !simulation_run)
+  if (!params_.ignore_IK_warnings.data && !simulation_run)
   {
     string axis_label[3] = {"x", "y", "z"};
     for (int i = 0; i < 3; ++i)
     {
-      if (abs(result[i] - desired_tip_position_[i]) > IK_TOLERANCE)
+      if (abs(current_tip_position_[i] - desired_tip_position_[i]) > IK_TOLERANCE)
       {
-        double error_percentage = abs((result[i] - desired_tip_position_[i]) / desired_tip_position_[i]) * 100;
+        double error_percentage = abs((current_tip_position_[i] - desired_tip_position_[i]) / desired_tip_position_[i]);
+        error_percentage *= 100;
         ROS_WARN("\nInverse kinematics deviation! Calculated tip %s position of leg %s (%s: %f)"
                  " differs from desired tip position (%s: %f) by %f%%\nThis is due to clamping events:%s\n",
-                 axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), result[i], axis_label[i].c_str(),
-                 desired_tip_position_[i], error_percentage, clamping_events.c_str());
+                 axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), current_tip_position_[i],
+                 axis_label[i].c_str(), desired_tip_position_[i], error_percentage, clamping_events.c_str());
       }
     }
   }
