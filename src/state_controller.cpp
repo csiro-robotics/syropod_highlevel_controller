@@ -323,6 +323,7 @@ void StateController::transitionRobotState(void)
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning to RUNNING state (%s). . .\n", progress_string.c_str());
     if (progress == PROGRESS_COMPLETE)
     {
+      walker_->init();
       walker_->generateWorkspace();
       robot_state_ = RUNNING;
       ROS_INFO("\nState transition complete. Syropod is in RUNNING state. Ready to walk.\n");

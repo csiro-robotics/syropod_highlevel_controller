@@ -83,7 +83,7 @@ void WalkController::init(void)
                    adjacent_leg_1->getIDName().c_str(), bearing_to_adjacent_leg_1, distance_to_adjacent_leg_1,
                    adjacent_leg_2->getIDName().c_str(), bearing_to_adjacent_leg_2, distance_to_adjacent_leg_2);
 
-    //Populate workspace map
+    //Populate workspace map if empty
     for (int bearing = 0; bearing < 360; bearing += BEARING_STEP)
     {
       int bearing_diff_1 = abs(mod(bearing_to_adjacent_leg_1, 360) - bearing);
@@ -626,6 +626,12 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
         double coxa_joint_velocity = tip_velocity_input[0] * params_.max_rotation_velocity.data * time_delta_;
         double femur_joint_velocity = tip_velocity_input[1] * params_.max_rotation_velocity.data * time_delta_;
         double tibia_joint_velocity = tip_velocity_input[2] * params_.max_rotation_velocity.data * time_delta_;
+        double coxa_joint_position = leg->getJointByIDName(leg->getIDName() + "_coxa_joint")->desired_position_;
+        double femur_joint_position = leg->getJointByIDName(leg->getIDName() + "_femur_joint")->desired_position_;
+        double tibia_joint_position = leg->getJointByIDName(leg->getIDName() + "_tibia_joint")->desired_position_;
+        leg->getJointByIDName(leg->getIDName() + "_coxa_joint")->prev_desired_position_ = coxa_joint_position;
+        leg->getJointByIDName(leg->getIDName() + "_femur_joint")->prev_desired_position_ = femur_joint_position;
+        leg->getJointByIDName(leg->getIDName() + "_tibia_joint")->prev_desired_position_ = tibia_joint_position;
         leg->getJointByIDName(leg->getIDName() + "_coxa_joint")->desired_position_ += coxa_joint_velocity;
         leg->getJointByIDName(leg->getIDName() + "_femur_joint")->desired_position_ += femur_joint_velocity;
         leg->getJointByIDName(leg->getIDName() + "_tibia_joint")->desired_position_ += tibia_joint_velocity;

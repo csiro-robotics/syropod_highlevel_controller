@@ -388,6 +388,8 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
         joint->desired_velocity_ = clamped(joint->desired_velocity_, -max_velocity, max_velocity);
       }
     }
+    
+    joint->prev_desired_position_ = joint->desired_position_;
     joint->desired_position_ = joint->prev_desired_position_ + joint->desired_velocity_ * model_->getTimeDelta();
 
     // Clamp joint position within limits
@@ -406,8 +408,6 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
         joint->desired_position_ = joint->max_position_;
       }
     }
-    
-    joint->prev_desired_position_ = joint->desired_position_;
 
     //Calculates the proximity of the joint closest to one of it's limits. Used for preventing exceeding workspace.
     // (1.0 = furthest possible from limit, 0.0 = equal to limit)

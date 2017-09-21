@@ -281,17 +281,6 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
           // Leg has attempted to move beyond workspace so stop transition early
           if (first_sequence_execution_ && exceeded_workspace)
           {
-            string joint_position_string;
-            for (joint_it_ = leg->getJointContainer()->begin();
-                 joint_it_ != leg->getJointContainer()->end();
-                 ++joint_it_)
-            {
-              shared_ptr<Joint> joint = joint_it_->second;
-              joint_position_string += stringFormat("\tJoint: %s\tPosition: %f\n",
-                                                    joint->id_name_.c_str(), joint->desired_position_);
-            }
-            ROS_DEBUG_COND(debug, "\nLeg %s exceeded safety factor.\nOptimise sequence by setting 'unpacked'joint"
-                           "positions to the following:\n%s", leg->getIDName().c_str(), joint_position_string.c_str());
             leg_poser->setTargetTipPosition(leg_poser->getCurrentTipPosition());
             progress = leg_poser->resetStepToPosition(); // Skips to 'complete' progress and resets
             proximity_alert_ = true;
@@ -303,6 +292,18 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
             legs_completed_step_ ++;
             if (first_sequence_execution_)
             {
+              string joint_position_string;
+              for (joint_it_ = leg->getJointContainer()->begin();
+                   joint_it_ != leg->getJointContainer()->end();
+                   ++joint_it_)
+              {
+                shared_ptr<Joint> joint = joint_it_->second;
+                joint_position_string += stringFormat("\tJoint: %s\tPosition: %f\n",
+                                                      joint->id_name_.c_str(), joint->desired_position_);
+              }
+              ROS_DEBUG_COND(debug, "\nLeg %s has completed first transition.\n"
+                             "Optimise sequence by setting 'unpacked' joint positions to the following:\n%s", 
+                             leg->getIDName().c_str(), joint_position_string.c_str());
               bool reached_target = !exceeded_workspace;
               Vector3d targetTipPosition = leg_poser->getTargetTipPosition();
               Vector3d currentTipPosition = leg_poser->getCurrentTipPosition();
@@ -507,7 +508,6 @@ int PoseController::directStartup(void) //Simultaneous leg coordination
       {
         shared_ptr<Joint> joint = joint_it->second;
         default_joint_positions_[leg->getIDNumber()].push_back(joint->desired_position_);
-        joint->prev_desired_position_ = joint->desired_position_;
       }
       
       // Reinitialise leg with initial joint states
@@ -1272,6 +1272,7 @@ int LegPoser::moveToJointPosition(const vector<double>& target_joint_positions, 
     control_nodes[1] = origin_joint_positions_[i];
     control_nodes[2] = target_joint_positions[i];
     control_nodes[3] = target_joint_positions[i];
+    joint->prev_desired_position_ = joint->desired_position_;
     joint->desired_position_ = cubicBezier(control_nodes, master_iteration_count_ * delta_t);
     new_joint_positions.push_back(joint->desired_position_);
   }
