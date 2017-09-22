@@ -32,7 +32,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   initParameters();
 
   // Create robot model
-  model_ = make_shared<Model>(params_);
+  model_ = allocate_shared<Model>(aligned_allocator<Model>(), params_);
   model_->generate();
 
   debug_visualiser_.setTimeDelta(params_.time_delta.data);
@@ -154,11 +154,12 @@ void StateController::init(void)
   }
 
   // Create controller objects and smart pointers
-  walker_ = make_shared<WalkController>(model_, params_, make_shared<DebugVisualiser>(debug_visualiser_));
+  shared_ptr<DebugVisualiser> debug_visualiser_ptr = allocate_shared<DebugVisualiser>(aligned_allocator<DebugVisualiser>(), debug_visualiser_);
+  walker_ = allocate_shared<WalkController>(aligned_allocator<WalkController>(), model_, params_, debug_visualiser_ptr);
   walker_->init();
-  poser_ = make_shared<PoseController>(model_, params_);
+  poser_ = allocate_shared<PoseController>(aligned_allocator<PoseController>(), model_, params_);
   poser_->init();
-  admittance_ = make_shared<AdmittanceController>(model_, params_);
+  admittance_ = allocate_shared<AdmittanceController>(aligned_allocator<AdmittanceController>(), model_, params_);
   admittance_->init();
 
   robot_state_ = UNKNOWN;

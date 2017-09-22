@@ -38,7 +38,7 @@ void Model::generate(void)
 {
   for (int i = 0; i < leg_count_; ++i)
   {
-    shared_ptr<Leg> leg = make_shared<Leg>(shared_from_this(), i, params_);
+    shared_ptr<Leg> leg = allocate_shared<Leg>(aligned_allocator<Leg>(), shared_from_this(), i, params_);
     leg->generate();
     leg_container_.insert(LegContainer::value_type(i, leg));
   }
@@ -127,18 +127,18 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
 void Leg::generate(void)
 {
   shared_ptr<Joint> null_joint; //TODO
-  shared_ptr<Link> base_link = make_shared<Link>(shared_from_this(), null_joint, 0, params_);
+  shared_ptr<Link> base_link = allocate_shared<Link>(aligned_allocator<Link>(), shared_from_this(), null_joint, 0, params_);
   link_container_.insert(LinkContainer::value_type(0, base_link));
   shared_ptr<Link> prev_link = base_link;
   for (int i = 1; i < joint_count_ + 1; ++i)
   {
-    shared_ptr<Joint> new_joint = make_shared<Joint>(shared_from_this(), prev_link, i, params_);
-    shared_ptr<Link> new_link = make_shared<Link>(shared_from_this(), new_joint, i, params_);
+    shared_ptr<Joint> new_joint = allocate_shared<Joint>(aligned_allocator<Joint>(), shared_from_this(), prev_link, i, params_);
+    shared_ptr<Link> new_link = allocate_shared<Link>(aligned_allocator<Link>(), shared_from_this(), new_joint, i, params_);
     joint_container_.insert(JointContainer::value_type(i, new_joint));
     link_container_.insert(LinkContainer::value_type(i, new_link));
     prev_link = new_link;
   }
-  tip_ = make_shared<Tip>(shared_from_this(), prev_link);
+  tip_ = allocate_shared<Tip>(aligned_allocator<Tip>(), shared_from_this(), prev_link);
 }
 
 /*******************************************************************************************************************//**

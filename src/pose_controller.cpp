@@ -48,7 +48,7 @@ void PoseController::init(void)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
-    leg->setLegPoser(make_shared<LegPoser>(shared_from_this(), leg));
+    leg->setLegPoser(allocate_shared<LegPoser>(aligned_allocator<LegPoser>(), shared_from_this(), leg));
   }
   setAutoPoseParams();
 }
@@ -97,7 +97,7 @@ void PoseController::setAutoPoseParams(void)
   auto_poser_container_.clear();
   for (int i = 0; i < int(params_.pose_phase_starts.data.size()); ++i)
   {
-    auto_poser_container_.push_back(make_shared<AutoPoser>(shared_from_this(), i));
+    auto_poser_container_.push_back(allocate_shared<AutoPoser>(aligned_allocator<AutoPoser>(), shared_from_this(), i));
   }
 
   // For each auto-poser object set control variables from auto_posing parameters

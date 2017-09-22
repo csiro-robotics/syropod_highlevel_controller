@@ -53,7 +53,7 @@ void WalkController::init(void)
     double x_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("x");
     double y_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("y");
     Vector3d identity_tip_position(x_position, y_position, -body_clearance_);
-    leg->setLegStepper(make_shared<LegStepper>(shared_from_this(), leg, identity_tip_position));
+    leg->setLegStepper(allocate_shared<LegStepper>(aligned_allocator<LegStepper>(), shared_from_this(), leg, identity_tip_position));
   }
 
   // Populate workspace map using leg tip position overlaps
