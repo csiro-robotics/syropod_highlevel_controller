@@ -1313,7 +1313,7 @@ int LegPoser::moveToJointPosition(const vector<double>& target_joint_positions, 
  * Uses bezier curves to smoothly update (over many iterations) the desired tip position of the leg associated with
  * this Leg Poser object, from the original tip position at the first iteration of this function to the target tip
  * position defined by the input argument.
- * @param[in] target A 3d vector defining the target tip position in reference to the body centre frame
+ * @param[in] target_tip_position A 3d vector defining the target tip position in reference to the body centre frame
  * @param[in] target_pose A Pose to be linearly applied to the tip position over the course of the maneuver
  * @param[in] lift_height The height which the stepping leg trajectory should reach at its peak.
  * @param[in] time_to_step The time period to complete this maneuver.
@@ -1321,21 +1321,21 @@ int LegPoser::moveToJointPosition(const vector<double>& target_joint_positions, 
  * be applied to the target tip position.
  * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
-int LegPoser::stepToPosition(const Vector3d& target, Pose target_pose,
+int LegPoser::stepToPosition(const Vector3d& target_tip_position, const Pose& target_pose,
                              const double& lift_height, const double& time_to_step, const bool& apply_delta_z)
 {
-  Vector3d target_tip_position = target;
+  Vector3d desired_tip_position = target_tip_position;
 
   if (first_iteration_)
   {
     origin_tip_position_ = leg_->getCurrentTipPosition();
 
     // Complete early if target and origin positions are approximately equal
-    if (abs(origin_tip_position_[0] - target_tip_position[0]) < TIP_TOLERANCE &&
-        abs(origin_tip_position_[1] - target_tip_position[1]) < TIP_TOLERANCE &&
-        abs(origin_tip_position_[2] - target_tip_position[2]) < TIP_TOLERANCE)
+    if (abs(origin_tip_position_[0] - desired_tip_position[0]) < TIP_TOLERANCE &&
+        abs(origin_tip_position_[1] - desired_tip_position[1]) < TIP_TOLERANCE &&
+        abs(origin_tip_position_[2] - desired_tip_position[2]) < TIP_TOLERANCE)
     {
-      current_tip_position_ = target_tip_position;
+      current_tip_position_ = desired_tip_position;
       return PROGRESS_COMPLETE;
     }
     current_tip_position_ = origin_tip_position_;
@@ -1347,7 +1347,7 @@ int LegPoser::stepToPosition(const Vector3d& target, Pose target_pose,
   bool manually_manipulated = (leg_->getLegState() == MANUAL || leg_->getLegState()  == WALKING_TO_MANUAL);
   if (apply_delta_z && !manually_manipulated)
   {
-    target_tip_position[2] += leg_->getDeltaZ();
+    desired_tip_position[2] += leg_->getDeltaZ();
   }
 
   master_iteration_count_++;
@@ -1358,10 +1358,11 @@ int LegPoser::stepToPosition(const Vector3d& target, Pose target_pose,
   double completion_ratio = (double(master_iteration_count_ - 1) / double(num_iterations));
 
   // Applies required posing slowly over course of transition
+  Pose desired_pose;
   // Scales position vector by 0->1.0
-  target_pose.position_ *= completion_ratio;
+  desired_pose.position_ = target_pose.position_ * completion_ratio;
   // Scales rotation quat by 0.0->1.0 (https://en.wikipedia.org/wiki/Slerp)
-  target_pose.rotation_ = Quaterniond::Identity().slerp(completion_ratio, target_pose.rotation_).normalized();
+  desired_pose.rotation_ = Quaterniond::Identity().slerp(completion_ratio, target_pose.rotation_).normalized();
 
   int half_swing_iteration = num_iterations / 2;
 
@@ -1373,17 +1374,17 @@ int LegPoser::stepToPosition(const Vector3d& target, Pose target_pose,
   control_nodes_primary[0] = origin_tip_position_;
   control_nodes_primary[1] = origin_tip_position_;
   control_nodes_primary[2] = origin_tip_position_;
-  control_nodes_primary[3] = target_tip_position + 0.75 * (origin_tip_position_ - target_tip_position);
-  control_nodes_primary[4] = target_tip_position + 0.5 * (origin_tip_position_ - target_tip_position);
+  control_nodes_primary[3] = desired_tip_position + 0.75 * (origin_tip_position_ - desired_tip_position);
+  control_nodes_primary[4] = desired_tip_position + 0.5 * (origin_tip_position_ - desired_tip_position);
   control_nodes_primary[2][2] += lift_height;
   control_nodes_primary[3][2] += lift_height;
   control_nodes_primary[4][2] += lift_height;
 
-  control_nodes_secondary[0] = target_tip_position + 0.5 * (origin_tip_position_ - target_tip_position);
-  control_nodes_secondary[1] = target_tip_position + 0.25 * (origin_tip_position_ - target_tip_position);
-  control_nodes_secondary[2] = target_tip_position;
-  control_nodes_secondary[3] = target_tip_position;
-  control_nodes_secondary[4] = target_tip_position;
+  control_nodes_secondary[0] = desired_tip_position + 0.5 * (origin_tip_position_ - desired_tip_position);
+  control_nodes_secondary[1] = desired_tip_position + 0.25 * (origin_tip_position_ - desired_tip_position);
+  control_nodes_secondary[2] = desired_tip_position;
+  control_nodes_secondary[3] = desired_tip_position;
+  control_nodes_secondary[4] = desired_tip_position;
   control_nodes_secondary[0][2] += lift_height;
   control_nodes_secondary[1][2] += lift_height;
   control_nodes_secondary[2][2] += lift_height;
@@ -1419,12 +1420,12 @@ int LegPoser::stepToPosition(const Vector3d& target, Pose target_pose,
                    time_input, completion_ratio,
                    origin_tip_position_[0], origin_tip_position_[1], origin_tip_position_[2],
                    new_tip_position[0], new_tip_position[1], new_tip_position[2],
-                   target_tip_position[0], target_tip_position[1], target_tip_position[2]);
+                   desired_tip_position[0], desired_tip_position[1], desired_tip_position[2]);
   }
 
   if (leg_->getLegState() != MANUAL)
   {
-    current_tip_position_ = target_pose.inverseTransformVector(new_tip_position);
+    current_tip_position_ = desired_pose.inverseTransformVector(new_tip_position);
   }
 
   //Return ratio of completion (1.0 when fully complete)

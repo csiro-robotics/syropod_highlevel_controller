@@ -109,6 +109,9 @@ private:
   int leg_count_;                ///< The number of leg objects within the robot model.
   double time_delta_;            ///< The time period of the ros cycle.
   Pose current_pose_;            ///< Current pose of robot model body.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**
@@ -414,6 +417,9 @@ public:
   const double dh_parameter_theta_;         ///< The DH parameter 'theta' associated with this link.
   const double dh_parameter_d_;             ///< The DH parameter 'd' associated with this link.
   const double dh_parameter_alpha_;         ///< The DH parameter 'alpha' associated with this link.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**

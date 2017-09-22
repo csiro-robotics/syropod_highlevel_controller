@@ -210,6 +210,9 @@ public:
   T data;                   ///< Data which defines parameter
   bool required = true;     ///< Denotes if this parameter is required to be initialised
   bool initialised = false; ///< Denotes if this parameter has been initialised
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**
@@ -251,6 +254,9 @@ public:
   double min_value;     ///< The minimum allowed value of this adjustable parameter
   double default_value; ///< The default value of this adjustable parameter
   double adjust_step;   ///< The allowable increment or decrement of the current value of this adjustable parameter
+
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**
@@ -357,6 +363,9 @@ struct Parameters
   Parameter<bool> debug_IK;                  ///< Flag determining if inverse kinematics engine outputs debug info.
   Parameter<bool> debug_rviz;                ///< Flag determining if visualisation markers are output for debugging.
   Parameter<bool> debug_rviz_static_display; ///< Flag determining if visualisation markers incoorporate robot odometry.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /***********************************************************************************************************************

@@ -104,6 +104,9 @@ private:
   Pose odometry_pose_;      ///< Pose representing odometry pf robot model
   double time_delta_ = 0.0; ///< Time period of main loop cycle used for marker duration
   int tip_position_id_ = 0; ///< Id for tip trajectory markers
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /***********************************************************************************************************************

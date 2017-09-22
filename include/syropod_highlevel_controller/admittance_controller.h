@@ -86,6 +86,9 @@ public:
 private:
   shared_ptr<Model> model_;  ///< Pointer to the robot model object
   const Parameters& params_; ///< Pointer to parameter data structure for storing parameter variables.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /***********************************************************************************************************************

@@ -396,6 +396,9 @@ private:
   double roll_amplitude_;   ///< Amplitude of roll component of angular rotation in auto pose.
   double pitch_amplitude_;  ///< Amplitude of pitch component of angular rotation in auto pose.
   double yaw_amplitude_;    ///< Amplitude of yaw component of angular rotation in auto pose.
+  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /*******************************************************************************************************************//**
@@ -494,7 +497,7 @@ public:
    * be applied to the target tip position.
    * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
    */
-  int stepToPosition(const Vector3d& target_tip_position, Pose target_pose,
+  int stepToPosition(const Vector3d& target_tip_position, const Pose& target_pose,
                      const double& lift_height, const double& time_to_step, const bool& apply_delta_z = true);
 
   /**

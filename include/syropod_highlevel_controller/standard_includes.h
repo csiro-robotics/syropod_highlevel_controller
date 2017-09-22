@@ -234,7 +234,7 @@ inline string stringFormat(const string& format, Args ... args)
  * @param[in] t A time input from 0.0 to 1.0.
  */
 template <class T>
-inline T cubicBezier(T* points, const double& t)
+inline T cubicBezier(const T* points, const double& t)
 {
   double s = 1.0 - t;
   return points[0] * (s * s * s) + points[1] * (3.0 * t * s * s) + points[2] * (3.0 * t * t * s) +
@@ -248,7 +248,7 @@ inline T cubicBezier(T* points, const double& t)
  * @param[in] t A time input from 0.0 to 1.0.
  */
 template <class T>
-inline T cubicBezierDot(T* points, const double& t)
+inline T cubicBezierDot(const T* points, const double& t)
 {
   double s = 1.0 - t;
   return (3 * s * s * (points[1] - points[0]) + 6 * s * t * (points[2] - points[1]) +
@@ -262,7 +262,7 @@ inline T cubicBezierDot(T* points, const double& t)
  * @param[in] t A time input from 0.0 to 1.0.
  */
 template <class T>
-inline T quarticBezier(T* points, const double& t)
+inline T quarticBezier(const T* points, const double& t)
 {
   double s = 1.0 - t;
   return points[0] * (s * s * s * s) + points[1] * (4.0 * t * s * s * s) + points[2] * (6.0 * t * t * s * s) +
@@ -276,7 +276,7 @@ inline T quarticBezier(T* points, const double& t)
  * @param[in] t A time input from 0.0 to 1.0.
  */
 template <class T>
-inline T quarticBezierDot(T* points, const double& t)
+inline T quarticBezierDot(const T* points, const double& t)
 {
   double s = 1.0 - t;
   return (4.0 * s * s * s * (points[1] - points[0]) + 12.0 * s * s * t * (points[2] - points[1]) +
