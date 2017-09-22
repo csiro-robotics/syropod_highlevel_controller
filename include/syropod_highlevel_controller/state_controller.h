@@ -149,6 +149,9 @@ public:
   /** Publishes current pose (roll, pitch, yaw, x, y, z) for debugging */
   void publishPose(void);
 
+  /** Publishes details about current workspace (average/min/max radius) for debugging */
+  void publishWorkspace(void);
+
   /** Publishes imu pose rotation absement, position and velocity errors used in the PID controller, for debugging */
   void publishRotationPoseError(void);
 
@@ -385,6 +388,7 @@ private:
 
   ros::Publisher desired_joint_state_publisher_;      ///< Publisher for topic "/desired_joint_state"
   ros::Publisher pose_publisher_;                     ///< Publisher for topic "/pose"
+  ros::Publisher workspace_publisher_;                ///< Publisher for topic "/workspace"
   ros::Publisher imu_data_publisher_;                 ///< Publisher for topic "/imu_data"
   ros::Publisher body_velocity_publisher_;            ///< Publisher for topic "/body_velocity"
   ros::Publisher rotation_pose_error_publisher_;      ///< Publisher for topic "/rotation_pose_error"

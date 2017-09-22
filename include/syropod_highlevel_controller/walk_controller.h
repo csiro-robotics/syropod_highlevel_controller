@@ -27,8 +27,8 @@
 #include "pose_controller.h"
 #include "debug_visualiser.h"
 
-#define BEARING_STEP 10 ///< Step to increment bearing in workspace generation algorithm (deg)
-#define WORKSPACE_GENERATION_MAX_ITERATIONS 100 ///< Maximum number of iterations to find limits of workspace
+#define BEARING_STEP 60 ///< Step to increment bearing in workspace generation algorithm (deg)
+#define WORKSPACE_GENERATION_MAX_ITERATIONS 50 ///< Maximum number of iterations to find limits of workspace
 
 class DebugVisualiser;
 

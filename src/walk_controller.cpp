@@ -30,7 +30,6 @@ WalkController::WalkController(shared_ptr<Model> model, const Parameters& params
   : model_(model)
   , params_(params)
   , debug_visualiser_(debug_visualiser)
-  , walk_state_(STOPPED)
 {
 }
 
@@ -45,6 +44,7 @@ void WalkController::init(void)
   step_clearance_ = params_.step_clearance.current_value;
   body_clearance_ = params_.body_clearance.current_value;
   bool debug = params_.debug_workspace_calc.data;
+  walk_state_ = STOPPED;
 
   // Set default stance tip positions from parameters
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -544,9 +544,14 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     else if (walk_state_ == STOPPING)
     {
-      // All legs must make one extra step after receiving stopping signal
+      // All legs must be at default tip positions after ending a swing before called 'at correct phase'
       bool zero_body_velocity = leg_stepper->getStrideVector().norm() == 0;
-      if (zero_body_velocity && !leg_stepper->isAtCorrectPhase() && leg_stepper->getPhase() == swing_end_)
+      Vector3d diff = leg_stepper->getCurrentTipPosition() - leg_stepper->getDefaultTipPosition();
+      bool at_default_tip_position = abs(diff[0]) < TIP_TOLERANCE &&
+                                     abs(diff[1]) < TIP_TOLERANCE &&
+                                     abs(diff[2]) < TIP_TOLERANCE;
+      if (zero_body_velocity && !leg_stepper->isAtCorrectPhase() &&
+          leg_stepper->getPhase() == swing_end_ && at_default_tip_position)
       {
         leg_stepper->setStepState(FORCE_STOP);
         leg_stepper->setAtCorrectPhase(true);

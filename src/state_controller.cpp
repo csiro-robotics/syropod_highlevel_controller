@@ -91,6 +91,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   //Set up debugging publishers
   string node_name = ros::this_node::getName();
   pose_publisher_ = n_.advertise<geometry_msgs::Twist>(node_name + "/pose", 1000);
+  workspace_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/workspace", 1000);
   imu_data_publisher_ = n_.advertise<sensor_msgs::Imu>(node_name + "/imu_data", 1000);
   body_velocity_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/body_velocity", 1000);
   rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/rotation_pose_error", 1000);
@@ -197,7 +198,8 @@ void StateController::loop(void)
   {
     transitionRobotState();
   }
-  else if (robot_state_ == RUNNING)
+  
+  if (robot_state_ == RUNNING)
   {
     runningState();
   }
@@ -332,27 +334,37 @@ void StateController::transitionRobotState(void)
   // RUNNING -> READY (Initiate shut down sequence to step from walking stance to ready stance)
   else if (robot_state_ == RUNNING && new_robot_state_ == READY)
   {
-    // Return any manually controlled legs before executing shutdown
-    if (manual_leg_count_ != 0)
+        // Force Syropod to stop walking
+    if (walker_->getWalkState() == STOPPED)
     {
-      if (primary_leg_selection_ != LEG_UNDESIGNATED)
+      // Return any manually controlled legs before executing shutdown
+      if (manual_leg_count_ != 0)
       {
-        toggle_primary_leg_state_ = primary_leg_->getLegState() == MANUAL;
+        if (primary_leg_selection_ != LEG_UNDESIGNATED)
+        {
+          toggle_primary_leg_state_ = primary_leg_->getLegState() == MANUAL;
+        }
+        if (secondary_leg_selection_ != LEG_UNDESIGNATED)
+        {
+          toggle_secondary_leg_state_ = (secondary_leg_->getLegState() == MANUAL);
+        }
       }
-      if (secondary_leg_selection_ != LEG_UNDESIGNATED)
+      else
       {
-        toggle_secondary_leg_state_ = (secondary_leg_->getLegState() == MANUAL);
+        int progress = poser_->executeSequence(SHUT_DOWN);
+        ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning to READY state (%d%%). . .\n", progress);
+        if (progress == PROGRESS_COMPLETE)
+        {
+          robot_state_ = READY;
+          ROS_INFO("\nState transition complete. Syropod is in READY state.\n");
+        }
       }
     }
     else
     {
-      int progress = poser_->executeSequence(SHUT_DOWN);
-      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning to READY state (%d%%). . .\n", progress);
-      if (progress == PROGRESS_COMPLETE)
-      {
-        robot_state_ = READY;
-        ROS_INFO("\nState transition complete. Syropod is in READY state.\n");
-      }
+      linear_velocity_input_ = Vector2d(0.0, 0.0);
+      angular_velocity_input_ = 0.0;
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to transition state . . .\n");
     }
   }
   // Undefined system transition
@@ -376,8 +388,13 @@ void StateController::transitionRobotState(void)
 ***********************************************************************************************************************/
 void StateController::runningState(void)
 {
+  // Force Syropod to stop walking
+  if (transition_state_flag_)
+  {
+    transitionRobotState();
+  }
   // Switch gait and update walker parameters
-  if (gait_change_flag_)
+  else if (gait_change_flag_)
   {
     changeGait();
   }
@@ -399,10 +416,11 @@ void StateController::runningState(void)
     angular_velocity_input_ = angular_cruise_velocity_;
   }
 
-  // Update tip positions unless Syropod is undergoing gait switch, parameter adjustment or leg state transition
-  // (which all only occur once the Syropod has stopped walking)
-  if (!((gait_change_flag_ || parameter_adjust_flag_ || toggle_primary_leg_state_ || toggle_secondary_leg_state_) &&
-        walker_->getWalkState() == STOPPED))
+  // Update tip positions unless Syropod is undergoing state transition, gait switch, parameter adjustment or 
+  // leg state transition (which all only occur once the Syropod has stopped walking)
+  if (!((transition_state_flag_ || gait_change_flag_ || parameter_adjust_flag_ ||
+         toggle_primary_leg_state_ || toggle_secondary_leg_state_) &&
+         walker_->getWalkState() == STOPPED))
   {
     // Update tip positions for walking legs
     walker_->updateWalk(linear_velocity_input_, angular_velocity_input_);
@@ -751,6 +769,31 @@ void StateController::publishPose(void)
   msg.angular.y = quaternionToEulerAngles(rotation)[1];
   msg.angular.z = quaternionToEulerAngles(rotation)[2];
   pose_publisher_.publish(msg);
+}
+
+/*******************************************************************************************************************//**
+ * Publishes details about current workspace (average/min/max radius) for debugging
+***********************************************************************************************************************/
+void StateController::publishWorkspace(void)
+{
+  std_msgs::Float32MultiArray msg;
+  double min_radius = UNASSIGNED_VALUE, max_radius = 0, average_radius = 0;
+  int radius_count = 0;
+  map<int, double> workspace_map = walker_->getWorkspaceMap();
+  map<int, double>::iterator workspace_it;
+  for (workspace_it = workspace_map.begin(); workspace_it != workspace_map.end(); ++workspace_it, ++radius_count)
+  {
+    double radius = workspace_it->second;
+    average_radius += radius;
+    min_radius = min(min_radius, radius);
+    max_radius = max(max_radius, radius);
+  }
+  average_radius /= radius_count;
+  msg.data.clear();
+  msg.data.push_back(average_radius);
+  msg.data.push_back(min_radius);
+  msg.data.push_back(max_radius);
+  workspace_publisher_.publish(msg);
 }
 
 /*******************************************************************************************************************//**

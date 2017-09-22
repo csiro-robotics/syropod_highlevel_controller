@@ -745,12 +745,12 @@ void PoseController::updateManualPose(void)
                         params_.max_rotation.data.at("pitch"),
                         params_.max_rotation.data.at("yaw"));
 
-  Vector3d translation_limit;
-  Vector3d rotation_limit;
-  Vector3d translation_velocity;
-  Vector3d rotation_velocity;
-  Vector3d desired_position;
-  Vector3d desired_rotation;
+  Vector3d translation_limit(0, 0, 0);
+  Vector3d rotation_limit(0, 0, 0);
+  Vector3d translation_velocity(0, 0, 0);
+  Vector3d rotation_velocity(0, 0, 0);
+  Vector3d desired_position(0, 0, 0);
+  Vector3d desired_rotation(0, 0, 0);
 
   // Populate axis reset values from pose reset mode
   bool reset_translation[3] = { false, false, false };

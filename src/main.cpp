@@ -119,6 +119,7 @@ int main(int argc, char* argv[])
       state.loop();
       state.publishLegState();
       state.publishPose();
+      state.publishWorkspace();
       state.publishBodyVelocity();
       state.publishRotationPoseError();
 
