@@ -42,7 +42,7 @@ class LegPoser;
  * This class serves as the top-level parent of each leg object and associated tip/joint/link objects. It contains data
  * which is relevant to the robot body or the robot as a whole rather than leg dependent data.
 ***********************************************************************************************************************/
-typedef map<int, shared_ptr<Leg>> LegContainer;
+typedef map<int, shared_ptr<Leg>, less<int>, aligned_allocator<pair<const int, shared_ptr<Leg>>>> LegContainer;
 class Model : public enable_shared_from_this<Model>
 {
 public:
@@ -120,8 +120,8 @@ public:
  * associated with the leg.
 ***********************************************************************************************************************/
 typedef vector<double> state_type; //Impedance state used in admittance controller
-typedef map<int, shared_ptr<Joint>> JointContainer;
-typedef map<int, shared_ptr<Link>> LinkContainer;
+typedef map<int, shared_ptr<Joint>, less<int>, aligned_allocator<pair<const int, shared_ptr<Joint>>>> JointContainer;
+typedef map<int, shared_ptr<Link>, less<int>, aligned_allocator<pair<const int, shared_ptr<Link>>>> LinkContainer;
 class Leg : public enable_shared_from_this<Leg>
 {
 public:

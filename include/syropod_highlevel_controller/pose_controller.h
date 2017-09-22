@@ -60,7 +60,7 @@ public:
  * requirements and methods. Generation of a user controlled 'manual' body pose and an IMU feedback based automatic
  * body pose are examples of these sub-poses, which are combined and applied to the robot model body.
 ***********************************************************************************************************************/
-typedef vector<shared_ptr<AutoPoser>> AutoPoserContainer;
+typedef vector<shared_ptr<AutoPoser>, aligned_allocator<shared_ptr<AutoPoser>>> AutoPoserContainer;
 class PoseController : public enable_shared_from_this<PoseController>
 {
 public:
