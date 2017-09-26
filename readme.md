@@ -231,7 +231,6 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Added tip force estimate visualisation
     - Added time limit to cruise control feature for use in running experiments.
 - v0.5.4
-    - *Added ability to set constraints on desired tip rotation in IK engine.
     - Modified direct startup sequence to operate in joint space instead of tip space to prevent joints jumping if initialised outside limits.
     - Renamed impedance controller to 'admittance controller'
     - Removed custom Quat class and instead replaced with Eigen::Quaterniond
