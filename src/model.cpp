@@ -127,13 +127,16 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
 void Leg::generate(void)
 {
   shared_ptr<Joint> null_joint; //TODO
-  shared_ptr<Link> base_link = allocate_shared<Link>(aligned_allocator<Link>(), shared_from_this(), null_joint, 0, params_);
+  shared_ptr<Link> base_link = 
+    allocate_shared<Link>(aligned_allocator<Link>(), shared_from_this(), null_joint, 0, params_);
   link_container_.insert(LinkContainer::value_type(0, base_link));
   shared_ptr<Link> prev_link = base_link;
   for (int i = 1; i < joint_count_ + 1; ++i)
   {
-    shared_ptr<Joint> new_joint = allocate_shared<Joint>(aligned_allocator<Joint>(), shared_from_this(), prev_link, i, params_);
-    shared_ptr<Link> new_link = allocate_shared<Link>(aligned_allocator<Link>(), shared_from_this(), new_joint, i, params_);
+    shared_ptr<Joint> new_joint = 
+      allocate_shared<Joint>(aligned_allocator<Joint>(), shared_from_this(), prev_link, i, params_);
+    shared_ptr<Link> new_link = 
+      allocate_shared<Link>(aligned_allocator<Link>(), shared_from_this(), new_joint, i, params_);
     joint_container_.insert(JointContainer::value_type(i, new_joint));
     link_container_.insert(LinkContainer::value_type(i, new_link));
     prev_link = new_link;

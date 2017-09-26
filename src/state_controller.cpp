@@ -154,7 +154,8 @@ void StateController::init(void)
   }
 
   // Create controller objects and smart pointers
-  shared_ptr<DebugVisualiser> debug_visualiser_ptr = allocate_shared<DebugVisualiser>(aligned_allocator<DebugVisualiser>(), debug_visualiser_);
+  shared_ptr<DebugVisualiser> debug_visualiser_ptr = 
+    allocate_shared<DebugVisualiser>(aligned_allocator<DebugVisualiser>(), debug_visualiser_);
   walker_ = allocate_shared<WalkController>(aligned_allocator<WalkController>(), model_, params_, debug_visualiser_ptr);
   walker_->init();
   poser_ = allocate_shared<PoseController>(aligned_allocator<PoseController>(), model_, params_);
@@ -1384,9 +1385,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
         }
         if (get_effort_values)
         {
-          bool reverse_torque = true;
-          n_.getParam("/" + joint->id_name_ + "_reverse_torque", reverse_torque); // TODO Remove
-          joint->current_effort_ = joint_states.effort[i] * (reverse_torque ? -1.0 : 1.0);
+          joint->current_effort_ = -joint_states.effort[i]; // Assuming dynamixel_interface reverse joint effort
           joint->desired_effort_ = joint->current_effort_;
         }
       }
