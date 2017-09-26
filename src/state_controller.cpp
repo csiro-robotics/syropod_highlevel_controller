@@ -1371,24 +1371,21 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
   // Iterate through message and assign found state values to joint objects
   for (uint i = 0; i < joint_states.name.size(); ++i)
   {
-    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+    string joint_name = joint_states.name[i];
+    string leg_name = joint_name.substr(0, joint_name.find("_"));
+    shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
+    ROS_ASSERT(leg != NULL);
+    shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
+    ROS_ASSERT(joint != NULL);
+    joint->current_position_ = joint_states.position[i];
+    if (get_velocity_values)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
-      string joint_name(joint_states.name[i]);
-      shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
-      if (joint != NULL)
-      {
-        joint->current_position_ = joint_states.position[i];
-        if (get_velocity_values)
-        {
-          joint->current_velocity_ = joint_states.velocity[i];
-        }
-        if (get_effort_values)
-        {
-          joint->current_effort_ = -joint_states.effort[i]; // Assuming dynamixel_interface reverse joint effort
-          joint->desired_effort_ = joint->current_effort_;
-        }
-      }
+      joint->current_velocity_ = joint_states.velocity[i];
+    }
+    if (get_effort_values)
+    {
+      joint->current_effort_ = -joint_states.effort[i]; // Assuming dynamixel_interface reverse joint effort
+      joint->desired_effort_ = joint->current_effort_;
     }
   }
 
