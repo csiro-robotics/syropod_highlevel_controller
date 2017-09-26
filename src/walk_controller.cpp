@@ -3,8 +3,8 @@
  *  @brief   Handles control of Syropod walking.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    September 2017
- *  @version 0.5.4
+ *  @date    October 2017
+ *  @version 0.5.6
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -18,6 +18,8 @@
  **********************************************************************************************************************/
 
 #include "../include/syropod_highlevel_controller/walk_controller.h"
+#include "../include/syropod_highlevel_controller/pose_controller.h"
+#include "../include/syropod_highlevel_controller/debug_visualiser.h"
 
 /*******************************************************************************************************************//**
  * Constructor for the walk controller.

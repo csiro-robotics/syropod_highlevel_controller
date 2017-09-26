@@ -2,7 +2,7 @@
 
 High level controller for CSIRO multi-legged robots (Syropods).
 
-Current version: v0.5.4
+Current version: v0.5.6
 
 Please use readme in launch folder of individual platform for information on setting up platform for use with Syropod High-level Controller.
 
@@ -236,3 +236,7 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Removed custom Quat class and instead replaced with Eigen::Quaterniond
     - Removed IMU data transformation - SHC now expects IMU data in ROS REP103 coordinate frame
     - Removed joint offset parameters - SHC now expects all joint offseting to be enacted at the motor driver level
+- v0.5.5
+    - *Online specific foot placement
+- v0.5.6
+    - *Added feature to allow for desired tip rotations to ensure joint space loop closure in redundant systems.

@@ -5,8 +5,8 @@
  *  @brief   Handles publishing of Syropod model info for debugging in RVIZ.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    September 2017
- *  @version 0.5.4
+ *  @date    October 2017
+ *  @version 0.5.6
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -23,7 +23,6 @@
 #include <visualization_msgs/Marker.h>
 #include "pose.h"
 #include "model.h"
-#include "walk_controller.h"
 
 #define ROBOT_MODEL_ID 0                  ///< Id for robot model visualisation
 #define WORKSPACE_ID 10                   ///< Base id for workspace visualisations

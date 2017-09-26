@@ -5,8 +5,8 @@
  *  @brief   Collection of standard libaries and common functions.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    September 2017
- *  @version 0.5.4
+ *  @date    October 2017
+ *  @version 0.5.6
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -26,9 +26,6 @@
 
 #include <dynamic_reconfigure/server.h>
 
-#include <tf2/transform_datatypes.h>
-#include <tf2/LinearMath/Quaternion.h>
-
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int8.h>
 #include <std_msgs/Float32MultiArray.h>
@@ -44,8 +41,6 @@
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>
 #include <Eigen/Geometry>
-
-#include <boost/iterator/iterator_concepts.hpp>
 
 #include <sstream>
 #include <string.h>

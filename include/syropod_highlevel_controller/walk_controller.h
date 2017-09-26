@@ -5,8 +5,8 @@
  *  @brief   Handles control of Syropod walking.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    September 2017
- *  @version 0.5.4
+ *  @date    October 2017
+ *  @version 0.5.6
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -22,10 +22,7 @@
 #include "standard_includes.h"
 #include "parameters_and_states.h"
 #include "pose.h"
-
 #include "model.h"
-#include "pose_controller.h"
-#include "debug_visualiser.h"
 
 #define BEARING_STEP 45 ///< Step to increment bearing in workspace generation algorithm (deg)
 #define WORKSPACE_GENERATION_MAX_ITERATIONS 50 ///< Maximum number of iterations to find limits of workspace

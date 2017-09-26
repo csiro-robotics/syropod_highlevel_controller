@@ -5,8 +5,8 @@
  *  @brief   Handles control of Syropod body posing.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    September 2017
- *  @version 0.5.4
+ *  @date    October 2017
+ *  @version 0.5.6
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -22,9 +22,7 @@
 #include "standard_includes.h"
 #include "parameters_and_states.h"
 #include "pose.h"
-
 #include "model.h"
-#include "walk_controller.h"
 
 #define JOINT_TOLERANCE 0.01 ///< Tolerance allowing assumption that joints are in correct position (rad)
 #define TIP_TOLERANCE 0.001 ///< Tolerance allowing assumption that tip is in correct position (m)

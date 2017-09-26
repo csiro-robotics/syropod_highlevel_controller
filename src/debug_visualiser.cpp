@@ -3,8 +3,8 @@
  *  @brief   Handles publishing of Syropod model info for debugging in RVIZ.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    September 2017
- *  @version 0.5.4
+ *  @date    October 2017
+ *  @version 0.5.6
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -18,6 +18,7 @@
 ***********************************************************************************************************************/
 
 #include "syropod_highlevel_controller/debug_visualiser.h"
+#include "syropod_highlevel_controller/walk_controller.h"
 
 /*******************************************************************************************************************//**
  * Constructor for debug visualiser class. Sets up publishers for the visualisation markers and initialises odometry.

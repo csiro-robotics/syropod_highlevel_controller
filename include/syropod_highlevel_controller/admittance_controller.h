@@ -5,8 +5,8 @@
  *  @brief   Handles execution of the admittance controller.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    September 2017
- *  @version 0.5.4
+ *  @date    October 2017
+ *  @version 0.5.6
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -24,7 +24,6 @@
 #include <boost/numeric/odeint.hpp>
 
 #include "model.h"
-#include "walk_controller.h"
 
 /***********************************************************************************************************************
  * This class handles the application of an admittance controller to the robot model. Specifically it calculates a

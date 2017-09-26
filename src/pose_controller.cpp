@@ -3,8 +3,8 @@
  *  @brief   Handles control of Syropod body posing.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    September 2017
- *  @version 0.5.4
+ *  @date    October 2017
+ *  @version 0.5.6
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -18,6 +18,7 @@
 ***********************************************************************************************************************/
 
 #include "../include/syropod_highlevel_controller/pose_controller.h"
+#include "../include/syropod_highlevel_controller/walk_controller.h"
 
 /*******************************************************************************************************************//**
  * PoseController class constructor. Initialises member variables.

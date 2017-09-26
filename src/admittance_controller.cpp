@@ -3,8 +3,8 @@
  *  @brief   Handles execution of the admittance controller.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    September 2017
- *  @version 0.5.4
+ *  @date    October 2017
+ *  @version 0.5.6
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -18,6 +18,7 @@
 ***********************************************************************************************************************/
 
 #include "../include/syropod_highlevel_controller/admittance_controller.h"
+#include "../include/syropod_highlevel_controller/walk_controller.h"
 
 /*******************************************************************************************************************//**
  * AdmittanceController class constructor. Assigns pointers to robot model object and parameter data storage object.
