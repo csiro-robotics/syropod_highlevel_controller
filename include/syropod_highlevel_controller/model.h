@@ -27,6 +27,7 @@
 #define IK_TOLERANCE 0.005 ///< Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
 #define HALF_BODY_DEPTH 0.05 ///< Threshold used to estimate if leg tip has broken the plane of the robot body. (m)
 #define DLS_COEFFICIENT 0.02 ///< Coefficient used in Damped Least Squares method for inverse kinematics.
+#define JOINT_LIMIT_COST_WEIGHT 0.1 ///< Gain used in determining cost weight for joints approaching limits
 
 class Leg;
 class Joint;

@@ -353,7 +353,7 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
     jacobian.block<3, 1>(3, i) = ignore_tip_orientation ? Vector3d(0, 0, 0) : t.block<3, 1>(0, 2); //Angular velocity
   }
 
-  MatrixXd identity = Matrix<double, 6, 6>::Identity();
+  MatrixXd identity = MatrixXd::Identity(6, 6);
   MatrixXd ik_matrix(joint_count_, 6);
   MatrixXd j = jacobian;
 
@@ -368,9 +368,28 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
   delta(0) = leg_frame_tip_position_delta(0);
   delta(1) = leg_frame_tip_position_delta(1);
   delta(2) = leg_frame_tip_position_delta(2);
+  
+  //Generate joint limit cost function and gradient
+  i = 0;
+  double cost = 0.0;
+  VectorXd cost_gradient = VectorXd::Zero(joint_count_);
+  for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
+  {    
+    shared_ptr<Joint> joint = joint_it->second;
+    double joint_range = joint->max_position_ - joint->min_position_;
+    double range_centre = joint->min_position_ + joint_range/2.0;
+    if (joint_range != 0.0)
+    {
+      cost += sqr(abs(JOINT_LIMIT_COST_WEIGHT * (joint->desired_position_ - range_centre) / joint_range));
+      cost_gradient[i] = -sqr(JOINT_LIMIT_COST_WEIGHT) * (joint->desired_position_ - range_centre) / sqr(joint_range);
+    }
+  }
+  cost_gradient *= (cost == 0.0 ? 0.0 : 1.0 / sqrt(cost));
 
+  // Calculate joint position change
   VectorXd joint_delta_pos(joint_count_);
-  joint_delta_pos = ik_matrix * delta;
+  identity = MatrixXd::Identity(joint_count_, joint_count_);
+  joint_delta_pos = ik_matrix * delta + (identity - ik_matrix * j) * cost_gradient;
 
   int index = 0;
   string clamping_events;

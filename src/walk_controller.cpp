@@ -86,7 +86,7 @@ void WalkController::init(void)
                    adjacent_leg_2->getIDName().c_str(), bearing_to_adjacent_leg_2, distance_to_adjacent_leg_2);
 
     //Populate workspace map if empty
-    for (int bearing = 0; bearing < 360; bearing += BEARING_STEP)
+    for (int bearing = 0; bearing <= 360; bearing += BEARING_STEP)
     {
       int bearing_diff_1 = abs(mod(bearing_to_adjacent_leg_1, 360) - bearing);
       int bearing_diff_2 = abs(mod(bearing_to_adjacent_leg_2, 360) - bearing);
@@ -157,7 +157,7 @@ void WalkController::generateWorkspace(void)
 
     // Iterate through search bearings
     int opposite_bearing = 0;
-    for (int search_bearing = 0; search_bearing < 360; search_bearing += BEARING_STEP) // TODO
+    for (int search_bearing = 0; search_bearing <= 360; search_bearing += BEARING_STEP) // TODO
     {
       if (debug)
       {
@@ -389,10 +389,10 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     Vector3d tip_position = leg_stepper->getCurrentTipPosition();
     Vector2d rotation_normal = Vector2d(-tip_position[1], tip_position[0]);
     Vector2d stride_vector = linear_velocity_input + angular_velocity_input * rotation_normal;
-    double bearing = radiansToDegrees(atan2(stride_vector[1], stride_vector[0]));
-    int lower_bound = workspace_map_.lower_bound(roundToInt(bearing))->first;
-    int upper_bound = mod(lower_bound - BEARING_STEP, 360);
-    int closest_bearing = (abs(lower_bound - bearing) < abs(upper_bound - bearing)) ? lower_bound : upper_bound;
+    int bearing = mod(roundToInt(radiansToDegrees(atan2(stride_vector[1], stride_vector[0]))), 360);
+    int upper_bound = workspace_map_.lower_bound(bearing)->first;
+    int lower_bound = mod(upper_bound - BEARING_STEP, 360);
+    int closest_bearing = (abs(upper_bound - bearing) < abs(lower_bound - bearing)) ? upper_bound : lower_bound;
     max_linear_speed = min(max_linear_speed, max_linear_speed_.at(closest_bearing));
     max_angular_speed = min(max_angular_speed, max_angular_speed_.at(closest_bearing));
     max_linear_acceleration = min(max_linear_acceleration, max_linear_acceleration_.at(closest_bearing));
