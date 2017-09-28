@@ -31,6 +31,7 @@
 #define SWING_BEZIER_CURVE_2_MARKER_ID 40 ///< Base id for bezier curve visualisations
 #define STANCE_BEZIER_CURVE_MARKER_ID 50  ///< Base id for bezier curve visualisations
 #define TIP_FORCE_MARKER_ID 60            ///< Base id for tip force vector visualisations
+#define TIP_ROTATION_MARKER_ID 70         ///< Base id for tip rotation visualisations
 #define ID_LIMIT 10000                    ///< Id value limit to prevent overflow
 #define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
 
@@ -91,18 +92,28 @@ public:
    * Publishes visualisation markers which represent the estimated tip force vector for input leg.
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
    */
-  void generateTipForce(shared_ptr<Leg> leg);
+  void generateTipForce(shared_ptr<Leg> leg, const Pose& current_pose);
+  
+  /**
+   * Publishes visualisation markers which represent the orientation of the tip for input leg.
+   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+   */
+  void generateTipRotation(shared_ptr<Leg> leg, const Pose& current_pose);
 
 private:
   ros::NodeHandle n_;                        ///< Ros node handle
-  ros::Publisher robot_model_publisher_;     ///< Publisher for topic "/robot_model"
-  ros::Publisher tip_trajectory_publisher_;  ///< Publisher for topic "/tip_trajectories"
-  ros::Publisher bezier_curve_publisher_;    ///< Publisher for topic "/bezier_curves"
-  ros::Publisher workspace_publisher_;       ///< Publisher for topic "/workspaces"
+  ros::Publisher robot_model_publisher_;     ///< Publisher for topic "/shc/visualisation/robot_model"
+  ros::Publisher tip_trajectory_publisher_;  ///< Publisher for topic "/shc/visualisation/tip_trajectories"
+  ros::Publisher bezier_curve_publisher_;    ///< Publisher for topic "/shc/visualisation/bezier_curves"
+  ros::Publisher workspace_publisher_;       ///< Publisher for topic "/shc/visualisation/workspaces"
+  ros::Publisher stride_publisher_;          ///< Publisher for topic "/shc/visualisation/stride"
+  ros::Publisher tip_force_publisher_;       ///< Publisher for topic "/shc/visualisation/tip_force"
+  ros::Publisher tip_rotation_publisher_;    ///< Publisher for topic "/shc/visualisation/tip_rotation"
 
-  Pose odometry_pose_;      ///< Pose representing odometry pf robot model
-  double time_delta_ = 0.0; ///< Time period of main loop cycle used for marker duration
-  int tip_position_id_ = 0; ///< Id for tip trajectory markers
+  Pose odometry_pose_;        ///< Pose representing odometry pf robot model
+  double time_delta_ = 0.0;   ///< Time period of main loop cycle used for marker duration
+  int tip_position_id_ = 0;   ///< Id for tip trajectory markers
+  double marker_scale_ = 0.0; ///< Value used to scale marker sizes based on estimate of robot 'size'
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

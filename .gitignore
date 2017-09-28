@@ -45,5 +45,6 @@
 *~
 *.kate-swp
 *.kdev*
+.catkin_workspace
 
 

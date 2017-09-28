@@ -239,4 +239,6 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
 - v0.5.5
     - *Online specific foot placement
 - v0.5.6
-    - *Added feature to allow for desired tip rotations to ensure joint space loop closure in redundant systems.
+    - Added feature adding cost function to joints approaching limits to ensure joint space loop closure in redundant systems.
+    - Refactored joint/tip frame position functions and leg current/desired positions - to use pose (i.e. position & rotation)
+    - Added tip orientation visualisations for debugging

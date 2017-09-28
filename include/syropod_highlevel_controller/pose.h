@@ -19,6 +19,8 @@
  *
 ***********************************************************************************************************************/
 
+#include "standard_includes.h"
+
 /*******************************************************************************************************************//**
  * Class defining a 3d position and rotation using Eigen Vector3 and Quaternion classes
 ***********************************************************************************************************************/
@@ -70,7 +72,25 @@ public:
   }
   
   /**
-   * Transforms an input position into the reference frame of this pose.
+   * Transforms this pose according to an input transformation matrix constructed from DH matrices
+   * @params[in] transform The input transformation matrix
+   * @return The transformed pose
+   */
+  inline Pose transform(const Matrix4d& transform) const
+  {
+    Pose return_pose;
+    // Position
+    Vector4d result(position_[0], position_[1], position_[2], 1);
+    result = transform * result;
+    return_pose.position_ = Vector3d(result[0], result[1], result[2]);
+    // Orientation
+    Matrix3d rotation_matrix = transform.block<3, 3>(0, 0);
+    return_pose.rotation_ = (Quaterniond(rotation_matrix) * rotation_).normalized();
+    return return_pose;
+  }
+  
+  /**
+   * Transforms an input vector into the reference frame of this pose.
    * @params[in] vec The input vector to be transformed into this pose's reference frame.
    * @return The transformed vector.
    */
@@ -80,7 +100,7 @@ public:
   };
   
   /**
-   * Transforms an input position vector from the reference frame of this pose.
+   * Transforms an input vector from the reference frame of this pose.
    * @params[in] vec The input vector to be transformed from this pose's reference frame.
    * @return The inversly transformed vector
    */
@@ -125,6 +145,16 @@ public:
   inline static Pose zero(void) 
   { 
     return Pose(Vector3d(0, 0, 0), Quaterniond(0, 0, 0, 0));
+  }
+  
+  /**
+   * Returns pose with position and rotation elements all set to UNASSIGNED value.
+   * @return The UNASSIGNED Pose
+   */
+  inline static Pose unassigned(void)
+  {
+    return Pose(Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE),
+                Quaterniond(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE));
   }
   
   Vector3d position_;     ///< The position element of the pose class

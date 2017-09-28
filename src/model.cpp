@@ -112,9 +112,9 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   , leg_state_(WALKING)
   , admittance_state_(vector<double>(2))
 {
-  desired_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
+  desired_tip_pose_ = Pose::unassigned();
   desired_tip_velocity_ = Vector3d(0, 0, 0);
-  current_tip_position_ = Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE);
+  current_tip_pose_ = Pose::unassigned();
   current_tip_velocity_ = Vector3d(0, 0, 0);
   tip_force_ = Vector3d(0.0, 0.0, 0.0);
   group_ = (id_number % 2); // Even/odd groups
@@ -122,11 +122,10 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
 
 /*******************************************************************************************************************//**
  * Generates child joint/link/tip objects. Separated from constructor due to shared_from_this() constraints.
- * @todo Refactor use of null pointer.
 ***********************************************************************************************************************/
 void Leg::generate(void)
 {
-  shared_ptr<Joint> null_joint; //TODO
+  shared_ptr<Joint> null_joint = allocate_shared<Joint>(aligned_allocator<Joint>()); //Null joint acts as origin
   shared_ptr<Link> base_link = 
     allocate_shared<Link>(aligned_allocator<Link>(), shared_from_this(), null_joint, 0, params_);
   link_container_.insert(LinkContainer::value_type(0, base_link));
@@ -168,7 +167,7 @@ void Leg::init(const bool& use_default_joint_positions)
     joint->prev_desired_position_ = joint->desired_position_;
   }
   applyFK();
-  desired_tip_position_ = current_tip_position_;
+  desired_tip_pose_ = current_tip_pose_;
 }
 
 /*******************************************************************************************************************//**
@@ -202,7 +201,7 @@ void Leg::reInit(const sensor_msgs::JointState& desired_joint_states)
     }
   }
   applyFK();
-  desired_tip_position_ = current_tip_position_;
+  desired_tip_pose_ = current_tip_pose_;
 }
 
 /*******************************************************************************************************************//**
@@ -269,9 +268,9 @@ void Leg::setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z
   // Don't apply delta_z to manually manipulated legs
   apply_delta_z = apply_delta_z && !(leg_state_ == MANUAL || leg_state_ == WALKING_TO_MANUAL);
 
-  desired_tip_position_[0] = tip_position[0];
-  desired_tip_position_[1] = tip_position[1];
-  desired_tip_position_[2] = tip_position[2] + (apply_delta_z ? delta_z_ : 0.0);
+  desired_tip_pose_.position_[0] = tip_position[0];
+  desired_tip_pose_.position_[1] = tip_position[1];
+  desired_tip_pose_.position_[2] = tip_position[2] + (apply_delta_z ? delta_z_ : 0.0);
 }
 
 /*******************************************************************************************************************//**
@@ -283,7 +282,7 @@ void Leg::calculateTipForce(void)
 {
   shared_ptr<Joint> first_joint = joint_container_.begin()->second;
 
-  Vector3d pe = tip_->getTransformFrom(first_joint).block<3, 1>(0, 3);
+  Vector3d pe = tip_->getTransformFromJoint(first_joint->id_number_).block<3, 1>(0, 3);
   Vector3d z0(0, 0, 1);
   Vector3d p0(0, 0, 0);
 
@@ -300,7 +299,7 @@ void Leg::calculateTipForce(void)
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
     shared_ptr<Joint> joint = joint_it->second;
-    Matrix4d t = joint->getTransformFrom(first_joint);
+    Matrix4d t = joint->getTransformFromJoint(first_joint->id_number_);
     jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); //Linear velocity
     jacobian.block<3, 1>(3, i) = t.block<3, 1>(0, 2); //Angular velocity
     joint_torques[i] = joint->current_effort_;
@@ -311,7 +310,7 @@ void Leg::calculateTipForce(void)
   MatrixXd transformation = jacobian * ((jacobian.transpose()*jacobian + sqr(DLS_COEFFICIENT) * identity).inverse());
   
   VectorXd raw_tip_force_leg_frame = transformation * joint_torques;
-  Quaterniond rotation = first_joint->getRotationJointFrame();
+  Quaterniond rotation = (first_joint->getPoseJointFrame()).rotation_;
   VectorXd raw_tip_force = rotation._transformVector(raw_tip_force_leg_frame.block<3, 1>(0, 0));
   
   // Low pass filter and force gain applied to calculated raw tip force
@@ -334,7 +333,7 @@ void Leg::calculateTipForce(void)
 double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientation)
 {
   shared_ptr<Joint> first_joint = joint_container_.begin()->second;
-  Vector3d pe = tip_->getTransformFrom(first_joint).block<3, 1>(0, 3);
+  Vector3d pe = tip_->getTransformFromJoint(first_joint->id_number_).block<3, 1>(0, 3);
   Vector3d z0(0, 0, 1);
   Vector3d p0(0, 0, 0);
 
@@ -348,7 +347,7 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
     shared_ptr<Joint> joint = joint_it->second;
-    Matrix4d t = joint->getTransformFrom(first_joint);
+    Matrix4d t = joint->getTransformFromJoint(first_joint->id_number_);
     jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); //Linear velocity
     jacobian.block<3, 1>(3, i) = ignore_tip_orientation ? Vector3d(0, 0, 0) : t.block<3, 1>(0, 2); //Angular velocity
   }
@@ -361,13 +360,19 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
   ik_matrix = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
 
   shared_ptr<Joint> base_joint = joint_container_.begin()->second;
-  Vector3d leg_frame_desired_tip_position = base_joint->getPositionJointFrame(false, desired_tip_position_);
-  Vector3d leg_frame_prev_desired_tip_position = base_joint->getPositionJointFrame(false, current_tip_position_);
-  Vector3d leg_frame_tip_position_delta = leg_frame_desired_tip_position - leg_frame_prev_desired_tip_position;
+  Pose leg_frame_desired_tip_pose = base_joint->getPoseJointFrame(desired_tip_pose_);
+  Pose leg_frame_current_tip_pose = base_joint->getPoseJointFrame(current_tip_pose_);
+  Vector3d position_delta = leg_frame_desired_tip_pose.position_ - leg_frame_current_tip_pose.position_;
+  AngleAxisd axis_rotation(leg_frame_desired_tip_pose.rotation_ * leg_frame_current_tip_pose.rotation_.inverse());
+  Vector3d rotation_delta = axis_rotation.axis() * axis_rotation.angle();
+  
   MatrixXd delta = Matrix<double, 6, 1>::Zero();
-  delta(0) = leg_frame_tip_position_delta(0);
-  delta(1) = leg_frame_tip_position_delta(1);
-  delta(2) = leg_frame_tip_position_delta(2);
+  delta(0) = position_delta[0];
+  delta(1) = position_delta[1];
+  delta(2) = position_delta[2];
+  delta(3) = ignore_tip_orientation ? 0.0 : rotation_delta[0];
+  delta(4) = ignore_tip_orientation ? 0.0 : rotation_delta[1];
+  delta(5) = ignore_tip_orientation ? 0.0 : rotation_delta[2];
   
   //Generate joint limit cost function and gradient
   i = 0;
@@ -447,8 +452,8 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
   ROS_DEBUG_COND(id_number_ == 0 && params_.debug_IK.data,
                  "\nLeg %s:\n\tDesired tip position from trajectory engine: %f:%f:%f\n\t"
                  "Resultant tip position from inverse/forward kinematics: %f:%f:%f", id_name_.c_str(),
-                 desired_tip_position_[0], desired_tip_position_[1], desired_tip_position_[2],
-                 current_tip_position_[0], current_tip_position_[1], current_tip_position_[2]);
+                 desired_tip_pose_.position_[0], desired_tip_pose_.position_[1], desired_tip_pose_.position_[2],
+                 current_tip_pose_.position_[0], current_tip_pose_.position_[1], current_tip_pose_.position_[2]);
 
   // Display warning messages for clamping events and associated inverse kinematic deviations
   if (!params_.ignore_IK_warnings.data && !simulation_run)
@@ -456,14 +461,14 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
     string axis_label[3] = {"x", "y", "z"};
     for (int i = 0; i < 3; ++i)
     {
-      if (abs(current_tip_position_[i] - desired_tip_position_[i]) > IK_TOLERANCE)
+      if (abs(current_tip_pose_.position_[i] - desired_tip_pose_.position_[i]) > IK_TOLERANCE)
       {
-        double error_percentage = abs((current_tip_position_[i] - desired_tip_position_[i]) / desired_tip_position_[i]);
-        error_percentage *= 100;
+        double error = current_tip_pose_.position_[i] - desired_tip_pose_.position_[i];
+        double error_percentage = abs(error / desired_tip_pose_.position_[i]) * 100;
         ROS_WARN("\nInverse kinematics deviation! Calculated tip %s position of leg %s (%s: %f)"
                  " differs from desired tip position (%s: %f) by %f%%\nThis is due to clamping events:%s\n",
-                 axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), current_tip_position_[i],
-                 axis_label[i].c_str(), desired_tip_position_[i], error_percentage, clamping_events.c_str());
+                 axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), current_tip_pose_.position_[i],
+                 axis_label[i].c_str(), desired_tip_pose_.position_[i], error_percentage, clamping_events.c_str());
       }
     }
   }
@@ -471,11 +476,11 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
 }
 
 /*******************************************************************************************************************//**
- * Updates joint transforms and applies forward kinematics to calculate a new tip position. Sets leg current tip
- * position to new position if requested.
- * @param[in] set_current Flag denoting of the calculated tip position should be set as the current tip position.
+ * Updates joint transforms and applies forward kinematics to calculate a new tip pose. 
+ * Sets leg current tip pose to new pose if requested.
+ * @param[in] set_current Flag denoting of the calculated tip pose should be set as the current tip pose.
 ***********************************************************************************************************************/
-Vector3d Leg::applyFK(const bool& set_current)
+Pose Leg::applyFK(const bool& set_current)
 {
   //Update joint transforms - skip first joint since it's transform is constant
   JointContainer::iterator joint_it;
@@ -497,16 +502,16 @@ Vector3d Leg::applyFK(const bool& set_current)
                                             reference_link->dh_parameter_alpha_);
 
   //Get world frame position of tip
-  Vector3d tip_position = tip_->getPositionRobotFrame();
+  Pose tip_pose = tip_->getPoseRobotFrame();
   if (set_current)
   {
-    if (current_tip_position_[0] != UNASSIGNED_VALUE)
+    if (current_tip_pose_ != Pose::unassigned())
     {
-      current_tip_velocity_ = (tip_position - current_tip_position_) / model_->getTimeDelta();
+      current_tip_velocity_ = (tip_pose.position_ - current_tip_pose_.position_) / model_->getTimeDelta();
     }
-    current_tip_position_ = tip_position;
+    current_tip_pose_ = tip_pose;
   }
-  return tip_position;
+  return tip_pose;
 }
 
 /*******************************************************************************************************************//**
@@ -573,6 +578,17 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
     ROS_FATAL("\nModel initialisation error for %s\n", id_name_.c_str());
     ros::shutdown();
   }
+}
+
+/*******************************************************************************************************************//**
+ * Constructor for null joint object. Acts as a null joint object for use in ending kinematic chains.
+***********************************************************************************************************************/
+Joint::Joint(void)
+  : parent_leg_(NULL)
+  , reference_link_(NULL)
+  , id_number_(0)
+  , id_name_("origin")
+{
 }
 
 /*******************************************************************************************************************//**

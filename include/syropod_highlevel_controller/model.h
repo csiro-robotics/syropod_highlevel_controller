@@ -181,9 +181,21 @@ public:
 
   /** Accessor for the LegPoser object associated with this leg. */
   inline shared_ptr<LegPoser> getLegPoser(void) { return leg_poser_; };
+  
+  /** Accessor for the current tip position of this leg. */
+  inline Vector3d getDesiredTipPosition(void) { return desired_tip_pose_.position_; };
+  
+  /** Accessor for the current tip rotation of this leg. */
+  inline Quaterniond getDesiredTipRotation(void) { return desired_tip_pose_.rotation_; };
+
+  /** Accessor for the current tip velocity of this leg. */
+  inline Vector3d getDesiredTipVelocity(void) { return desired_tip_velocity_; };
 
   /** Accessor for the current tip position of this leg. */
-  inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
+  inline Vector3d getCurrentTipPosition(void) { return current_tip_pose_.position_; };
+  
+  /** Accessor for the current tip rotation of this leg. */
+  inline Quaterniond getCurrentTipRotation(void) { return current_tip_pose_.rotation_; };
 
   /** Accessor for the current tip velocity of this leg. */
   inline Vector3d getCurrentTipVelocity(void) { return current_tip_velocity_; };
@@ -262,7 +274,6 @@ public:
 
   /**
    * Generates child joint/link/tip objects. Separated from constructor due to shared_from_this() constraints.
-   * @todo Refactor use of null pointer.
    */
   void generate(void);
 
@@ -343,11 +354,11 @@ public:
   double applyIK(const bool& simulation_run = false, const bool& ignore_tip_orientation = true);
 
   /**
-    * Updates joint transforms and applies forward kinematics to calculate a new tip position. Sets leg current tip
-    * position to new position if requested.
-    * @param[in] set_current Flag denoting of the calculated tip position should be set as the current tip position.
+    * Updates joint transforms and applies forward kinematics to calculate a new tip pose. 
+    * Sets leg current tip pose to new pose if requested.
+    * @param[in] set_current Flag denoting of the calculated tip pose should be set as the current tip pose.
     */
-  Vector3d applyFK(const bool& set_current = true);
+  Pose applyFK(const bool& set_current = true);
 
   /**
     * Calls jocobian creation function for requested degrees of freedom.
@@ -377,13 +388,13 @@ private:
   double virtual_mass_;          ///< The virtual mass of the admittance controller virtual model of this leg.
   double virtual_stiffness_;     ///< The virtual stiffness of the admittance controller virtual model of this leg.
   double virtual_damping_ratio_; ///< The virtual damping ratio of the admittance controller virtual model of this leg.
-  state_type admittance_state_;   ///< The admittance state of the admittance controller virtual model of this leg.
+  state_type admittance_state_;  ///< The admittance state of the admittance controller virtual model of this leg.
 
-  Vector3d desired_tip_position_; ///< Desired tip position before applying Inverse/Forward kinematics
-  Vector3d desired_tip_velocity_; ///< Desired tip velocity before applying Inverse/Forward kinematics
-  Vector3d current_tip_position_; ///< Current tip position according to the model
-  Vector3d current_tip_velocity_; ///< Current tip velocity according to the model
-  double workspace_radius_;
+  Pose desired_tip_pose_; ///< Desired tip pose before applying Inverse/Forward kinematics
+  Pose current_tip_pose_; ///< Current tip pose according to the model
+  
+  Vector3d desired_tip_velocity_; ///< Desired linear tip velocity before applying Inverse/Forward kinematics
+  Vector3d current_tip_velocity_; ///< Current linear tip velocity according to the model
 
   int group_; ///< Leg stepping coordination group (Either 0 or 1).
 
@@ -438,70 +449,45 @@ public:
     * @param[in] params A pointer to the parameter data structure.
     */
   Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, const Parameters& params);
-
-  /**
-    * Returns the transformation matrix from the origin of the robot model to this joint.
-    * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
-    * zero position for all joints in the kinematic chain.
-    */
-  inline Matrix4d getBaseTransform(const bool& zero = false) const
-  {
-    Matrix4d transform = zero ? identity_transform_ : current_transform_;
-    return (id_number_ == 1) ? transform : reference_link_->actuating_joint_->getBaseTransform(zero) * transform;
-  };
-
-  /**
-    * Returns the transformation matrix from the specified target joint of the robot model to this joint.
-    * @param[in] target_joint Shared pointer to the Joint object defining the target joint for the transformation.
-    */
-  inline Matrix4d getTransformFrom(shared_ptr<Joint> target_joint) const
-  {
-    Matrix4d transform = current_transform_;
-    bool at_target = (id_number_ <= 1 || (target_joint->id_number_ == reference_link_->actuating_joint_->id_number_));
-    return at_target ? transform : reference_link_->actuating_joint_->getTransformFrom(target_joint) * transform;
-  };
-
-  /**
-    * Returns the position of (or a position relative to) the origin of this joint in the frame of the robot model.
-    * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
-    * zero position for all joints in the kinematic chain.
-    * @param[in] joint_frame_position The position relative to the joint frame that is requested in the robot frame.
-    */
-  inline Vector3d getPositionRobotFrame(const bool& zero = false,
-                                        const Vector3d& joint_frame_position = Vector3d(0, 0, 0)) const
-  {
-    Vector4d result(joint_frame_position[0], joint_frame_position[1], joint_frame_position[2], 1);
-    result = getBaseTransform(zero) * result;
-    return Vector3d(result[0], result[1], result[2]);
-  };
-
-  /**
-    * Returns the position of (or a position relative to) the origin of the robot model in the frame of this joint.
-    * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
-    * zero position for all joints in the kinematic chain.
-    * @param[in] robot_frame_position The position relative to the robot frame that is requested in the joint frame.
-    */
-  inline Vector3d getPositionJointFrame(const bool& zero = false,
-                                        const Vector3d& robot_frame_position = Vector3d(0, 0, 0)) const
-  {
-    MatrixXd transform = getBaseTransform(zero);
-    Vector4d result(robot_frame_position[0], robot_frame_position[1], robot_frame_position[2], 1);
-    result = transform.inverse() * result;
-    return Vector3d(result[0], result[1], result[2]);
-  };
   
   /**
-    * Returns the rotation of (or a rotation relative to) the origin of the robot model in the frame of this joint.
-    * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
-    * zero position for all joints in the kinematic chain.
-    * @param[in] robot_frame_rotation The rotation relative to the robot frame that is requested in the joint frame.
+   * Constructor for null joint object. Acts as a null joint object for use in ending kinematic chains.
+   */
+  Joint(void);
+
+  /**
+    * Returns the transformation matrix from the specified target joint of the robot model to this joint. 
+    * Target joint defaults to the origin of the kinematic chain.
+    * @param[in] target_joint_id ID number of joint object defining the target joint for the transformation.
+    * @return The transformation matrix from target joint to this joint.
     */
-  inline Quaterniond getRotationJointFrame(const bool& zero = false,
-                                           const Quaterniond robot_frame_rotation = Quaterniond::Identity()) const
+  inline Matrix4d getTransformFromJoint(const int& target_joint_id = 0) const
   {
-    Matrix3d rotation_matrix;
-    rotation_matrix = getBaseTransform(zero).block<3, 3>(0, 0);
-    return (Quaterniond(rotation_matrix).inverse() * robot_frame_rotation).normalized();
+    shared_ptr<Joint> next_joint = reference_link_->actuating_joint_;
+    bool at_target = (target_joint_id == next_joint->id_number_);
+    return at_target ? current_transform_ : next_joint->getTransformFromJoint(target_joint_id) * current_transform_;
+  };
+
+  /**
+    * Returns the pose of (or a pose relative to) the origin of this joint in the frame of the robot model.
+    * @param[in] joint_frame_pose The pose relative to the joint frame that is requested in the robot frame.
+    * @return The input pose transformed into the robot frame.
+    */
+  inline Pose getPoseRobotFrame(const Pose& joint_frame_pose = Pose::identity()) const
+  {
+    Matrix4d transform = getTransformFromJoint();
+    return joint_frame_pose.transform(transform);
+  };
+
+  /**
+    * Returns the pose of (or a pose relative to) the origin of the robot model in the frame of this joint.
+    * @param[in] robot_frame_pose The position relative to the robot frame that is requested in the joint frame.
+    * @return The input pose transformed into the frame of this joint.
+    */
+  inline Pose getPoseJointFrame(const Pose& robot_frame_pose = Pose::identity()) const
+  {
+    MatrixXd transform = getTransformFromJoint();
+    return robot_frame_pose.transform(transform.inverse());
   };
 
   const shared_ptr<Leg> parent_leg_;      ///< A pointer to the parent leg object associated with this joint.
@@ -513,11 +499,11 @@ public:
 
   ros::Publisher desired_position_publisher_; ///< The ros publisher for publishing desired position values.
 
-  const double min_position_;      ///< The minimum position allowed for this joint.
-  const double max_position_;      ///< The maximum position allowed for this joint.
-  const double packed_position_;   ///< The defined position of this joint in a 'packed' state.
-  const double unpacked_position_; ///< The defined position of this joint in an 'unpacked' state.
-  const double max_angular_speed_; ///< The maximum angular speed of this joint.
+  const double min_position_ = 0.0;      ///< The minimum position allowed for this joint.
+  const double max_position_ = 0.0;      ///< The maximum position allowed for this joint.
+  const double packed_position_ = 0.0;   ///< The defined position of this joint in a 'packed' state.
+  const double unpacked_position_ = 0.0; ///< The defined position of this joint in an 'unpacked' state.
+  const double max_angular_speed_ = 0.0; ///< The maximum angular speed of this joint.
 
   double desired_position_ = 0.0;      ///< The desired angular position of this joint.
   double desired_velocity_ = 0.0;      ///< The desired angular velocity of this joint.
@@ -549,67 +535,38 @@ public:
   Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link);
 
   /**
-    * Returns the transformation matrix from the origin of the robot model to the tip.
-    * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
-    * zero position for all joints in the kinematic chain.
+    * Returns the transformation matrix from the specified target joint  of the robot model to the tip. 
+    * Target joint defaults to the origin of the kinematic chain.
+    * @param[in] target_joint_id ID number of joint object defining the target joint for the transformation.
+    * @return The transformation matrix from target joint to the tip.
     */
-  inline Matrix4d getBaseTransform(const bool& zero = false) const
+  inline Matrix4d getTransformFromJoint(const int& target_joint_id = 0) const
   {
-    MatrixXd transform = zero ? identity_transform_ : current_transform_;
-    return reference_link_->actuating_joint_->getBaseTransform() * transform;
+    shared_ptr<Joint> next_joint = reference_link_->actuating_joint_;
+    bool at_target = (target_joint_id == next_joint->id_number_);
+    return at_target ? current_transform_ : next_joint->getTransformFromJoint(target_joint_id) * current_transform_;
   };
 
   /**
-    * Returns the transformation matrix from the specified target joint of the robot model to the tip.
-    * @param[in] target_joint Shared pointer to the Joint object defining the target joint for the transformation.
+    * Returns the pose of (or a pose relative to) the origin of the tip in the frame of the robot model.
+    * @param[in] tip_frame_pose The pose relative to the tip frame that is requested in the robot frame.
+    * @return The input pose transformed into the robot frame.
     */
-  inline Matrix4d getTransformFrom(shared_ptr<Joint> target_joint) const
+  inline Pose getPoseRobotFrame(const Pose& tip_frame_pose = Pose::identity()) const
   {
-    Matrix4d transform = current_transform_;
-    bool at_target = (target_joint->id_number_ == reference_link_->actuating_joint_->id_number_);
-    return at_target ? transform : reference_link_->actuating_joint_->getTransformFrom(target_joint) * transform;
+    Matrix4d transform = getTransformFromJoint();
+    return tip_frame_pose.transform(transform);
   };
-
+  
   /**
-    * Returns the position of (or a position relative to) the origin of the tip in the frame of the robot model.
-    * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
-    * zero position for all joints in the kinematic chain.
-    * @param[in] tip_frame_position The position relative to the tip frame that is requested in the robot frame.
-    */
-  inline Vector3d getPositionRobotFrame(const bool& zero = false,
-                                        const Vector3d& tip_frame_position = Vector3d(0, 0, 0)) const
+  * Returns the pose of (or a pose relative to) the origin of the robot model in the frame of the tip.
+  * @param[in] robot_frame_pose The pose relative to the robot frame that is requested in the tip frame.
+  * @return The input pose transformed into the tip frame.
+  */
+  inline Pose getPoseTipFrame(const Pose& robot_frame_pose = Pose::identity()) const
   {
-    Vector4d result(tip_frame_position[0], tip_frame_position[1], tip_frame_position[2], 1);
-    result = getBaseTransform(zero) * result;
-    return Vector3d(result[0], result[1], result[2]);
-  };
-
-  /**
-    * Returns the position of (or a position relative to) the origin of the tip in the frame of the specified joint.
-    * @param[in] tip_frame_position The position relative to the tip frame that is requested in the robot frame.
-    * @param[in] target_joint Shared pointer to the Joint object defining the target frame for relative position.
-    */
-  inline Vector3d getPositionFromFrame(const Vector3d& tip_frame_position,
-                                       shared_ptr<Joint> target_joint) const
-  {
-    Vector4d result(tip_frame_position[0], tip_frame_position[1], tip_frame_position[2], 1);
-    result = getTransformFrom(target_joint) * result;
-    return Vector3d(result[0], result[1], result[2]);
-  };
-
-  /**
-    * Returns the position of (or a position relative to) the origin of the robot model in the frame of the tip.
-    * @param[in] zero Flag determining if the transform is calculated using the current joint positions OR using the
-    * zero position for all joints in the kinematic chain.
-    * @param[in] robot_frame_position The position relative to the robot frame that is requested in the tip frame.
-    */
-  inline Vector3d getPositionTipFrame(const bool& zero = false,
-                                      const Vector3d robot_frame_position = Vector3d(0, 0, 0)) const
-  {
-    MatrixXd transform = getBaseTransform(zero);
-    Vector4d result(robot_frame_position[0], robot_frame_position[1], robot_frame_position[2], 1);
-    result = transform.inverse() * result;
-    return Vector3d(result[0], result[1], result[2]);
+    Matrix4d transform = getTransformFromJoint();
+    return robot_frame_pose.transform(transform.inverse());
   };
 
   const shared_ptr<Leg> parent_leg_;       ///< A pointer to the parent leg object associated with the tip.

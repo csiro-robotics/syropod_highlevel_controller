@@ -642,8 +642,8 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
         leg->getJointByIDName(leg->getIDName() + "_coxa_joint")->desired_position_ += coxa_joint_velocity;
         leg->getJointByIDName(leg->getIDName() + "_femur_joint")->desired_position_ += femur_joint_velocity;
         leg->getJointByIDName(leg->getIDName() + "_tibia_joint")->desired_position_ += tibia_joint_velocity;
-        Vector3d new_tip_position = leg->applyFK(false);
-        leg_stepper->setCurrentTipPosition(new_tip_position);
+        Pose new_tip_pose = leg->applyFK(false);
+        leg_stepper->setCurrentTipPosition(new_tip_pose.position_);
       }
       else if (params_.leg_manipulation_mode.data == "tip_control")
       {

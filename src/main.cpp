@@ -30,7 +30,6 @@ int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "syropod_highlevel_controller");
   ros::NodeHandle n;
-  ros::NodeHandle n_priv("~");
 
   StateController state(n);
   const Parameters& params = state.getParameters();

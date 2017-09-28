@@ -25,11 +25,13 @@
 ***********************************************************************************************************************/
 DebugVisualiser::DebugVisualiser(void)
 {
-  string node_name = ros::this_node::getName();
-  robot_model_publisher_ = n_.advertise<visualization_msgs::Marker>(node_name + "/debug/robot_model", 1000);
-  tip_trajectory_publisher_ = n_.advertise<visualization_msgs::Marker>(node_name + "/debug/tip_trajectories", 1000);
-  bezier_curve_publisher_ = n_.advertise<visualization_msgs::Marker>(node_name + "/debug/bezier_curves", 1000);
-  workspace_publisher_ = n_.advertise<visualization_msgs::Marker>(node_name + "/debug/workspaces", 1000);
+  robot_model_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/robot_model", 1000);
+  tip_trajectory_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_trajectories", 1000);
+  bezier_curve_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/bezier_curves", 1000);
+  workspace_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/workspaces", 1000);
+  stride_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/stride", 1000);
+  tip_force_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_force", 1000);
+  tip_rotation_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_rotation", 1000);
   odometry_pose_ = Pose::identity();
 }
 
@@ -56,6 +58,12 @@ void DebugVisualiser::updatePose(const Vector2d& input_linear_body_velocity,
 ***********************************************************************************************************************/
 void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 {
+  // Estimate of robot body length used in scaling markers
+  if (marker_scale_ == 0)
+  {
+    marker_scale_ = model->getLegByIDNumber(0)->getJointByIDNumber(1)->getPoseRobotFrame().position_.norm() * 2.0;
+  }
+  
   visualization_msgs::Marker leg_line_list;
   leg_line_list.header.frame_id = "/fixed_frame";
   leg_line_list.header.stamp = ros::Time::now();
@@ -63,7 +71,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
   leg_line_list.action = visualization_msgs::Marker::ADD;
   leg_line_list.id = ROBOT_MODEL_ID;
   leg_line_list.type = visualization_msgs::Marker::LINE_LIST;
-  leg_line_list.scale.x = 0.005;
+  leg_line_list.scale.x = 0.01 * sqrt(marker_scale_);
   leg_line_list.color.r = 1; //WHITE
   leg_line_list.color.g = 1;
   leg_line_list.color.b = 1;
@@ -90,7 +98,8 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
     leg_line_list.points.push_back(point);
 
     shared_ptr<Joint> first_joint = leg->getJointContainer()->begin()->second;
-    Vector3d first_joint_position = pose.transformVector(first_joint->getPositionRobotFrame());
+    Vector3d first_joint_position = first_joint->getPoseRobotFrame().position_;
+    first_joint_position = pose.transformVector(first_joint_position);
     point.x = first_joint_position[0];
     point.y = first_joint_position[1];
     point.z = first_joint_position[2];
@@ -114,7 +123,8 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
       leg_line_list.points.push_back(point);
 
       shared_ptr<Joint> joint = joint_it->second;
-      Vector3d joint_position = pose.transformVector(joint->getPositionRobotFrame());
+      Vector3d joint_position = joint->getPoseRobotFrame().position_;
+      joint_position = pose.transformVector(joint_position);
       point.x = joint_position[0];
       point.y = joint_position[1];
       point.z = joint_position[2];
@@ -168,7 +178,7 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& cur
   tip_position_marker.id = tip_position_id_;
   tip_position_marker.action = visualization_msgs::Marker::ADD;
   tip_position_marker.type = visualization_msgs::Marker::SPHERE_LIST;
-  tip_position_marker.scale.x = 0.005;
+  tip_position_marker.scale.x = 0.005 * sqrt(marker_scale_);
   tip_position_marker.color.r = 1; //RED
   tip_position_marker.color.a = 1;
   tip_position_marker.lifetime = ros::Duration(TRAJECTORY_DURATION);
@@ -199,7 +209,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_1_nodes.id = SWING_BEZIER_CURVE_1_MARKER_ID + leg->getIDNumber();
   swing_1_nodes.action = visualization_msgs::Marker::ADD;
   swing_1_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
-  swing_1_nodes.scale.x = 0.02;
+  swing_1_nodes.scale.x = 0.02 * sqrt(marker_scale_);
   swing_1_nodes.color.g = 1; //YELLOW
   swing_1_nodes.color.r = 1;
   swing_1_nodes.color.a = 1;
@@ -211,9 +221,9 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_2_nodes.id = SWING_BEZIER_CURVE_2_MARKER_ID + leg->getIDNumber();
   swing_2_nodes.action = visualization_msgs::Marker::ADD;
   swing_2_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
-  swing_2_nodes.scale.x = 0.02;
-  swing_2_nodes.scale.y = 0.02;
-  swing_2_nodes.scale.z = 0.02;
+  swing_2_nodes.scale.x = 0.02 * sqrt(marker_scale_);
+  swing_2_nodes.scale.y = 0.02 * sqrt(marker_scale_);
+  swing_2_nodes.scale.z = 0.02 * sqrt(marker_scale_);
   swing_2_nodes.color.r = 1; //YELLOW
   swing_2_nodes.color.g = 1;
   swing_2_nodes.color.a = 1;
@@ -225,7 +235,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   stance_nodes.id = STANCE_BEZIER_CURVE_MARKER_ID + leg->getIDNumber();
   stance_nodes.action = visualization_msgs::Marker::ADD;
   stance_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
-  stance_nodes.scale.x = 0.02;
+  stance_nodes.scale.x = 0.02 * sqrt(marker_scale_);
   stance_nodes.color.r = 1; //YELLOW
   stance_nodes.color.g = 1;
   stance_nodes.color.a = 1;
@@ -280,7 +290,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace.id = WORKSPACE_ID + leg->getIDNumber();
   workspace.type = visualization_msgs::Marker::LINE_STRIP;
   workspace.action = visualization_msgs::Marker::ADD;
-  workspace.scale.x = 0.002;
+  workspace.scale.x = 0.002 * sqrt(marker_scale_);
   workspace.color.g = 1;
   workspace.color.b = 1;
   workspace.color.a = 1;
@@ -324,7 +334,7 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   visualization_msgs::Marker stride;
   stride.header.frame_id = "/fixed_frame";
   stride.header.stamp = ros::Time::now();
-  stride.ns = "workspace_markers";
+  stride.ns = "stride_markers";
   stride.id = STRIDE_MARKER_ID + leg->getIDNumber();
   stride.type = visualization_msgs::Marker::ARROW;
   stride.action = visualization_msgs::Marker::ADD;
@@ -337,9 +347,9 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   target.y += stride_vector[1] / 2.0;
   stride.points.push_back(origin);
   stride.points.push_back(target);
-  stride.scale.x = 0.01;
-  stride.scale.y = 0.015;
-  stride.scale.z = 0.02;
+  stride.scale.x = 0.01 * sqrt(marker_scale_);
+  stride.scale.y = 0.015 * sqrt(marker_scale_);
+  stride.scale.z = 0.02 * sqrt(marker_scale_);
   stride.color.g = 1; //GREEN
   stride.color.a = 1;
 
@@ -350,34 +360,100 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   * Publishes visualisation markers which represent the estimated tip force vector for input leg.
   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
+void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg, const Pose& current_pose)
 {
+  Pose pose = odometry_pose_;
+  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
+  pose.rotation_ *= current_pose.rotation_;
+  
   visualization_msgs::Marker tip_force;
   tip_force.header.frame_id = "/fixed_frame";
   tip_force.header.stamp = ros::Time::now();
-  tip_force.ns = "workspace_markers";
+  tip_force.ns = "tip_force_markers";
   tip_force.id = TIP_FORCE_MARKER_ID + leg->getIDNumber();
   tip_force.type = visualization_msgs::Marker::ARROW;
   tip_force.action = visualization_msgs::Marker::ADD;
+  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
   geometry_msgs::Point origin;
   geometry_msgs::Point target;
-  origin.x = leg->getCurrentTipPosition()[0] + odometry_pose_.position_[0];
-  origin.y = leg->getCurrentTipPosition()[1] + odometry_pose_.position_[1];
-  origin.z = leg->getCurrentTipPosition()[2] + odometry_pose_.position_[2];
+  origin.x = tip_position[0];
+  origin.y = tip_position[1];
+  origin.z = tip_position[2];
   target = origin;
   target.x += leg->getTipForce()[0];
   target.y += leg->getTipForce()[1];
   target.z += leg->getTipForce()[2];
   tip_force.points.push_back(origin);
   tip_force.points.push_back(target);
-  tip_force.scale.x = 0.01;
-  tip_force.scale.y = 0.015;
-  tip_force.scale.z = 0.02;
+  tip_force.scale.x = 0.01 * sqrt(marker_scale_);
+  tip_force.scale.y = 0.015 * sqrt(marker_scale_);
+  tip_force.scale.z = 0.02 * sqrt(marker_scale_);
   tip_force.color.b = 1; // MAGENTA
   tip_force.color.r = 1;
   tip_force.color.a = 1;
 
   workspace_publisher_.publish(tip_force);
+}
+
+/*******************************************************************************************************************//**
+  * Publishes visualisation markers which represent the orientation of the tip for input leg.
+  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+***********************************************************************************************************************/
+void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& current_pose)
+{
+  Pose pose = odometry_pose_;
+  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
+  pose.rotation_ *= current_pose.rotation_;
+  
+  visualization_msgs::Marker tip_rotation_axis;
+  tip_rotation_axis.header.frame_id = "/fixed_frame";
+  tip_rotation_axis.header.stamp = ros::Time::now();
+  tip_rotation_axis.ns = "tip_rotation_markers";
+  tip_rotation_axis.type = visualization_msgs::Marker::ARROW;
+  tip_rotation_axis.action = visualization_msgs::Marker::ADD;
+  tip_rotation_axis.scale.x = 0.01 * sqrt(marker_scale_);
+  tip_rotation_axis.scale.y = 0.015 * sqrt(marker_scale_);
+  tip_rotation_axis.scale.z = 0.02 * sqrt(marker_scale_);
+  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
+  geometry_msgs::Point origin;
+  origin.x = tip_position[0];
+  origin.y = tip_position[1];
+  origin.z = tip_position[2];
+  geometry_msgs::Point target;
+  int id = TIP_ROTATION_MARKER_ID + 6*leg->getIDNumber();
+  for (int i=0; i < 3; ++i)
+  {
+    Vector3d base_direction_vector(0.0, 0.0, 0.0);
+    Vector3d direction_vector = base_direction_vector;
+    base_direction_vector[i] = 0.1 * sqrt(marker_scale_); //Arrow Length
+    tip_rotation_axis.color.r = (i == 0 ? 1 : 0);
+    tip_rotation_axis.color.g = (i == 1 ? 1 : 0);
+    tip_rotation_axis.color.b = (i == 2 ? 1 : 0);
+
+    // Add desired tip rotation axis (x/y/z)
+    tip_rotation_axis.id = ++id;
+    direction_vector = leg->getDesiredTipRotation()._transformVector(base_direction_vector);
+    target.x = origin.x + direction_vector[0];
+    target.y = origin.y + direction_vector[1];
+    target.z = origin.z + direction_vector[2];
+    tip_rotation_axis.points.push_back(origin);
+    tip_rotation_axis.points.push_back(target);
+    tip_rotation_axis.color.a = 0.25;
+    workspace_publisher_.publish(tip_rotation_axis);
+    tip_rotation_axis.points.clear();
+    
+    // Add current tip rotation axis (x/y/z)
+    tip_rotation_axis.id = ++id;
+    direction_vector = (pose.rotation_ * leg->getCurrentTipRotation())._transformVector(base_direction_vector);
+    target.x = origin.x + direction_vector[0];
+    target.y = origin.y + direction_vector[1];
+    target.z = origin.z + direction_vector[2];
+    tip_rotation_axis.points.push_back(origin);
+    tip_rotation_axis.points.push_back(target);
+    tip_rotation_axis.color.a = 1;
+    workspace_publisher_.publish(tip_rotation_axis);
+    tip_rotation_axis.points.clear();
+  }
 }
 
 /***********************************************************************************************************************

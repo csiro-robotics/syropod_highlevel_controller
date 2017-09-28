@@ -39,7 +39,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
 
   // Hexapod Remote topic subscriptions
   system_state_subscriber_            = n_.subscribe("syropod_remote/system_state", 1,
-                                                     &StateController::systemStateCallback, this);
+                                                         &StateController::systemStateCallback, this);
   robot_state_subscriber_             = n_.subscribe("syropod_remote/robot_state", 1,
                                                      &StateController::robotStateCallback, this);
   desired_velocity_subscriber_        = n_.subscribe("syropod_remote/desired_velocity", 1,
@@ -89,12 +89,10 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   tip_force_subscriber_AL_ = n_.subscribe("/AL_prs", 1, &StateController::tipForceCallbackAL, this);
 
   //Set up debugging publishers
-  string node_name = ros::this_node::getName();
-  pose_publisher_ = n_.advertise<geometry_msgs::Twist>(node_name + "/pose", 1000);
-  workspace_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/workspace", 1000);
-  imu_data_publisher_ = n_.advertise<sensor_msgs::Imu>(node_name + "/imu_data", 1000);
-  body_velocity_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/body_velocity", 1000);
-  rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>(node_name + "/rotation_pose_error", 1000);
+  pose_publisher_ = n_.advertise<geometry_msgs::Twist>("/shc/pose", 1000);
+  workspace_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/workspace", 1000);
+  body_velocity_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/body_velocity", 1000);
+  rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/rotation_pose_error", 1000);
 
   //Set up combined desired joint state publisher
   if (params_.combined_control_interface.data)
@@ -106,7 +104,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
-    string topic_name = node_name + "/" + leg->getIDName() + "/state";
+    string topic_name = "/shc/" + leg->getIDName() + "/state";
     leg->setStatePublisher(n_.advertise<syropod_highlevel_controller::LegState>(topic_name, 1000));
     leg->setASCStatePublisher(n_.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); //TODO
     // If debugging in gazebo, setup joint command publishers
@@ -836,13 +834,17 @@ void StateController::RVIZDebugging(const bool& static_display)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     debug_visualiser_.generateTipTrajectory(leg, model_->getCurrentPose());
+    debug_visualiser_.generateTipRotation(leg, model_->getCurrentPose());
     
     if (static_display && robot_state_ == RUNNING)
     {
       debug_visualiser_.generateWorkspace(leg, walker_->getWorkspaceMap());
-      debug_visualiser_.generateTipForce(leg);
       debug_visualiser_.generateBezierCurves(leg);
       debug_visualiser_.generateStride(leg);
+      if (params_.admittance_control.data)
+      {
+        debug_visualiser_.generateTipForce(leg, model_->getCurrentPose());
+      }
     }
   }
 }
