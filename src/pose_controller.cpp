@@ -271,7 +271,7 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
           Vector3d target_tip_position = leg_poser->getTargetTipPosition();
           bool apply_delta_z = (sequence == START_UP && final_transition); //Only add delta_z at end of StartUp sequence
           Pose pose = (apply_delta_z ? model_->getCurrentPose() : Pose::identity());
-          double step_height = direct_step ? 0.0 : leg_stepper->getSwingHeight();
+          double step_height = direct_step ? 0.0 : params_.step_clearance.current_value;
           double time_to_step = HORIZONTAL_TRANSITION_TIME / params_.step_frequency.current_value;
           time_to_step *= (first_sequence_execution_ ? 2.0 : 1.0); // Double time for initial sequence
           progress = leg_poser->stepToPosition(target_tip_position, pose, step_height, time_to_step, apply_delta_z);
@@ -547,7 +547,7 @@ int PoseController::stepToNewStance(void) //Tripod leg coordination
     {
       shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-      double step_height = leg_stepper->getSwingHeight();
+      double step_height = params_.step_clearance.current_value;
       double step_time = 1.0 / params_.step_frequency.current_value;
       Vector3d target_tip_position = leg_stepper->getDefaultTipPosition();
       progress = leg_poser->stepToPosition(target_tip_position, model_->getCurrentPose(), step_height, step_time);
@@ -590,7 +590,7 @@ int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    double step_height = leg_stepper->getSwingHeight();
+    double step_height = params_.step_clearance.current_value;
     double step_time = 1.0 / params_.step_frequency.current_value;
 
     // Set up target pose for legs depending on state
@@ -722,6 +722,12 @@ void PoseController::updateCurrentPose(const double& body_height)
   {
     updateAutoPose();
     new_pose = new_pose.addPose(auto_pose_);
+  }
+  // Automatic (non-feedback) body posing to align tips vertically upon exiting swing
+  else if (params_.tip_align_posing.data)
+  {
+    updateTipAlignPose();
+    new_pose = new_pose.addPose(tip_align_pose_);
   }
 
   model_->setCurrentPose(new_pose);
@@ -871,6 +877,37 @@ void PoseController::updateManualPose(void)
   // Update position according to limitations
   manual_pose_.position_ = desired_position;
   manual_pose_.rotation_ = eulerAnglesToQuaternion(desired_rotation);
+}
+
+/*******************************************************************************************************************//**
+ * TODO
+***********************************************************************************************************************/
+void PoseController::updateTipAlignPose(void)
+{
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    double swing_progress = leg->getLegStepper()->getSwingProgress();
+    if (swing_progress != -1.0)
+    {
+      shared_ptr<Tip> tip = leg->getTip();
+      shared_ptr<Joint> final_joint = tip->reference_link_->actuating_joint_;
+      Pose tip_pose = tip->getPoseRobotFrame();
+      Pose final_joint_pose = final_joint->getPoseRobotFrame();
+      Vector3d position_difference = tip_pose.position_ - final_joint_pose.position_;
+      position_difference[2] = 0.0; // No vertical translation to align tips
+      Vector3d target_position = tip_align_pose_.position_ + position_difference;
+      double control_input_ = min(1.0, 2.0 * swing_progress);
+      control_input_ = (6.0*pow(control_input_, 5) - 15.0*pow(control_input_, 4) + 10.0*pow(control_input_, 3));
+      double x_translation = control_input_ * target_position[0] + (1.0 - control_input_) * origin_pose_.position_[0];
+      double y_translation = control_input_ * target_position[1] + (1.0 - control_input_) * origin_pose_.position_[1];
+      double x_limit = params_.max_translation.data.at("x");
+      double y_limit = params_.max_translation.data.at("y");
+      tip_align_pose_.position_[0] = clamped(x_translation, -x_limit, x_limit);
+      tip_align_pose_.position_[1] = clamped(y_translation, -y_limit, y_limit);
+      origin_pose_ = tip_align_pose_;
+    }
+  }
 }
 
 /*******************************************************************************************************************//**

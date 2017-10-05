@@ -23,6 +23,7 @@
 #include "parameters_and_states.h"
 
 #include "syropod_highlevel_controller/DynamicConfig.h"
+#include "syropod_highlevel_controller/TipState.h"
 
 #include "walk_controller.h"
 #include "pose_controller.h"
@@ -52,7 +53,6 @@ public:
    * StateController class constructor. Initialises parameters, creates robot model object, sets up ros topic
    * subscriptions and advertisments.
    * @param[in] n The ros node handle, used to subscribe/publish topics and assign callbacks
-   * @todo Refactor tip force subscribers into single callback to topic /tip_forces
    * @todo Remove ASC publisher object
    */
   StateController(const ros::NodeHandle& n);
@@ -300,61 +300,11 @@ public:
   void jointStatesCallback(const sensor_msgs::JointState& joint_states);
 
   /**
-   * Callback handling and normalising the MAX specific pressure sensor data
-   * @param[in] raw_tip_forces The JointState sensor message provided by the subscribed ros topic "/motor_encoders"
-   * which contains the pressure sensor data.
-   * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
-   * @todo Parameterise the normalisation variables
+   * Callback which handles acquisition of tip states from external sensors. Attempts to populate leg objects with
+   * available current tip force/torque values and proxmity to walk surface.
+   * @param[in] tip_states The TipState sensor message provided by the subscribed ros topic "/tip_states"
    */
-  void tipForceCallback(const sensor_msgs::JointState& raw_tip_forces);
-
-  /**
-   * Callback handling and normalising the Flexipod (AR leg) specific pressure sensor data
-   * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/AR_prs"
-   * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
-   * @todo Parameterise the normalisation variables
-   */
-  void tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force);
-
-  /**
-   * Callback handling and normalising the Flexipod (BR leg) specific pressure sensor data
-   * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/BR_prs"
-   * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
-   * @todo Parameterise the normalisation variables
-   */
-  void tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force);
-
-  /**
-   * Callback handling and normalising the Flexipod (CR leg) specific pressure sensor data
-   * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/CR_prs"
-   * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
-   * @todo Parameterise the normalisation variables
-   */
-  void tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force);
-
-  /**
-   * Callback handling and normalising the Flexipod (CL leg) specific pressure sensor data
-   * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/CL_prs"
-   * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
-   * @todo Parameterise the normalisation variables
-   */
-  void tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force);
-
-  /**
-   * Callback handling and normalising the Flexipod (BL leg) specific pressure sensor data
-   * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/BL_prs"
-   * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
-   * @todo Parameterise the normalisation variables
-   */
-  void tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force);
-
-  /**
-   * Callback handling and normalising the Flexipod (AL leg) specific pressure sensor data
-   * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/AL_prs"
-   * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
-   * @todo Parameterise the normalisation variables
-   */
-  void tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force);
+  void tipStatesCallback(const syropod_highlevel_controller::TipState& tip_states);
 
 private:
   ros::NodeHandle n_;                                 ///< Ros node handle
@@ -378,13 +328,7 @@ private:
   ros::Subscriber parameter_adjustment_subscriber_;   ///< Subscriber for topic "/syropod_remote/parameter_adjustment"
   ros::Subscriber imu_data_subscriber_;               ///< Subscriber for topic "/imu/data
   ros::Subscriber joint_state_subscriber_;            ///< Subscriber for topic "/joint_states"
-  ros::Subscriber tip_force_subscriber_;              ///< Subscriber for topic "/motor_encoders"
-  ros::Subscriber tip_force_subscriber_AR_;           ///< Subscriber for topic "/AR_prs"
-  ros::Subscriber tip_force_subscriber_BR_;           ///< Subscriber for topic "/BR_prs"
-  ros::Subscriber tip_force_subscriber_CR_;           ///< Subscriber for topic "/CR_prs"
-  ros::Subscriber tip_force_subscriber_CL_;           ///< Subscriber for topic "/CL_prs"
-  ros::Subscriber tip_force_subscriber_BL_;           ///< Subscriber for topic "/BL_prs"
-  ros::Subscriber tip_force_subscriber_AL_;           ///< Subscriber for topic "/AL_prs"
+  ros::Subscriber tip_state_subscriber_;              ///< Subscriber for topic "/tip_states"
 
   ros::Publisher desired_joint_state_publisher_;      ///< Publisher for topic "/desired_joint_state"
   ros::Publisher pose_publisher_;                     ///< Publisher for topic "/shc/pose"

@@ -562,7 +562,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     else if (walk_state_ == STOPPED)
     {
-      leg_stepper->setStepState(FORCE_STOP);
+      leg_stepper->setStepState(STANCE);
     }
 
     // Step State Machine
@@ -668,8 +668,9 @@ LegStepper::LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, c
   , current_tip_position_(default_tip_position_)
 {
   current_tip_velocity_ = Vector3d(0.0, 0.0, 0.0);
+  target_tip_position_ = default_tip_position_;
   stride_vector_ = Vector3d(0.0, 0.0, 0.0);
-  swing_height_ = walker->getStepClearance();
+  swing_clearance_ = Vector3d(0.0, 0.0, walker->getStepClearance());
 
   // Iterate through and initialise control nodes (5 control nodes for quartic (4th order) bezier curves)
   for (int i = 0; i < 5; ++i)
@@ -691,7 +692,10 @@ void LegStepper::iteratePhase(void)
   int stance_start = walker_->getStanceStart();
   int stance_end = walker_->getStanceEnd();
 
-  phase_ = (phase_ + 1) % (phase_length);
+  if (walker_->getWalkState() != STOPPED || phase_ != phase_offset_)
+  {
+    phase_ = (phase_ + 1) % (phase_length);
+  }
 
   // Calculate progress of stance/swing periods (0.0->1.0 or -1.0 if not in specific state)
   if (step_state_ == SWING)
@@ -700,7 +704,7 @@ void LegStepper::iteratePhase(void)
     swing_progress_ = clamped(swing_progress_, 0.0, 1.0);
     stance_progress_ = -1.0;
   }
-  else if (step_state_ == STANCE)
+  else if (step_state_ == STANCE || step_state_ == FORCE_STOP)
   {
     stance_progress_ = double(mod(phase_ + (phase_length - stance_start), phase_length) + 1) /
                        double(mod(stance_end - stance_start, phase_length));
@@ -746,41 +750,37 @@ void LegStepper::updatePosition(void)
     if (iteration == 1)
     {
       swing_origin_tip_position_ = current_tip_position_;
-      generatePrimarySwingControlNodes(current_tip_velocity_);
+      swing_origin_tip_velocity_ = current_tip_velocity_;
     }
 
-    double time_input_1 = 0;
-    double time_input_2 = 0;
-
-    // First swing curve - swing control nodes stay static since not updated each iteration
-    if (iteration <= swing_iterations / 2)
+    target_tip_position_ = default_tip_position_ + 0.5 * stride_vector_; //TODO Add callback to set target externally
+    generateSwingControlNodes();
+    bool first_half = iteration <= swing_iterations / 2;
+    Vector3d delta_pos(0,0,0);
+    double time_input = 0;
+    if (first_half)
     {
-      time_input_1 = iteration * swing_delta_t_;
-      Vector3d delta_pos = swing_delta_t_ * quarticBezierDot(swing_1_nodes_, time_input_1);
-      current_tip_position_ += delta_pos;
-      current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
+      time_input = swing_delta_t_ * iteration;
+      delta_pos = swing_delta_t_ * quarticBezierDot(swing_1_nodes_, time_input);
     }
-    // Second swing curve - swing control nodes dynamic since updated each iteration to handle changing stride vector
     else
     {
-      generateSecondarySwingControlNodes(-stride_vector_ * (stance_delta_t_ / walker_->getTimeDelta()));
-
-      time_input_2 = (iteration - swing_iterations / 2) * swing_delta_t_;
-      Vector3d delta_pos = swing_delta_t_ * quarticBezierDot(swing_2_nodes_, time_input_2);
-      current_tip_position_ += delta_pos;
-      current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
+      time_input = swing_delta_t_ * (iteration - swing_iterations / 2);
+      delta_pos = swing_delta_t_ * quarticBezierDot(swing_2_nodes_, time_input);
     }
+    current_tip_position_ += delta_pos;
+    current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
 
     ROS_DEBUG_COND(walker_->getParameters().debug_swing_trajectory.data && leg_->getIDNumber() == 0,
                    "SWING TRAJECTORY_DEBUG - ITERATION: %d\t\t"
-                   "TIME: %f:%f\t\t"
+                   "TIME: %f\t\t"
                    "ORIGIN: %f:%f:%f\t\t"
                    "POS: %f:%f:%f\t\t"
                    "TARGET: %f:%f:%f\n",
-                   iteration, setPrecision(time_input_1, 3), setPrecision(time_input_2, 3),
+                   iteration, setPrecision(time_input, 3),
                    swing_origin_tip_position_[0], swing_origin_tip_position_[1], swing_origin_tip_position_[2],
                    current_tip_position_[0], current_tip_position_[1], current_tip_position_[2],
-                   swing_2_nodes_[4][0], swing_2_nodes_[4][1], swing_2_nodes_[4][2]);
+                   target_tip_position_[0], target_tip_position_[1], target_tip_position_[2]);
   }
   // Stance phase
   else if (step_state_ == STANCE)
@@ -819,54 +819,48 @@ void LegStepper::updatePosition(void)
 
 /*******************************************************************************************************************//**
  * Generates control nodes for quartic bezier curve of 1st half of the swing tip trajectory calculation.
- * @param[in] initial_tip_velocity Tip velocity vector representing the expected velocity of the tip at the beginning
  * of swing trajectory generation.
 ***********************************************************************************************************************/
-void LegStepper::generatePrimarySwingControlNodes(const Vector3d& initial_tip_velocity)
+void LegStepper::generateSwingControlNodes(void)
 {
+  Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_position_)/2.0 + swing_clearance_;
+  Vector3d swing1_node_seperation = 0.25 * swing_origin_tip_velocity_ * (walker_->getTimeDelta() / swing_delta_t_);
+  
   // Control nodes for primary swing quartic bezier curves
   // Set for position continuity at transition between stance and primary swing curves (C0 Smoothness)
   swing_1_nodes_[0] = swing_origin_tip_position_;
-  // Set to default tip position so max swing height and transition to 2nd swing curve occurs at default tip position
-  swing_1_nodes_[4] = default_tip_position_;
   // Set for velocity continuity at transition between stance and primary swing curves (C1 Smoothness)
-  swing_1_nodes_[1] = swing_1_nodes_[0] + 0.25 * initial_tip_velocity * (walker_->getTimeDelta() / swing_delta_t_);
+  swing_1_nodes_[1] = swing_origin_tip_position_ + swing1_node_seperation;
   // Set for acceleration continuity at transition between stance and primary swing curves (C2 Smoothness)
-  swing_1_nodes_[2] = swing_1_nodes_[1] + (swing_1_nodes_[1] - swing_1_nodes_[0]);
+  swing_1_nodes_[2] = swing_origin_tip_position_ + 2.0 * swing1_node_seperation;
   // Set for acceleration continuity at transition between swing curves (C2 Smoothness for symetric curves)
-  swing_1_nodes_[3] = (swing_1_nodes_[2] + swing_1_nodes_[4]) / 2.0;
-
-  // Control nodes for primary swing quartic bezier curves - vertical plane
-  // Set to default tip position plus swing height so max swing height and transition to 2nd swing curve occurs here
-  swing_1_nodes_[4][2] = default_tip_position_[2] + swing_height_;
-  // Set for vertical velocity continuity at transition between primary and secondary swing curves (C1 Smoothness)
-  swing_1_nodes_[3][2] = default_tip_position_[2] + swing_height_;
-}
-
-/*******************************************************************************************************************//**
- * Generates control nodes for quartic bezier curve of the 2nd half of the swing tip trajectory calculation.
- * @param[in] final_tip_velocity Tip velocity vector representing the expected velocity of the tip at the end
- * of swing trajectory generation.
-***********************************************************************************************************************/
-void LegStepper::generateSecondarySwingControlNodes(const Vector3d& final_tip_velocity)
-{
+  swing_1_nodes_[3] = (mid_tip_position + (swing_1_nodes_[2] + swing_clearance_)) / 2.0;
+  // Set to default tip position so max swing height and transition to 2nd swing curve occurs at default tip position
+  swing_1_nodes_[4] = mid_tip_position;
+  
+  Vector3d final_tip_velocity = -stride_vector_ * (stance_delta_t_ / walker_->getTimeDelta());
+  Vector3d swing2_node_seperation = 0.25 * final_tip_velocity * (walker_->getTimeDelta() / swing_delta_t_);
+  
   // Control nodes for secondary swing quartic bezier curves
   // Set for position continuity at transition between primary and secondary swing curves (C0 Smoothness)
-  swing_2_nodes_[0] = default_tip_position_;
-  // Set for position continuity at transition between secondary swing and stance curves (C0 Smoothness)
-  swing_2_nodes_[4] = default_tip_position_ + 0.5 * stride_vector_;
-  // Set for velocity continuity at transition between secondary swing and stance curves (C1 Smoothness)
-  swing_2_nodes_[3] = swing_2_nodes_[4] - 0.25 * final_tip_velocity * (walker_->getTimeDelta() / swing_delta_t_);
-  // Set for acceleration continuity at transition between secondary swing and stance curves (C2 Smoothness)
-  swing_2_nodes_[2] = swing_2_nodes_[3] + (swing_2_nodes_[3] - swing_2_nodes_[4]);
+  swing_2_nodes_[0] = mid_tip_position;
   // Set for velocity continuity at transition between primary and secondary swing curves (C1 Smoothness)
-  swing_2_nodes_[1] = swing_2_nodes_[0] + (swing_2_nodes_[0] - swing_1_nodes_[3]);
-
-  // Control nodes for secondary swing quartic bezier curves - vertical plane
-  // Set for vertical position continuity at transition between primary and secondary swing curves (C0 Smoothness)
-  swing_2_nodes_[0][2] = default_tip_position_[2] + swing_height_;
-  // Set for vertical velocity continuity at transition between primary and secondary swing curves (C1 Smoothness)
-  swing_2_nodes_[1][2] = default_tip_position_[2] + swing_height_;
+  swing_2_nodes_[1] = mid_tip_position - (swing_1_nodes_[3] - swing_1_nodes_[4]);
+  // Set for acceleration continuity at transition between secondary swing and stance curves (C2 Smoothness)
+  swing_2_nodes_[2] = target_tip_position_ - 2.0 * swing2_node_seperation;
+  // Set for velocity continuity at transition between secondary swing and stance curves (C1 Smoothness)
+  swing_2_nodes_[3] = target_tip_position_ - swing2_node_seperation;
+  // Set for position continuity at transition between secondary swing and stance curves (C0 Smoothness)
+  swing_2_nodes_[4] = target_tip_position_;
+  
+  // Control node modification for secondary swing vertical trajectory
+  if (walker_->getParameters().tip_align_posing.data)
+  {
+    swing_1_nodes_[4] = (swing_2_nodes_[2] + swing_clearance_) - 2.0 * swing2_node_seperation;
+    swing_2_nodes_[0] = swing_1_nodes_[4];
+    swing_2_nodes_[1] = (swing_2_nodes_[2] + swing_2_nodes_[0]) / 2.0;
+    swing_1_nodes_[3] = swing_1_nodes_[4] + (swing_2_nodes_[0] - swing_2_nodes_[1]);
+  }
 }
 
 /*******************************************************************************************************************//**
@@ -875,17 +869,19 @@ void LegStepper::generateSecondarySwingControlNodes(const Vector3d& final_tip_ve
 ***********************************************************************************************************************/
 void LegStepper::generateStanceControlNodes(const Vector3d& stride_vector)
 {
+  Vector3d stance_node_seperation = -stride_vector * 0.25;
+  
   // Control nodes for stance quartic bezier curve
   // Set as initial tip position
-  stance_nodes_[0] = stance_origin_tip_position_;
-  // Set as target tip position
-  stance_nodes_[4] = stance_origin_tip_position_ - stride_vector;
+  stance_nodes_[0] = stance_origin_tip_position_ + 0.0 * stance_node_seperation;
   // Set for constant velocity in stance phase
-  stance_nodes_[1] = stance_nodes_[4] + 0.75 * (stance_nodes_[0] - stance_nodes_[4]);
+  stance_nodes_[1] = stance_origin_tip_position_ + 1.0 * stance_node_seperation;
   // Set for constant velocity in stance phase
-  stance_nodes_[2] = stance_nodes_[4] + 0.5 * (stance_nodes_[0] - stance_nodes_[4]);
+  stance_nodes_[2] = stance_origin_tip_position_ + 2.0 * stance_node_seperation;
   // Set for constant velocity in stance phase;
-  stance_nodes_[3] = stance_nodes_[4] + 0.25 * (stance_nodes_[0] - stance_nodes_[4]);
+  stance_nodes_[3] = stance_origin_tip_position_ + 3.0 * stance_node_seperation;
+  // Set as target tip position
+  stance_nodes_[4] = stance_origin_tip_position_ + 4.0 * stance_node_seperation;
 }
 
 /***********************************************************************************************************************

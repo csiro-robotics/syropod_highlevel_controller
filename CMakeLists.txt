@@ -53,6 +53,7 @@ generate_dynamic_reconfigure_options(config/dynamic_parameter.cfg)
  add_message_files(
    FILES
    LegState.msg
+   TipState.msg
 )
 
 ## Generate services in the 'srv' folder

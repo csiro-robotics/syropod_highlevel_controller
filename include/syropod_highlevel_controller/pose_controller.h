@@ -137,6 +137,7 @@ public:
     inclination_pose_ = Pose::identity();
     admittance_pose_ = Pose::identity();
     default_pose_ = Pose::identity();
+    tip_align_pose_ = Pose::identity();
   }
 
   /**
@@ -225,6 +226,13 @@ public:
    * depending on the pose reset mode.
    */
   void updateManualPose(void);
+  
+  /**
+   * Updates a body pose that, when applied, orients the last joint of a swinging leg directly above the tip, causing 
+   * the last link of the leg to be oriented vertically during the 2nd half of swing. This is used to orient tip
+   * sensors to point toward the desired tip landing position at the end of the swing.
+   */
+  void updateTipAlignPose(void);
 
   /**
    * Updates the auto pose by feeding each Auto Poser object a phase value and combining the output of each Auto Poser
@@ -284,6 +292,9 @@ private:
   Pose inclination_pose_; ///< Pose to improve stability on inclined terrain, a component of total applied body pose.
   Pose admittance_pose_ ; ///< Pose to correct admittance control based sagging, a component of total applied body pose.
   Pose default_pose_;     ///< Default pose calculated for different loading patterns
+  
+  Pose origin_pose_;
+  Pose tip_align_pose_;
 
   int transition_step_ = 0;                     ///< The current transition step in the sequence being executed.
   int transition_step_count_ = 0;               ///< The total number of transition steps in the sequence being executed

@@ -232,9 +232,21 @@ public:
 
   /**
     * Modifier for the current estimated force vector on the tip of this leg.
-    * @param[in] tip_force The new vertical tip force estimate for this leg.
+    * @param[in] tip_force The new tip force estimate for this leg.
     */
   inline void setTipForce(const Vector3d& tip_force) { tip_force_ = tip_force; };
+  
+  /**
+    * Modifier for the current estimated torque vector on the tip of this leg.
+    * @param[in] tip_torque The new tip torque estimate for this leg.
+    */
+  inline void setTipTorque(const Vector3d& tip_torque) { tip_torque_ = tip_torque; };
+  
+  /**
+    * Modifier for the current estimated distance from tip to walk surface contact.
+    * @param[in] contact_proxmity The new contact proxmity estimate for this leg.
+    */
+  inline void setTipContactProximity(const double& contact_proxmity) { tip_contact_proxmity_ = contact_proxmity; };
 
   /**
     * Modifier for the current admittance control vertical position offset (delta_z) for this leg.
@@ -398,7 +410,9 @@ private:
 
   int group_; ///< Leg stepping coordination group (Either 0 or 1).
 
-  Vector3d tip_force_; ///< Force estimation on tip.
+  Vector3d tip_force_;          ///< Force estimation on the tip.
+  Vector3d tip_torque_;         ///< Torque estimation on the tip.
+  double tip_contact_proxmity_; ///< Estimation of the distance from the tip to contacting the walking surface.
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

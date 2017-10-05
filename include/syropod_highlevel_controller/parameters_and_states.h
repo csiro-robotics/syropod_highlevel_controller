@@ -271,11 +271,12 @@ struct Parameters
 
   // Control parameters
   Parameter<double> time_delta;        ///< The period of time between successive ros cycles.
-  Parameter<bool> imu_posing;          ///< Flad denoting if the imu posing feature is on/off.
-  Parameter<bool> auto_posing;         ///< Flad denoting if the auto posing feature is on/off.
-  Parameter<bool> manual_posing;       ///< Flad denoting if the manual posing feature is on/off.
-  Parameter<bool> inclination_posing;  ///< Flad denoting if the inclination posing feature is on/off.
-  Parameter<bool> admittance_control;   ///< Flad denoting if the admittance control feature is on/off.
+  Parameter<bool> imu_posing;          ///< Flag denoting if the imu posing feature is on/off.
+  Parameter<bool> auto_posing;         ///< Flag denoting if the auto posing feature is on/off.
+  Parameter<bool> manual_posing;       ///< Flag denoting if the manual posing feature is on/off.
+  Parameter<bool> inclination_posing;  ///< Flag denoting if the inclination posing feature is on/off.
+  Parameter<bool> tip_align_posing;    ///< Flag denoting if the tip alignment posing feature is on/off.
+  Parameter<bool> admittance_control;  ///< Flag denoting if the admittance control feature is on/off.
 
   // Motor Interface parameters
   Parameter<bool> individual_control_interface;   ///< Flag requesting the individual desired joint position format.
@@ -293,7 +294,6 @@ struct Parameters
 
   Parameter<map<string, double>> joint_parameters[8][6];  ///< An array of maps of joint parameter names and values.*
   Parameter<map<string, double>> link_parameters[8][7];   ///< An array of maps of link parameter names and values.*
-
   // *Max possible: 8 legs with 6 joints and 7 links each.
 
   // Walk controller parameters
@@ -301,7 +301,6 @@ struct Parameters
   AdjustableParameter step_frequency;                    ///< The frequency of complete step cycles (Hz).
   AdjustableParameter step_clearance;                    ///< The stepping clearance of the tip position above default.
   AdjustableParameter body_clearance;                    ///< The requested height of the robot body above ground.
-  AdjustableParameter leg_span;                          ///< TODO Placeholder - currently does nothing
   Parameter<string> velocity_input_mode;                 ///< Determines velocity input as 'real' or 'throttle' based.
   Parameter<bool> force_cruise_velocity;                 ///< Flag denoting if cruise control mode uses set values.
   Parameter<map<string, double>> linear_cruise_velocity; ///< Set values used in cruise control mode if requested.

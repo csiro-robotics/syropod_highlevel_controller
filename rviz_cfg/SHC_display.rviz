@@ -5,9 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Imu1/Status1
       Splitter Ratio: 0.5
-    Tree Height: 1232
+    Tree Height: 357
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -69,10 +68,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/workspaces
       Name: Marker
       Namespaces:
-        stride_markers: true
-        tip_force_markers: true
         tip_rotation_markers: true
-        workspace_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -80,9 +76,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/bezier_curves
       Name: Marker
       Namespaces:
-        primary_swing_control_nodes: true
-        secondary_swing_control_nodes: true
-        stance_control_nodes: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -156,7 +150,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.76036084
+      Distance: 6.85832453
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -176,9 +170,9 @@ Visualization Manager:
       Yaw: 5.46858215
     Saved: ~
 Window Geometry:
-  "&Displays":
-    collapsed: false
   "&Time":
+    collapsed: false
+  Displays:
     collapsed: false
   Height: 1571
   Hide Left Dock: false
@@ -191,5 +185,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1276
-  X: 3836
+  X: 3832
   Y: 0

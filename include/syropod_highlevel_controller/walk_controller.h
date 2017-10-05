@@ -233,8 +233,8 @@ public:
   /** Accessor for the current stride vector used in the step cycle. */
   inline Vector2d getStrideVector(void) { return Vector2d(stride_vector_[0], stride_vector_[1]); };
 
-  /** Accessor for desired height of the leg tip above default position during swing period. */
-  inline double getSwingHeight(void) { return swing_height_; };
+  /** Accessor for desired clearance of the leg tip with respect to default position during swing period. */
+  inline Vector3d getSwingClearance(void) { return swing_clearance_; };
 
   /** Accessor for the current progress of the swing period in the step cycle (0.0 -> 1.0 || -1.0). */
   inline double getSwingProgress(void) { return swing_progress_; };
@@ -331,25 +331,16 @@ public:
   void updatePosition(void);
 
   /**
-    * Generates control nodes for quartic bezier curve of the 1st half of the swing tip trajectory calculation.
-    * @param[in] initial_tip_velocity Tip velocity vector representing the expected velocity of the tip at the beginning
-    * of swing trajectory generation.
-    */
-  void generatePrimarySwingControlNodes(const Vector3d& initial_tip_velocity);
+   * Generates control nodes for quartic bezier curve of the swing tip trajectory calculation.
+   */
+  void generateSwingControlNodes(void);
 
   /**
-    * Generates control nodes for quartic bezier curve of the 2nd half of the swing tip trajectory calculation.
-    * @param[in] final_tip_velocity Tip velocity vector representing the expected velocity of the tip at the end
-    * of swing trajectory generation.
-    */
-  void generateSecondarySwingControlNodes(const Vector3d& final_tip_velocity);
-
-  /**
-    * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.
-    * @param[in] stride_vector A vector defining the stride which the leg is to step as part of the step cycle
-    * trajectory.
-    */
-  void generateStanceControlNodes(const Vector3d& stride_vector);
+   * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.
+   * @param[in] stride_scaler A scaling variable which modifies stride vector according to stance length specifically 
+   * for STARTING state of walker
+   */
+  void generateStanceControlNodes(const double& stride_scaler)
 
 private:
   shared_ptr<WalkController> walker_; ///< Pointer to walk controller object.
@@ -370,16 +361,19 @@ private:
   Vector3d swing_2_nodes_[5]; ///< An array of 3d control nodes defining the secondary swing bezier curve.
   Vector3d stance_nodes_[5];  ///< An array of 3d control nodes defining the stance bezier curve.
 
-  Vector3d stride_vector_; ///< The desired stride vector.
-  double swing_height_;    ///< The desired height of the leg tip above default position during swing period.
+  Vector3d stride_vector_;   ///< The desired stride vector.
+  Vector3d swing_clearance_; ///< The position relative to the default tip position to achieve during swing period.
 
   double swing_delta_t_ = 0.0;
   double stance_delta_t_ = 0.0;
 
   Vector3d default_tip_position_;       ///< The default tip position per the walk controller.
+  Vector3d target_tip_position_;        ///< The target tip position to achieve at the end of a swing period.
   Vector3d current_tip_position_;       ///< The current tip position per the walk controller.
   Vector3d current_tip_velocity_;       ///< The default tip velocity per the walk controller.
+  
   Vector3d swing_origin_tip_position_;  ///< The tip position used as the origin for the bezier curve during swing.
+  Vector3d swing_origin_tip_velocity_;  ///< The tip velocity used in the generation of bezier curve during swing.
   Vector3d stance_origin_tip_position_; ///< The tip position used as the origin for the bezier curve during stance.
 
 public:

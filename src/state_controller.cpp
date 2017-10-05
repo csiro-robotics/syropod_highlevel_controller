@@ -23,7 +23,6 @@
  * StateController class constructor. Initialises parameters, creates robot model object, sets up ros topic
  * subscriptions and advertisments.
  * @param[in] n The ros node handle, used to subscribe/publish topics and assign callbacks
- * @todo Refactor tip force subscribers into single callback to topic /tip_forces
  * @todo Remove ASC publisher object
 ***********************************************************************************************************************/
 StateController::StateController(const ros::NodeHandle& n) : n_(n)
@@ -75,18 +74,8 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);
-
-
   joint_state_subscriber_ = n_.subscribe("/joint_states", 1, &StateController::jointStatesCallback, this);
-
-  // TODO Refactor into single callback to topic /tip_forces
-  tip_force_subscriber_ = n_.subscribe("/motor_encoders", 1, &StateController::tipForceCallback, this);
-  tip_force_subscriber_AR_ = n_.subscribe("/AR_prs", 1, &StateController::tipForceCallbackAR, this);
-  tip_force_subscriber_BR_ = n_.subscribe("/BR_prs", 1, &StateController::tipForceCallbackBR, this);
-  tip_force_subscriber_CR_ = n_.subscribe("/CR_prs", 1, &StateController::tipForceCallbackCR, this);
-  tip_force_subscriber_CL_ = n_.subscribe("/CL_prs", 1, &StateController::tipForceCallbackCL, this);
-  tip_force_subscriber_BL_ = n_.subscribe("/BL_prs", 1, &StateController::tipForceCallbackBL, this);
-  tip_force_subscriber_AL_ = n_.subscribe("/AL_prs", 1, &StateController::tipForceCallbackAL, this);
+  tip_state_subscriber_ = n_.subscribe("/tip_states", 1, &StateController::tipStatesCallback, this);
 
   //Set up debugging publishers
   pose_publisher_ = n_.advertise<geometry_msgs::Twist>("/shc/pose", 1000);
@@ -1002,7 +991,9 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
   if (robot_state_ == RUNNING)
   {
     GaitDesignation new_gait_selection = static_cast<GaitDesignation>(int(input.data));
-    if (new_gait_selection != gait_selection_ && new_gait_selection != GAIT_UNDESIGNATED)
+    if (new_gait_selection != gait_selection_ && 
+        new_gait_selection != GAIT_UNDESIGNATED && 
+        params_.tip_align_posing.data)
     {
       gait_selection_ = new_gait_selection;
       gait_change_flag_ = true;
@@ -1297,14 +1288,6 @@ void StateController::dynamicParameterCallback(syropod_highlevel_controller::Dyn
                                      dynamic_parameter_->max_value);
       config.body_clearance = new_parameter_value_;
     }
-    else if (config.leg_span != params_.leg_span.current_value)
-    {
-      dynamic_parameter_ = &params_.leg_span;
-      new_parameter_value_ = clamped(config.leg_span,
-                                     dynamic_parameter_->min_value,
-                                     dynamic_parameter_->max_value);
-      config.leg_span = new_parameter_value_;
-    }
     else if (config.virtual_mass != params_.virtual_mass.current_value)
     {
       dynamic_parameter_ = &params_.virtual_mass;
@@ -1412,119 +1395,34 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
 }
 
 /*******************************************************************************************************************//**
- * Callback handling and normalising the MAX specific pressure sensor data
- * @param[in] raw_tip_forces The JointState sensor message provided by the subscribed ros topic "/motor_encoders" which
- *                       contains the pressure sensor data.
- * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
- * @todo Parameterise the normalisation variables
+ * Callback which handles acquisition of tip states from external sensors. Attempts to populate leg objects with
+ * available current tip force/torque values and proxmity to walk surface.
+ * @param[in] tip_states The TipState sensor message provided by the subscribed ros topic "/tip_states"
 ***********************************************************************************************************************/
-void StateController::tipForceCallback(const sensor_msgs::JointState& raw_tip_forces)
+void StateController::tipStatesCallback(const syropod_highlevel_controller::TipState& tip_states)
 {
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  bool get_wrench_values = tip_states.wrench.size() > 0;
+  bool get_proximity_values = tip_states.proximity.size() > 0;
+  
+  // Iterate through message and assign found contact proximity value to leg objects
+  for (uint i = 0; i < tip_states.name.size(); ++i)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    double force_offset = 1255.0;
-    double max_force = 1000.0;
-    double min_force = 0.0;
-    double tip_force = clamped(raw_tip_forces.effort[leg->getIDNumber() * 2] - force_offset, min_force, max_force);
-    leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
+    string tip_name = tip_states.name[i];
+    string leg_name = tip_name.substr(0, tip_name.find("_"));
+    shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
+    ROS_ASSERT(leg != NULL);
+    if (get_wrench_values)
+    {
+      Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
+      leg->setTipForce(tip_force);
+      Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
+      leg->setTipTorque(tip_torque);
+    }
+    if (get_proximity_values)
+    {
+      leg->setTipContactProximity(tip_states.proximity[i]);
+    }
   }
-}
-
-/*******************************************************************************************************************//**
- * Callback handling and normalising the Flexipod (AR leg) specific pressure sensor data
- * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/AR_prs"
- * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
- * @todo Parameterise the normalisation variables
-***********************************************************************************************************************/
-void StateController::tipForceCallbackAR(const std_msgs::UInt16& raw_tip_force)
-{
-  shared_ptr<Leg> leg = model_->getLegByIDName("AR");
-  double force_offset = 23930.0;
-  double max_force = 1000.0;
-  double min_force = 0.0;
-  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
-}
-
-/*******************************************************************************************************************//**
- * Callback handling and normalising the Flexipod (BR leg) specific pressure sensor data
- * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/BR_prs"
- * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
- * @todo Parameterise the normalisation variables
-***********************************************************************************************************************/
-void StateController::tipForceCallbackBR(const std_msgs::UInt16& raw_tip_force)
-{
-  shared_ptr<Leg> leg = model_->getLegByIDName("BR");
-  double force_offset = 23845.0;
-  double max_force = 1000.0;
-  double min_force = 0.0;
-  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
-}
-
-/*******************************************************************************************************************//**
- * Callback handling and normalising the Flexipod (CR leg) specific pressure sensor data
- * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/CR_prs"
- * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
- * @todo Parameterise the normalisation variables
-***********************************************************************************************************************/
-void StateController::tipForceCallbackCR(const std_msgs::UInt16& raw_tip_force)
-{
-  shared_ptr<Leg> leg = model_->getLegByIDName("CR");
-  double force_offset = 23930.0;
-  double max_force = 1000.0;
-  double min_force = 0.0;
-  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
-}
-
-/*******************************************************************************************************************//**
- * Callback handling and normalising the Flexipod (CL leg) specific pressure sensor data
- * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/CL_prs"
- * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
- * @todo Parameterise the normalisation variables
-***********************************************************************************************************************/
-void StateController::tipForceCallbackCL(const std_msgs::UInt16& raw_tip_force)
-{
-  shared_ptr<Leg> leg = model_->getLegByIDName("CL");
-  double force_offset = 23895.0;
-  double max_force = 1000.0;
-  double min_force = 0.0;
-  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
-}
-
-/*******************************************************************************************************************//**
- * Callback handling and normalising the Flexipod (BL leg) specific pressure sensor data
- * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/BL_prs"
- * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
- * @todo Parameterise the normalisation variables
-***********************************************************************************************************************/
-void StateController::tipForceCallbackBL(const std_msgs::UInt16& raw_tip_force)
-{
-  shared_ptr<Leg> leg = model_->getLegByIDName("BL");
-  double force_offset = 23775.0;
-  double max_force = 1000.0;
-  double min_force = 0.0;
-  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
-}
-
-/*******************************************************************************************************************//**
- * Callback handling and normalising the Flexipod (AL leg) specific pressure sensor data
- * @param[in] raw_tip_force  The UInt16 standard message provided by the subscribed ros topic "/AL_prs"
- * @todo Refactor this callback and all other tip force callbacks into a single callback to the topic "/tip_forces"
- * @todo Parameterise the normalisation variables
-***********************************************************************************************************************/
-void StateController::tipForceCallbackAL(const std_msgs::UInt16& raw_tip_force)
-{
-  shared_ptr<Leg> leg = model_->getLegByIDName("AL");
-  double force_offset = 23920.0;
-  double max_force = 1000.0;
-  double min_force = 0.0;
-  double tip_force = clamped(raw_tip_force.data - force_offset, min_force, max_force);
-  leg->setTipForce(Vector3d(0.0, 0.0, tip_force * params_.force_gain.current_value));
 }
 
 /***********************************************************************************************************************
@@ -1537,6 +1435,7 @@ void StateController::initParameters(void)
   params_.time_delta.init(n_, "time_delta");
   params_.imu_posing.init(n_, "imu_posing");
   params_.auto_posing.init(n_, "auto_posing");
+  params_.tip_align_posing.init(n_, "tip_align_posing");
   params_.manual_posing.init(n_, "manual_posing");
   params_.inclination_posing.init(n_, "inclination_posing");
   params_.admittance_control.init(n_, "admittance_control");
@@ -1557,7 +1456,6 @@ void StateController::initParameters(void)
   params_.step_frequency.init(n_, "step_frequency");
   params_.step_clearance.init(n_, "step_clearance");
   params_.body_clearance.init(n_, "body_clearance");
-  params_.leg_span.init(n_, "leg_span");
   params_.velocity_input_mode.init(n_, "velocity_input_mode");
   params_.force_cruise_velocity.init(n_, "force_cruise_velocity");
   params_.linear_cruise_velocity.init(n_, "linear_cruise_velocity");
@@ -1633,7 +1531,6 @@ void StateController::initParameters(void)
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_FREQUENCY, &params_.step_frequency));
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_CLEARANCE, &params_.step_clearance));
   params_.adjustable_map.insert(AdjustableMapType::value_type(BODY_CLEARANCE, &params_.body_clearance));
-  params_.adjustable_map.insert(AdjustableMapType::value_type(LEG_SPAN_SCALE, &params_.leg_span));
   params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_MASS, &params_.virtual_mass));
   params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_STIFFNESS, &params_.virtual_stiffness));
   params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_DAMPING, &params_.virtual_damping_ratio));
@@ -1656,9 +1553,6 @@ void StateController::initParameters(void)
   config_max.body_clearance = params_.body_clearance.max_value;
   config_min.body_clearance = params_.body_clearance.min_value;
   config_default.body_clearance = params_.body_clearance.default_value;
-  config_max.leg_span = params_.leg_span.max_value;
-  config_min.leg_span = params_.leg_span.min_value;
-  config_default.leg_span = params_.leg_span.default_value;
   config_max.virtual_mass = params_.virtual_mass.max_value;
   config_min.virtual_mass = params_.virtual_mass.min_value;
   config_default.virtual_mass = params_.virtual_mass.default_value;
@@ -1687,23 +1581,30 @@ void StateController::initParameters(void)
 ***********************************************************************************************************************/
 void StateController::initGaitParameters(const GaitDesignation& gait_selection)
 {
-  switch (gait_selection)
+  if (params_.tip_align_posing.data)
   {
-    case (TRIPOD_GAIT):
-      params_.gait_type.data = "tripod_gait";
-      break;
-    case (RIPPLE_GAIT):
-      params_.gait_type.data = "ripple_gait";
-      break;
-    case (WAVE_GAIT):
-      params_.gait_type.data = "wave_gait";
-      break;
-    case (AMBLE_GAIT):
-      params_.gait_type.data = "amble_gait";
-      break;
-    case (GAIT_UNDESIGNATED):
-      params_.gait_type.init(n_, "gait_type");
-      break;
+    params_.gait_type.init(n_, "gait_type"); //Force default gait for tip alignment posing
+  }
+  else
+  {
+    switch (gait_selection)
+    {
+      case (TRIPOD_GAIT):
+        params_.gait_type.data = "tripod_gait";
+        break;
+      case (RIPPLE_GAIT):
+        params_.gait_type.data = "ripple_gait";
+        break;
+      case (WAVE_GAIT):
+        params_.gait_type.data = "wave_gait";
+        break;
+      case (AMBLE_GAIT):
+        params_.gait_type.data = "amble_gait";
+        break;
+      case (GAIT_UNDESIGNATED):
+        params_.gait_type.init(n_, "gait_type");
+        break;
+    }
   }
 
   string base_gait_parameters_name = "/syropod/gait_parameters/";
