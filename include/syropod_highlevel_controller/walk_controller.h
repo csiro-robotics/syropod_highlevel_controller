@@ -340,7 +340,7 @@ public:
    * @param[in] stride_scaler A scaling variable which modifies stride vector according to stance length specifically 
    * for STARTING state of walker
    */
-  void generateStanceControlNodes(const double& stride_scaler)
+  void generateStanceControlNodes(const double& stride_scaler);
 
 private:
   shared_ptr<WalkController> walker_; ///< Pointer to walk controller object.
