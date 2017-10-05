@@ -795,7 +795,7 @@ void LegStepper::updatePosition(void)
 
     // Scales stride vector according to stance length specifically for STARTING state of walker
     double stride_scaler = double(stance_length) / (mod(stance_end - walker_->getStanceStart(), phase_length));
-    generateStanceControlNodes(stride_vector_ * stride_scaler);
+    generateStanceControlNodes(stride_scaler);
 
     // Uses derivative of bezier curve to ensure correct velocity along ground, this means the position may not
     // reach the target but this is less important than ensuring correct velocity according to stride vector
@@ -865,11 +865,12 @@ void LegStepper::generateSwingControlNodes(void)
 
 /*******************************************************************************************************************//**
  * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.
- * @param[in] stride_vector A vector defining the stride which the leg is to step as part of the step cycle trajectory.
+ * @param[in] stride_scaler A scaling variable which modifies stride vector according to stance length specifically 
+ * for STARTING state of walker
 ***********************************************************************************************************************/
-void LegStepper::generateStanceControlNodes(const Vector3d& stride_vector)
+void LegStepper::generateStanceControlNodes(const double& stride_scaler)
 {
-  Vector3d stance_node_seperation = -stride_vector * 0.25;
+  Vector3d stance_node_seperation = -stride_vector_ * stride_scaler * 0.25;
   
   // Control nodes for stance quartic bezier curve
   // Set as initial tip position

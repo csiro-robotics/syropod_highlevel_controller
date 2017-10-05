@@ -293,8 +293,8 @@ private:
   Pose admittance_pose_ ; ///< Pose to correct admittance control based sagging, a component of total applied body pose.
   Pose default_pose_;     ///< Default pose calculated for different loading patterns
   
-  Pose origin_pose_;
-  Pose tip_align_pose_;
+  Pose origin_pose_;      ///< Origin pose used in interpolating tip align pose
+  Pose tip_align_pose_;   ///< Pose used to align final links of legs vertically during 2nd half of swing
 
   int transition_step_ = 0;                     ///< The current transition step in the sequence being executed.
   int transition_step_count_ = 0;               ///< The total number of transition steps in the sequence being executed

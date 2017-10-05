@@ -880,7 +880,9 @@ void PoseController::updateManualPose(void)
 }
 
 /*******************************************************************************************************************//**
- * TODO
+ * Updates a body pose that, when applied, orients the last joint of a swinging leg directly above the tip, causing the
+ * last link of the leg to be oriented vertically during the 2nd half of swing. This is used to orient tip sensors
+ * to point toward the desired tip landing position at the end of the swing.
 ***********************************************************************************************************************/
 void PoseController::updateTipAlignPose(void)
 {
