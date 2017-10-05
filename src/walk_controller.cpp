@@ -745,6 +745,7 @@ void LegStepper::updatePosition(void)
   if (step_state_ == SWING)
   {
     int iteration = phase_ - swing_start + 1;
+    bool first_half = iteration <= swing_iterations / 2;
 
     // Save initial tip position and generate swing control nodes at beginning of swing
     if (iteration == 1)
@@ -752,10 +753,21 @@ void LegStepper::updatePosition(void)
       swing_origin_tip_position_ = current_tip_position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
     }
+    
+    //Update target tip position (i.e. desired tip position at end of swing)
+    if (true)
+    {
+      target_tip_position_ = default_tip_position_ + 0.5 * stride_vector_; //TODO Add callback to set target externally
+      double control_input = -((swing_delta_t_ * (iteration - swing_iterations / 2))-1.0);
+      leg_->setTipContactProximity(abs(-0.1 - current_tip_position_[2]));
+      if (walker_->getParameters().tip_align_posing.data && !first_half)
+      {
+        target_tip_position_[2] = current_tip_position_[2] - leg_->getTipContactProximity();
+      }
+    }
 
-    target_tip_position_ = default_tip_position_ + 0.5 * stride_vector_; //TODO Add callback to set target externally
     generateSwingControlNodes();
-    bool first_half = iteration <= swing_iterations / 2;
+    
     Vector3d delta_pos(0,0,0);
     double time_input = 0;
     if (first_half)
