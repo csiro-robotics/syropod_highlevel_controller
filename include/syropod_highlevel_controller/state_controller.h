@@ -301,7 +301,7 @@ public:
 
   /**
    * Callback which handles acquisition of tip states from external sensors. Attempts to populate leg objects with
-   * available current tip force/torque values and proxmity to walk surface.
+   * available current tip force/torque values and range to walk surface.
    * @param[in] tip_states The TipState sensor message provided by the subscribed ros topic "/tip_states"
    */
   void tipStatesCallback(const syropod_highlevel_controller::TipState& tip_states);

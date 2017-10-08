@@ -75,6 +75,7 @@ generate_dynamic_reconfigure_options(config/dynamic_parameter.cfg)
    DEPENDENCIES
    std_msgs
    geometry_msgs
+   sensor_msgs
 )
 
 ###################################

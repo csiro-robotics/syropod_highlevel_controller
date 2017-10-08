@@ -87,6 +87,9 @@ public:
   
   /** Accessor for workspace map. */
   inline map<int, double> getWorkspaceMap(void) { return workspace_map_; };
+  
+  /** Accessor for walk plane estimate. */
+  inline Vector3d getWalkPlane(void) { return walk_plane_; };
 
   /**
     * Modifier for posing state.
@@ -143,6 +146,12 @@ public:
     */
   void updateManual(const int& primary_leg_selection_ID, const Vector3d& primary_tip_velocity_input,
                     const int& secondary_leg_selection_ID, const Vector3d& secondary_tip_velocity_input);
+  
+  /** 
+   * Calculates a estimated walk plane which best fits the tip positions of legs in stance using least squares method.
+   * Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
+   */
+  void updateWalkPlane(void);
 
 private:
   shared_ptr<Model> model_;            ///< Pointer to robot model object.
@@ -172,6 +181,7 @@ private:
   map<int, double> workspace_map_;                ///< A map of workspace radii for given bearing in degrees
   bool workspace_generated_ = false;              ///< Flag denoting if workspace map has been generated.
   double stance_radius_;                          ///< The radius of the turning circle used for angular body velocity.
+  Vector3d walk_plane_;                           ///< The co-efficients of an estimated planar walk surface
 
   // Velocity/acceleration variables
   Vector2d desired_linear_velocity_;          ///< The desired linear velocity of the robot body.
@@ -375,6 +385,8 @@ private:
   Vector3d swing_origin_tip_position_;  ///< The tip position used as the origin for the bezier curve during swing.
   Vector3d swing_origin_tip_velocity_;  ///< The tip velocity used in the generation of bezier curve during swing.
   Vector3d stance_origin_tip_position_; ///< The tip position used as the origin for the bezier curve during stance.
+  
+  double debug_contact_range_ = 0;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

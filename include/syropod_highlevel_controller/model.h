@@ -156,7 +156,7 @@ public:
   inline Vector3d getTipTorque(void) { return tip_torque_; };
   
   /** Accessor for the current estimated distance from tip to walk surface contact. */
-  inline double getTipContactProximity(void) { return tip_contact_proximity_; };
+  inline double getTipContactRange(void) { return tip_contact_range_; };
 
   /** Accessor for the current admittance control vertical position offset (delta_z) for this leg.*/
   inline double getDeltaZ(void) { return delta_z_; };
@@ -250,9 +250,9 @@ public:
   
   /**
     * Modifier for the current estimated distance from tip to walk surface contact.
-    * @param[in] contact_proxmity The new contact proxmity estimate for this leg.
+    * @param[in] contact_range The new contact range estimate for this leg.
     */
-  inline void setTipContactProximity(const double& contact_proxmity) { tip_contact_proximity_ = contact_proxmity; };
+  inline void setTipContactRange(const double& contact_range) { tip_contact_range_ = contact_range; };
   
   /**
     * Modifier for the current admittance control vertical position offset (delta_z) for this leg.
@@ -416,9 +416,9 @@ private:
 
   int group_; ///< Leg stepping coordination group (Either 0 or 1).
 
-  Vector3d tip_force_;           ///< Force estimation on the tip.
-  Vector3d tip_torque_;          ///< Torque estimation on the tip.
-  double tip_contact_proximity_; ///< Estimation of the distance from the tip to contacting the walking surface.
+  Vector3d tip_force_;       ///< Force estimation on the tip.
+  Vector3d tip_torque_;      ///< Torque estimation on the tip.
+  double tip_contact_range_; ///< Estimation of the distance from the tip to contacting the walking surface.
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

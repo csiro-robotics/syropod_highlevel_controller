@@ -138,6 +138,7 @@ public:
     admittance_pose_ = Pose::identity();
     default_pose_ = Pose::identity();
     tip_align_pose_ = Pose::identity();
+    walk_plane_pose_ = Pose::identity();
   }
 
   /**
@@ -217,8 +218,9 @@ public:
    * Depending on parameter flags, calls multiple posing functions and combines individual poses to update the current
    * desired pose of the robot model.
    * @param[in] body_height Desired height of the body above ground level - used in inclination posing.
+   * @param[in] walk_plane A Vector representing the walk plane
    */
-  void updateCurrentPose(const double& body_height);
+  void updateCurrentPose(const double& body_height, const Vector3d& walk_plane);
 
   /**
    * Generates a manual pose to be applied to the robot model, based on linear (x/y/z) and angular (roll/pitch/yaw)
@@ -233,6 +235,14 @@ public:
    * sensors to point toward the desired tip landing position at the end of the swing.
    */
   void updateTipAlignPose(void);
+  
+  /**
+   * Calculates a pose for the robot body such that the robot body is parallel to a calculated walk plane at a normal 
+   * offset of the body clearance parameter. The optimal average walking plane is calculated from tip positions of legs 
+   * in stance.
+   * @param[in] walk_plane A Vector representing the walk plane
+   */
+   void updateWalkPlanePose(const Vector3d& walk_plane);
 
   /**
    * Updates the auto pose by feeding each Auto Poser object a phase value and combining the output of each Auto Poser
@@ -295,6 +305,7 @@ private:
   
   Pose origin_pose_;      ///< Origin pose used in interpolating tip align pose
   Pose tip_align_pose_;   ///< Pose used to align final links of legs vertically during 2nd half of swing
+  Pose walk_plane_pose_;  ///< Pose used to align robot body parallel with estimated walk plane and normal at clearance.
 
   int transition_step_ = 0;                     ///< The current transition step in the sequence being executed.
   int transition_step_count_ = 0;               ///< The total number of transition steps in the sequence being executed

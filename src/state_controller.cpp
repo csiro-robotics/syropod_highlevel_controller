@@ -166,7 +166,7 @@ void StateController::loop(void)
   // Posing - updates currentPose for body compensation
   if (robot_state_ != UNKNOWN)
   {
-    poser_->updateCurrentPose(walker_->getBodyHeight());
+    poser_->updateCurrentPose(walker_->getBodyHeight(), walker_->getWalkPlane());
     walker_->setPoseState(poser_->getAutoPoseState()); // Sends pose state from poser to walker
 
     // Admittance control - updates deltaZ values
@@ -818,6 +818,7 @@ void StateController::RVIZDebugging(const bool& static_display)
 
   debug_visualiser_.updatePose(linear_velocity, angular_velocity, walker_->getBodyHeight());
   debug_visualiser_.generateRobotModel(model_);
+  debug_visualiser_.generateWalkPlane(walker_->getWalkPlane(), model_->getCurrentPose());
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -1402,7 +1403,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
 void StateController::tipStatesCallback(const syropod_highlevel_controller::TipState& tip_states)
 {
   bool get_wrench_values = tip_states.wrench.size() > 0;
-  bool get_proximity_values = tip_states.proximity.size() > 0;
+  bool get_range_values = tip_states.range.size() > 0;
   
   // Iterate through message and assign found contact proximity value to leg objects
   for (uint i = 0; i < tip_states.name.size(); ++i)
@@ -1418,9 +1419,9 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
       Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
       leg->setTipTorque(tip_torque);
     }
-    if (get_proximity_values)
+    if (get_range_values)
     {
-      leg->setTipContactProximity(tip_states.proximity[i]);
+      leg->setTipContactRange(tip_states.range[i].range);
     }
   }
 }

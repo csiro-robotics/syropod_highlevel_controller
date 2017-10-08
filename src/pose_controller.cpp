@@ -685,8 +685,9 @@ int PoseController::unpackLegs(const double& time_to_unpack) //Simultaneous leg 
  * Depending on parameter flags, calls multiple posing functions and combines individual poses to update the current
  * desired pose of the robot model.
  * @param[in] body_height Desired height of the body above ground level - used in inclination posing.
+ * @param[in] walk_plane A Vector representing the walk plane
 ***********************************************************************************************************************/
-void PoseController::updateCurrentPose(const double& body_height)
+void PoseController::updateCurrentPose(const double& body_height, const Vector3d& walk_plane)
 {
   Pose new_pose = Pose::identity();
 
@@ -727,7 +728,9 @@ void PoseController::updateCurrentPose(const double& body_height)
   else if (params_.tip_align_posing.data)
   {
     updateTipAlignPose();
+    updateWalkPlanePose(walk_plane);
     new_pose = new_pose.addPose(tip_align_pose_);
+    new_pose = new_pose.addPose(walk_plane_pose_);
   }
 
   model_->setCurrentPose(new_pose);
@@ -910,6 +913,31 @@ void PoseController::updateTipAlignPose(void)
       origin_pose_ = tip_align_pose_;
     }
   }
+}
+
+/*******************************************************************************************************************//**
+ * Calculates a pose for the robot body such that the robot body is parallel to a calculated walk plane at a normal 
+ * offset of the body clearance parameter.
+ * @param[in] walk_plane A Vector representing the walk plane
+***********************************************************************************************************************/
+void PoseController::updateWalkPlanePose(const Vector3d& walk_plane)
+{
+  // Align robot body with walk plane
+  Vector3d walk_plane_normal = -Vector3d(walk_plane[0], walk_plane[1], -1.0).normalized();
+  bool no_rotation = setPrecision(abs((Vector3d(0,0,1) - walk_plane_normal).norm()), 3) == 0.0;
+  if (no_rotation)
+  {
+    walk_plane_pose_.rotation_ = Quaterniond::Identity();
+  }
+  else
+  {
+    walk_plane_pose_.rotation_ = Quaterniond::FromTwoVectors(Vector3d(0,0,1), walk_plane_normal);
+  }
+  
+  // Pose robot body along normal of walk plane, offset according to the requested body clearance
+  Vector3d body_clearance = Vector3d(0, 0, params_.body_clearance.current_value);
+  walk_plane_pose_.position_ = walk_plane_pose_.rotation_._transformVector(body_clearance);
+  walk_plane_pose_.position_[2] += walk_plane[2];
 }
 
 /*******************************************************************************************************************//**

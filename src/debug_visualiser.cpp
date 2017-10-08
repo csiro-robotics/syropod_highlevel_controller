@@ -48,7 +48,7 @@ void DebugVisualiser::updatePose(const Vector2d& input_linear_body_velocity,
   Quaterniond angular_body_velocity = eulerAnglesToQuaternion(Vector3d(0.0, 0.0, input_angular_body_velocity));
   odometry_pose_.position_ += odometry_pose_.rotation_._transformVector(linear_body_velocity);
   odometry_pose_.rotation_ *= angular_body_velocity;
-  odometry_pose_.position_[2] = height;
+  //odometry_pose_.position_[2] = height;
 }
 
 /*******************************************************************************************************************//**
@@ -158,6 +158,46 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
   leg_line_list.points.push_back(point);
 
   robot_model_publisher_.publish(leg_line_list);
+}
+
+/*******************************************************************************************************************//**
+  * Publishes visualisation markers which represent the estimated walking plane.
+  * @param[in] walk_plane A Vector representing the walk plane
+  * @param[in] current_pose The current pose of the body in the robot model.
+***********************************************************************************************************************/
+void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Pose& current_pose)
+{
+  Pose pose = odometry_pose_;
+  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
+  pose.rotation_ *= current_pose.rotation_;
+  
+  visualization_msgs::Marker walk_plane_marker;
+  walk_plane_marker.header.frame_id = "/fixed_frame";
+  walk_plane_marker.header.stamp = ros::Time::now();
+  walk_plane_marker.ns = "walk_plane_markers";
+  walk_plane_marker.id = WALK_PLANE_ID;
+  walk_plane_marker.type = visualization_msgs::Marker::CUBE;
+  walk_plane_marker.action = visualization_msgs::Marker::ADD;
+  walk_plane_marker.scale.x = 2.0 * sqrt(marker_scale_);
+  walk_plane_marker.scale.y = 2.0 * sqrt(marker_scale_);
+  walk_plane_marker.scale.z = 0.0 * sqrt(marker_scale_);
+  walk_plane_marker.color.r = 1;
+  walk_plane_marker.color.b = 1;
+  walk_plane_marker.color.a = 0.5;
+  
+  Vector3d posed_walk_plane = odometry_pose_.transformVector(walk_plane);
+  walk_plane_marker.pose.position.x = posed_walk_plane[0];
+  walk_plane_marker.pose.position.y = posed_walk_plane[1];
+  walk_plane_marker.pose.position.z = posed_walk_plane[2];
+  
+  Vector3d plane_normal(walk_plane[0], walk_plane[1], -1.0);
+  Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -plane_normal);
+  walk_plane_marker.pose.orientation.w = walk_plane_orientation.w();
+  walk_plane_marker.pose.orientation.x = walk_plane_orientation.x();
+  walk_plane_marker.pose.orientation.y = walk_plane_orientation.y();
+  walk_plane_marker.pose.orientation.z = walk_plane_orientation.z();
+  
+  workspace_publisher_.publish(walk_plane_marker);
 }
 
 /*******************************************************************************************************************//**
@@ -321,7 +361,6 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace_publisher_.publish(workspace);
 }
 
-
 /*******************************************************************************************************************//**
   * Publishes visualisation markers which represent requested stride vector for each leg.
   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
@@ -353,12 +392,13 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   stride.color.g = 1; //GREEN
   stride.color.a = 1;
 
-  workspace_publisher_.publish(stride);
+  stride_publisher_.publish(stride);
 }
 
 /*******************************************************************************************************************//**
   * Publishes visualisation markers which represent the estimated tip force vector for input leg.
   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+  * @param[in] current_pose The current pose of the body in the robot model.
 ***********************************************************************************************************************/
 void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg, const Pose& current_pose)
 {
@@ -392,12 +432,13 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg, const Pose& current_
   tip_force.color.r = 1;
   tip_force.color.a = 1;
 
-  workspace_publisher_.publish(tip_force);
+  tip_force_publisher_.publish(tip_force);
 }
 
 /*******************************************************************************************************************//**
   * Publishes visualisation markers which represent the orientation of the tip for input leg.
   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+  * @param[in] current_pose The current pose of the body in the robot model.
 ***********************************************************************************************************************/
 void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& current_pose)
 {
@@ -439,7 +480,7 @@ void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& curre
     tip_rotation_axis.points.push_back(origin);
     tip_rotation_axis.points.push_back(target);
     tip_rotation_axis.color.a = 0.25;
-    workspace_publisher_.publish(tip_rotation_axis);
+    tip_rotation_publisher_.publish(tip_rotation_axis);
     tip_rotation_axis.points.clear();
     
     // Add current tip rotation axis (x/y/z)
@@ -451,7 +492,7 @@ void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& curre
     tip_rotation_axis.points.push_back(origin);
     tip_rotation_axis.points.push_back(target);
     tip_rotation_axis.color.a = 1;
-    workspace_publisher_.publish(tip_rotation_axis);
+    tip_rotation_publisher_.publish(tip_rotation_axis);
     tip_rotation_axis.points.clear();
   }
 }
