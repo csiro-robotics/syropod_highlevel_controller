@@ -117,6 +117,8 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   current_tip_pose_ = Pose::unassigned();
   current_tip_velocity_ = Vector3d(0, 0, 0);
   tip_force_ = Vector3d(0.0, 0.0, 0.0);
+  tip_torque_ = Vector3d(0.0, 0.0, 0.0);
+  tip_contact_range_ = UNASSIGNED_VALUE;
   group_ = (id_number % 2); // Even/odd groups
 }
 

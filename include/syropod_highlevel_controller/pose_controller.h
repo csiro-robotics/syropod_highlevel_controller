@@ -25,7 +25,7 @@
 #include "model.h"
 
 #define JOINT_TOLERANCE 0.01 ///< Tolerance allowing assumption that joints are in correct position (rad)
-#define TIP_TOLERANCE 0.001 ///< Tolerance allowing assumption that tip is in correct position (m)
+#define TIP_TOLERANCE 0.005 ///< Tolerance allowing assumption that tip is in correct position (m)
 #define SAFETY_FACTOR 0.15 ///< Joint limit safety factor (i.e. during sequence joints will initially leave 15% buffer)
 #define HORIZONTAL_TRANSITION_TIME 1.0 ///< Step time during horizontal transition (seconds @ step frequency == 1.0)
 #define VERTICAL_TRANSITION_TIME 3.0 ///< Body raise time during vertical transtion (seconds @ step frequency == 1.0)
@@ -233,8 +233,10 @@ public:
    * Updates a body pose that, when applied, orients the last joint of a swinging leg directly above the tip, causing 
    * the last link of the leg to be oriented vertically during the 2nd half of swing. This is used to orient tip
    * sensors to point toward the desired tip landing position at the end of the swing.
+   * @param[in] walk_plane A Vector representing the walk plane
+   * @bug Method of adding to pose each iteration adds unwanted linear posing normal to the walk plane. 
    */
-  void updateTipAlignPose(void);
+  void updateTipAlignPose(const Vector3d& walk_plane);
   
   /**
    * Calculates a pose for the robot body such that the robot body is parallel to a calculated walk plane at a normal 

@@ -27,12 +27,13 @@
 #define ROBOT_MODEL_ID 0                  ///< Id for robot model visualisation
 #define WALK_PLANE_ID 10
 #define WORKSPACE_ID 20                   ///< Base id for workspace visualisations
-#define STRIDE_MARKER_ID 30               ///< Base id for stride visualisations
-#define SWING_BEZIER_CURVE_1_MARKER_ID 40 ///< Base id for bezier curve visualisations
-#define SWING_BEZIER_CURVE_2_MARKER_ID 50 ///< Base id for bezier curve visualisations
-#define STANCE_BEZIER_CURVE_MARKER_ID 60  ///< Base id for bezier curve visualisations
-#define TIP_FORCE_MARKER_ID 70            ///< Base id for tip force vector visualisations
-#define TIP_ROTATION_MARKER_ID 80         ///< Base id for tip rotation visualisations
+#define DEFAULT_TIP_POSITION_ID 30        ///< Base id for default tip positions
+#define STRIDE_MARKER_ID 40               ///< Base id for stride visualisations
+#define SWING_BEZIER_CURVE_1_MARKER_ID 50 ///< Base id for bezier curve visualisations
+#define SWING_BEZIER_CURVE_2_MARKER_ID 60 ///< Base id for bezier curve visualisations
+#define STANCE_BEZIER_CURVE_MARKER_ID 70  ///< Base id for bezier curve visualisations
+#define TIP_FORCE_MARKER_ID 80            ///< Base id for tip force vector visualisations
+#define TIP_ROTATION_MARKER_ID 90         ///< Base id for tip rotation visualisations
 #define ID_LIMIT 10000                    ///< Id value limit to prevent overflow
 #define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
 
@@ -51,9 +52,8 @@ public:
    * Updates the odometry pose of the robot body from velocity inputs
    * @param[in] linear_body_velocity The linear velocity of the robot body in the x/y plane
    * @param[in] angular_body_velocity The angular velocity of the robot body
-   * @param[in] height The desired height of the robot body above ground
    */
-  void updatePose(const Vector2d& linear_body_velocity, const double& angular_body_velocity, const double& height);
+  void updatePose(const Vector2d& linear_body_velocity, const double& angular_body_velocity);
 
   /**
    * Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
@@ -65,9 +65,8 @@ public:
   /**
    * Publishes visualisation markers which represent the estimated walking plane.
    * @param[in] walk_plane A Vector representing the walk plane
-   * @param[in] current_pose The current pose of the body in the robot model.
    */
-  void generateWalkPlane(const Vector3d& walk_plane, const Pose& current_pose);
+  void generateWalkPlane(const Vector3d& walk_plane);
 
   /**
    * Publishes visualisation markers which represent the trajectory of the tip of the input leg.

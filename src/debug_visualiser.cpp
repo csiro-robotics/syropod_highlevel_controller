@@ -39,16 +39,14 @@ DebugVisualiser::DebugVisualiser(void)
  * Updates the odometry pose of the robot body from velocity inputs
  * @param[in] input_linear_body_velocity The linear velocity of the robot body in the x/y plane
  * @param[in] input_angular_body_velocity The angular velocity of the robot body
- * @param[in] height The desired height of the robot body above ground
 ***********************************************************************************************************************/
 void DebugVisualiser::updatePose(const Vector2d& input_linear_body_velocity,
-                                 const double& input_angular_body_velocity, const double& height)
+                                 const double& input_angular_body_velocity)
 {
   Vector3d linear_body_velocity = Vector3d(input_linear_body_velocity[0], input_linear_body_velocity[1], 0);
   Quaterniond angular_body_velocity = eulerAnglesToQuaternion(Vector3d(0.0, 0.0, input_angular_body_velocity));
   odometry_pose_.position_ += odometry_pose_.rotation_._transformVector(linear_body_velocity);
   odometry_pose_.rotation_ *= angular_body_velocity;
-  //odometry_pose_.position_[2] = height;
 }
 
 /*******************************************************************************************************************//**
@@ -163,14 +161,9 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 /*******************************************************************************************************************//**
   * Publishes visualisation markers which represent the estimated walking plane.
   * @param[in] walk_plane A Vector representing the walk plane
-  * @param[in] current_pose The current pose of the body in the robot model.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Pose& current_pose)
+void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
 {
-  Pose pose = odometry_pose_;
-  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
-  pose.rotation_ *= current_pose.rotation_;
-  
   visualization_msgs::Marker walk_plane_marker;
   walk_plane_marker.header.frame_id = "/fixed_frame";
   walk_plane_marker.header.stamp = ros::Time::now();
@@ -181,14 +174,15 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Pose& 
   walk_plane_marker.scale.x = 2.0 * sqrt(marker_scale_);
   walk_plane_marker.scale.y = 2.0 * sqrt(marker_scale_);
   walk_plane_marker.scale.z = 0.0 * sqrt(marker_scale_);
-  walk_plane_marker.color.r = 1;
+  walk_plane_marker.color.g = 1;
   walk_plane_marker.color.b = 1;
   walk_plane_marker.color.a = 0.5;
   
-  Vector3d posed_walk_plane = odometry_pose_.transformVector(walk_plane);
-  walk_plane_marker.pose.position.x = posed_walk_plane[0];
-  walk_plane_marker.pose.position.y = posed_walk_plane[1];
-  walk_plane_marker.pose.position.z = posed_walk_plane[2];
+  Vector3d walk_plane_centroid(0, 0, walk_plane[2]);
+  walk_plane_centroid = odometry_pose_.transformVector(walk_plane_centroid);
+  walk_plane_marker.pose.position.x = walk_plane_centroid[0];
+  walk_plane_marker.pose.position.y = walk_plane_centroid[1];
+  walk_plane_marker.pose.position.z = walk_plane_centroid[2];
   
   Vector3d plane_normal(walk_plane[0], walk_plane[1], -1.0);
   Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -plane_normal);
@@ -323,6 +317,28 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
 ***********************************************************************************************************************/
 void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> workspace_map)
 {
+  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+  
+  visualization_msgs::Marker default_tip_position;
+  default_tip_position.header.frame_id = "/fixed_frame";
+  default_tip_position.header.stamp = ros::Time::now();
+  default_tip_position.ns = "workspace_markers";
+  default_tip_position.id = DEFAULT_TIP_POSITION_ID + leg->getIDNumber();
+  default_tip_position.type = visualization_msgs::Marker::SPHERE;
+  default_tip_position.action = visualization_msgs::Marker::ADD;
+  default_tip_position.scale.x = 0.02 * sqrt(marker_scale_);
+  default_tip_position.scale.y = 0.02 * sqrt(marker_scale_);
+  default_tip_position.scale.z = 0.02 * sqrt(marker_scale_);
+  default_tip_position.color.g = 1;
+  default_tip_position.color.b = leg_stepper->isAtCorrectPhase() ? 0.0 : 1.0;
+  default_tip_position.color.a = 1;
+  
+  default_tip_position.pose.position.x = leg_stepper->getDefaultTipPosition()[0];
+  default_tip_position.pose.position.y = leg_stepper->getDefaultTipPosition()[1];
+  default_tip_position.pose.position.z = leg_stepper->getDefaultTipPosition()[2];
+  
+  workspace_publisher_.publish(default_tip_position);
+
   visualization_msgs::Marker workspace;
   workspace.header.frame_id = "/fixed_frame";
   workspace.header.stamp = ros::Time::now();
@@ -335,11 +351,10 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace.color.b = 1;
   workspace.color.a = 1;
 
-  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
   geometry_msgs::Point origin_point;
   origin_point.x = leg_stepper->getDefaultTipPosition()[0];
   origin_point.y = leg_stepper->getDefaultTipPosition()[1];
-  origin_point.z = 0.0;
+  origin_point.z = leg_stepper->getDefaultTipPosition()[2];
   map<int, double>::iterator it;
   geometry_msgs::Point first_point;
   for (it = workspace_map.begin(); it != workspace_map.end(); ++it)
@@ -349,7 +364,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
       geometry_msgs::Point point;
       point.x = origin_point.x + it->second * cos(degreesToRadians(it->first));
       point.y = origin_point.y + it->second * sin(degreesToRadians(it->first));
-      point.z = 0.0;
+      point.z = origin_point.z;
       if (it == workspace_map.begin())
       {
         first_point = point;
@@ -368,7 +383,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
 void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
 {
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-  Vector2d stride_vector = leg_stepper->getStrideVector();
+  Vector3d stride_vector = leg_stepper->getStrideVector();
 
   visualization_msgs::Marker stride;
   stride.header.frame_id = "/fixed_frame";
@@ -381,9 +396,11 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   geometry_msgs::Point target;
   origin.x = leg_stepper->getDefaultTipPosition()[0];
   origin.y = leg_stepper->getDefaultTipPosition()[1];
+  origin.z = leg_stepper->getDefaultTipPosition()[2];
   target = origin;
   target.x += stride_vector[0] / 2.0;
   target.y += stride_vector[1] / 2.0;
+  target.z += stride_vector[2] / 2.0;
   stride.points.push_back(origin);
   stride.points.push_back(target);
   stride.scale.x = 0.01 * sqrt(marker_scale_);

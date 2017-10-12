@@ -816,18 +816,18 @@ void StateController::RVIZDebugging(const bool& static_display)
   double angular_velocity = walker_->getDesiredAngularVelocity();
   angular_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
 
-  debug_visualiser_.updatePose(linear_velocity, angular_velocity, walker_->getBodyHeight());
+  debug_visualiser_.updatePose(linear_velocity, angular_velocity);
   debug_visualiser_.generateRobotModel(model_);
-  debug_visualiser_.generateWalkPlane(walker_->getWalkPlane(), model_->getCurrentPose());
+  debug_visualiser_.generateWalkPlane(walker_->getWalkPlane());
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     debug_visualiser_.generateTipTrajectory(leg, model_->getCurrentPose());
-    debug_visualiser_.generateTipRotation(leg, model_->getCurrentPose());
     
     if (static_display && robot_state_ == RUNNING)
     {
+      debug_visualiser_.generateTipRotation(leg, model_->getCurrentPose());
       debug_visualiser_.generateWorkspace(leg, walker_->getWorkspaceMap());
       debug_visualiser_.generateBezierCurves(leg);
       debug_visualiser_.generateStride(leg);

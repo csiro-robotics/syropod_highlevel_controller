@@ -72,6 +72,9 @@ public:
 
   /** Accessor for step clearance. */
   inline double getStepClearance(void) { return step_clearance_; };
+  
+  /** Calculates ratio of walk cycle that occurs on the walk plane. */
+  inline double getOnGroundRatio(void) { return double(stance_length_) / double(phase_length_); };
 
   /** Accessor for default body clearance above ground. */
   inline double getBodyHeight(void) { return body_clearance_; };
@@ -147,8 +150,9 @@ public:
   void updateManual(const int& primary_leg_selection_ID, const Vector3d& primary_tip_velocity_input,
                     const int& secondary_leg_selection_ID, const Vector3d& secondary_tip_velocity_input);
   
-  /** 
-   * Calculates a estimated walk plane which best fits the tip positions of legs in stance using least squares method.
+  /**
+   * Calculates a estimated walk plane which best fits the tip positions of all legs using least squares method.
+   * Transitions to updated walk plane estimates using the swing progress of a swinging leg as control input.
    * Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
    */
   void updateWalkPlane(void);
@@ -182,6 +186,7 @@ private:
   bool workspace_generated_ = false;              ///< Flag denoting if workspace map has been generated.
   double stance_radius_;                          ///< The radius of the turning circle used for angular body velocity.
   Vector3d walk_plane_;                           ///< The co-efficients of an estimated planar walk surface
+  Vector3d old_walk_plane_;                       ///< The previously calculated walk plane used in transitioning
 
   // Velocity/acceleration variables
   Vector2d desired_linear_velocity_;          ///< The desired linear velocity of the robot body.
@@ -241,7 +246,7 @@ public:
   inline int getPhaseOffset(void) { return phase_offset_; };
 
   /** Accessor for the current stride vector used in the step cycle. */
-  inline Vector2d getStrideVector(void) { return Vector2d(stride_vector_[0], stride_vector_[1]); };
+  inline Vector3d getStrideVector(void) { return stride_vector_; };
 
   /** Accessor for desired clearance of the leg tip with respect to default position during swing period. */
   inline Vector3d getSwingClearance(void) { return swing_clearance_; };
@@ -321,17 +326,14 @@ public:
     */
   inline void setAtCorrectPhase(const bool& at_correct_phase) { at_correct_phase_ = at_correct_phase; };
 
-  /**
-    * Updates the stride vector with a new value.
-    * @param[in] stride_vector The new stride vector.
-    */
-  inline void updateStride(const Vector2d& stride_vector)
-  {
-    stride_vector_ = Vector3d(stride_vector[0], stride_vector[1], 0.0);
-  };
-
   /** Iterates the step phase and updates the progress variables */
   void iteratePhase(void);
+  
+  /**
+   * Updates the stride vector for this leg based on desired linear and angular velocity, with reference to the 
+   * estimated walk plane. Also updates the swing clearance vector with reference to the estimated walk plane.
+   */
+  void updateStride(void);
 
   /**
     * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in

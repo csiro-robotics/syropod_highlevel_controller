@@ -137,6 +137,17 @@ inline double setPrecision(const double& value, const int& precision)
 }
 
 /**
+ * Converts a linear control input (0.0 to 1.0) to a smoothed signal using the SmoothStep function.
+ * (https://en.wikipedia.org/wiki/Smoothstep)
+ * @param[in] control_input The linear control input from 0.0 to 1.0
+ * @return The output of the control input run through a smoothStep function.
+ */
+inline double smoothStep(const double& control_input)
+{
+  return (6.0*pow(control_input, 5) - 15.0*pow(control_input, 4) + 10.0*pow(control_input, 3));
+}
+
+/**
  * Return rotation with shorter path between identical rotations on quaternion. //TODO Remove?
  * @params[in] current The reference rotation for the target rotation.
  * @params[in] target The target rotation to check for shorter rotation path.

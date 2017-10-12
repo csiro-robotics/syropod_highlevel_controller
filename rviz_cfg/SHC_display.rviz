@@ -52,7 +52,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/robot_model
       Name: Marker
       Namespaces:
-        robot_model: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -60,7 +60,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/tip_trajectories
       Name: Marker
       Namespaces:
-        tip_trajectory_markers: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -68,7 +68,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/workspaces
       Name: Marker
       Namespaces:
-        tip_rotation_markers: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -185,5 +185,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1276
-  X: 3832
+  X: 0
   Y: 0

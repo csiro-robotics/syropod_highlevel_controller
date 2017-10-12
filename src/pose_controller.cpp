@@ -690,6 +690,10 @@ int PoseController::unpackLegs(const double& time_to_unpack) //Simultaneous leg 
 void PoseController::updateCurrentPose(const double& body_height, const Vector3d& walk_plane)
 {
   Pose new_pose = Pose::identity();
+  
+  // Pose body at clearance offset normal to walk plane and rotate to align parallel
+  updateWalkPlanePose(walk_plane);
+  new_pose = new_pose.addPose(walk_plane_pose_);
 
   // Manually set (joystick controlled) body pose
   if (params_.manual_posing.data)
@@ -727,10 +731,8 @@ void PoseController::updateCurrentPose(const double& body_height, const Vector3d
   // Automatic (non-feedback) body posing to align tips vertically upon exiting swing
   else if (params_.tip_align_posing.data)
   {
-    updateTipAlignPose();
-    updateWalkPlanePose(walk_plane);
+    updateTipAlignPose(walk_plane);
     new_pose = new_pose.addPose(tip_align_pose_);
-    new_pose = new_pose.addPose(walk_plane_pose_);
   }
 
   model_->setCurrentPose(new_pose);
@@ -886,30 +888,31 @@ void PoseController::updateManualPose(void)
  * Updates a body pose that, when applied, orients the last joint of a swinging leg directly above the tip, causing the
  * last link of the leg to be oriented vertically during the 2nd half of swing. This is used to orient tip sensors
  * to point toward the desired tip landing position at the end of the swing.
+ * @param[in] walk_plane A Vector representing the walk plane
+ * @bug Method of adding to pose each iteration adds unwanted linear posing normal to the walk plane. 
 ***********************************************************************************************************************/
-void PoseController::updateTipAlignPose(void)
+void PoseController::updateTipAlignPose(const Vector3d& walk_plane)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
-    double swing_progress = leg->getLegStepper()->getSwingProgress();
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    double swing_progress = leg_stepper->getSwingProgress();
     if (swing_progress != -1.0)
     {
       shared_ptr<Tip> tip = leg->getTip();
-      shared_ptr<Joint> final_joint = tip->reference_link_->actuating_joint_;
-      Pose tip_pose = tip->getPoseRobotFrame();
-      Pose final_joint_pose = final_joint->getPoseRobotFrame();
-      Vector3d position_difference = tip_pose.position_ - final_joint_pose.position_;
-      position_difference[2] = 0.0; // No vertical translation to align tips
-      Vector3d target_position = tip_align_pose_.position_ + position_difference;
-      double control_input_ = min(1.0, 2.0 * swing_progress);
-      control_input_ = (6.0*pow(control_input_, 5) - 15.0*pow(control_input_, 4) + 10.0*pow(control_input_, 3));
-      double x_translation = control_input_ * target_position[0] + (1.0 - control_input_) * origin_pose_.position_[0];
-      double y_translation = control_input_ * target_position[1] + (1.0 - control_input_) * origin_pose_.position_[1];
-      double x_limit = params_.max_translation.data.at("x");
-      double y_limit = params_.max_translation.data.at("y");
-      tip_align_pose_.position_[0] = clamped(x_translation, -x_limit, x_limit);
-      tip_align_pose_.position_[1] = clamped(y_translation, -y_limit, y_limit);
+      shared_ptr<Joint> joint = tip->reference_link_->actuating_joint_; //Final joint before tip
+      Vector3d tip_position = tip->getPoseRobotFrame().position_;
+      Vector3d joint_position = joint->getPoseRobotFrame().position_;
+      Vector3d walk_plane_normal = -Vector3d(walk_plane[0], walk_plane[1], -1.0).normalized();
+      Quaterniond walk_plane_rotation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), walk_plane_normal);
+      double link_length = (tip_position - joint_position).norm();
+      Vector3d a = walk_plane_rotation._transformVector(joint_position - tip_position);
+      Vector3d b = link_length*walk_plane_normal;
+      Vector3d rejection = a - (a.dot(b) / b.dot(b))*b;
+      Vector3d target_translation = tip_align_pose_.position_ - rejection;
+      double control_input_ = smoothStep(min(1.0, 2.0 * swing_progress));
+      tip_align_pose_.position_ = control_input_ * target_translation + (1.0 - control_input_) * origin_pose_.position_;
       origin_pose_ = tip_align_pose_;
     }
   }
