@@ -138,7 +138,9 @@ public:
     admittance_pose_ = Pose::identity();
     default_pose_ = Pose::identity();
     tip_align_pose_ = Pose::identity();
+    origin_tip_align_pose_ = tip_align_pose_;
     walk_plane_pose_ = Pose::identity();
+    origin_walk_plane_pose_ = walk_plane_pose_;
   }
 
   /**
@@ -229,12 +231,12 @@ public:
    */
   void updateManualPose(void);
   
-  /**
-   * Updates a body pose that, when applied, orients the last joint of a swinging leg directly above the tip, causing 
-   * the last link of the leg to be oriented vertically during the 2nd half of swing. This is used to orient tip
-   * sensors to point toward the desired tip landing position at the end of the swing.
-   * @param[in] walk_plane A Vector representing the walk plane
-   * @bug Method of adding to pose each iteration adds unwanted linear posing normal to the walk plane. 
+  /** 
+   * Updates a body pose that, when applied, orients the last joint of a swinging leg inline with the tip along the 
+   * walk plane normal. This causes the last link of the leg to be oriented orthognal to the walk plane estimate during
+   * the 2nd half of swing. This is used to orient tip sensors to point toward the desired tip landing position at the
+   * end of the swing.
+   * @param[in] walk_plane A Vector representing the walk plane estimate
    */
   void updateTipAlignPose(const Vector3d& walk_plane);
   
@@ -305,9 +307,11 @@ private:
   Pose admittance_pose_ ; ///< Pose to correct admittance control based sagging, a component of total applied body pose.
   Pose default_pose_;     ///< Default pose calculated for different loading patterns
   
-  Pose origin_pose_;      ///< Origin pose used in interpolating tip align pose
-  Pose tip_align_pose_;   ///< Pose used to align final links of legs vertically during 2nd half of swing
-  Pose walk_plane_pose_;  ///< Pose used to align robot body parallel with estimated walk plane and normal at clearance.
+  
+  Pose tip_align_pose_;         ///< Pose used to align final links of legs vertically during 2nd half of swing
+  Pose origin_tip_align_pose_;  ///< Origin pose used in interpolating tip align pose
+  Pose walk_plane_pose_;        ///< Pose used to align robot body parallel with walk plane and normal at clearance.
+  Pose origin_walk_plane_pose_; ///< Origin pose used in interpolating walk plane pose
 
   int transition_step_ = 0;                     ///< The current transition step in the sequence being executed.
   int transition_step_count_ = 0;               ///< The total number of transition steps in the sequence being executed

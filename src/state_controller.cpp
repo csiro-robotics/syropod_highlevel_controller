@@ -816,9 +816,10 @@ void StateController::RVIZDebugging(const bool& static_display)
   double angular_velocity = walker_->getDesiredAngularVelocity();
   angular_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
 
-  debug_visualiser_.updatePose(linear_velocity, angular_velocity);
+  debug_visualiser_.updatePose(linear_velocity, angular_velocity, walker_->getWalkPlane());
   debug_visualiser_.generateRobotModel(model_);
   debug_visualiser_.generateWalkPlane(walker_->getWalkPlane());
+  debug_visualiser_.generateTerrainEstimate(model_);
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {

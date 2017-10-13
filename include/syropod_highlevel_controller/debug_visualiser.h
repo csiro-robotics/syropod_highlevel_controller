@@ -52,8 +52,11 @@ public:
    * Updates the odometry pose of the robot body from velocity inputs
    * @param[in] linear_body_velocity The linear velocity of the robot body in the x/y plane
    * @param[in] angular_body_velocity The angular velocity of the robot body
+   * @param[in] walk_plane A Vector representing the walk plane
    */
-  void updatePose(const Vector2d& linear_body_velocity, const double& angular_body_velocity);
+  void updatePose(const Vector2d& linear_body_velocity,
+                  const double& angular_body_velocity,
+                  const Vector3d& walk_plane);
 
   /**
    * Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
@@ -74,6 +77,12 @@ public:
    * @param[in] current_pose The current pose of the body in the robot model - modifies the tip trajectory
    */
   void generateTipTrajectory(shared_ptr<Leg> leg, const Pose& current_pose);
+  
+  /**
+   * Publishes visualisation markers which represent an estimate of the terrain being traversed
+   * @param[in] model A pointer to the robot model object
+   */
+  void generateTerrainEstimate(shared_ptr<Model> model);
 
   /**
    * Publishes visualisation markers which represent the control nodes of the three bezier curves used to control tip
@@ -122,6 +131,7 @@ private:
   Pose odometry_pose_;        ///< Pose representing odometry pf robot model
   double time_delta_ = 0.0;   ///< Time period of main loop cycle used for marker duration
   int tip_position_id_ = 0;   ///< Id for tip trajectory markers
+  int terrain_marker_id_ = 0; ///< Id for terrain markers
   double marker_scale_ = 0.0; ///< Value used to scale marker sizes based on estimate of robot 'size'
   
 public:

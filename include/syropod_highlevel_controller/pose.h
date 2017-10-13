@@ -130,6 +130,19 @@ public:
   };
   
   /**
+   * Generates interpolation from this pose to target pose using control input between zero and one.
+   * @params[in] control_input A value between 0.0 and 1.0 which defines the progress of interpolation.
+   * @params[in] target_pose The target pose to which interpolation will return with control input of one.
+   * @return The resultant interpolated pose.
+   */
+  inline Pose interpolate (const double& control_input, const Pose& target_pose)
+  { 
+    Vector3d position = control_input * target_pose.position_ + (1.0 - control_input) * (*this).position_;
+    Quaterniond rotation = (*this).rotation_.slerp(control_input, target_pose.rotation_);
+    return Pose(position, rotation);
+  };
+  
+  /**
    * Returns pose with position and rotation elements set to identity values.
    * @return The Identity Pose
    */

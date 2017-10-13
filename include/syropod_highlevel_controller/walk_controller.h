@@ -379,7 +379,8 @@ private:
   double swing_delta_t_ = 0.0;
   double stance_delta_t_ = 0.0;
 
-  Vector3d default_tip_position_;       ///< The default tip position per the walk controller.
+  Vector3d identity_tip_position_;      ///< The user defined tip position assuming a identity walk plane
+  Vector3d default_tip_position_;       ///< The default tip position per the walk controller, updated with walk plane.
   Vector3d target_tip_position_;        ///< The target tip position to achieve at the end of a swing period.
   Vector3d current_tip_position_;       ///< The current tip position per the walk controller.
   Vector3d current_tip_velocity_;       ///< The default tip velocity per the walk controller.

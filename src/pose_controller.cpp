@@ -52,6 +52,8 @@ void PoseController::init(void)
     leg->setLegPoser(allocate_shared<LegPoser>(aligned_allocator<LegPoser>(), shared_from_this(), leg));
   }
   setAutoPoseParams();
+  walk_plane_pose_.position_ = Vector3d(0.0, 0.0, params_.body_clearance.current_value);
+  origin_walk_plane_pose_ = walk_plane_pose_;
 }
 
 /*******************************************************************************************************************//**
@@ -734,7 +736,7 @@ void PoseController::updateCurrentPose(const double& body_height, const Vector3d
     updateTipAlignPose(walk_plane);
     new_pose = new_pose.addPose(tip_align_pose_);
   }
-
+  
   model_->setCurrentPose(new_pose);
 }
 
@@ -885,11 +887,11 @@ void PoseController::updateManualPose(void)
 }
 
 /*******************************************************************************************************************//**
- * Updates a body pose that, when applied, orients the last joint of a swinging leg directly above the tip, causing the
- * last link of the leg to be oriented vertically during the 2nd half of swing. This is used to orient tip sensors
- * to point toward the desired tip landing position at the end of the swing.
- * @param[in] walk_plane A Vector representing the walk plane
- * @bug Method of adding to pose each iteration adds unwanted linear posing normal to the walk plane. 
+ * Updates a body pose that, when applied, orients the last joint of a swinging leg inline with the tip along the walk
+ * plane normal. This causes the last link of the leg to be oriented orthognal to the walk plane estimate during the
+ * 2nd half of swing. This is used to orient tip sensors to point toward the desired tip landing position at the end of
+ * the swing.
+ * @param[in] walk_plane A Vector representing the walk plane estimate
 ***********************************************************************************************************************/
 void PoseController::updateTipAlignPose(const Vector3d& walk_plane)
 {
@@ -900,20 +902,48 @@ void PoseController::updateTipAlignPose(const Vector3d& walk_plane)
     double swing_progress = leg_stepper->getSwingProgress();
     if (swing_progress != -1.0)
     {
-      shared_ptr<Tip> tip = leg->getTip();
-      shared_ptr<Joint> joint = tip->reference_link_->actuating_joint_; //Final joint before tip
-      Vector3d tip_position = tip->getPoseRobotFrame().position_;
-      Vector3d joint_position = joint->getPoseRobotFrame().position_;
+      // Calculate vector normal to walk plane and rotation of this vector from vertical.
       Vector3d walk_plane_normal = -Vector3d(walk_plane[0], walk_plane[1], -1.0).normalized();
       Quaterniond walk_plane_rotation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), walk_plane_normal);
+
+      // Calculate vector from tip position to final joint position
+      shared_ptr<Tip> tip = leg->getTip();
+      shared_ptr<Joint> joint = tip->reference_link_->actuating_joint_;
+      Vector3d tip_position = tip->getPoseRobotFrame().position_;
+      Vector3d joint_position = joint->getPoseRobotFrame().position_;
+      Vector3d tip_to_joint = joint_position - tip_position;
       double link_length = (tip_position - joint_position).norm();
-      Vector3d a = walk_plane_rotation._transformVector(joint_position - tip_position);
-      Vector3d b = link_length*walk_plane_normal;
-      Vector3d rejection = a - (a.dot(b) / b.dot(b))*b;
-      Vector3d target_translation = tip_align_pose_.position_ - rejection;
-      double control_input_ = smoothStep(min(1.0, 2.0 * swing_progress));
-      tip_align_pose_.position_ = control_input_ * target_translation + (1.0 - control_input_) * origin_pose_.position_;
-      origin_pose_ = tip_align_pose_;
+
+      // Calculate body translation required to align joint position inline with tip position along walk plane normal
+      Vector3d a = walk_plane_rotation._transformVector(tip_to_joint);
+      Vector3d b = link_length * walk_plane_normal;
+      Vector3d rejection = a - (a.dot(b) / b.dot(b))*b; // en.wikipedia.org/wiki/Vector_projection
+      Vector3d translation_to_alignment = -rejection;
+
+      // Calculate component of current translation aligned with walk plane
+      a = tip_align_pose_.position_;
+      b = walk_plane_normal;
+      rejection = a - (a.dot(b) / b.dot(b))*b; // en.wikipedia.org/wiki/Vector_projection
+      Vector3d current_walk_plane_aligned_translation = rejection;
+
+      // Add current aligned translation with translation required for translation_to_alignment
+      Vector3d target_translation = current_walk_plane_aligned_translation + translation_to_alignment;
+
+      // Clamp target translation within limits
+      Vector3d limit(params_.max_translation.data.at("x"),
+                     params_.max_translation.data.at("y"),
+                     params_.max_translation.data.at("z"));
+      target_translation = clamped(target_translation, limit);
+
+      // Interpolate between origin tip align pose and calculated target translation
+      double c = smoothStep(min(1.0, 2.0 * swing_progress)); // Control input (0.0 -> 1.0)
+      tip_align_pose_ = origin_tip_align_pose_.interpolate(c, Pose(target_translation, Quaterniond::Identity()));
+
+      // Save pose for origin of interpolation durin next swing period
+      if (swing_progress == 1.0)
+      {
+        origin_tip_align_pose_ = tip_align_pose_;
+      }
     }
   }
 }
@@ -926,21 +956,41 @@ void PoseController::updateTipAlignPose(const Vector3d& walk_plane)
 void PoseController::updateWalkPlanePose(const Vector3d& walk_plane)
 {
   // Align robot body with walk plane
+  Pose new_walk_plane_pose;
   Vector3d walk_plane_normal = -Vector3d(walk_plane[0], walk_plane[1], -1.0).normalized();
   bool no_rotation = setPrecision(abs((Vector3d(0,0,1) - walk_plane_normal).norm()), 3) == 0.0;
   if (no_rotation)
   {
-    walk_plane_pose_.rotation_ = Quaterniond::Identity();
+    new_walk_plane_pose.rotation_ = Quaterniond::Identity();
   }
   else
   {
-    walk_plane_pose_.rotation_ = Quaterniond::FromTwoVectors(Vector3d(0,0,1), walk_plane_normal);
+    new_walk_plane_pose.rotation_ = Quaterniond::FromTwoVectors(Vector3d(0,0,1), walk_plane_normal);
   }
   
   // Pose robot body along normal of walk plane, offset according to the requested body clearance
   Vector3d body_clearance = Vector3d(0, 0, params_.body_clearance.current_value);
-  walk_plane_pose_.position_ = walk_plane_pose_.rotation_._transformVector(body_clearance);
-  walk_plane_pose_.position_[2] += walk_plane[2];
+  new_walk_plane_pose.position_ = new_walk_plane_pose.rotation_._transformVector(body_clearance);
+  new_walk_plane_pose.position_[2] += walk_plane[2];
+  
+  // Generate contol input for transitioning to new walk plane pose using swinging leg as reference.
+  double c = 0.0; // Control input ((0.0 -> 1.0)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    if (leg_stepper->getStepState() == SWING)
+    {
+      c = smoothStep(leg_stepper->getSwingProgress());
+    }
+  }
+  
+  // Interpolate walk plane pose as transitioning from old to new.
+  walk_plane_pose_ = origin_walk_plane_pose_.interpolate(c, new_walk_plane_pose);
+  if (c == 1.0)
+  {
+    origin_walk_plane_pose_ = walk_plane_pose_;
+  }
 }
 
 /*******************************************************************************************************************//**

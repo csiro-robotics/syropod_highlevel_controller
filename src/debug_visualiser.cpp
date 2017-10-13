@@ -39,14 +39,17 @@ DebugVisualiser::DebugVisualiser(void)
  * Updates the odometry pose of the robot body from velocity inputs
  * @param[in] input_linear_body_velocity The linear velocity of the robot body in the x/y plane
  * @param[in] input_angular_body_velocity The angular velocity of the robot body
+ * @param[in] walk_plane A Vector representing the walk plane
 ***********************************************************************************************************************/
 void DebugVisualiser::updatePose(const Vector2d& input_linear_body_velocity,
-                                 const double& input_angular_body_velocity)
+                                 const double& input_angular_body_velocity,
+                                 const Vector3d& walk_plane)
 {
+  Vector3d walk_plane_normal(-walk_plane[0], -walk_plane[1], 1.0);
+  Quaterniond walk_plane_rotation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), walk_plane_normal.normalized());  
   Vector3d linear_body_velocity = Vector3d(input_linear_body_velocity[0], input_linear_body_velocity[1], 0);
-  Quaterniond angular_body_velocity = eulerAnglesToQuaternion(Vector3d(0.0, 0.0, input_angular_body_velocity));
-  odometry_pose_.position_ += odometry_pose_.rotation_._transformVector(linear_body_velocity);
-  odometry_pose_.rotation_ *= angular_body_velocity;
+  odometry_pose_.position_ += walk_plane_rotation._transformVector(linear_body_velocity);
+  odometry_pose_.rotation_ *= Quaterniond(AngleAxisd(input_angular_body_velocity, walk_plane_normal.normalized()));
 }
 
 /*******************************************************************************************************************//**
@@ -186,6 +189,7 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
   
   Vector3d plane_normal(walk_plane[0], walk_plane[1], -1.0);
   Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -plane_normal);
+  walk_plane_orientation = odometry_pose_.rotation_ * walk_plane_orientation;
   walk_plane_marker.pose.orientation.w = walk_plane_orientation.w();
   walk_plane_marker.pose.orientation.x = walk_plane_orientation.x();
   walk_plane_marker.pose.orientation.y = walk_plane_orientation.y();
@@ -201,10 +205,6 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
 ***********************************************************************************************************************/
 void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& current_pose)
 {
-  Pose pose = odometry_pose_;
-  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
-  pose.rotation_ *= current_pose.rotation_;
-
   visualization_msgs::Marker tip_position_marker;
   tip_position_marker.header.frame_id = "/fixed_frame";
   tip_position_marker.header.stamp = ros::Time::now();
@@ -216,6 +216,10 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& cur
   tip_position_marker.color.r = 1; //RED
   tip_position_marker.color.a = 1;
   tip_position_marker.lifetime = ros::Duration(TRAJECTORY_DURATION);
+  
+  Pose pose = odometry_pose_;
+  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
+  pose.rotation_ *= current_pose.rotation_;
 
   Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
   geometry_msgs::Point point;
@@ -227,6 +231,48 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& cur
 
   tip_trajectory_publisher_.publish(tip_position_marker);
   tip_position_id_ = (tip_position_id_ + 1) % ID_LIMIT; // Ensures the trajectory marker id does not exceed overflow
+}
+
+/*******************************************************************************************************************//**
+ * Publishes visualisation markers which represent an estimate of the terrain being traversed
+ * @param[in] model A pointer to the robot model object
+***********************************************************************************************************************/
+void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
+{
+  LegContainer::iterator leg_it;
+  for (leg_it = model->getLegContainer()->begin(); leg_it != model->getLegContainer()->end(); ++leg_it)
+  {
+    shared_ptr<Leg> leg = leg_it->second;
+    if (leg->getLegStepper()->getSwingProgress() == 1.0)
+    {
+      Pose pose = odometry_pose_;
+      Pose current_pose = model->getCurrentPose();
+      pose.position_ += pose.rotation_._transformVector(current_pose.position_);
+      pose.rotation_ *= current_pose.rotation_;
+      Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
+      
+      visualization_msgs::Marker terrain_marker;
+      terrain_marker.header.frame_id = "/fixed_frame";
+      terrain_marker.header.stamp = ros::Time::now();
+      terrain_marker.ns = "terrain_markers";
+      terrain_marker.id = terrain_marker_id_;
+      terrain_marker.action = visualization_msgs::Marker::ADD;
+      terrain_marker.type = visualization_msgs::Marker::CUBE_LIST;
+      terrain_marker.scale.x = 0.25 * sqrt(marker_scale_);
+      terrain_marker.scale.y = 0.25 * sqrt(marker_scale_);
+      terrain_marker.scale.z = tip_position[2] + 0.5;
+      terrain_marker.color.r = 1; //RED
+      terrain_marker.color.a = 0.5;
+      
+      geometry_msgs::Point point;
+      point.x = tip_position[0];
+      point.y = tip_position[1];
+      point.z = tip_position[2] - terrain_marker.scale.z / 2.0;
+      terrain_marker.points.push_back(point);
+      tip_trajectory_publisher_.publish(terrain_marker);
+      terrain_marker_id_ = (terrain_marker_id_ + 1) % (model->getLegCount() * 5);
+    }
+  }
 }
 
 /*******************************************************************************************************************//**
@@ -398,9 +444,9 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   origin.y = leg_stepper->getDefaultTipPosition()[1];
   origin.z = leg_stepper->getDefaultTipPosition()[2];
   target = origin;
-  target.x += stride_vector[0] / 2.0;
-  target.y += stride_vector[1] / 2.0;
-  target.z += stride_vector[2] / 2.0;
+  target.x += (stride_vector[0] / 2.0);
+  target.y += (stride_vector[1] / 2.0);
+  target.z += (stride_vector[2] / 2.0);
   stride.points.push_back(origin);
   stride.points.push_back(target);
   stride.scale.x = 0.01 * sqrt(marker_scale_);

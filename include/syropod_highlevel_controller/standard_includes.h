@@ -127,6 +127,22 @@ inline T clamped(const T& value, const double& magnitude)
 }
 
 /**
+ * Returns the input vector scaled such that each element does not exceed the magnitude of each element of the limit vector.
+ * @param[in] value The input vector.
+ * @param[in] limit The limit vector.
+ */
+template <class T>
+inline T clamped(const T& value, const T& limit)
+{
+  VectorXd result(value.size());
+  for (int i = 0; i < value.size(); ++i)
+  {
+    result[i] = clamped(value[i], -limit[i], limit[1]);
+  }
+  return result;
+}
+
+/**
  * Returns the input value with a precision defined by the precision input. (Eg: 1.00001 @ precision = 3 -> 1.000)
  * @param[in] value The input value.
  * @param[in] precision The required precision.
