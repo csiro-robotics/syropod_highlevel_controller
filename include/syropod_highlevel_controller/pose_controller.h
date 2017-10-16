@@ -6,7 +6,7 @@
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    October 2017
- *  @version 0.5.6
+ *  @version 0.5.7
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -233,7 +233,7 @@ public:
   
   /** 
    * Updates a body pose that, when applied, orients the last joint of a swinging leg inline with the tip along the 
-   * walk plane normal. This causes the last link of the leg to be oriented orthognal to the walk plane estimate during
+   * walk plane normal. This causes the last link of the leg to be oriented orthogonal to the walk plane estimate during
    * the 2nd half of swing. This is used to orient tip sensors to point toward the desired tip landing position at the
    * end of the swing.
    * @param[in] walk_plane A Vector representing the walk plane estimate

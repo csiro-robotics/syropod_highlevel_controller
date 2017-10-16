@@ -243,9 +243,13 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Refactored joint/tip frame position functions and leg current/desired positions - to use pose (i.e. position & rotation)
     - Added tip orientation visualisations for debugging
 - v0.5.7
-    - Added feature to estimate walk plane and pose body accordingly.
-    - Added feature to allow tip range value to modify tip trajectory at end of swing to prevent early/late touchdown.
-    - Added TipState message and callback to receive tip force/torque and range
-    - Added posing feature to pose robot body such that the final link of each leg completes swing periods vertically.
-    - Reworked trajectory engine to allow for vertical tip trajectory at end of swing during wave gait
+    - Added Rough Terrain mode which includes the following features:
+        - Feature to allow tip range value to modify tip trajectory at end of swing to prevent early/late touchdown.
+        - Posing feature to pose robot body such that the final link of each leg completes swing periods vertically.
+        - Reworked trajectory engine to allow for vertical tip trajectory at end of swing during wave gait
+        - Feature to estimate walk plane and pose body accordingly.
+        - Added TipState message and callback to receive tip force/torque and range
     - Consolidated tip force callbacks into single callback with custom message on topic "/tip_states"
+    - Added visualisations for the estimated walk plane and terrain
+- v0.5.8
+    - Complete merge of v0.5.5 with v0.5.7

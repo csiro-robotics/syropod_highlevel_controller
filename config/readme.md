@@ -20,9 +20,16 @@
     defined in config/auto_pose.yaml parameters. (see Auto Pose Parameter File below)
       (type: bool)
       (default: false)
+      
+### /syropod/parameters/rough_terrain_mode: 
+    Sets whether rough terrain mode is on/off. Rough terrain mode uses tip range sensor data to proactively adjust tip 
+    trajectory whilst approaching touchdown and estimates a walk plane for legs on uneven ground. Allows for traversal 
+    of rough terrain, stair climbing and transitioning to/from inclined/declined terrain.
+      (type: bool)
+      (default: false)
 
-### /syropod/parameters/impedance_control:
-    Determines if impedance control is currently turned on/off.
+### /syropod/parameters/admittance_control:
+    Determines if admittance control is currently turned on/off.
       (type: bool)
       (default: false)
 
@@ -279,7 +286,7 @@
       (type: string)
       (default: tip_control)
     
-## Impedance Control Parameters:
+## Admittance Control Parameters:
 	     
 ### /syropod/parameters/dynamic_stiffness:
     Determines if dynamic stiffness mode is on where set virtual stiffness is scaled determined on whether an 
@@ -288,13 +295,13 @@
       (default: true)
     
 ### /syropod/parameters/use_joint_effort:
-    Determines if force input method for impedance control is estimated using joint efforts. 
+    Determines if force input method for admittance control is estimated using joint efforts. 
     Set to false if robot has tip force sensing capabilities.
       (type: bool)
       (default: false)
     
 ### /syropod/parameters/virtual_mass:
-    Virtual mass variable used in impedance controller spring-mass-damper virtualisation.
+    Virtual mass variable used in admittance controller spring-mass-damper virtualisation.
     Note: This is a dynamically adjustable parameter and thus consists of a map of values which describe the possible 
     values of this parameter:
       default: The default parameter value.
@@ -306,12 +313,12 @@
       (unit: unitless)
 
 ### /syropod/parameters/integrator_step_time:
-    Time step used in impedance controller ODE solver.
+    Time step used in admittance controller ODE solver.
       (type: double)
       (default: 0.5)
 
 ### /syropod/parameters/virtual_stiffness:
-    Virtual stiffness variable used in impedance controller spring-mass-damper virtualisation.
+    Virtual stiffness variable used in admittance controller spring-mass-damper virtualisation.
     Note: This is a dynamically adjustable parameter and thus consists of a map of values which describe the possible 
     values of this parameter:
       default: The default parameter value.
@@ -334,7 +341,7 @@
       (default: 0.1)
 
 ### /syropod/parameters/virtual_damping_ratio:
-    Virtual damping ratio variable used in impedance controller spring-mass-damper virtualisation.
+    Virtual damping ratio variable used in admittance controller spring-mass-damper virtualisation.
     Note: This is a dynamically adjustable parameter and thus consists of a map of values which describe the 
     possible values of this parameter:
       default: The default parameter value.
@@ -346,7 +353,7 @@
       (unit: unitless)
 
 ### /syropod/parameters/force_gain:
-    Gain used to scale input tip force values used in impedance controller.
+    Gain used to scale input tip force values used in admittance controller.
     Note: This is a dynamically adjustable parameter and thus consists of a map of values which describe the 
     possible values of this parameter:
       default: The default parameter value.

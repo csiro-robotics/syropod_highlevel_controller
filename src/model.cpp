@@ -4,7 +4,7 @@
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    October 2017
- *  @version 0.5.6
+ *  @version 0.5.7
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -405,6 +405,7 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
   {
     shared_ptr<Joint> joint = joint_it->second;
     joint->desired_velocity_ = joint_delta_pos[index] / model_->getTimeDelta();
+    ROS_ASSERT(joint->desired_velocity_ < UNASSIGNED_VALUE);
 
     // Clamp joint velocities within limits
     if (params_.clamp_joint_velocities.data && !simulation_run)
@@ -513,6 +514,9 @@ Pose Leg::applyFK(const bool& set_current)
     }
     current_tip_pose_ = tip_pose;
   }
+  
+  ROS_ASSERT(current_tip_pose_.position_.norm() < UNASSIGNED_VALUE);
+  
   return tip_pose;
 }
 

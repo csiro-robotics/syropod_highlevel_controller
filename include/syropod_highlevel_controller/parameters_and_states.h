@@ -6,7 +6,7 @@
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    October 2017
- *  @version 0.5.6
+ *  @version 0.5.7
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -275,7 +275,7 @@ struct Parameters
   Parameter<bool> auto_posing;         ///< Flag denoting if the auto posing feature is on/off.
   Parameter<bool> manual_posing;       ///< Flag denoting if the manual posing feature is on/off.
   Parameter<bool> inclination_posing;  ///< Flag denoting if the inclination posing feature is on/off.
-  Parameter<bool> tip_align_posing;    ///< Flag denoting if the tip alignment posing feature is on/off.
+  Parameter<bool> rough_terrain_mode;  ///< Flag denoting if rough terrain mode is on/off (affects various systems).
   Parameter<bool> admittance_control;  ///< Flag denoting if the admittance control feature is on/off.
 
   // Motor Interface parameters

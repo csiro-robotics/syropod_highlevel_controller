@@ -4,7 +4,7 @@
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    October 2017
- *  @version 0.5.6
+ *  @version 0.5.7
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -377,25 +377,31 @@ void StateController::transitionRobotState(void)
 ***********************************************************************************************************************/
 void StateController::runningState(void)
 {
+  bool update_tip_position = true;
+  
   // Force Syropod to stop walking
   if (transition_state_flag_)
   {
     transitionRobotState();
+    update_tip_position = false;
   }
   // Switch gait and update walker parameters
   else if (gait_change_flag_)
   {
     changeGait();
+    update_tip_position = false;
   }
   // Dynamically adjust parameters and change stance if required
   else if (parameter_adjust_flag_)
   {
     adjustParameter();
+    update_tip_position = false;
   }
   // Toggle state of leg and transition between states
   else if (toggle_primary_leg_state_ || toggle_secondary_leg_state_)
   {
     legStateToggle();
+    update_tip_position = false;
   }
   // Cruise control (constant velocity input)
   else if (cruise_control_mode_ == CRUISE_CONTROL_ON &&
@@ -404,12 +410,13 @@ void StateController::runningState(void)
     linear_velocity_input_ = linear_cruise_velocity_;
     angular_velocity_input_ = angular_cruise_velocity_;
   }
+  
+  // Set true if already true or if walk state not STOPPED
+  update_tip_position = update_tip_position || walker_->getWalkState() != STOPPED; 
 
   // Update tip positions unless Syropod is undergoing state transition, gait switch, parameter adjustment or 
   // leg state transition (which all only occur once the Syropod has stopped walking)
-  if (!((transition_state_flag_ || gait_change_flag_ || parameter_adjust_flag_ ||
-         toggle_primary_leg_state_ || toggle_secondary_leg_state_) &&
-         walker_->getWalkState() == STOPPED))
+  if (update_tip_position)
   {
     // Update tip positions for walking legs
     walker_->updateWalk(linear_velocity_input_, angular_velocity_input_);
@@ -418,7 +425,7 @@ void StateController::runningState(void)
     walker_->updateManual(primary_leg_selection_, primary_tip_velocity_input_,
                           secondary_leg_selection_, secondary_tip_velocity_input_);
 
-    // Pose controller takes current tip positions from walker and applies pose compensation
+    // Pose controller takes current tip positions from walker and applies body posing
     poser_->updateStance();
 
     // Model uses posed tip positions, adds deltaZ from admittance controller and applies inverse kinematics on each leg
@@ -818,8 +825,12 @@ void StateController::RVIZDebugging(const bool& static_display)
 
   debug_visualiser_.updatePose(linear_velocity, angular_velocity, walker_->getWalkPlane());
   debug_visualiser_.generateRobotModel(model_);
-  debug_visualiser_.generateWalkPlane(walker_->getWalkPlane());
-  debug_visualiser_.generateTerrainEstimate(model_);
+  
+  if (params_.rough_terrain_mode.data)
+  {
+    debug_visualiser_.generateWalkPlane(walker_->getWalkPlane());
+    debug_visualiser_.generateTerrainEstimate(model_);
+  }
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -995,7 +1006,7 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
     GaitDesignation new_gait_selection = static_cast<GaitDesignation>(int(input.data));
     if (new_gait_selection != gait_selection_ && 
         new_gait_selection != GAIT_UNDESIGNATED && 
-        params_.tip_align_posing.data)
+        !params_.rough_terrain_mode.data)
     {
       gait_selection_ = new_gait_selection;
       gait_change_flag_ = true;
@@ -1437,7 +1448,7 @@ void StateController::initParameters(void)
   params_.time_delta.init(n_, "time_delta");
   params_.imu_posing.init(n_, "imu_posing");
   params_.auto_posing.init(n_, "auto_posing");
-  params_.tip_align_posing.init(n_, "tip_align_posing");
+  params_.rough_terrain_mode.init(n_, "rough_terrain_mode");
   params_.manual_posing.init(n_, "manual_posing");
   params_.inclination_posing.init(n_, "inclination_posing");
   params_.admittance_control.init(n_, "admittance_control");
@@ -1583,7 +1594,7 @@ void StateController::initParameters(void)
 ***********************************************************************************************************************/
 void StateController::initGaitParameters(const GaitDesignation& gait_selection)
 {
-  if (params_.tip_align_posing.data)
+  if (params_.rough_terrain_mode.data)
   {
     params_.gait_type.init(n_, "gait_type"); //Force default gait for tip alignment posing
   }

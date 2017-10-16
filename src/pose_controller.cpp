@@ -4,7 +4,7 @@
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    October 2017
- *  @version 0.5.6
+ *  @version 0.5.7
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -730,8 +730,8 @@ void PoseController::updateCurrentPose(const double& body_height, const Vector3d
     updateAutoPose();
     new_pose = new_pose.addPose(auto_pose_);
   }
-  // Automatic (non-feedback) body posing to align tips vertically upon exiting swing
-  else if (params_.tip_align_posing.data)
+  // Automatic (non-feedback) body posing to align tips orthogonal to walk plane during 2nd half of swing
+  else if (params_.rough_terrain_mode.data)
   {
     updateTipAlignPose(walk_plane);
     new_pose = new_pose.addPose(tip_align_pose_);
@@ -888,7 +888,7 @@ void PoseController::updateManualPose(void)
 
 /*******************************************************************************************************************//**
  * Updates a body pose that, when applied, orients the last joint of a swinging leg inline with the tip along the walk
- * plane normal. This causes the last link of the leg to be oriented orthognal to the walk plane estimate during the
+ * plane normal. This causes the last link of the leg to be oriented orthogonal to the walk plane estimate during the
  * 2nd half of swing. This is used to orient tip sensors to point toward the desired tip landing position at the end of
  * the swing.
  * @param[in] walk_plane A Vector representing the walk plane estimate
@@ -979,7 +979,13 @@ void PoseController::updateWalkPlanePose(const Vector3d& walk_plane)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    if (leg_stepper->getStepState() == SWING)
+    // Immediately set to new walk plane if walk state is STOPPED (Assumes stepToNewStance handles pose transitions)
+    if (leg_stepper->getWalkState() == STOPPED)
+    {
+      c = 1.0;
+    }
+    // Use swinging leg progress to smoothly transition to new walk plane pose
+    else if (leg_stepper->getStepState() == SWING)
     {
       c = smoothStep(leg_stepper->getSwingProgress());
     }

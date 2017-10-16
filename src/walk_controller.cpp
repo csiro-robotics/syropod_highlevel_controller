@@ -4,7 +4,7 @@
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    October 2017
- *  @version 0.5.6
+ *  @version 0.5.7
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -48,7 +48,6 @@ void WalkController::init(void)
   bool debug = params_.debug_workspace_calc.data;
   walk_state_ = STOPPED;
   walk_plane_ = Vector3d(0,0,0);
-  old_walk_plane_ = walk_plane_;
 
   // Set default stance tip positions from parameters
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -399,6 +398,15 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     max_linear_acceleration = min(max_linear_acceleration, max_linear_acceleration_.at(closest_bearing));
     max_angular_acceleration = min(max_angular_acceleration, max_angular_acceleration_.at(closest_bearing));
   }
+  
+  // Halve max velocities/accelerations whilst in rough terrain mode;
+  if (params_.rough_terrain_mode.data)
+  {
+    max_linear_speed *= 0.5;
+    max_angular_speed *= 0.5;
+    max_linear_acceleration *= 0.5;
+    max_angular_acceleration *= 0.5;
+  }
 
   // Calculate desired angular/linear velocities according to input mode and max limits
   if (walk_state_ != STOPPING)
@@ -438,6 +446,23 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     new_linear_velocity = Vector2d(0.0, 0.0);
     new_angular_velocity = 0.0;
   }
+  
+  bool has_velocity_command = linear_velocity_input.norm() || angular_velocity_input;
+
+  // Check that all legs are in WALKING state
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    if (leg->getLegState() != WALKING)
+    {
+      if (has_velocity_command)
+      {
+        ROS_INFO_THROTTLE(THROTTLE_PERIOD,
+                          "\nUnable to walk whilst manually manipulating legs, ensure each leg is in walking state.\n");
+      }
+      return;
+    }
+  }
 
   // Update linear velocity according to acceleration limits
   Vector2d linear_acceleration = new_linear_velocity - desired_linear_velocity_;
@@ -455,23 +480,6 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
       angular_acceleration * min(1.0, max_angular_acceleration * time_delta_ / abs(angular_acceleration));
   }
 
-  bool has_velocity_command = linear_velocity_input.norm() || angular_velocity_input;
-
-  // Check that all legs are in WALKING state
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    shared_ptr<Leg> leg = leg_it_->second;
-    if (has_velocity_command && leg->getLegState() != WALKING)
-    {
-      has_velocity_command = false;
-      if (angular_velocity_input == 0)
-      {
-        ROS_INFO_THROTTLE(THROTTLE_PERIOD,
-                          "\nUnable to walk whilst manually manipulating legs, ensure each leg is in walking state.\n");
-      }
-    }
-  }
-
   // State transitions for Walk State Machine
   // State transition: STOPPED->STARTING
   int leg_count = model_->getLegCount();
@@ -486,6 +494,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
       leg_stepper->setAtCorrectPhase(false);
       leg_stepper->setCompletedFirstStep(false);
       leg_stepper->setStepState(STANCE);
+      leg_stepper->iteratePhase();
     }
   }
   // State transition: STARTING->MOVING
@@ -552,7 +561,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
       Vector3d a = (leg_stepper->getCurrentTipPosition() - leg_stepper->getDefaultTipPosition()); //Position difference
       Vector3d rejection = a - (a.dot(b) / b.dot(b))*b;
       double distance_to_normal = rejection.norm();
-      bool at_default_tip_position = (distance_to_normal < 0.1);
+      bool at_default_tip_position = (distance_to_normal < TIP_TOLERANCE);
       if (zero_body_velocity && !leg_stepper->isAtCorrectPhase() &&
           leg_stepper->getPhase() == swing_end_ && at_default_tip_position)
       {
@@ -813,7 +822,7 @@ void LegStepper::updatePosition(void)
     {
       swing_origin_tip_position_ = current_tip_position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
-      debug_contact_range_ = (double(rand())/RAND_MAX-0.5)*0.1; //HACK
+      //debug_contact_range_ = (double(rand())/RAND_MAX-0.5)*0.1; //HACK
         
       // Update default tip position height onto walk plane
       Vector3d walk_plane_normal(-walker_->getWalkPlane()[0], -walker_->getWalkPlane()[1], 1.0);
@@ -826,14 +835,14 @@ void LegStepper::updatePosition(void)
     if (true)
     {
       target_tip_position_ = default_tip_position_ + 0.5 * stride_vector_; //TODO Add callback to set target externally
-      if (walker_->getParameters().tip_align_posing.data && !first_half)
+      if (walker_->getParameters().rough_terrain_mode.data && !first_half)
       {
         //HACK
-        Vector3d b(-walker_->getWalkPlane()[0], -walker_->getWalkPlane()[1], 1.0);
-        Vector3d a = current_tip_position_ - target_tip_position_;
-        Vector3d projection = (a.dot(b) / b.dot(b))*b;
-        Vector3d contact = projection - b.normalized() * debug_contact_range_;
-        leg_->setTipContactRange(max(contact.norm(), 0.0));
+        //Vector3d b(-walker_->getWalkPlane()[0], -walker_->getWalkPlane()[1], 1.0);
+        //Vector3d a = current_tip_position_ - target_tip_position_;
+        //Vector3d projection = (a.dot(b) / b.dot(b))*b;
+        //Vector3d contact = projection - b.normalized() * debug_contact_range_;
+        //leg_->setTipContactRange(max(contact.norm(), 0.0));
         //HACK
         
         double contact_range = leg_->getTipContactRange();
@@ -946,8 +955,8 @@ void LegStepper::generateSwingControlNodes(void)
   // Set for position continuity at transition between secondary swing and stance curves (C0 Smoothness)
   swing_2_nodes_[4] = target_tip_position_;
   
-  // Control node modification for secondary swing vertical trajectory
-  if (walker_->getParameters().tip_align_posing.data)
+  // Control node modification for secondary swing trajectory orthogonal to walk plane estimate
+  if (walker_->getParameters().rough_terrain_mode.data)
   {
     swing_1_nodes_[4] = default_tip_position_ + 0.5 * stride_vector_ + swing_clearance_ - 4.0*swing2_node_seperation;
     swing_2_nodes_[0] = swing_1_nodes_[4];

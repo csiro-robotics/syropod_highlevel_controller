@@ -4,7 +4,7 @@
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    October 2017
- *  @version 0.5.6
+ *  @version 0.5.7
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -46,9 +46,8 @@ void DebugVisualiser::updatePose(const Vector2d& input_linear_body_velocity,
                                  const Vector3d& walk_plane)
 {
   Vector3d walk_plane_normal(-walk_plane[0], -walk_plane[1], 1.0);
-  Quaterniond walk_plane_rotation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), walk_plane_normal.normalized());  
   Vector3d linear_body_velocity = Vector3d(input_linear_body_velocity[0], input_linear_body_velocity[1], 0);
-  odometry_pose_.position_ += walk_plane_rotation._transformVector(linear_body_velocity);
+  odometry_pose_.position_ += odometry_pose_.rotation_._transformVector(linear_body_velocity);
   odometry_pose_.rotation_ *= Quaterniond(AngleAxisd(input_angular_body_velocity, walk_plane_normal.normalized()));
 }
 

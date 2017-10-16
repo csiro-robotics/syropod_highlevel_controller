@@ -6,7 +6,7 @@
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
  *  @date    October 2017
- *  @version 0.5.6
+ *  @version 0.5.7
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -186,7 +186,6 @@ private:
   bool workspace_generated_ = false;              ///< Flag denoting if workspace map has been generated.
   double stance_radius_;                          ///< The radius of the turning circle used for angular body velocity.
   Vector3d walk_plane_;                           ///< The co-efficients of an estimated planar walk surface
-  Vector3d old_walk_plane_;                       ///< The previously calculated walk plane used in transitioning
 
   // Velocity/acceleration variables
   Vector2d desired_linear_velocity_;          ///< The desired linear velocity of the robot body.
@@ -389,7 +388,7 @@ private:
   Vector3d swing_origin_tip_velocity_;  ///< The tip velocity used in the generation of bezier curve during swing.
   Vector3d stance_origin_tip_position_; ///< The tip position used as the origin for the bezier curve during stance.
   
-  double debug_contact_range_ = 0;
+  double debug_contact_range_ = 0; //HACK
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
