@@ -2,7 +2,7 @@
 
 High level controller for CSIRO multi-legged robots (Syropods).
 
-Current version: v0.5.6
+Current version: v0.5.7
 
 Please use readme in launch folder of individual platform for information on setting up platform for use with Syropod High-level Controller.
 
@@ -102,14 +102,10 @@ For information on parameters see readme in config folder.
     * Description: The input data from onboard IMU.
     * Topic: */imu/data*
     * Type: sensor_msgs::Imu
-* Tip Force Data:  (To be removed)
-    * Description: The pressure sensor signals from leg tips of Syropod. (MAX)
-    * Topic: */motor\_encoders*
-    * Type: sensor_msgs::JointState
-* Individual Tip Force Data:  (To be removed)
-    * Description: The pressure sensor signals from leg tips of Syropod. (Flexipod)
-    * Topic: */AR\_prs && /BR\_prs && /CR\_prs && /CL\_prs && /BL\_prs && /AL\_prs*
-    * Type: std_msgs::UInt16
+* Tip State Data:
+    * Description: Custom message containing force/torque and range sensor data at the tip of each leg.
+    * Topic: */tip\_states*
+    * Type: syropod_highlevel_controller::TipState
 * Joint State Data:
     * Description: The actual state of joints within the Syropod as published by hardware.
     * Topic: "*/joint\_states*
@@ -136,10 +132,6 @@ For information on parameters see readme in config folder.
     * Description: The desired pose of the robot body.
     * Topic: */syropod_highlevel_controller/pose*
     * Type: geometry_msgs::Twist
-* IMU Data Ouput:
-    * Description: Output of IMU data
-    * Topic: */syropod_highlevel_controller/imu\_data*
-    * Type: sensor_msgs::Imu
 * ASC Hexapod State: (To be removed)
     * Description: ASC Hexapod specific message for toggling of magnetic feet (bool of whether each leg is in stance state or not)
     * Topic: */leg\_state\_\*LEG_ID\*\_bool*

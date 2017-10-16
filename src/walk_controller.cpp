@@ -197,12 +197,14 @@ void WalkController::generateWorkspace(void)
         leg->setDesiredTipPosition(desired_tip_position, false);
         
         within_limits = (leg->applyIK(true, true) != 0.0);
-        distance_from_default = Vector3d(leg->getCurrentTipPosition() - leg_stepper->getDefaultTipPosition()).norm();
+        Pose current_pose = model_->getCurrentPose();
+        Vector3d default_tip_position = current_pose.inverseTransformVector(leg_stepper->getDefaultTipPosition());
+        distance_from_default = Vector3d(leg->getCurrentTipPosition() - default_tip_position).norm();
 
         // Display robot model whilst performing workspace limitation search
         if (debug && params_.debug_rviz.data && params_.debug_rviz_static_display.data)
         {
-          //debug_visualiser_->updatePose(Vector2d(0, 0), 0, Vector3d(0,0,0));
+          debug_visualiser_->updatePose(Vector2d(0, 0), 0, Vector3d(0,0,0));
           debug_visualiser_->generateRobotModel(model_);
           ros::spinOnce();
         }
