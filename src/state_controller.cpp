@@ -233,7 +233,7 @@ void StateController::transitionRobotState(void)
       else
       {
         robot_state_ = PACKED;
-        ROS_INFO("\nSyropod currently in PACKED state.\n");
+        ROS_INFO("\nSyropod currently in PACKED state. Press START to proceed to READY state.\n");
       }
     }
     // Syropod estimated to be in READY state
@@ -241,44 +241,48 @@ void StateController::transitionRobotState(void)
     {
       if (!params_.start_up_sequence.data)
       {
-        robot_state_ = OFF;
-        ROS_INFO("Syropod is ready for direct transition to RUNNING state.");
+        robot_state_ = PACKED;
+        ROS_WARN("\nSyropod currently in READY state but is set to execute DIRECT transition.\n"
+                 "Ensure Syropod legs are not bearing load before proceeding.\n"
+                 "Press START to proceed to RUNNING state.\n");
       }
       else
       {
         robot_state_ = READY;
-        ROS_INFO("\nSyropod currently in READY state.\n");
+        ROS_INFO("\nSyropod currently in READY state. Press START to proceed to RUNNING state.\n");
       }
     }
     // Syropod state unknown
-    else if (!params_.start_up_sequence.data)
-    {
-      robot_state_ = OFF;
-      ROS_WARN("\nstart_up_sequence parameter is set to false, "
-               "ensure Syropod is off the ground and joints are within limits before transitioning system state.\n");
-    }
     else
     {
       robot_state_ = PACKED;
-      ROS_WARN("\nSyropod state is unknown. Future state transitions may be undesireable, "
-               "recommend ensuring Syropod is off the ground before proceeding.\n");
+      ROS_WARN("\nCurrent Syropod state is undefined!\nFuture state transitions may be undesireable! "
+               "Ensure Syropod legs are not bearing load before proceeding.\nPress START to proceed.\n");
     }
     new_robot_state_ = robot_state_;
   }
-  // OFF -> RUNNING (Direct transition to walking stance)
-  else if (robot_state_ == OFF && new_robot_state_ == RUNNING && !params_.start_up_sequence.data)
+  // PACKED -> RUNNING (Direct)
+  else if (robot_state_ == PACKED && new_robot_state_ == READY && !params_.start_up_sequence.data)
   {
     int progress = poser_->directStartup();
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning directly to RUNNING state (%d%%). . .\n", progress);
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning DIRECTLY to RUNNING state (%d%%). . .\n", progress);
     if (progress == PROGRESS_COMPLETE)
     {
-      robot_state_ = RUNNING;
+      robot_state_ = READY;
       walker_->generateWorkspace();
-      ROS_INFO("\nDirect startup sequence complete. Ready to walk.\n");
+      ROS_INFO("\nDirect startup sequence complete. Place Syropod on walking surface and press START to proceed.\n");
     }
   }
-  // RUNNING -> OFF
-  else if (robot_state_ == RUNNING && new_robot_state_ == OFF && !params_.start_up_sequence.data)
+  // READY -> RUNNING (Direct)
+  else if (robot_state_ == READY && new_robot_state_ == RUNNING && !params_.start_up_sequence.data)
+  {
+    //TODO Implement settling feature in order to start on rough terrain
+    model_->initTipRanges();
+    robot_state_ = RUNNING;
+    ROS_INFO("\nReady to Walk.\n");
+  }
+  // RUNNING -> OTHER STATE (Direct)
+  else if (robot_state_ == RUNNING && new_robot_state_ != RUNNING && !params_.start_up_sequence.data)
   {
     transition_state_flag_ = false;
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod cannot transition from RUNNING state."
@@ -435,6 +439,32 @@ void StateController::runningState(void)
       shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
       leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
       leg->applyIK();
+      if (params_.rough_terrain_mode.data)
+      {
+        double swing_progress = leg->getLegStepper()->getSwingProgress();
+        if (swing_progress > 0.0)
+        {
+          Vector3d walk_plane = walker_->getWalkPlane();
+          Vector3d walk_plane_normal = Vector3d(walk_plane[0], walk_plane[1], -1.0).normalized();
+          Quaterniond walk_plane_rotation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -walk_plane_normal);
+          shared_ptr<Tip> tip = leg->getTip();
+          shared_ptr<Joint> joint = tip->reference_link_->actuating_joint_;
+          Vector3d last_link_vector = tip->getPoseRobotFrame().position_ - joint->getPoseRobotFrame().position_;
+          last_link_vector = walk_plane_rotation._transformVector(last_link_vector.normalized());
+          Quaterniond rotation_error = Quaterniond::FromTwoVectors(last_link_vector, walk_plane_normal);
+          Quaterniond current_tip_rotation = leg->getCurrentTipRotation();
+          Quaterniond target_tip_rotation = rotation_error * current_tip_rotation;
+          double c = smoothStep(min(1.0, 2.0 * swing_progress)); // Control input (0.0 -> 1.0)
+          Quaterniond origin_tip_rotation = leg->getCurrentTipRotation();
+          target_tip_rotation = origin_tip_rotation.slerp(c, target_tip_rotation);
+          leg->setDesiredTipRotation(target_tip_rotation);
+          leg->applyIK(false, false);
+        }
+        else
+        {
+          leg->setOriginTipRotation(leg->getCurrentTipRotation());
+        }
+      }
     }
   }
 }
@@ -885,36 +915,19 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
     transition_state_flag_ = false;
   }
 
-  // In Direct mode, enforce only OFF & RUNNING states
-  if (!params_.start_up_sequence.data)
+  // In Sequence mode, handle single step transitioning between multiple states
+  if (input_state != robot_state_ && !transition_state_flag_)
   {
-    if (input_state != RUNNING)
+    new_robot_state_ = input_state;
+    if (new_robot_state_ > robot_state_)
     {
-      input_state = OFF;
-    }
-
-    if (input_state != robot_state_ && !transition_state_flag_)
-    {
-      new_robot_state_ = input_state;
+      new_robot_state_ = static_cast<RobotState>(robot_state_ + 1);
       transition_state_flag_ = ready_for_transition;
     }
-  }
-  // In Sequence mode, handle single step transitioning between multiple states
-  else
-  {
-    if (input_state != robot_state_ && !transition_state_flag_)
+    else if (new_robot_state_ < robot_state_ && params_.start_up_sequence.data)
     {
-      new_robot_state_ = input_state;
-      if (new_robot_state_ > robot_state_)
-      {
-        new_robot_state_ = static_cast<RobotState>(robot_state_ + 1);
-        transition_state_flag_ = ready_for_transition;
-      }
-      else if (new_robot_state_ < robot_state_)
-      {
-        new_robot_state_ = static_cast<RobotState>(robot_state_ - 1);
-        transition_state_flag_ = ready_for_transition;
-      }
+      new_robot_state_ = static_cast<RobotState>(robot_state_ - 1);
+      transition_state_flag_ = ready_for_transition;
     }
   }
 }
@@ -1433,7 +1446,15 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     }
     if (get_range_values)
     {
-      leg->setTipContactRange(tip_states.range[i].range);
+      double range = tip_states.range[i].range;
+      if (range != -1.0)
+      {
+        //range *= 0.5; //TODO remove need to halve range value
+        range += leg->getTipContactOffset(); // Add offset set at initialisation
+        range = max(0.0, range); // Ensure no overrun to negative values.
+        leg->setTipForce(Vector3d(0,0,range)); //HACK
+        leg->setTipContactRange(range);
+      }
     }
   }
 }

@@ -495,6 +495,7 @@ int PoseController::directStartup(void) //Simultaneous leg coordination
       // Create copy of leg at initial state
       sensor_msgs::JointState initial_joint_states;
       leg->generateDesiredJointStateMsg(&initial_joint_states);
+      leg->init(true); // Set leg to zeroed joint positions to ensure safe IK to tip positions
       
       // Move tip linearly to default stance position
       Vector3d default_tip_position = leg_stepper->getDefaultTipPosition();
@@ -733,8 +734,10 @@ void PoseController::updateCurrentPose(const double& body_height, const Vector3d
   // Automatic (non-feedback) body posing to align tips orthogonal to walk plane during 2nd half of swing
   else if (params_.rough_terrain_mode.data)
   {
-    updateTipAlignPose(walk_plane);
-    new_pose = new_pose.addPose(tip_align_pose_);
+    //updateTipAlignPose(walk_plane);
+    //new_pose = new_pose.addPose(tip_align_pose_);
+    updateIKErrorPose(walk_plane);
+    new_pose = new_pose.addPose(ik_error_pose_);
   }
   
   model_->setCurrentPose(new_pose);
@@ -884,6 +887,35 @@ void PoseController::updateManualPose(void)
   // Update position according to limitations
   manual_pose_.position_ = desired_position;
   manual_pose_.rotation_ = eulerAnglesToQuaternion(desired_rotation);
+}
+
+/*******************************************************************************************************************//**
+ * TODO
+***********************************************************************************************************************/
+void PoseController::updateIKErrorPose(const Vector3d& walk_plane)
+{
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    WalkState walk_state = leg->getLegStepper()->getWalkState();
+    if (walk_state != STOPPED)
+    {
+      Vector3d ik_position_error = leg->getCurrentTipPosition() - leg->getDesiredTipPosition();
+      Vector3d target_translation = ik_error_pose_.position_ - ik_position_error;
+      
+      // Calculate component of current translation aligned with walk plane
+      Vector3d a = target_translation;
+      Vector3d b = -Vector3d(walk_plane[0], walk_plane[1], -1.0).normalized(); //Walk plane normal
+      Vector3d rejection = a - (a.dot(b) / b.dot(b))*b; // en.wikipedia.org/wiki/Vector_projection
+      
+      // Clamp target translation within limits
+      Vector3d limit(params_.max_translation.data.at("x"),
+                     params_.max_translation.data.at("y"),
+                     params_.max_translation.data.at("z"));
+      
+      ik_error_pose_.position_ = clamped(rejection, limit);
+    }
+  }
 }
 
 /*******************************************************************************************************************//**

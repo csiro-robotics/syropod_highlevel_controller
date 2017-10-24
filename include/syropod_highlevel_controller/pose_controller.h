@@ -137,6 +137,7 @@ public:
     inclination_pose_ = Pose::identity();
     admittance_pose_ = Pose::identity();
     default_pose_ = Pose::identity();
+    ik_error_pose_ = Pose::identity();
     tip_align_pose_ = Pose::identity();
     origin_tip_align_pose_ = tip_align_pose_;
     walk_plane_pose_ = Pose::identity();
@@ -231,6 +232,11 @@ public:
    */
   void updateManualPose(void);
   
+  /**
+   * TODO
+   */
+  void updateIKErrorPose(const Vector3d& walk_plane);
+  
   /** 
    * Updates a body pose that, when applied, orients the last joint of a swinging leg inline with the tip along the 
    * walk plane normal. This causes the last link of the leg to be oriented orthogonal to the walk plane estimate during
@@ -306,7 +312,7 @@ private:
   Pose inclination_pose_; ///< Pose to improve stability on inclined terrain, a component of total applied body pose.
   Pose admittance_pose_ ; ///< Pose to correct admittance control based sagging, a component of total applied body pose.
   Pose default_pose_;     ///< Default pose calculated for different loading patterns
-  
+  Pose ik_error_pose_;
   
   Pose tip_align_pose_;         ///< Pose used to align final links of legs vertically during 2nd half of swing
   Pose origin_tip_align_pose_;  ///< Origin pose used in interpolating tip align pose

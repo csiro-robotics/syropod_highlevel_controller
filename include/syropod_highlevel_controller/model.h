@@ -82,6 +82,12 @@ public:
    * values for any joint with unknown current position values.
    */
   void initLegs(const bool& use_default_joint_positions);
+  
+  /**
+   * Sets tip contact range offset used in calibrating the input range data such that values are zeroed when tip in
+   * contact with walk surface. Function is run assuming all tips are in contact with walk surface.
+   */
+  void initTipRanges(void);
 
   /**
    * Estimates if the robot is bearing its load on its legs. Estimates the average distance between body and leg tips
@@ -157,6 +163,9 @@ public:
   
   /** Accessor for the current estimated distance from tip to walk surface contact. */
   inline double getTipContactRange(void) { return tip_contact_range_; };
+  
+  /** Accessor for the calibration offset for the distance from tip to walk surface contact. */
+  inline double getTipContactOffset(void) { return tip_contact_offset_; };
 
   /** Accessor for the current admittance control vertical position offset (delta_z) for this leg.*/
   inline double getDeltaZ(void) { return delta_z_; };
@@ -255,6 +264,12 @@ public:
   inline void setTipContactRange(const double& contact_range) { tip_contact_range_ = contact_range; };
   
   /**
+    * Modifier for the calibration offset for the current estimated distance from tip to walk surface contact.
+    * @param[in] offset The new contact range offset for this leg.
+    */
+  inline void setTipContactOffset(const double& offset) { tip_contact_offset_ = offset; };
+  
+  /**
     * Modifier for the current admittance control vertical position offset (delta_z) for this leg.
     * @param[in] delta_z The new delta_z value for this leg.
     */
@@ -346,12 +361,21 @@ public:
     * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip position.
     */
   void setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z = true);
+  
+  /**
+    * Modifier for the desired tip rotation of this leg.
+    * @param[in] tip_rotation The desired rotation of the tip.
+    */
+  inline void setDesiredTipRotation(const Quaterniond& tip_rotation) { desired_tip_pose_.rotation_ = tip_rotation; };
 
   /**
     * Modifier for the desired tip velocity of the tip of this leg object.
     * @param[in] tip_velocity The new tip velocity of this leg object.
     */
   inline void setDesiredTipVelocity(const Vector3d& tip_velocity) { desired_tip_velocity_ = tip_velocity; };
+  
+  inline void setOriginTipRotation(const Quaterniond& tip_rotation) { origin_tip_rotation_ = tip_rotation; };
+  inline Quaterniond getOriginTipRotation(void) { return origin_tip_rotation_; };
   
   /**
     * Calculates an estimate for the tip force vector acting on this leg, using the calculated state jacobian and 
@@ -413,12 +437,15 @@ private:
   
   Vector3d desired_tip_velocity_; ///< Desired linear tip velocity before applying Inverse/Forward kinematics
   Vector3d current_tip_velocity_; ///< Current linear tip velocity according to the model
+  
+  Quaterniond origin_tip_rotation_;
 
   int group_; ///< Leg stepping coordination group (Either 0 or 1).
 
-  Vector3d tip_force_;       ///< Force estimation on the tip.
-  Vector3d tip_torque_;      ///< Torque estimation on the tip.
-  double tip_contact_range_; ///< Estimation of the distance from the tip to contacting the walking surface.
+  Vector3d tip_force_;        ///< Force estimation on the tip.
+  Vector3d tip_torque_;       ///< Torque estimation on the tip.
+  double tip_contact_range_;  ///< Estimation of the distance from the tip to contacting the walking surface.
+  double tip_contact_offset_; ///< Calibration offset set once assumed all legs are on walking surface.
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

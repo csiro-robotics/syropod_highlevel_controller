@@ -61,6 +61,20 @@ void Model::initLegs(const bool& use_default_joint_positions)
 }
 
 /*******************************************************************************************************************//**
+  * Sets tip contact range offset used in calibrating the input range data such that values are zeroed when tip in
+  * contact with walk surface. Function is run assuming all tips are in contact with walk surface.
+***********************************************************************************************************************/
+void Model::initTipRanges(void)
+{
+  LegContainer::iterator leg_it;
+  for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
+  {
+    shared_ptr<Leg> leg = leg_it->second;
+    leg->setTipContactOffset(-leg->getTipContactRange());
+  }
+}
+
+/*******************************************************************************************************************//**
  * Estimates if the robot is bearing its load on its legs. Estimates the average distance between body and leg tips
  * and checks if the average breaks the plane of the robot body underside, if so, assume that at least one leg is
  * bearing load.
@@ -119,6 +133,7 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   tip_force_ = Vector3d(0.0, 0.0, 0.0);
   tip_torque_ = Vector3d(0.0, 0.0, 0.0);
   tip_contact_range_ = UNASSIGNED_VALUE;
+  tip_contact_offset_ = 0.0;
   group_ = (id_number % 2); // Even/odd groups
 }
 
@@ -157,7 +172,7 @@ void Leg::init(const bool& use_default_joint_positions)
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
     shared_ptr<Joint> joint = joint_it->second;
-    if (use_default_joint_positions && joint->current_position_ == UNASSIGNED_VALUE)
+    if (use_default_joint_positions /*&& joint->current_position_ == UNASSIGNED_VALUE*/)
     {
       joint->current_position_ = clamped(0.0, joint->min_position_, joint->max_position_);
       joint->current_velocity_ = 0.0;
@@ -334,6 +349,8 @@ void Leg::calculateTipForce(void)
 ***********************************************************************************************************************/
 double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientation)
 {
+  // Calculate Jacobian from DH matrices along kinematic chain
+  // ref: 
   shared_ptr<Joint> first_joint = joint_container_.begin()->second;
   Vector3d pe = tip_->getTransformFromJoint(first_joint->id_number_).block<3, 1>(0, 3);
   Vector3d z0(0, 0, 1);
@@ -343,9 +360,8 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
   jacobian.block<3, 1>(0, 0) = z0.cross(pe - p0); //Linear velocity
   jacobian.block<3, 1>(3, 0) = ignore_tip_orientation ? Vector3d(0, 0, 0) : z0; //Angular velocity
 
-  //Skip first joint dh parameters since it is a fixed transformation
   JointContainer::iterator joint_it;
-  int i = 1;
+  int i = 1; //Skip first joint dh parameters since it is a fixed transformation
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
     shared_ptr<Joint> joint = joint_it->second;
@@ -355,17 +371,21 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
   }
 
   MatrixXd identity = MatrixXd::Identity(6, 6);
-  MatrixXd ik_matrix(joint_count_, 6);
+  MatrixXd jacobian_inverse(joint_count_, 6);
   MatrixXd j = jacobian;
 
-  //ik_matrix = ((j.transpose()*j).inverse())*j.transpose(); //Pseudo Inverse method
-  ik_matrix = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
+  
+  // Calculate jacobian inverse using damped least squares method
+  // ref: Chapter 5 of Introduction to Inverse Kinematics... , Samuel R. Buss 2009
+  jacobian_inverse = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
 
+  // Generate position and rotation delta vector in reference to the base of the leg
   shared_ptr<Joint> base_joint = joint_container_.begin()->second;
   Pose leg_frame_desired_tip_pose = base_joint->getPoseJointFrame(desired_tip_pose_);
   Pose leg_frame_current_tip_pose = base_joint->getPoseJointFrame(current_tip_pose_);
   Vector3d position_delta = leg_frame_desired_tip_pose.position_ - leg_frame_current_tip_pose.position_;
-  AngleAxisd axis_rotation(leg_frame_desired_tip_pose.rotation_ * leg_frame_current_tip_pose.rotation_.inverse());
+  Quaterniond difference = leg_frame_desired_tip_pose.rotation_ * leg_frame_current_tip_pose.rotation_.inverse();
+  AngleAxisd axis_rotation(difference.normalized());
   Vector3d rotation_delta = axis_rotation.axis() * axis_rotation.angle();
   
   MatrixXd delta = Matrix<double, 6, 1>::Zero();
@@ -376,7 +396,8 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
   delta(4) = ignore_tip_orientation ? 0.0 : rotation_delta[1];
   delta(5) = ignore_tip_orientation ? 0.0 : rotation_delta[2];
   
-  //Generate joint limit cost function and gradient
+  // Generate joint limit cost function and gradient
+  // ref: Chapter 2.4 of Autonomous Robots - Kinematics, Path Planning and Control, Farbod. Fahimi 2008
   i = 0;
   double cost = 0.0;
   VectorXd cost_gradient = VectorXd::Zero(joint_count_);
@@ -396,7 +417,7 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
   // Calculate joint position change
   VectorXd joint_delta_pos(joint_count_);
   identity = MatrixXd::Identity(joint_count_, joint_count_);
-  joint_delta_pos = ik_matrix * delta + (identity - ik_matrix * j) * cost_gradient;
+  joint_delta_pos = jacobian_inverse * delta + (identity - jacobian_inverse * j) * cost_gradient;
 
   int index = 0;
   string clamping_events;
@@ -464,14 +485,20 @@ double Leg::applyIK(const bool& simulation_run, const bool& ignore_tip_orientati
     string axis_label[3] = {"x", "y", "z"};
     for (int i = 0; i < 3; ++i)
     {
-      if (abs(current_tip_pose_.position_[i] - desired_tip_pose_.position_[i]) > IK_TOLERANCE)
+      Vector3d position_error = current_tip_pose_.position_ - desired_tip_pose_.position_;
+      //Quaterniond rotation_error = current_tip_pose_.rotation_ * desired_tip_pose_.rotation_.inverse();
+      if (abs(position_error[i]) > IK_TOLERANCE)
       {
-        double error = current_tip_pose_.position_[i] - desired_tip_pose_.position_[i];
-        double error_percentage = abs(error / desired_tip_pose_.position_[i]) * 100;
-        ROS_WARN("\nInverse kinematics deviation! Calculated tip %s position of leg %s (%s: %f)"
-                 " differs from desired tip position (%s: %f) by %f%%\nThis is due to clamping events:%s\n",
-                 axis_label[i].c_str(), id_name_.c_str(), axis_label[i].c_str(), current_tip_pose_.position_[i],
-                 axis_label[i].c_str(), desired_tip_pose_.position_[i], error_percentage, clamping_events.c_str());
+        string ik_warning = stringFormat("\nInverse kinematics deviation! Calculated tip %s position of leg %s (%s: %f)"
+                                         " differs from desired tip position (%s: %f)\n",
+                                         axis_label[i].c_str(), id_name_.c_str(),
+                                         axis_label[i].c_str(), current_tip_pose_.position_[i],
+                                         axis_label[i].c_str(), desired_tip_pose_.position_[i]);
+        if (!clamping_events.empty())
+        {
+          ik_warning += stringFormat("This is due to clamping events:%s\n", clamping_events.c_str());
+        }
+        ROS_WARN("%s", ik_warning.c_str());
       }
     }
   }

@@ -585,7 +585,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     leg_stepper->iteratePhase();
   }
-  updateWalkPlane();
+  //updateWalkPlane();
 }
 
 /*******************************************************************************************************************//**
@@ -824,7 +824,7 @@ void LegStepper::updatePosition(void)
     {
       swing_origin_tip_position_ = current_tip_position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
-      //debug_contact_range_ = (double(rand())/RAND_MAX-0.5)*0.1; //HACK
+      //debug_contact_range_ = (double(rand())/RAND_MAX-0.5)*0.05; //HACK
         
       // Update default tip position height onto walk plane
       Vector3d walk_plane_normal(-walker_->getWalkPlane()[0], -walker_->getWalkPlane()[1], 1.0);
@@ -848,12 +848,16 @@ void LegStepper::updatePosition(void)
         //HACK
         
         double contact_range = leg_->getTipContactRange();
-        if (contact_range != UNASSIGNED_VALUE)
+        if (contact_range != UNASSIGNED_VALUE && contact_range > 0.01)
         {
           Vector3d b(-walker_->getWalkPlane()[0], -walker_->getWalkPlane()[1], 1.0);
           Vector3d a = current_tip_position_ - target_tip_position_;
           Vector3d projection = (a.dot(b) / b.dot(b))*b;
-          target_tip_position_ += (projection - b.normalized() * contact_range);
+          target_tip_position_ += (b.normalized() * (projection.norm() - contact_range));
+        }
+        else
+        {
+          int stop = 1;
         }
       }
     }
