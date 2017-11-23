@@ -222,18 +222,21 @@ public:
     * Leg stepper object constructor, initialises member variables from walk controller.
     * @param[in] walker A pointer to the walk controller.
     * @param[in] leg A pointer to the parent leg object.
-    * @param[in] identity_tip_position The default walking stance tip position about which the step cycle is based.
+    * @param[in] identity_tip_pose The default walking stance tip pose about which the step cycle is based.
     */
-  LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, const Vector3d& identity_tip_position);
+  LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, const Pose& identity_tip_pose);
 
-  /** Accessor for the current tip position according to the walk controller. */
-  inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
+  /** Accessor for the current tip pose according to the walk controller. */
+  inline Pose getCurrentTipPose(void) { return current_tip_pose_; };
 
-  /** Accessor for the default tip position according to the walk controller. */
-  inline Vector3d getDefaultTipPosition(void) { return default_tip_position_;};
+  /** Accessor for the default tip pose according to the walk controller. */
+  inline Pose getDefaultTipPose(void) { return default_tip_pose_;};
 
   /** Accessor for the current state of the walk cycle. */
   inline WalkState getWalkState(void) { return walker_->getWalkState(); };
+  
+  /** Accessor for the current state of the walk cycle. */
+  inline Vector3d getWalkPlane(void) { return walk_plane_; };
 
   /** Accessor for the current state of the step cycle. */
   inline StepState getStepState(void) { return step_state_; };
@@ -281,19 +284,16 @@ public:
   inline Vector3d getStanceControlNode(const int& i) { return stance_nodes_[i]; };
 
   /**
-    * Modifier for the current tip position according to the walk controller.
-    * @param[in] current_tip_position The new current tip position.
+    * Modifier for the current tip pose according to the walk controller.
+    * @param[in] current_tip_pose The new current tip pose.
     */
-  inline void setCurrentTipPosition(const Vector3d& current_tip_position) 
-  {
-    current_tip_position_ = current_tip_position;
-  };
+  inline void setCurrentTipPose(const Pose& current_tip_pose) { current_tip_pose_ = current_tip_pose; };
 
   /**
-    * Modifier for the default tip position according to the walk controller.
-    * @param[in] tip_position The new default tip position.
+    * Modifier for the default tip pose according to the walk controller.
+    * @param[in] tip_pose The new default tip pose.
     */
-  inline void setDefaultTipPosition(const Vector3d& tip_position) { default_tip_position_ = tip_position; };
+  inline void setDefaultTipPose(const Pose& tip_pose) { default_tip_pose_ = tip_pose; };
 
   /**
     * Modifier for the current state of step cycle.
@@ -328,6 +328,9 @@ public:
   /** Iterates the step phase and updates the progress variables */
   void iteratePhase(void);
   
+  /** Updates the Step state of this LegStepper according to the phase */
+  void updateStepState(void);
+  
   /**
    * Updates the stride vector for this leg based on desired linear and angular velocity, with reference to the 
    * estimated walk plane. Also updates the swing clearance vector with reference to the estimated walk plane.
@@ -339,7 +342,13 @@ public:
     * tip position using two bezier curves for swing phase and one for stance phase. Each Bezier curve uses 5 control
     * nodes designed specifically to give a C2 smooth trajectory for the entire step cycle.
     */
-  void updatePosition(void);
+  void updateTipPosition(void);
+  
+  /**
+   * Updates rotation of tip orthogonal to the plane of the body during swing period. Interpolation from origin 
+   * rotation to orthogonal rotation occurs during first half of swing and is kept orthogonal during second half.
+   */
+  void updateTipRotation(void);
 
   /**
    * Generates control nodes for quartic bezier curve of the swing tip trajectory calculation.
@@ -372,23 +381,24 @@ private:
   Vector3d swing_2_nodes_[5]; ///< An array of 3d control nodes defining the secondary swing bezier curve.
   Vector3d stance_nodes_[5];  ///< An array of 3d control nodes defining the stance bezier curve.
 
+  Vector3d walk_plane_;      ///< A saved version of the estimated walk plane which is kept static during swing periods
   Vector3d stride_vector_;   ///< The desired stride vector.
   Vector3d swing_clearance_; ///< The position relative to the default tip position to achieve during swing period.
 
   double swing_delta_t_ = 0.0;
   double stance_delta_t_ = 0.0;
 
-  Vector3d identity_tip_position_;      ///< The user defined tip position assuming a identity walk plane
-  Vector3d default_tip_position_;       ///< The default tip position per the walk controller, updated with walk plane.
-  Vector3d target_tip_position_;        ///< The target tip position to achieve at the end of a swing period.
-  Vector3d current_tip_position_;       ///< The current tip position per the walk controller.
-  Vector3d current_tip_velocity_;       ///< The default tip velocity per the walk controller.
+  Pose identity_tip_pose_;      ///< The user defined tip pose assuming a identity walk plane
+  Pose default_tip_pose_;       ///< The default tip pose per the walk controller, updated with walk plane.
+  Pose current_tip_pose_;       ///< The current tip pose per the walk controller.
+  Pose target_tip_pose_;        ///< The target tip pose to achieve at the end of a swing period.
+  Pose origin_tip_pose_;        ///< The origin tip pose used in interpolation to target rotation.
+  
+  Vector3d current_tip_velocity_;   ///< The default tip velocity per the walk controller.
   
   Vector3d swing_origin_tip_position_;  ///< The tip position used as the origin for the bezier curve during swing.
   Vector3d swing_origin_tip_velocity_;  ///< The tip velocity used in the generation of bezier curve during swing.
   Vector3d stance_origin_tip_position_; ///< The tip position used as the origin for the bezier curve during stance.
-  
-  double debug_contact_range_ = 0; //HACK
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -397,3 +407,4 @@ public:
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
 #endif /* SYROPOD_HIGHLEVEL_CONTROLLER_WALK_CONTROLLER_H */
+

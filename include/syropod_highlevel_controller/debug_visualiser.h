@@ -25,7 +25,7 @@
 #include "model.h"
 
 #define ROBOT_MODEL_ID 0                  ///< Id for robot model visualisation
-#define WALK_PLANE_ID 10
+#define WALK_PLANE_ID 10                  ///< Id for walk plane visualisation
 #define WORKSPACE_ID 20                   ///< Base id for workspace visualisations
 #define DEFAULT_TIP_POSITION_ID 30        ///< Base id for default tip positions
 #define STRIDE_MARKER_ID 40               ///< Base id for stride visualisations

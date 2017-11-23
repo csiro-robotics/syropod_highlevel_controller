@@ -161,12 +161,12 @@ void StateController::init(void)
 ***********************************************************************************************************************/
 void StateController::loop(void)
 {
-  elapsed_time_ += params_.time_delta.data;
+  elapsed_time_ = min(elapsed_time_ + params_.time_delta.data, UNASSIGNED_VALUE); //HACK
   
   // Posing - updates currentPose for body compensation
   if (robot_state_ != UNKNOWN)
   {
-    poser_->updateCurrentPose(walker_->getBodyHeight(), walker_->getWalkPlane());
+    poser_->updateCurrentPose(robot_state_);
     walker_->setPoseState(poser_->getAutoPoseState()); // Sends pose state from poser to walker
 
     // Admittance control - updates deltaZ values
@@ -431,41 +431,9 @@ void StateController::runningState(void)
 
     // Pose controller takes current tip positions from walker and applies body posing
     poser_->updateStance();
-
-    // Model uses posed tip positions, adds deltaZ from admittance controller and applies inverse kinematics on each leg
-    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-    {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-      leg->setDesiredTipPosition(leg_poser->getCurrentTipPosition());
-      leg->applyIK();
-      if (params_.rough_terrain_mode.data)
-      {
-        double swing_progress = leg->getLegStepper()->getSwingProgress();
-        if (swing_progress > 0.0)
-        {
-          Vector3d walk_plane = walker_->getWalkPlane();
-          Vector3d walk_plane_normal = Vector3d(walk_plane[0], walk_plane[1], -1.0).normalized();
-          Quaterniond walk_plane_rotation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -walk_plane_normal);
-          shared_ptr<Tip> tip = leg->getTip();
-          shared_ptr<Joint> joint = tip->reference_link_->actuating_joint_;
-          Vector3d last_link_vector = tip->getPoseRobotFrame().position_ - joint->getPoseRobotFrame().position_;
-          last_link_vector = walk_plane_rotation._transformVector(last_link_vector.normalized());
-          Quaterniond rotation_error = Quaterniond::FromTwoVectors(last_link_vector, walk_plane_normal);
-          Quaterniond current_tip_rotation = leg->getCurrentTipRotation();
-          Quaterniond target_tip_rotation = rotation_error * current_tip_rotation;
-          double c = smoothStep(min(1.0, 2.0 * swing_progress)); // Control input (0.0 -> 1.0)
-          Quaterniond origin_tip_rotation = leg->getCurrentTipRotation();
-          target_tip_rotation = origin_tip_rotation.slerp(c, target_tip_rotation);
-          leg->setDesiredTipRotation(target_tip_rotation);
-          leg->applyIK(false, false);
-        }
-        else
-        {
-          leg->setOriginTipRotation(leg->getCurrentTipRotation());
-        }
-      }
-    }
+    
+    // Model takes desired tip poses from pose controller and applies inverse/forwards kinematics
+    model_->updateModel();
   }
 }
 
@@ -708,15 +676,15 @@ void StateController::publishLegState(void)
     msg.leg_name.data = leg->getIDName().c_str();
 
     // Tip positions
-    msg.walker_tip_position.x = leg_stepper->getCurrentTipPosition()[0];
-    msg.walker_tip_position.y = leg_stepper->getCurrentTipPosition()[1];
-    msg.walker_tip_position.z = leg_stepper->getCurrentTipPosition()[2];
-    msg.poser_tip_position.x = leg_poser->getCurrentTipPosition()[0];
-    msg.poser_tip_position.y = leg_poser->getCurrentTipPosition()[1];
-    msg.poser_tip_position.z = leg_poser->getCurrentTipPosition()[2];
-    msg.model_tip_position.x = leg->getCurrentTipPosition()[0];
-    msg.model_tip_position.y = leg->getCurrentTipPosition()[1];
-    msg.model_tip_position.z = leg->getCurrentTipPosition()[2];
+    msg.walker_tip_position.x = leg_stepper->getCurrentTipPose().position_[0];
+    msg.walker_tip_position.y = leg_stepper->getCurrentTipPose().position_[1];
+    msg.walker_tip_position.z = leg_stepper->getCurrentTipPose().position_[2];
+    msg.poser_tip_position.x = leg_poser->getCurrentTipPose().position_[0];
+    msg.poser_tip_position.y = leg_poser->getCurrentTipPose().position_[1];
+    msg.poser_tip_position.z = leg_poser->getCurrentTipPose().position_[2];
+    msg.model_tip_position.x = leg->getCurrentTipPose().position_[0];
+    msg.model_tip_position.y = leg->getCurrentTipPose().position_[1];
+    msg.model_tip_position.z = leg->getCurrentTipPose().position_[2];
 
     // Tip velocities
     msg.model_tip_velocity.x = leg->getCurrentTipVelocity()[0];
@@ -915,7 +883,7 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
     transition_state_flag_ = false;
   }
 
-  // In Sequence mode, handle single step transitioning between multiple states
+  // Handle single step transitioning between multiple states
   if (input_state != robot_state_ && !transition_state_flag_)
   {
     new_robot_state_ = input_state;
@@ -924,7 +892,7 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
       new_robot_state_ = static_cast<RobotState>(robot_state_ + 1);
       transition_state_flag_ = ready_for_transition;
     }
-    else if (new_robot_state_ < robot_state_ && params_.start_up_sequence.data)
+    else if (new_robot_state_ < robot_state_)
     {
       new_robot_state_ = static_cast<RobotState>(robot_state_ - 1);
       transition_state_flag_ = ready_for_transition;
@@ -1431,6 +1399,7 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
   bool get_range_values = tip_states.range.size() > 0;
   
   // Iterate through message and assign found contact proximity value to leg objects
+  string error_string;
   for (uint i = 0; i < tip_states.name.size(); ++i)
   {
     string tip_name = tip_states.name[i];
@@ -1447,15 +1416,21 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     if (get_range_values)
     {
       double range = tip_states.range[i].range;
-      if (range != -1.0)
+      if (range >= 0.0)
       {
-        //range *= 0.5; //TODO remove need to halve range value
         range += leg->getTipContactOffset(); // Add offset set at initialisation
         range = max(0.0, range); // Ensure no overrun to negative values.
-        leg->setTipForce(Vector3d(0,0,range)); //HACK
         leg->setTipContactRange(range);
       }
+      else if (range == -2.0)
+      {
+        error_string += stringFormat("\nLost contact with tip range sensor of leg %s.\n", leg_name.c_str());
+      }
     }
+  }
+  if (!error_string.empty())
+  {
+    ROS_ERROR_THROTTLE(THROTTLE_PERIOD, "%s", error_string.c_str());
   }
 }
 

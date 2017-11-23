@@ -31,6 +31,7 @@
 #define VERTICAL_TRANSITION_TIME 3.0 ///< Body raise time during vertical transtion (seconds @ step frequency == 1.0)
 #define STABILITY_THRESHOLD 100 ///< Rotation correction magnitude threshold, ensuring imu posing PID is not unstable.
 #define TRANSITION_STEP_THRESHOLD 20 ///< Number of allowed transition steps before executeSequence() deemed a failure
+#define IMU_POSING_DEADBAND 0.0 ///< Rotation deadband for which imu posing assumes correct rotation (radians)
 
 class AutoPoser;
 
@@ -131,16 +132,16 @@ public:
   /** Resets all pose contributer variables to the identity pose */
   inline void resetAllPosing(void)
   {
-    manual_pose_ = Pose::identity();
-    auto_pose_ = Pose::identity();
-    imu_pose_ = Pose::identity();
-    inclination_pose_ = Pose::identity();
-    admittance_pose_ = Pose::identity();
-    default_pose_ = Pose::identity();
-    ik_error_pose_ = Pose::identity();
-    tip_align_pose_ = Pose::identity();
+    manual_pose_ = Pose::Identity();
+    auto_pose_ = Pose::Identity();
+    imu_pose_ = Pose::Identity();
+    inclination_pose_ = Pose::Identity();
+    admittance_pose_ = Pose::Identity();
+    default_pose_ = Pose::Identity();
+    ik_error_pose_ = Pose::Identity();
+    tip_align_pose_ = Pose::Identity();
     origin_tip_align_pose_ = tip_align_pose_;
-    walk_plane_pose_ = Pose::identity();
+    walk_plane_pose_ = Pose::Identity();
     origin_walk_plane_pose_ = walk_plane_pose_;
   }
 
@@ -220,10 +221,9 @@ public:
   /**
    * Depending on parameter flags, calls multiple posing functions and combines individual poses to update the current
    * desired pose of the robot model.
-   * @param[in] body_height Desired height of the body above ground level - used in inclination posing.
-   * @param[in] walk_plane A Vector representing the walk plane
+   * @param[in] robot_state The current state of the robot
    */
-  void updateCurrentPose(const double& body_height, const Vector3d& walk_plane);
+  void updateCurrentPose(const RobotState& robot_state);
 
   /**
    * Generates a manual pose to be applied to the robot model, based on linear (x/y/z) and angular (roll/pitch/yaw)
@@ -233,9 +233,11 @@ public:
   void updateManualPose(void);
   
   /**
-   * TODO
+   * Poses the body of the robot according to errors in IK for each leg. Ideally, moves legs into configuration
+   * to achieve desired tip positions which cannot be achieved otherwise.
+   * @todo Improve method for returning ik error pose to zero
    */
-  void updateIKErrorPose(const Vector3d& walk_plane);
+  void updateIKErrorPose(void);
   
   /** 
    * Updates a body pose that, when applied, orients the last joint of a swinging leg inline with the tip along the 
@@ -250,9 +252,8 @@ public:
    * Calculates a pose for the robot body such that the robot body is parallel to a calculated walk plane at a normal 
    * offset of the body clearance parameter. The optimal average walking plane is calculated from tip positions of legs 
    * in stance.
-   * @param[in] walk_plane A Vector representing the walk plane
    */
-   void updateWalkPlanePose(const Vector3d& walk_plane);
+   void updateWalkPlanePose(void);
 
   /**
    * Updates the auto pose by feeding each Auto Poser object a phase value and combining the output of each Auto Poser
@@ -273,15 +274,8 @@ public:
   /**
    * Attempts to generate a pose (x/y linear translation only) which shifts the assumed centre of gravity of the body to
    * the vertically projected centre of the support polygon in accordance with the inclination of the terrain.
-   * @param[in] body_height The desired height of the body centre, vertically from the ground.
    */
-  void updateInclinationPose(const double& body_height);
-
-  /**
-   * Attempts to generate a pose (z linear translation only) which corrects for sagging of the body due to the 
-   * admittance controller and poses the body at the correct desired height above the ground.
-   */
-  void updateAdmittancePose(void);
+  void updateInclinationPose(void);
 
   /**
    * Attempts to generate a pose (x/y linear translation only) to position body such that there is a zero sum of moments
@@ -312,7 +306,7 @@ private:
   Pose inclination_pose_; ///< Pose to improve stability on inclined terrain, a component of total applied body pose.
   Pose admittance_pose_ ; ///< Pose to correct admittance control based sagging, a component of total applied body pose.
   Pose default_pose_;     ///< Default pose calculated for different loading patterns
-  Pose ik_error_pose_;
+  Pose ik_error_pose_;    ///< Pose used in correcting errors in inverse kinematics for individual legs
   
   Pose tip_align_pose_;         ///< Pose used to align final links of legs vertically during 2nd half of swing
   Pose origin_tip_align_pose_;  ///< Origin pose used in interpolating tip align pose
@@ -450,11 +444,11 @@ public:
    */
   LegPoser(shared_ptr<PoseController> poser, shared_ptr<Leg> leg);
 
-  /** Accessor for current tip position according to the Leg Poser object. */
-  inline Vector3d getCurrentTipPosition(void) { return current_tip_position_; };
+  /** Accessor for current tip pose according to the Leg Poser object. */
+  inline Pose getCurrentTipPose(void) { return current_tip_pose_; };
 
-  /** Accessor for target tip position. */
-  inline Vector3d getTargetTipPosition(void) { return target_tip_position_; };
+  /** Accessor for target tip pose. */
+  inline Pose getTargetTipPose(void) { return target_tip_pose_; };
 
   /** Accessor for auto pose. */
   inline Pose getAutoPose(void) { return auto_pose_; };
@@ -468,11 +462,11 @@ public:
   /** Returns true if leg has completed its required step in a sequence. */
   inline bool getLegCompletedStep(void) { return leg_completed_step_; };
 
-  /** Modifier for current tip position according to the Leg Poser object. */
-  inline void setCurrentTipPosition(const Vector3d& current) { current_tip_position_ = current; };
+  /** Modifier for current tip pose according to the Leg Poser object. */
+  inline void setCurrentTipPose(const Pose& current) { current_tip_pose_ = current; };
 
-  /** Modifier for target tip position. */
-  inline void setTargetTipPosition(const Vector3d& target) { target_tip_position_ = target; };
+  /** Modifier for target tip pose. */
+  inline void setTargetTipPose(const Pose& target) { target_tip_pose_ = target; };
 
   /** Modifier for auto pose. */
   inline void setAutoPose(const Pose& auto_pose) { auto_pose_ = auto_pose; };
@@ -486,17 +480,17 @@ public:
   /** Modifier for the flag which denotes if leg has completed its required step in a sequence. */
   inline void setLegCompletedStep(const bool& complete) { leg_completed_step_ = complete; };
 
-  /** Accessor to the transition tip position at the requested index. */
-  inline Vector3d getTransitionPosition(const int& index) { return transition_positions_[index]; }
+  /** Accessor to the transition tip poses at the requested index. */
+  inline Pose getTransitionPose(const int& index) { return transition_poses_[index]; }
 
-  /** Returns true if the transition position, of the requested index, exists. */
-  inline bool hasTransitionPosition(const int& index) { return int(transition_positions_.size()) > index; };
+  /** Returns true if the transition pose, of the requested index, exists. */
+  inline bool hasTransitionPose(const int& index) { return int(transition_poses_.size()) > index; };
 
-  /** Adds tip position to vector of transition tip positions. */
-  inline void addTransitionPosition(const Vector3d& transition) { transition_positions_.push_back(transition); };
+  /** Adds tip position to vector of transition tip poses. */
+  inline void addTransitionPose(const Pose& transition) { transition_poses_.push_back(transition); };
 
-  /** Clears all tip positions from the vector of transition tip positions. */
-  inline void resetTransitionSequence(void) { transition_positions_.clear(); };
+  /** Clears all tip poses from the vector of transition tip poses. */
+  inline void resetTransitionSequence(void) { transition_poses_.clear(); };
 
   /** Reset the key variables of stepToPosition() ready for new stepping maneuver. */
   inline int resetStepToPosition(void)
@@ -521,7 +515,7 @@ public:
    * Uses bezier curves to smoothly update (over many iterations) the desired tip position of the leg associated with
    * this Leg Poser object, from the original tip position at the first iteration of this function to the target tip
    * position defined by the input argument.
-   * @param[in] target_tip_position A 3d vector defining the target tip position in reference to the body centre frame
+   * @param[in] target_tip_pose The target tip pose in reference to the body centre frame
    * @param[in] target_pose A Pose to be linearly applied to the tip position over the course of the maneuver
    * @param[in] lift_height The height which the stepping leg trajectory should reach at its peak.
    * @param[in] time_to_step The time period to complete this maneuver.
@@ -529,7 +523,7 @@ public:
    * be applied to the target tip position.
    * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
    */
-  int stepToPosition(const Vector3d& target_tip_position, const Pose& target_pose,
+  int stepToPosition(const Pose& target_tip_pose, const Pose& target_pose,
                      const double& lift_height, const double& time_to_step, const bool& apply_delta_z = true);
 
   /**
@@ -557,11 +551,11 @@ private:
 
   vector<double> origin_joint_positions_; ///< Vector containing joint positions of leg joints at the first iteration.
 
-  Vector3d origin_tip_position_;  ///< Origin tip position used in bezier curve equations.
-  Vector3d current_tip_position_; ///< Current tip position according to the pose controller.
-  Vector3d target_tip_position_;  ///< Target tip position used in bezier curve equations.
+  Pose origin_tip_pose_;  ///< Origin tip pose used in bezier curve equations.
+  Pose current_tip_pose_; ///< Current tip pose according to the pose controller.
+  Pose target_tip_pose_;  ///< Target tip pose used in bezier curve equations.
 
-  vector<Vector3d, aligned_allocator<Vector3d>> transition_positions_; ///< Vector of transition target tip positions.
+  vector<Pose, aligned_allocator<Pose>> transition_poses_; ///< Vector of transition target tip poses.
 
   bool leg_completed_step_ = false; ///< Flag denoting if leg has completed its required step in a sequence.
 

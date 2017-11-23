@@ -148,7 +148,7 @@ void AdmittanceController::updateStiffness(shared_ptr<WalkController> walker)
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (leg_stepper->getStepState() == SWING)
     {
-      double z_diff = leg_stepper->getCurrentTipPosition()[2] - leg_stepper->getDefaultTipPosition()[2];
+      double z_diff = leg_stepper->getCurrentTipPose().position_[2] - leg_stepper->getDefaultTipPose().position_[2];
       double step_reference = 0;
       step_reference += abs(z_diff / walker->getStepClearance());
 

@@ -53,6 +53,9 @@
 #define PROGRESS_COMPLETE 100 ///< Vale denoting 100% and a completion of progress of various functions
 #define THROTTLE_PERIOD 5  ///< Default throttle period for all throttled rosconsole messages (seconds)
 
+#define UNDEFINED_ROTATION Quaterniond(0,0,0,0)
+#define UNDEFINED_POSITION Vector3d(1e10, 1e10, 1e10)
+
 using namespace Eigen;
 using namespace std;
 
@@ -164,63 +167,93 @@ inline double smoothStep(const double& control_input)
 }
 
 /**
- * Return rotation with shorter path between identical rotations on quaternion. //TODO Remove?
- * @params[in] current The reference rotation for the target rotation.
- * @params[in] target The target rotation to check for shorter rotation path.
+ * Return rotation with shorter path between identical rotations on quaternion.
+ * @params[in] test The test rotation to check for shorter rotation path.
+ * @params[in] reference The reference rotation for the target rotation.
  */
-inline Quaterniond correctTargetRotation(const Quaterniond& current, const Quaterniond& target)
+inline Quaterniond correctRotation(const Quaterniond& test, const Quaterniond& reference)
 {
-  if (current.dot(target) < 0.0)
+  if (test.dot(reference) < 0.0)
   {
-    return Quaterniond(-target.w(), -target.x(), -target.y(), -target.z());
+    return Quaterniond(-test.w(), -test.x(), -test.y(), -test.z());
   }
   else
   {
-    return target;
+    return test;
   }
 }
 
 /**
- * Converts Eigen Quaternion to Euler angles (extrinsic roll/pitch/yaw order)
- * @params[in] q Eigen Quaterniond of rotation to be converted
+ * Converts Euler Angles (intrisic or extrinsic roll/pitch/yaw order) to Eigen Quaternion
+ * @param[in] euler Eigen Vector3d of Euler angles (roll, pitch, yaw) to be converted
+ * @params[in] intrinsic Defines whether conversion occurs intrinsically or extrinsically.
  */
-inline Vector3d quaternionToEulerAngles(const Quaterniond& q)
+inline Quaterniond eulerAnglesToQuaternion(const Vector3d& euler, const bool& intrinsic = false)
 {
-  Vector3d euler = (q.normalized()).toRotationMatrix().eulerAngles(0,1,2);
-  // Convert Eigen Euler Angles into +-PI ranges //TODO Refactor
-  if (euler[0] > M_PI/2.0)
+  if (intrinsic)
   {
-    euler[0] -= M_PI;
-    if (euler[1] > M_PI/2.0)
-    {
-      euler[1] = -euler[1] + M_PI;
-    }
-    else if (euler[1] < M_PI/2.0)
-    {
-      euler[1] = -euler[1] - M_PI;
-    }
-    if (euler[2] > M_PI/2.0)
-    {
-      euler[2] -= M_PI;
-    }
-    else if (euler[2] < M_PI/2.0)
-    {
-      euler[2] += M_PI;
-    }
-  };
-  return euler;
+    return Quaterniond(AngleAxisd(euler[0], Vector3d::UnitX()) *
+                       AngleAxisd(euler[1], Vector3d::UnitY()) *
+                       AngleAxisd(euler[2], Vector3d::UnitZ()));
+  }
+  else
+  {
+    return Quaterniond(AngleAxisd(euler[2], Vector3d::UnitZ()) *
+                       AngleAxisd(euler[1], Vector3d::UnitY()) *
+                       AngleAxisd(euler[0], Vector3d::UnitX()));
+  }
 }
 
 /**
- * Converts Euler Angles (extrinsic roll/pitch/yaw order) to Eigen Quaternion
- * @param[in] v Eigen Vector3d of Euler angles (roll, pitch, yaw) to be converted
+ * Converts Eigen Quaternion to Euler angles (intrinsic or extrinsic roll/pitch/yaw order) and enures values are in the
+ * range -PI:PI.
+ * @params[in] rotation Eigen Quaterniond of rotation to be converted
+ * @params[in] intrinsic Defines whether conversion occurs intrinsically or extrinsically.
  */
-inline Quaterniond eulerAnglesToQuaternion(const Vector3d& v)
+inline Vector3d quaternionToEulerAngles(const Quaterniond& rotation, const bool& intrinsic = false)
 {
-  Quaterniond q = Quaterniond(AngleAxisd(v[0], Vector3d::UnitX()) *
-                              AngleAxisd(v[1], Vector3d::UnitY()) *
-                              AngleAxisd(v[2], Vector3d::UnitZ()));
-  return correctTargetRotation(Quaterniond::Identity(), q);
+  Vector3d result(0,0,0);
+  
+  // Intrinsic rotation (roll, pitch, yaw order)
+  if (intrinsic)
+  {
+    result = rotation.toRotationMatrix().eulerAngles(0,1,2);
+  }
+  // Extrinsic rotation (equivalent to intrinsic using opposite (yaw, pitch, roll) order)
+  else
+  {
+    result = rotation.toRotationMatrix().eulerAngles(2,1,0);
+  }
+  /* 
+   * RotationMatrix::eulerAngles returns values in the ranges [0:PI, -PI:PI, -PI:PI] which means that in order to
+   * represent a rotation smaller than zero about the first axis, the first axis is pointed in the opposite direction 
+   * and is then flipped around using the 2nd and 3rd axes (i.e. 2nd and 3rd axes += PI). The resultant euler rotation
+   * is correct but results in angles outside the desired range of -PI:PI. The following code checks if this flipping
+   * occurs by checking is the angles of the 2nd and 3rd axes are greater than PI/2. If so all resultant euler
+   * angles are modified such that they range between -PI:PI.
+   */
+  if ((abs(result[1]) > M_PI/2 || abs(result[2]) > M_PI/2)) //Flipped
+  {
+    result[0] -= M_PI;
+    if (result[1] > M_PI/2.0)
+    {
+      result[1] = -result[1] + M_PI;
+    }
+    else if (result[1] < M_PI/2.0)
+    {
+      result[1] = -result[1] - M_PI;
+    }
+    if (result[2] > M_PI/2.0)
+    {
+      result[2] -= M_PI;
+    }
+    else if (result[2] < M_PI/2.0)
+    {
+      result[2] += M_PI;
+    }
+  }
+  
+  return intrinsic ? result : Vector3d(result[2], result[1], result[0]);
 }
 
 /**

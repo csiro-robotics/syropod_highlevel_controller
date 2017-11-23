@@ -32,7 +32,7 @@ DebugVisualiser::DebugVisualiser(void)
   stride_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/stride", 1000);
   tip_force_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_force", 1000);
   tip_rotation_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_rotation", 1000);
-  odometry_pose_ = Pose::identity();
+  odometry_pose_ = Pose::Identity();
 }
 
 /*******************************************************************************************************************//**
@@ -139,7 +139,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
     point.z = previous_joint_position[2];
     leg_line_list.points.push_back(point);
 
-    Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
+    Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
     point.x = tip_position[0];
     point.y = tip_position[1];
     point.z = tip_position[2];
@@ -220,7 +220,7 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& cur
   pose.position_ += pose.rotation_._transformVector(current_pose.position_);
   pose.rotation_ *= current_pose.rotation_;
 
-  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
+  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
   geometry_msgs::Point point;
   point.x = tip_position[0];
   point.y = tip_position[1];
@@ -248,7 +248,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       Pose current_pose = model->getCurrentPose();
       pose.position_ += pose.rotation_._transformVector(current_pose.position_);
       pose.rotation_ *= current_pose.rotation_;
-      Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
+      Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
       
       visualization_msgs::Marker terrain_marker;
       terrain_marker.header.frame_id = "/fixed_frame";
@@ -269,7 +269,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       point.z = tip_position[2] - terrain_marker.scale.z / 2.0;
       terrain_marker.points.push_back(point);
       tip_trajectory_publisher_.publish(terrain_marker);
-      terrain_marker_id_ = (terrain_marker_id_ + 1) % (model->getLegCount() * 5);
+      terrain_marker_id_ = (terrain_marker_id_ + 1) % (model->getLegCount());
     }
   }
 }
@@ -378,9 +378,9 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   default_tip_position.color.b = leg_stepper->isAtCorrectPhase() ? 0.0 : 1.0;
   default_tip_position.color.a = 1;
   
-  default_tip_position.pose.position.x = leg_stepper->getDefaultTipPosition()[0];
-  default_tip_position.pose.position.y = leg_stepper->getDefaultTipPosition()[1];
-  default_tip_position.pose.position.z = leg_stepper->getDefaultTipPosition()[2];
+  default_tip_position.pose.position.x = leg_stepper->getDefaultTipPose().position_[0];
+  default_tip_position.pose.position.y = leg_stepper->getDefaultTipPose().position_[1];
+  default_tip_position.pose.position.z = leg_stepper->getDefaultTipPose().position_[2];
   
   workspace_publisher_.publish(default_tip_position);
 
@@ -397,9 +397,9 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace.color.a = 1;
 
   geometry_msgs::Point origin_point;
-  origin_point.x = leg_stepper->getDefaultTipPosition()[0];
-  origin_point.y = leg_stepper->getDefaultTipPosition()[1];
-  origin_point.z = leg_stepper->getDefaultTipPosition()[2];
+  origin_point.x = leg_stepper->getDefaultTipPose().position_[0];
+  origin_point.y = leg_stepper->getDefaultTipPose().position_[1];
+  origin_point.z = leg_stepper->getDefaultTipPose().position_[2];
   map<int, double>::iterator it;
   geometry_msgs::Point first_point;
   for (it = workspace_map.begin(); it != workspace_map.end(); ++it)
@@ -439,9 +439,9 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   stride.action = visualization_msgs::Marker::ADD;
   geometry_msgs::Point origin;
   geometry_msgs::Point target;
-  origin.x = leg_stepper->getDefaultTipPosition()[0];
-  origin.y = leg_stepper->getDefaultTipPosition()[1];
-  origin.z = leg_stepper->getDefaultTipPosition()[2];
+  origin.x = leg_stepper->getDefaultTipPose().position_[0];
+  origin.y = leg_stepper->getDefaultTipPose().position_[1];
+  origin.z = leg_stepper->getDefaultTipPose().position_[2];
   target = origin;
   target.x += (stride_vector[0] / 2.0);
   target.y += (stride_vector[1] / 2.0);
@@ -475,7 +475,7 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg, const Pose& current_
   tip_force.id = TIP_FORCE_MARKER_ID + leg->getIDNumber();
   tip_force.type = visualization_msgs::Marker::ARROW;
   tip_force.action = visualization_msgs::Marker::ADD;
-  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
+  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
   geometry_msgs::Point origin;
   geometry_msgs::Point target;
   origin.x = tip_position[0];
@@ -517,46 +517,43 @@ void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& curre
   tip_rotation_axis.scale.x = 0.01 * sqrt(marker_scale_);
   tip_rotation_axis.scale.y = 0.015 * sqrt(marker_scale_);
   tip_rotation_axis.scale.z = 0.02 * sqrt(marker_scale_);
-  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPosition());
+  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
   geometry_msgs::Point origin;
   origin.x = tip_position[0];
   origin.y = tip_position[1];
   origin.z = tip_position[2];
   geometry_msgs::Point target;
-  int id = TIP_ROTATION_MARKER_ID + 6*leg->getIDNumber();
-  for (int i=0; i < 3; ++i)
-  {
-    Vector3d base_direction_vector(0.0, 0.0, 0.0);
-    Vector3d direction_vector = base_direction_vector;
-    base_direction_vector[i] = 0.1 * sqrt(marker_scale_); //Arrow Length
-    tip_rotation_axis.color.r = (i == 0 ? 1 : 0);
-    tip_rotation_axis.color.g = (i == 1 ? 1 : 0);
-    tip_rotation_axis.color.b = (i == 2 ? 1 : 0);
+  int id = TIP_ROTATION_MARKER_ID + 2*leg->getIDNumber();
+  
+  Vector3d base_direction_vector(0.0, 0.0, 0.0);
+  Vector3d direction_vector = base_direction_vector;
+  base_direction_vector[0] = 0.1 * sqrt(marker_scale_); //Arrow Length
+  tip_rotation_axis.color.r = 1.0;
 
-    // Add desired tip rotation axis (x/y/z)
-    tip_rotation_axis.id = ++id;
-    direction_vector = leg->getDesiredTipRotation()._transformVector(base_direction_vector);
-    target.x = origin.x + direction_vector[0];
-    target.y = origin.y + direction_vector[1];
-    target.z = origin.z + direction_vector[2];
-    tip_rotation_axis.points.push_back(origin);
-    tip_rotation_axis.points.push_back(target);
-    tip_rotation_axis.color.a = 0.25;
-    tip_rotation_publisher_.publish(tip_rotation_axis);
-    tip_rotation_axis.points.clear();
-    
-    // Add current tip rotation axis (x/y/z)
-    tip_rotation_axis.id = ++id;
-    direction_vector = (pose.rotation_ * leg->getCurrentTipRotation())._transformVector(base_direction_vector);
-    target.x = origin.x + direction_vector[0];
-    target.y = origin.y + direction_vector[1];
-    target.z = origin.z + direction_vector[2];
-    tip_rotation_axis.points.push_back(origin);
-    tip_rotation_axis.points.push_back(target);
-    tip_rotation_axis.color.a = 1;
-    tip_rotation_publisher_.publish(tip_rotation_axis);
-    tip_rotation_axis.points.clear();
-  }
+  // Add desired tip rotation axis (x/y/z) (if defined)
+  bool desired_rotation_defined = !leg->getDesiredTipPose().rotation_.isApprox(UNDEFINED_ROTATION);
+  tip_rotation_axis.id = ++id;
+  direction_vector = (pose.rotation_ * leg->getDesiredTipPose().rotation_)._transformVector(base_direction_vector);
+  target.x = origin.x + direction_vector[0];
+  target.y = origin.y + direction_vector[1];
+  target.z = origin.z + direction_vector[2];
+  tip_rotation_axis.points.push_back(origin);
+  tip_rotation_axis.points.push_back(target);
+  tip_rotation_axis.color.a = desired_rotation_defined ? 0.25 : 0.0; //Do not display undefined desired rotation
+  tip_rotation_publisher_.publish(tip_rotation_axis);
+  tip_rotation_axis.points.clear();
+  
+  // Add current tip rotation axis (x/y/z)
+  tip_rotation_axis.id = ++id;
+  direction_vector = (pose.rotation_ * leg->getCurrentTipPose().rotation_)._transformVector(base_direction_vector);
+  target.x = origin.x + direction_vector[0];
+  target.y = origin.y + direction_vector[1];
+  target.z = origin.z + direction_vector[2];
+  tip_rotation_axis.points.push_back(origin);
+  tip_rotation_axis.points.push_back(target);
+  tip_rotation_axis.color.a = 1;
+  tip_rotation_publisher_.publish(tip_rotation_axis);
+  tip_rotation_axis.points.clear();
 }
 
 /***********************************************************************************************************************

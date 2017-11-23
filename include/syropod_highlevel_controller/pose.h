@@ -39,7 +39,7 @@ public:
   inline Pose(const Vector3d& position, const Quaterniond& rotation)
   {
     position_ = position;
-    rotation_ = rotation.normalized();
+    rotation_ = rotation;
   };
   
   /**
@@ -49,7 +49,7 @@ public:
    */
   inline bool operator==(const Pose& pose)
   { 
-    return (position_ == pose.position_ && rotation_.isApprox(pose.rotation_));
+    return position_.isApprox(pose.position_) && rotation_.isApprox(pose.rotation_);
   }
 
   /**
@@ -59,7 +59,7 @@ public:
    */
   inline bool operator!=(const Pose& pose)
   {
-    return (position_ != pose.position_ || !rotation_.isApprox(pose.rotation_));
+    return !position_.isApprox(pose.position_) || !rotation_.isApprox(pose.rotation_);
   }
 
   /**
@@ -146,28 +146,18 @@ public:
    * Returns pose with position and rotation elements set to identity values.
    * @return The Identity Pose
    */
-  inline static Pose identity(void) 
+  inline static Pose Identity(void) 
   { 
-    return Pose(Vector3d(0, 0, 0), Quaterniond(1, 0, 0, 0)); 
+    return Pose(Vector3d::Zero(), Quaterniond::Identity()); 
   }
   
   /**
-   * Returns pose with position and rotation elements all set to zero.
-   * @return The Zero Pose
+   * Returns pose with position and rotation elements all set to undefined values.
+   * @return The Undefined Pose
    */
-  inline static Pose zero(void) 
+  inline static Pose Undefined(void) 
   { 
-    return Pose(Vector3d(0, 0, 0), Quaterniond(0, 0, 0, 0));
-  }
-  
-  /**
-   * Returns pose with position and rotation elements all set to UNASSIGNED value.
-   * @return The UNASSIGNED Pose
-   */
-  inline static Pose unassigned(void)
-  {
-    return Pose(Vector3d(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE),
-                Quaterniond(UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE, UNASSIGNED_VALUE));
+    return Pose(UNDEFINED_POSITION, UNDEFINED_ROTATION);
   }
   
   Vector3d position_;     ///< The position element of the pose class

@@ -24,7 +24,7 @@
 #include "pose.h"
 #include "syropod_highlevel_controller/LegState.h"
 
-#define IK_TOLERANCE 0.005 ///< Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
+#define IK_TOLERANCE 0.015 ///< Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
 #define HALF_BODY_DEPTH 0.05 ///< Threshold used to estimate if leg tip has broken the plane of the robot body. (m)
 #define DLS_COEFFICIENT 0.02 ///< Coefficient used in Damped Least Squares method for inverse kinematics.
 #define JOINT_LIMIT_COST_WEIGHT 0.1 ///< Gain used in determining cost weight for joints approaching limits
@@ -109,6 +109,12 @@ public:
    * @param[in] leg_id_name The identification name of the requested leg object pointer.
    */
   shared_ptr<Leg> getLegByIDName(const string& leg_id_name);
+  
+  /**
+   * Updates model configuration by applying inverse kinematics to solve desired tip poses generated from walk/pose
+   * controllers.
+   */
+  void updateModel(void);
 
 private:
   const Parameters& params_;     ///< Pointer to parameter data structure for storing parameter variables.
@@ -139,6 +145,12 @@ public:
     * @param[in] params A pointer to the parameter data structure.
     */
   Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params);
+  
+  /**
+   * Copy Constructor for a robot model leg object. Initialises member variables from existing Leg object.
+   * @param[in] leg A pointer to the parent robot model.
+   */
+  Leg(shared_ptr<Leg> leg);
 
   /** Accessor for identification name of this leg object. */
   inline string getIDName(void) { return id_name_; };
@@ -197,23 +209,20 @@ public:
   /** Accessor for the LegPoser object associated with this leg. */
   inline shared_ptr<LegPoser> getLegPoser(void) { return leg_poser_; };
   
-  /** Accessor for the current tip position of this leg. */
-  inline Vector3d getDesiredTipPosition(void) { return desired_tip_pose_.position_; };
-  
-  /** Accessor for the current tip rotation of this leg. */
-  inline Quaterniond getDesiredTipRotation(void) { return desired_tip_pose_.rotation_; };
+  /** Accessor for the desired tip pose of this leg. */
+  inline Pose getDesiredTipPose(void) { return desired_tip_pose_; };
 
-  /** Accessor for the current tip velocity of this leg. */
+  /** Accessor for the desired tip velocity of this leg. */
   inline Vector3d getDesiredTipVelocity(void) { return desired_tip_velocity_; };
 
-  /** Accessor for the current tip position of this leg. */
-  inline Vector3d getCurrentTipPosition(void) { return current_tip_pose_.position_; };
-  
-  /** Accessor for the current tip rotation of this leg. */
-  inline Quaterniond getCurrentTipRotation(void) { return current_tip_pose_.rotation_; };
+  /** Accessor for the current tip pose of this leg. */
+  inline Pose getCurrentTipPose(void) { return current_tip_pose_; };
 
   /** Accessor for the current tip velocity of this leg. */
   inline Vector3d getCurrentTipVelocity(void) { return current_tip_velocity_; };
+  
+  /** Accessor for the current pose of the robot body. */
+  inline Pose getBodyPose(void) { return model_->getCurrentPose(); };
 
   /**
     * Modifier for the curent state of this leg.
@@ -356,17 +365,11 @@ public:
   shared_ptr<Link> getLinkByIDName(const string& link_id_name);
 
   /**
-    * Sets desired tip position to the input, applying admittance controller vertical offset (delta z) if requested.
-    * @param[in] tip_position The input desired tip position.
-    * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip position.
+    * Sets desired tip pose to the input, applying admittance controller vertical offset (delta z) if requested.
+    * @param[in] tip_pose The input desired tip pose.
+    * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip pose.
     */
-  void setDesiredTipPosition(const Vector3d& tip_position, bool apply_delta_z = true);
-  
-  /**
-    * Modifier for the desired tip rotation of this leg.
-    * @param[in] tip_rotation The desired rotation of the tip.
-    */
-  inline void setDesiredTipRotation(const Quaterniond& tip_rotation) { desired_tip_pose_.rotation_ = tip_rotation; };
+  void setDesiredTipPose(const Pose& tip_pose = Pose::Undefined(), bool apply_delta_z = false);
 
   /**
     * Modifier for the desired tip velocity of the tip of this leg object.
@@ -374,26 +377,40 @@ public:
     */
   inline void setDesiredTipVelocity(const Vector3d& tip_velocity) { desired_tip_velocity_ = tip_velocity; };
   
-  inline void setOriginTipRotation(const Quaterniond& tip_rotation) { origin_tip_rotation_ = tip_rotation; };
-  inline Quaterniond getOriginTipRotation(void) { return origin_tip_rotation_; };
-  
   /**
     * Calculates an estimate for the tip force vector acting on this leg, using the calculated state jacobian and 
     * values for the torque on each joint in the leg.
     */
   void calculateTipForce(void);
+  
+  /**
+    * Applies inverse kinematics to calculate required joint positions to achieve desired tip pose. Inverse
+    * kinematics is generated via the calculation of a jacobian for the current state of the leg, which is used as per
+    * the Damped Least Squares method to generate a change in joint position for each joint.
+    * @param[in] delta The iterative change in tip position and rotation
+    * @param[in] solve_rotation Flag denoting if IK should solve for rotation as well rather than just position.
+    * @todo Calculate optimal DLS coefficient (this value currently works sufficiently).
+    */
+  VectorXd solveIK(const MatrixXd& delta, const bool& solve_rotation);
+  
+  /**
+    * Updates the joint positions of each joint in this leg based on the input vector. Clamps joint velocities and
+    * positions based on limits and calculates a ratio of proximity of joint position to limits.
+    * @param[in] delta The iterative change in joint position for each joint.
+    * @param[in] simulation Flag denoting if this execution is for simulation purposes rather than normal use.
+    * @return The ratio of the proximity of the joint position to it's limits (i.e. 0.0 = at limit, 1.0 = furthest away)
+    */
+  double updateJointPositions(const VectorXd& delta, const bool& simulation);
 
   /**
-    * Applies inverse kinematics to calculate required joint positions to achieve desired tip position. Inverse
-    * kinematics is generated via the calculation of a jacobian for the current state of the leg, which is used as per
-    * the Damped Least Squares method to generate a change in joint position for each joint. Returns a ratio of the
-    * joint closest to position limits.
-    * @param[in] simulation_run Flag denoting if this execution is for simulation purposes rather than normal use.
-    * @param[in] ignore_tip_orientation Flag denoting if specific orientation of tip is desired or can be ignored
-    * @todo Calculate optimal DLS coefficient (this value currently works sufficiently).
-    * @todo Modify return value to output zero on IK failure to achieve desired tip position
+    * Applies inverse kinematics solution to achieve desired tip position. Clamps joint positions and velocities
+    * within limits and applies forward kinematics to update tip position. Returns an estimate of the chance of solving
+    * IK within thresholds on the next iteration. 0.0 denotes failure on THIS iteration.
+    * @param[in] simulation Flag denoting if this execution is for simulation purposes rather than normal use.
+    * @return A double between 0.0 and 1.0 which estimates the chance of solving IK within thresholds on the next 
+    * iteration. 0.0 denotes failure on THIS iteration.
     */
-  double applyIK(const bool& simulation_run = false, const bool& ignore_tip_orientation = true);
+  double applyIK(const bool& simulation = false);
 
   /**
     * Updates joint transforms and applies forward kinematics to calculate a new tip pose. 
@@ -401,12 +418,6 @@ public:
     * @param[in] set_current Flag denoting of the calculated tip pose should be set as the current tip pose.
     */
   Pose applyFK(const bool& set_current = true);
-
-  /**
-    * Calls jocobian creation function for requested degrees of freedom.
-    * @param[in] dh A vector containing a map of DH parameter strings and values for each degree of freedom.
-    */
-  MatrixXd createJacobian(const vector<map<string, double>>& dh);
 
 private:
   shared_ptr<Model> model_;        ///< A pointer to the parent robot model object.
@@ -432,13 +443,11 @@ private:
   double virtual_damping_ratio_; ///< The virtual damping ratio of the admittance controller virtual model of this leg.
   state_type admittance_state_;  ///< The admittance state of the admittance controller virtual model of this leg.
 
-  Pose desired_tip_pose_; ///< Desired tip pose before applying Inverse/Forward kinematics
-  Pose current_tip_pose_; ///< Current tip pose according to the model
+  Pose desired_tip_pose_;        ///< Desired tip pose before applying Inverse/Forward kinematics
+  Pose current_tip_pose_;        ///< Current tip pose according to the model
   
   Vector3d desired_tip_velocity_; ///< Desired linear tip velocity before applying Inverse/Forward kinematics
   Vector3d current_tip_velocity_; ///< Current linear tip velocity according to the model
-  
-  Quaterniond origin_tip_rotation_;
 
   int group_; ///< Leg stepping coordination group (Either 0 or 1).
 
@@ -467,6 +476,12 @@ public:
     * @param[in] params A pointer to the parameter data structure.
     */
   Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params);
+  
+  /**
+   * Copy Constructor for Link object. Initialises member variables from existing Link object.
+   * @param[in] link A pointer to an existing link object.
+   */
+  Link(shared_ptr<Link> link);
 
   const shared_ptr<Leg> parent_leg_;        ///< A pointer to the parent leg object associated with this link.
   const shared_ptr<Joint> actuating_joint_; ///< A pointer to the actuating Joint object associated with this link.
@@ -498,6 +513,12 @@ public:
   Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, const Parameters& params);
   
   /**
+   * Copy Constructor for Joint object. Initialises member variables from existing Joint object.
+   * @param[in] joint A pointer to an existing Joint object.
+   */
+  Joint(shared_ptr<Joint> joint);
+  
+  /**
    * Constructor for null joint object. Acts as a null joint object for use in ending kinematic chains.
    */
   Joint(void);
@@ -520,7 +541,7 @@ public:
     * @param[in] joint_frame_pose The pose relative to the joint frame that is requested in the robot frame.
     * @return The input pose transformed into the robot frame.
     */
-  inline Pose getPoseRobotFrame(const Pose& joint_frame_pose = Pose::identity()) const
+  inline Pose getPoseRobotFrame(const Pose& joint_frame_pose = Pose::Identity()) const
   {
     Matrix4d transform = getTransformFromJoint();
     return joint_frame_pose.transform(transform);
@@ -531,7 +552,7 @@ public:
     * @param[in] robot_frame_pose The position relative to the robot frame that is requested in the joint frame.
     * @return The input pose transformed into the frame of this joint.
     */
-  inline Pose getPoseJointFrame(const Pose& robot_frame_pose = Pose::identity()) const
+  inline Pose getPoseJointFrame(const Pose& robot_frame_pose = Pose::Identity()) const
   {
     MatrixXd transform = getTransformFromJoint();
     return robot_frame_pose.transform(transform.inverse());
@@ -580,6 +601,12 @@ public:
     * @param[in] reference_link A pointer to the reference link object, which is attached to this tip object.
     */
   Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link);
+  
+  /**
+   * Copy Constructor for Tip object. Initialises member variables from existing Tip object.
+   * @param[in] tip A pointer to an existing tip object.
+   */
+  Tip(shared_ptr<Tip> tip);
 
   /**
     * Returns the transformation matrix from the specified target joint  of the robot model to the tip. 
@@ -599,7 +626,7 @@ public:
     * @param[in] tip_frame_pose The pose relative to the tip frame that is requested in the robot frame.
     * @return The input pose transformed into the robot frame.
     */
-  inline Pose getPoseRobotFrame(const Pose& tip_frame_pose = Pose::identity()) const
+  inline Pose getPoseRobotFrame(const Pose& tip_frame_pose = Pose::Identity()) const
   {
     Matrix4d transform = getTransformFromJoint();
     return tip_frame_pose.transform(transform);
@@ -610,7 +637,7 @@ public:
   * @param[in] robot_frame_pose The pose relative to the robot frame that is requested in the tip frame.
   * @return The input pose transformed into the tip frame.
   */
-  inline Pose getPoseTipFrame(const Pose& robot_frame_pose = Pose::identity()) const
+  inline Pose getPoseTipFrame(const Pose& robot_frame_pose = Pose::Identity()) const
   {
     Matrix4d transform = getTransformFromJoint();
     return robot_frame_pose.transform(transform.inverse());
