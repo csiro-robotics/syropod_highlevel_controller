@@ -2,7 +2,7 @@
 
 High level controller for CSIRO multi-legged robots (Syropods).
 
-Current version: v0.5.7
+Current version: v0.5.8
 
 Please use readme in launch folder of individual platform for information on setting up platform for use with Syropod High-level Controller.
 
@@ -244,4 +244,7 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Consolidated tip force callbacks into single callback with custom message on topic "/tip_states"
     - Added visualisations for the estimated walk plane and terrain
 - v0.5.8
-    - Complete merge of v0.5.5 with v0.5.7
+    - Implemented Plan Execution Mode (Direct joint manipulation to a series of input configurations)
+    - Merged Auto Navigation mode and Cruise Control mode to free up Y Button for Plan Execution Mode
+- v0.5.9
+    - Complete merge of v0.5.5 with v0.5.8

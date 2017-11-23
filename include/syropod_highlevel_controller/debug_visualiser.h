@@ -5,8 +5,8 @@
  *  @brief   Handles publishing of Syropod model info for debugging in RVIZ.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    October 2017
- *  @version 0.5.7
+ *  @date    November 2017
+ *  @version 0.5.8
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
