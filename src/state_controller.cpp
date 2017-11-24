@@ -71,6 +71,10 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
                                                      &StateController::parameterSelectionCallback, this);
   parameter_adjustment_subscriber_    = n_.subscribe("syropod_remote/parameter_adjustment", 1,
                                                      &StateController::parameterAdjustCallback, this);
+  
+  // Planner subscriptions
+  planner_subscriber_ = n_.subscribe(params_.syropod_type.data + "_shc_interface/desired_configuration", 1,
+                                     &StateController::plannerCallback, this);
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);
@@ -1434,7 +1438,16 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
   }
 }
 
-/***********************************************************************************************************************
+/*******************************************************************************************************************//**
+ * Callback which handles setting desired configuration for pose controller from planner interface.
+ * @param desired_configuration The desired configuration that the planner requests transition to.
+***********************************************************************************************************************/
+void StateController::plannerCallback(const sensor_msgs::JointState& desired_configuration)
+{
+  poser_->setDesiredConfiguration(desired_configuration);
+}
+
+/*******************************************************************************************************************//**
  * Acquires parameter values from the ros param server and initialises parameter objects. Also sets up dynamic
  * reconfigure server.
 ***********************************************************************************************************************/

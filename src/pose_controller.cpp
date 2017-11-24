@@ -477,9 +477,8 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
 
 /*******************************************************************************************************************//**
  * Iterates through legs in robot model and, in simulation, moves them in a linear trajectory directly from
- * their current tip position to its default tip position (as defined by the walk controller). The joint states for 
- * each leg are saved for the deafult tip position and then the joint moved inpdependently from initial position to 
- * saved default positions. This motion completes in a time limit defined by the parameter time_to_start.
+ * their current tip position to its default tip position (as defined by the walk controller). This motion completes
+ * in a time limit defined by the parameter time_to_start.
  * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
 int PoseController::directStartup(void) //Simultaneous leg coordination
@@ -487,52 +486,51 @@ int PoseController::directStartup(void) //Simultaneous leg coordination
   int progress = 0; // Percentage progress (0%->100%)
   double time_to_start = params_.time_to_start.data;
 
-  // Run model in simulation to find joint positions for default stance.
-  if (default_joint_positions_[0].size() == 0)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+
+    // Run model in simulation to find joint positions for default stance.
+    if (!executing_transition_)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-      
       // Create copy of leg at initial state
-      sensor_msgs::JointState initial_joint_states;
-      leg->generateDesiredJointStateMsg(&initial_joint_states);
-      leg->init(true); // Set leg to zeroed joint positions to ensure safe IK to tip positions
-      
+      shared_ptr<Leg> test_leg = allocate_shared<Leg>(aligned_allocator<Leg>(), leg);
+      test_leg->generate(leg);
+      test_leg->init(true);
+
       // Move tip linearly to default stance position
       Pose default_tip_pose = leg_stepper->getDefaultTipPose();
       while (progress != PROGRESS_COMPLETE)
       {
         progress = leg_poser->stepToPosition(default_tip_pose, model_->getCurrentPose(), 0.0, time_to_start);
-        leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), true);
-        leg->applyIK(true);
+        test_leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), true);
+        test_leg->applyIK(true);
       }
-      
-      // Save joint configuration for default stance
+
+      /// Create empty configuration
+      sensor_msgs::JointState default_configuration;
+      default_configuration.name.assign(test_leg->getJointCount(), "");
+      default_configuration.position.assign(test_leg->getJointCount(), UNASSIGNED_VALUE);
+
+      // Populate configuration with default values
       JointContainer::iterator joint_it;
-      for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+      for (joint_it = test_leg->getJointContainer()->begin(); joint_it != test_leg->getJointContainer()->end(); ++joint_it)
       {
         shared_ptr<Joint> joint = joint_it->second;
-        default_joint_positions_[leg->getIDNumber()].push_back(joint->desired_position_);
+        int joint_index = joint->id_number_ - 1;
+        default_configuration.name[joint_index] = joint->id_name_;
+        default_configuration.position[joint_index] = joint->desired_position_;
       }
-      
-      // Reinitialise leg with initial joint states
-      leg->reInit(initial_joint_states);
-      progress = 0;
+      leg_poser->setDesiredConfiguration(default_configuration);
     }
+
+    // Transition to Default configuration
+    progress = leg_poser->transitionConfiguration(time_to_start);
   }
-  // Move to default joint positions from initial positions
-  else
-  {
-    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-    {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-      progress = leg_poser->moveToJointPosition(default_joint_positions_[leg->getIDNumber()], time_to_start);
-    }
-  }
+  
+  executing_transition_ = (progress != 0 && progress != PROGRESS_COMPLETE);
   return progress;
 }
 
@@ -650,15 +648,31 @@ int PoseController::packLegs(const double& time_to_pack) //Simultaneous leg coor
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    vector<double> target_joint_positions;
-    JointContainer::iterator joint_it;
-    for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+    
+    // Generate unpacked configuration
+    if (!executing_transition_)
     {
-      target_joint_positions.push_back(joint_it->second->packed_position_);
-    }
-    progress = leg_poser->moveToJointPosition(target_joint_positions, time_to_pack);
-  }
+      // Create empty configuration
+      sensor_msgs::JointState packed_configuration;
+      packed_configuration.name.assign(leg->getJointCount(), "");
+      packed_configuration.position.assign(leg->getJointCount(), UNASSIGNED_VALUE);
 
+      // Populate configuration with packed values
+      JointContainer::iterator joint_it;
+      for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+      {
+        int joint_index = joint_it->second->id_number_ - 1;
+        packed_configuration.name[joint_index] = joint_it->second->id_name_;
+        packed_configuration.position[joint_index] = joint_it->second->packed_position_;
+      }
+      leg_poser->setDesiredConfiguration(packed_configuration);
+    }
+    
+    // Transition to Unpacked configuration
+    progress = leg_poser->transitionConfiguration(time_to_pack);
+  }
+  
+  executing_transition_ = (progress != 0 && progress != PROGRESS_COMPLETE);
   return progress;
 }
 
@@ -676,16 +690,83 @@ int PoseController::unpackLegs(const double& time_to_unpack) //Simultaneous leg 
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    vector<double> target_joint_positions;
-    JointContainer::iterator joint_it;
-    for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+    
+    // Generate unpacked configuration
+    if (!executing_transition_)
     {
-      target_joint_positions.push_back(joint_it->second->unpacked_position_);
+      // Create empty configuration
+      sensor_msgs::JointState unpacked_configuration;
+      unpacked_configuration.name.assign(leg->getJointCount(), "");
+      unpacked_configuration.position.assign(leg->getJointCount(), UNASSIGNED_VALUE);
+      
+      // Populate configuration with unpacked values
+      JointContainer::iterator joint_it;
+      for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+      {
+        int joint_index = joint_it->second->id_number_ - 1;
+        unpacked_configuration.name[joint_index] = joint_it->second->id_name_;
+        unpacked_configuration.position[joint_index] = joint_it->second->unpacked_position_;
+      }
+      leg_poser->setDesiredConfiguration(unpacked_configuration);
     }
+    
+    // Transition to Unpacked configuration
+    progress = leg_poser->transitionConfiguration(time_to_unpack);
+  }
+  
+  executing_transition_ = (progress != 0 && progress != PROGRESS_COMPLETE);
+  return progress;
+}
 
-    progress = leg_poser->moveToJointPosition(target_joint_positions, time_to_unpack);
+/*******************************************************************************************************************//**
+ * Iterate through legs in robot model and directly move joints to positions defined by desired configuration. This
+ * transition occurs simultaneously for all legs in a time period defined by the input argument.
+ * @param[in] transition_time The time period in which to execute the transition
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
+***********************************************************************************************************************/
+int PoseController::transitionConfiguration(const double& transition_time) //Simultaneous leg coordination
+{
+  int progress = 0; //Percentage progress (0%->100%)
+  
+  // Iterate through message and build individual leg configurations
+  map<string, sensor_msgs::JointState> configuration_sorter;
+  if (!executing_transition_)
+  {
+    for (uint i = 0; i < desired_configuration_.name.size(); ++i)
+    {
+      string joint_name = desired_configuration_.name[i];
+      string leg_name = joint_name.substr(0, joint_name.find("_"));
+      int joint_count = model_->getLegByIDName(leg_name)->getJointCount();
+      int joint_index = model_->getLegByIDName(leg_name)->getJointByIDName(joint_name)->id_number_ - 1;
+      
+      // Create empty configuration for this leg
+      if (configuration_sorter.find(leg_name) == configuration_sorter.end())
+      {
+        sensor_msgs::JointState new_leg_configuration;
+        new_leg_configuration.name.assign(joint_count, "");
+        new_leg_configuration.position.assign(joint_count, UNASSIGNED_VALUE);
+        configuration_sorter.insert(map<string, sensor_msgs::JointState>::value_type(leg_name, new_leg_configuration));
+      }
+      
+      // Populate configuration with desired values
+      configuration_sorter.at(leg_name).name[joint_index] = desired_configuration_.name[i];
+      configuration_sorter.at(leg_name).position[joint_index] = desired_configuration_.position[i];
+    }
   }
 
+  // Run configuration transition for each leg
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    if (!executing_transition_)
+    {
+      leg_poser->setDesiredConfiguration(configuration_sorter.at(leg->getIDName()));
+    }
+    progress = leg_poser->transitionConfiguration(transition_time);
+  }
+
+  executing_transition_ = (progress != 0 && progress != PROGRESS_COMPLETE);
   return progress;
 }
 
@@ -1340,29 +1421,30 @@ LegPoser::LegPoser(shared_ptr<PoseController> poser, shared_ptr<Leg> leg)
 
 /*******************************************************************************************************************//**
  * Uses a bezier curve to smoothly update (over many iterations) the desired joint position of each joint in the leg
- * associated with this Leg Poser object, from the original joint position at the first iteration of this function to
- * the target joint position defined by the input argument. This maneuver completes after a time period defined by the
- * input argument.
- * @param[in] target_joint_positions A vector of doubles defining the target joint positions of each joint of the parent
- * leg of this Leg Poser object in asscending joint id number order.
- * @param[in] time_to_move The time period in which to complete this maneuver.
+ * associated with this Leg Poser object, from the original configuration at the first iteration of this function to
+ * the target configuration defined by the pre-set member variable. This transition completes after a time period 
+ * defined by the input argument.
+ * @param[in] transition_time The time period in which to complete this transition
  * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
 ***********************************************************************************************************************/
-int LegPoser::moveToJointPosition(const vector<double>& target_joint_positions, const double& time_to_move)
+int LegPoser::transitionConfiguration(const double& transition_time)
 {
   // Setup origin and target joint positions for bezier curve
   if (first_iteration_)
   {
-    origin_joint_positions_.clear();
+    origin_configuration_ = sensor_msgs::JointState(); // Clears existing configuration.
     JointContainer::iterator joint_it;
     bool all_joints_at_target = true;
     int i = 0;
     for (joint_it = leg_->getJointContainer()->begin(); joint_it != leg_->getJointContainer()->end(); ++joint_it, ++i)
     {
       shared_ptr<Joint> joint = joint_it->second;
-      all_joints_at_target = all_joints_at_target &&
-                             abs(target_joint_positions[i] - joint->current_position_) < JOINT_TOLERANCE;
-      origin_joint_positions_.push_back(joint->current_position_);
+      ROS_ASSERT(desired_configuration_.name[i] == joint->id_name_);
+      bool joint_at_target = abs(desired_configuration_.position[i] - joint->current_position_) < JOINT_TOLERANCE;
+      all_joints_at_target = all_joints_at_target && joint_at_target;
+                             
+      origin_configuration_.name.push_back(joint->id_name_);
+      origin_configuration_.position.push_back(joint->current_position_);
     }
 
     // Complete early if joint positions are already at target
@@ -1377,46 +1459,47 @@ int LegPoser::moveToJointPosition(const vector<double>& target_joint_positions, 
     }
   }
 
-  int num_iterations = max(1, int(roundToInt(time_to_move / poser_->getParameters().time_delta.data)));
+  int num_iterations = max(1, int(roundToInt(transition_time / poser_->getParameters().time_delta.data)));
   double delta_t = 1.0 / num_iterations;
 
   master_iteration_count_++;
 
   JointContainer::iterator joint_it;
-  vector<double> new_joint_positions;
+  sensor_msgs::JointState new_configuration;
   int i = 0;
   for (joint_it = leg_->getJointContainer()->begin(); joint_it != leg_->getJointContainer()->end(); ++joint_it, ++i)
   {
     shared_ptr<Joint> joint = joint_it->second;
     double control_nodes[4];
-    control_nodes[0] = origin_joint_positions_[i];
-    control_nodes[1] = origin_joint_positions_[i];
-    control_nodes[2] = target_joint_positions[i];
-    control_nodes[3] = target_joint_positions[i];
+    control_nodes[0] = origin_configuration_.position[i];
+    control_nodes[1] = origin_configuration_.position[i];
+    control_nodes[2] = desired_configuration_.position[i];
+    control_nodes[3] = desired_configuration_.position[i];
     joint->prev_desired_position_ = joint->desired_position_;
     joint->desired_position_ = cubicBezier(control_nodes, master_iteration_count_ * delta_t);
-    new_joint_positions.push_back(joint->desired_position_);
+    new_configuration.name.push_back(joint->id_name_);
+    new_configuration.position.push_back(joint->desired_position_);
   }
 
   leg_->applyFK();
 
-  if (leg_->getIDNumber() == 1) //reference leg for debugging
+  if (poser_->getParameters().debug_moveToJointPosition.data && leg_->getIDNumber() == 0) //reference leg for debugging
   {
     double time = master_iteration_count_ * delta_t;
-    bool debug = poser_->getParameters().debug_moveToJointPosition.data;
-    ROS_DEBUG_COND(debug, "MOVE_TO_JOINT_POSITION DEBUG - MASTER ITERATION: %d\t\t"
-                   "TIME: %f\t\t"
-                   "ORIGIN: %f:%f:%f\t\t"
-                   "CURRENT: %f:%f:%f\t\t"
-                   "TARGET: %f:%f:%f\n",
-                   master_iteration_count_, time,
-                   origin_joint_positions_[0], origin_joint_positions_[1], origin_joint_positions_[2],
-                   new_joint_positions[0], new_joint_positions[1], new_joint_positions[2],
-                   target_joint_positions[0], target_joint_positions[1], target_joint_positions[2]);
+    ROS_DEBUG("MOVE_TO_JOINT_POSITION DEBUG - MASTER ITERATION: %d\t\t"
+              "TIME: %f\t\t"
+              "ORIGIN: %f:%f:%f\t\t"
+              "CURRENT: %f:%f:%f\t\t"
+              "TARGET: %f:%f:%f\n",
+              master_iteration_count_, time,
+              origin_configuration_.position[0], origin_configuration_.position[1], origin_configuration_.position[2],
+              new_configuration.position[0], new_configuration.position[1], new_configuration.position[2],
+              desired_configuration_.position[0], desired_configuration_.position[1], desired_configuration_.position[2]);
   }
 
-  //Return percentage of progress completion (0%->100%)
+  //Return percentage of progress completion (1%->100%)
   int progress = int((double(master_iteration_count_ - 1) / double(num_iterations)) * PROGRESS_COMPLETE);
+  progress = clamped(progress, 1, PROGRESS_COMPLETE); // Ensures 1 percent is minimum return
 
   // Complete once reached total number of iterations
   if (master_iteration_count_ >= num_iterations)

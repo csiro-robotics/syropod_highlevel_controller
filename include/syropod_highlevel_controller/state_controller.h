@@ -305,6 +305,12 @@ public:
    * @param[in] tip_states The TipState sensor message provided by the subscribed ros topic "/tip_states"
    */
   void tipStatesCallback(const syropod_highlevel_controller::TipState& tip_states);
+  
+  /**
+   * Callback which handles setting desired configuration for pose controller from planner interface.
+   * @param desired_configuration The desired configuration that the planner requests transition to.
+   */
+  void plannerCallback(const sensor_msgs::JointState& desired_configuration);
 
 private:
   ros::NodeHandle n_;                                 ///< Ros node handle
@@ -326,6 +332,7 @@ private:
   ros::Subscriber secondary_tip_velocity_subscriber_; ///< Subscriber for topic "/syropod_remote/secondary_tip_velocity"
   ros::Subscriber parameter_selection_subscriber_;    ///< Subscriber for topic "/syropod_remote/parameter_selection"
   ros::Subscriber parameter_adjustment_subscriber_;   ///< Subscriber for topic "/syropod_remote/parameter_adjustment"
+  ros::Subscriber planner_subscriber_;                ///< Subscirber for topic "/*_shc_interface/desired_joint_state"
   ros::Subscriber imu_data_subscriber_;               ///< Subscriber for topic "/imu/data
   ros::Subscriber joint_state_subscriber_;            ///< Subscriber for topic "/joint_states"
   ros::Subscriber tip_state_subscriber_;              ///< Subscriber for topic "/tip_states"

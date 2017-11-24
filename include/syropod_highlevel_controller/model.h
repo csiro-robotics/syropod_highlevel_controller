@@ -315,9 +315,10 @@ public:
   inline void publishASCState(const std_msgs::Bool& msg) { asc_leg_state_publisher_.publish(msg); };
 
   /**
-   * Generates child joint/link/tip objects. Separated from constructor due to shared_from_this() constraints.
+   * Generates child joint/link/tip objects and copies state from reference leg is provided.
+   * Separated from constructor due to shared_from_this() constraints.
    */
-  void generate(void);
+  void generate(shared_ptr<Leg> leg = NULL);
 
   /**
     * Initialises leg object by setting desired joint state to default values or to current position (from encoders)

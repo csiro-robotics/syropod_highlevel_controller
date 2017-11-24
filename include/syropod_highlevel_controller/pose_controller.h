@@ -144,6 +144,12 @@ public:
     walk_plane_pose_ = Pose::Identity();
     origin_walk_plane_pose_ = walk_plane_pose_;
   }
+  
+  /** Modifier for desired configuration */
+  inline void setDesiredConfiguration(const sensor_msgs::JointState& configuration) 
+  { 
+    desired_configuration_ = configuration; 
+  }
 
   /**
    * Iterates through legs in robot model and generates and assigns a leg poser object. Calls function to initialise
@@ -217,6 +223,14 @@ public:
    * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
    */
   int unpackLegs(const double& time_to_unpack);
+  
+  /**
+   * Iterate through legs in robot model and directly move joints to positions defined by desired configuration. This
+   * transition occurs simultaneously for all legs in a time period defined by the input argument.
+   * @param[in] transition_time The time period in which to execute the transition.
+   * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
+   */
+  int transitionConfiguration(const double& transition_time);
 
   /**
    * Depending on parameter flags, calls multiple posing functions and combines individual poses to update the current
@@ -312,7 +326,11 @@ private:
   Pose origin_tip_align_pose_;  ///< Origin pose used in interpolating tip align pose
   Pose walk_plane_pose_;        ///< Pose used to align robot body parallel with walk plane and normal at clearance.
   Pose origin_walk_plane_pose_; ///< Origin pose used in interpolating walk plane pose
+  
+  sensor_msgs::JointState desired_configuration_; ///< Desired robot configuration from planner to be transitioned to.
 
+  bool executing_transition_ = false;           ///< Flag denoting if the pose controller is executing a transition
+  
   int transition_step_ = 0;                     ///< The current transition step in the sequence being executed.
   int transition_step_count_ = 0;               ///< The total number of transition steps in the sequence being executed
   bool set_target_ = true;                      ///< Flags if the new tip target is to be calculated and set.
@@ -321,7 +339,7 @@ private:
   bool vertical_transition_complete_ = false;   ///< Flags if the vertical transition has completed without error.
   bool first_sequence_execution_ = true;        ///< Flags if the controller has executed its first sequence.
   bool reset_transition_sequence_ = true;       ///< Flags if the saved transition sequence needs to be regenerated.
-  int legs_ready_for_direct_ = 0;               ///< Number of legs ready for the direct startup sequence.
+
   vector<double> default_joint_positions_[8];   ///< Joint positions for default stance used in Direct Startup
 
   AutoPoserContainer auto_poser_container_;         ///< Object containing all Auto Poser objects.
@@ -479,6 +497,9 @@ public:
 
   /** Modifier for the flag which denotes if leg has completed its required step in a sequence. */
   inline void setLegCompletedStep(const bool& complete) { leg_completed_step_ = complete; };
+  
+  /** Modifier for the desired leg configuration **/
+  inline void setDesiredConfiguration(const sensor_msgs::JointState& config) { desired_configuration_ = config; };
 
   /** Accessor to the transition tip poses at the requested index. */
   inline Pose getTransitionPose(const int& index) { return transition_poses_[index]; }
@@ -501,15 +522,13 @@ public:
 
   /**
    * Uses a bezier curve to smoothly update (over many iterations) the desired joint position of each joint in the leg
-   * associated with this Leg Poser object, from the original joint position at the first iteration of this function to
-   * the target joint position defined by the input argument. This maneuver completes after a time period defined by the
-   * input argument.
-   * @param[in] target_joint_positions A vector of doubles defining the target joint positions of each joint of the
-   * parent leg of this Leg Poser object in asscending joint id number order.
-   * @param[in] time_to_move The time period in which to complete this maneuver.
+   * associated with this Leg Poser object, from the original configuration at the first iteration of this function to
+   * the target configuration defined by the pre-set member variable. This transition completes after a time period 
+   * defined by the input argument.
+   * @param[in] transition_time The time period in which to complete this transition
    * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
    */
-  int moveToJointPosition(const vector<double>& target_joint_positions, const double& time_to_move);
+  int transitionConfiguration(const double& transition_time);
 
   /**
    * Uses bezier curves to smoothly update (over many iterations) the desired tip position of the leg associated with
@@ -549,7 +568,8 @@ private:
   bool first_iteration_ = true;       ///< Flag denoting if an iterating function is on it's first iteration.
   int master_iteration_count_ = 0;    ///< Master iteration count used in generating time input for bezier curves.
 
-  vector<double> origin_joint_positions_; ///< Vector containing joint positions of leg joints at the first iteration.
+  sensor_msgs::JointState desired_configuration_; ///< Configuration target for transitionConfiguration function
+  sensor_msgs::JointState origin_configuration_; ///< Configuration origin for transitionConfiguration function
 
   Pose origin_tip_pose_;  ///< Origin tip pose used in bezier curve equations.
   Pose current_tip_pose_; ///< Current tip pose according to the pose controller.

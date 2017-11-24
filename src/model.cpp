@@ -168,9 +168,6 @@ Leg::Leg(shared_ptr<Leg> leg)
   , leg_state_(leg->leg_state_)
   , admittance_state_(leg->admittance_state_)
 {
-  // Generate identity copy of leg (i.e. copy of all constant variables of all member elements)
-  generate();
-  
   // Copy Leg variables
   leg_stepper_ = leg->leg_stepper_;
   leg_poser_ = leg->leg_poser_;
@@ -189,39 +186,13 @@ Leg::Leg(shared_ptr<Leg> leg)
   tip_torque_ = leg->tip_torque_;
   tip_contact_range_ = leg->tip_contact_range_;
   tip_contact_offset_ = leg->tip_contact_offset_;
-  
-  // Copy Link variables 
-  // NOTE: Link objects have zero non-constant variables
-  
-  // Copy Joint variables
-  JointContainer::iterator joint_it;
-  for (joint_it = leg->joint_container_.begin(); joint_it != leg->joint_container_.end(); ++joint_it)
-  {
-    shared_ptr<Joint> old_joint = joint_it->second;
-    shared_ptr<Joint> new_joint = joint_container_.find(old_joint->id_number_)->second;
-    new_joint->current_transform_ = old_joint->current_transform_;
-    new_joint->identity_transform_ = old_joint->identity_transform_;
-    new_joint->desired_position_publisher_ = old_joint->desired_position_publisher_;
-    new_joint->desired_position_ = old_joint->desired_position_;
-    new_joint->desired_velocity_ = old_joint->desired_velocity_;
-    new_joint->desired_effort_ = old_joint->desired_effort_;
-    new_joint->prev_desired_position_ = old_joint->prev_desired_position_;
-    new_joint->prev_desired_velocity_ = old_joint->prev_desired_velocity_;
-    new_joint->prev_desired_effort_ = old_joint->prev_desired_effort_;
-    new_joint->current_position_ = old_joint->current_position_;
-    new_joint->current_velocity_ = old_joint->current_velocity_;
-    new_joint->current_effort_ = old_joint->current_effort_;
-  }
-  
-  // Copy tip variables
-  tip_->identity_transform_ = leg->tip_->identity_transform_;
-  tip_->current_transform_ = leg->tip_->current_transform_;
 }
 
 /*******************************************************************************************************************//**
- * Generates child joint/link/tip objects. Separated from constructor due to shared_from_this() constraints.
+ * Generates child joint/link/tip objects and copies state from reference leg is provided.
+ * Separated from constructor due to shared_from_this() constraints.
 ***********************************************************************************************************************/
-void Leg::generate(void)
+void Leg::generate(shared_ptr<Leg> leg)
 {
   shared_ptr<Joint> null_joint = allocate_shared<Joint>(aligned_allocator<Joint>()); //Null joint acts as origin
   shared_ptr<Link> base_link = 
@@ -239,6 +210,37 @@ void Leg::generate(void)
     prev_link = new_link;
   }
   tip_ = allocate_shared<Tip>(aligned_allocator<Tip>(), shared_from_this(), prev_link);
+
+  // If given reference leg, copy member element variables to this leg object
+  if (leg != NULL)
+  {
+    // Copy Joint variables
+    JointContainer::iterator joint_it;
+    for (joint_it = leg->joint_container_.begin(); joint_it != leg->joint_container_.end(); ++joint_it)
+    {
+      shared_ptr<Joint> old_joint = joint_it->second;
+      shared_ptr<Joint> new_joint = joint_container_.find(old_joint->id_number_)->second;
+      new_joint->current_transform_ = old_joint->current_transform_;
+      new_joint->identity_transform_ = old_joint->identity_transform_;
+      new_joint->desired_position_publisher_ = old_joint->desired_position_publisher_;
+      new_joint->desired_position_ = old_joint->desired_position_;
+      new_joint->desired_velocity_ = old_joint->desired_velocity_;
+      new_joint->desired_effort_ = old_joint->desired_effort_;
+      new_joint->prev_desired_position_ = old_joint->prev_desired_position_;
+      new_joint->prev_desired_velocity_ = old_joint->prev_desired_velocity_;
+      new_joint->prev_desired_effort_ = old_joint->prev_desired_effort_;
+      new_joint->current_position_ = old_joint->current_position_;
+      new_joint->current_velocity_ = old_joint->current_velocity_;
+      new_joint->current_effort_ = old_joint->current_effort_;
+    }
+
+    // Copy Link variables 
+    // NOTE: Link objects have zero non-constant variables
+
+    // Copy tip variables
+    tip_->identity_transform_ = leg->tip_->identity_transform_;
+    tip_->current_transform_ = leg->tip_->current_transform_;
+  }
 }
 
 /*******************************************************************************************************************//**
