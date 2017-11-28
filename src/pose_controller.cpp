@@ -726,16 +726,18 @@ int PoseController::unpackLegs(const double& time_to_unpack) //Simultaneous leg 
 ***********************************************************************************************************************/
 int PoseController::transitionConfiguration(const double& transition_time) //Simultaneous leg coordination
 {
-  int progress = 0; //Percentage progress (0%->100%)
+  int progress = UNASSIGNED_VALUE; //Percentage progress (0%->100%)
   
   // Iterate through message and build individual leg configurations
   map<string, sensor_msgs::JointState> configuration_sorter;
   if (!executing_transition_)
   {
+    string leg_string; //DEBUG
     for (uint i = 0; i < desired_configuration_.name.size(); ++i)
     {
       string joint_name = desired_configuration_.name[i];
       string leg_name = joint_name.substr(0, joint_name.find("_"));
+      leg_string += ("\n" + joint_name); //DEBUG
       int joint_count = model_->getLegByIDName(leg_name)->getJointCount();
       int joint_index = model_->getLegByIDName(leg_name)->getJointByIDName(joint_name)->id_number_ - 1;
       
@@ -752,6 +754,7 @@ int PoseController::transitionConfiguration(const double& transition_time) //Sim
       configuration_sorter.at(leg_name).name[joint_index] = desired_configuration_.name[i];
       configuration_sorter.at(leg_name).position[joint_index] = desired_configuration_.position[i];
     }
+    ROS_INFO("%s\n", leg_string.c_str());
   }
 
   // Run configuration transition for each leg
@@ -759,11 +762,11 @@ int PoseController::transitionConfiguration(const double& transition_time) //Sim
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    if (!executing_transition_)
+    if (!executing_transition_ && configuration_sorter.find(leg->getIDName()) != configuration_sorter.end())
     {
       leg_poser->setDesiredConfiguration(configuration_sorter.at(leg->getIDName()));
     }
-    progress = leg_poser->transitionConfiguration(transition_time);
+    progress = min(progress, leg_poser->transitionConfiguration(transition_time));
   }
 
   executing_transition_ = (progress != 0 && progress != PROGRESS_COMPLETE);
@@ -1440,11 +1443,11 @@ int LegPoser::transitionConfiguration(const double& transition_time)
     {
       shared_ptr<Joint> joint = joint_it->second;
       ROS_ASSERT(desired_configuration_.name[i] == joint->id_name_);
-      bool joint_at_target = abs(desired_configuration_.position[i] - joint->current_position_) < JOINT_TOLERANCE;
+      bool joint_at_target = abs(desired_configuration_.position[i] - joint->desired_position_) < JOINT_TOLERANCE;
       all_joints_at_target = all_joints_at_target && joint_at_target;
                              
       origin_configuration_.name.push_back(joint->id_name_);
-      origin_configuration_.position.push_back(joint->current_position_);
+      origin_configuration_.position.push_back(joint->desired_position_);
     }
 
     // Complete early if joint positions are already at target

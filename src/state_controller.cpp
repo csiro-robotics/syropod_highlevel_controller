@@ -55,6 +55,8 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
                                                      &StateController::cruiseControlCallback, this);
   auto_navigation_mode_subscriber_    = n_.subscribe("syropod_remote/auto_navigation_mode", 1,
                                                      &StateController::autoNavigationCallback, this);
+  planner_mode_subscriber_            = n_.subscribe("syropod_remote/planner_mode", 1,
+                                                     &StateController::plannerModeCallback, this);
   primary_leg_selection_subscriber_   = n_.subscribe("syropod_remote/primary_leg_selection", 1,
                                                      &StateController::primaryLegSelectionCallback, this);
   primary_leg_state_subscriber_       = n_.subscribe("syropod_remote/primary_leg_state", 1,
@@ -72,9 +74,10 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   parameter_adjustment_subscriber_    = n_.subscribe("syropod_remote/parameter_adjustment", 1,
                                                      &StateController::parameterAdjustCallback, this);
   
-  // Planner subscriptions
+  // Planner subscription/publisher
   planner_subscriber_ = n_.subscribe(params_.syropod_type.data + "_shc_interface/desired_configuration", 1,
                                      &StateController::plannerCallback, this);
+  plan_step_request_publisher_ = n_.advertise<std_msgs::Int8>("shc/plan_step_request", 1000);
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);
@@ -411,6 +414,11 @@ void StateController::runningState(void)
     legStateToggle();
     update_tip_position = false;
   }
+  else if (planner_mode_ == PLANNER_MODE_ON)
+  {
+    executePlan();
+    update_tip_position = false;
+  }
   // Cruise control (constant velocity input)
   else if (cruise_control_mode_ == CRUISE_CONTROL_ON &&
           (params_.cruise_control_time_limit.data == 0.0 || elapsed_time_ < params_.cruise_control_time_limit.data))
@@ -624,6 +632,44 @@ void StateController::legStateToggle(void)
   else
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to transition leg state . . .\n");
+    linear_velocity_input_ = Vector2d(0.0, 0.0);
+    angular_velocity_input_ = 0.0;
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Publishes request to external planner interface for a new configuration step of a generated plan. Executes this plan
+ * step by calling pose controller to transition to new configuration defined by an external planner.
+***********************************************************************************************************************/
+void StateController::executePlan(void)
+{
+  if (walker_->getWalkState() == STOPPED)
+  {
+    // Publish request for step N of plan
+    if (!plan_step_acquired_)
+    {
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "[SHC]\n\tWaiting for plan step %d to be published . . .\n", plan_step_);
+      std_msgs::Int8 msg;
+      msg.data = plan_step_;
+      plan_step_request_publisher_.publish(msg);
+    }
+    // Execute acquired plan step and iterate to next on completion
+    else
+    {
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "[SHC]\n\tPlan step %d acquired. Executing . . .\n", plan_step_);
+      int progress = poser_->transitionConfiguration(1.0);
+      if (progress == PROGRESS_COMPLETE)
+      {
+        ROS_INFO("[SHC]\n\tPlan step %d completed.\n", plan_step_);
+        plan_step_++;
+        plan_step_acquired_ = false;        
+      }
+    }
+  }
+  // Force Syropod to stop walking
+  else
+  {
+    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to begin plan execution . . .\n");
     linear_velocity_input_ = Vector2d(0.0, 0.0);
     angular_velocity_input_ = 0.0;
   }
@@ -1066,6 +1112,32 @@ void StateController::autoNavigationCallback(const std_msgs::Int8& input)
 }
 
 /*******************************************************************************************************************//**
+ * Callback handling the planner mode and sending state messages to user interface.
+ * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/planner_mode"
+ * @see parameters_and_states.h
+***********************************************************************************************************************/
+void StateController::plannerModeCallback(const std_msgs::Int8& input)
+{
+  if (robot_state_ == RUNNING)
+  {
+    PlannerMode new_planner_mode = static_cast<PlannerMode>(int(input.data));
+    if (new_planner_mode != planner_mode_)
+    {
+      planner_mode_ = new_planner_mode;
+      if (planner_mode_ == PLANNER_MODE_ON)
+      {
+        ROS_INFO("\nPlanner mode ON. System will start executing plan published from planner.\n");
+        plan_step_ = 0;
+      }
+      else
+      {
+        ROS_INFO("\nPlanner mode OFF. ???.\n");
+      }
+    }
+  }
+}
+
+/*******************************************************************************************************************//**
  * Callback handling the selection of the leg as the primary leg for manual manipulation.
  * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/primary_leg_selection"
  * @see parameters_and_states.h
@@ -1445,6 +1517,7 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
 void StateController::plannerCallback(const sensor_msgs::JointState& desired_configuration)
 {
   poser_->setDesiredConfiguration(desired_configuration);
+  plan_step_acquired_ = true;
 }
 
 /*******************************************************************************************************************//**

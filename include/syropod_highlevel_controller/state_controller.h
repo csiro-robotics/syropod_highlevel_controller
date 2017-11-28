@@ -101,35 +101,47 @@ public:
    * Coordinates with other controllers to update based on current robot state, also calls for state transitions.
    */
   void loop(void);
+  
   /**
    * Handles transitions of robot state and moves the robot as required for the new state.
    * The transition from one state to another may require several iterations through this function before ending.
    */
   void transitionRobotState(void);
+  
   /**
    * Loops whilst robot is in RUNNING state.
    * Coordinates changes of gait, parameter adjustments, leg state toggling and the application of cruise control.
    * Updates the walk/pose controllers tip positions and applies inverse kinematics to the leg objects.
    */
   void runningState(void);
+  
   /**
    * Handles parameter adjustment. Forces robot velocity input to zero until it is in a STOPPED walk state and then
    * reinitialises the walk/pose/admittance controllers with the new parameter value to be applied. The pose controller
    * is then called to step to new stance if required.
    */
   void adjustParameter(void);
+  
   /**
    * Handles a gait change event. Forces robot velocity input to zero until it is in a STOPPED walk state and then
    * updates gait parameters based on the new gait selection and reinitialises the walk controller with the new
    * parameters. If required the pose controller is reinitialised with new 'auto posing' parameters.
    */
   void changeGait(void);
+  
   /**
    * Handles a leg toggle event. Forces robot velocity input to zero until it is in a STOPPED walk state and then
    * calculates a new default pose based on estimated loading patterns. The leg that is changing state is assigned the
    * new state and any posing for the new state is executed via the pose controller.
    */
   void legStateToggle(void);
+  
+  /**
+   * Publishes request to external planner interface for a new configuration step of a generated plan. Executes this 
+   * plan step by calling pose controller to transition to new configuration defined by an external planner.
+   */
+  void executePlan(void);
+  
   /**
    * Iterates through leg objects and either collates joint state information for combined publishing and/or publishes
    * the desired joint position on the leg member publisher object.
@@ -222,6 +234,13 @@ public:
    * @see parameters_and_states.h
    */
   void autoNavigationCallback(const std_msgs::Int8& input);
+  
+  /**
+   * Callback handling the planner mode and sending state messages to user interface.
+   * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/planner_mode"
+   * @see parameters_and_states.h
+   */
+  void plannerModeCallback(const std_msgs::Int8& input);
 
   /**
    * Callback handling the selection of the leg as the primary leg for manual manipulation.
@@ -324,6 +343,7 @@ private:
   ros::Subscriber gait_selection_subscriber_;         ///< Subscriber for topic "/syropod_remote/gait_selection"
   ros::Subscriber cruise_control_mode_subscriber_;    ///< Subscriber for topic "/syropod_remote/cruise_control_mode"
   ros::Subscriber auto_navigation_mode_subscriber_;   ///< Subscriber for topic "/syropod_remote/auto_navigation_mode"
+  ros::Subscriber planner_mode_subscriber_;           ///< Subscirber for topic "/syropod_remote/planner_mode"
   ros::Subscriber primary_leg_selection_subscriber_;  ///< Subscriber for topic "/syropod_remote/primary_leg_selection"
   ros::Subscriber primary_leg_state_subscriber_;      ///< Subscriber for topic "/syropod_remote/primary_leg_state"
   ros::Subscriber primary_tip_velocity_subscriber_;   ///< Subscriber for topic "/syropod_remote/primary_tip_velocity"
@@ -332,7 +352,7 @@ private:
   ros::Subscriber secondary_tip_velocity_subscriber_; ///< Subscriber for topic "/syropod_remote/secondary_tip_velocity"
   ros::Subscriber parameter_selection_subscriber_;    ///< Subscriber for topic "/syropod_remote/parameter_selection"
   ros::Subscriber parameter_adjustment_subscriber_;   ///< Subscriber for topic "/syropod_remote/parameter_adjustment"
-  ros::Subscriber planner_subscriber_;                ///< Subscirber for topic "/*_shc_interface/desired_joint_state"
+  ros::Subscriber planner_subscriber_;                ///< Subscirber for topic "/*_shc_interface/desired_configuration"
   ros::Subscriber imu_data_subscriber_;               ///< Subscriber for topic "/imu/data
   ros::Subscriber joint_state_subscriber_;            ///< Subscriber for topic "/joint_states"
   ros::Subscriber tip_state_subscriber_;              ///< Subscriber for topic "/tip_states"
@@ -342,6 +362,7 @@ private:
   ros::Publisher workspace_publisher_;                ///< Publisher for topic "/shc/workspace"
   ros::Publisher body_velocity_publisher_;            ///< Publisher for topic "/shc/body_velocity"
   ros::Publisher rotation_pose_error_publisher_;      ///< Publisher for topic "/shc/rotation_pose_error"
+  ros::Publisher plan_step_request_publisher_;        ///< Publisher for topic "/shc/plan_step_request"
 
   boost::recursive_mutex mutex_; ///< Mutex used in setup of dynamic reconfigure server
   dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>* dynamic_reconfigure_server_;
@@ -365,6 +386,7 @@ private:
   PosingMode posing_mode_ = NO_POSING;                            ///< Current posing mode for manual posing
   CruiseControlMode cruise_control_mode_ = CRUISE_CONTROL_OFF;    ///< Current cruise control mode
   AutoNavigationMode auto_navigation_mode_ = AUTO_NAVIGATION_OFF; ///< Current auto navigation mode
+  PlannerMode planner_mode_ = PLANNER_MODE_OFF;                   ///< Current planner mode
 
   ParameterSelection parameter_selection_ = NO_PARAMETER_SELECTION; ///< Currently selected adjustable parameter
   AdjustableParameter* dynamic_parameter_;                          ///< Pointer to the selected parameter object
@@ -387,6 +409,9 @@ private:
   bool apply_new_parameter_ = true;           ///< Flags that the new parameter value is to be applied to the controller
   bool joint_positions_initialised_ = false;  ///< Flags if all joint objects have been initialised with a position
   bool transition_state_flag_ = false;        ///< Flags that the system state is transitioning
+  
+  bool plan_step_acquired_ = false;           ///< Flag denoting if plan step has been acquired from planner interface
+  int plan_step_ = 0;                         ///< The plan step currently being requested/executed
 
   Vector2d linear_velocity_input_;            ///< Input for the desired linear velocity of the robot body
   double angular_velocity_input_ = 0;         ///< Input for the desired angular velocity of the robot body

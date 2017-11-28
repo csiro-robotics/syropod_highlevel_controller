@@ -84,6 +84,15 @@ enum AutoNavigationMode
 };
 
 /**
+ * Designation for potential planner modes.
+ */
+enum PlannerMode
+{
+  PLANNER_MODE_OFF, ///< Planner mode is off
+  PLANNER_MODE_ON,  ///< Planner mode is on
+};
+
+/**
  * Designation for potential leg states.
  */
 enum LegState
