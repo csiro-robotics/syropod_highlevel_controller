@@ -78,6 +78,8 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   planner_subscriber_ = n_.subscribe(params_.syropod_type.data + "_shc_interface/desired_configuration", 1,
                                      &StateController::plannerCallback, this);
   plan_step_request_publisher_ = n_.advertise<std_msgs::Int8>("shc/plan_step_request", 1000);
+  
+  target_tip_pose_subscriber_ = n_.subscribe("/target_tip_poses", 1, &StateController::targetTipPoseCallback, this);
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);

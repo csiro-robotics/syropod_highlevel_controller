@@ -360,6 +360,7 @@ private:
   ros::Subscriber parameter_selection_subscriber_;    ///< Subscriber for topic "/syropod_remote/parameter_selection"
   ros::Subscriber parameter_adjustment_subscriber_;   ///< Subscriber for topic "/syropod_remote/parameter_adjustment"
   ros::Subscriber planner_subscriber_;                ///< Subscirber for topic "/*_shc_interface/desired_configuration"
+  ros::Subscriber target_tip_pose_subscriber_;        ///< Subscriber for topic "/target_tip_poses"
   ros::Subscriber imu_data_subscriber_;               ///< Subscriber for topic "/imu/data
   ros::Subscriber joint_state_subscriber_;            ///< Subscriber for topic "/joint_states"
   ros::Subscriber tip_state_subscriber_;              ///< Subscriber for topic "/tip_states"
