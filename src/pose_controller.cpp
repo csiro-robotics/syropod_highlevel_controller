@@ -732,12 +732,10 @@ int PoseController::transitionConfiguration(const double& transition_time) //Sim
   map<string, sensor_msgs::JointState> configuration_sorter;
   if (!executing_transition_)
   {
-    string leg_string; //DEBUG
     for (uint i = 0; i < desired_configuration_.name.size(); ++i)
     {
       string joint_name = desired_configuration_.name[i];
       string leg_name = joint_name.substr(0, joint_name.find("_"));
-      leg_string += ("\n" + joint_name); //DEBUG
       int joint_count = model_->getLegByIDName(leg_name)->getJointCount();
       int joint_index = model_->getLegByIDName(leg_name)->getJointByIDName(joint_name)->id_number_ - 1;
       
@@ -754,7 +752,6 @@ int PoseController::transitionConfiguration(const double& transition_time) //Sim
       configuration_sorter.at(leg_name).name[joint_index] = desired_configuration_.name[i];
       configuration_sorter.at(leg_name).position[joint_index] = desired_configuration_.position[i];
     }
-    ROS_INFO("%s\n", leg_string.c_str());
   }
 
   // Run configuration transition for each leg
