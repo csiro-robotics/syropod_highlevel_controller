@@ -246,5 +246,6 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
 - v0.5.8
     - Implemented Plan Execution Mode (Direct joint manipulation to a series of input configurations)
     - Merged Auto Navigation mode and Cruise Control mode to free up Y Button for Plan Execution Mode
+    - Added callback and msg for externally setting target tip poses at end of swing period
 - v0.5.9
     - Complete merge of v0.5.5 with v0.5.8
