@@ -54,6 +54,7 @@ generate_dynamic_reconfigure_options(config/dynamic_parameter.cfg)
    FILES
    LegState.msg
    TipState.msg
+   TargetTipPose.msg
 )
 
 ## Generate services in the 'srv' folder

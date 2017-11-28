@@ -686,6 +686,7 @@ LegStepper::LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, c
   , default_tip_pose_(identity_tip_pose)
   , current_tip_pose_(default_tip_pose_)
   , target_tip_pose_(default_tip_pose_)
+  , external_target_tip_pose_(Pose::Undefined())
   , origin_tip_pose_(current_tip_pose_)
 {
   walk_plane_ = Vector3d::Zero();
@@ -837,10 +838,18 @@ void LegStepper::updateTipPosition(void)
       Quaterniond walk_plane_rotation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), walk_plane_normal);
       default_tip_pose_.position_ = walk_plane_rotation._transformVector(identity_tip_pose_.position_);
       default_tip_pose_.position_[2] += walker_->getWalkPlane()[2];
+      
+      // Determine if target tip pose is to be generated internally or is set externally
+      generate_target_tip_pose_ = (external_target_tip_pose_ != Pose::Undefined());
+      if (!generate_target_tip_pose_)
+      {
+        target_tip_pose_ = external_target_tip_pose_;
+        external_target_tip_pose_ = Pose::Undefined();
+      }
     }
     
     //Update target tip position (i.e. desired tip position at end of swing)
-    if (true)  //TODO Add callback to set target externally
+    if (generate_target_tip_pose_)
     {
       target_tip_pose_.position_ = default_tip_pose_.position_ + 0.5 * stride_vector_;
       

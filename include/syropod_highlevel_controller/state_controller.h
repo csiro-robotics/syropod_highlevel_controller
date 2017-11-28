@@ -24,6 +24,7 @@
 
 #include "syropod_highlevel_controller/DynamicConfig.h"
 #include "syropod_highlevel_controller/TipState.h"
+#include "syropod_highlevel_controller/TargetTipPose.h"
 
 #include "walk_controller.h"
 #include "pose_controller.h"
@@ -330,6 +331,12 @@ public:
    * @param desired_configuration The desired configuration that the planner requests transition to.
    */
   void plannerCallback(const sensor_msgs::JointState& desired_configuration);
+  
+  /**
+   * Callback which handles externally set target tip poses to be reached at end of swing periods.
+   * @param[in] target_tip_poses The target tip pose message
+   */
+  void targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& target_tip_poses);
 
 private:
   ros::NodeHandle n_;                                 ///< Ros node handle

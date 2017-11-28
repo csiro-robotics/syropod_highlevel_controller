@@ -324,6 +324,12 @@ public:
     * @param[in] at_correct_phase The new value for the flag.
     */
   inline void setAtCorrectPhase(const bool& at_correct_phase) { at_correct_phase_ = at_correct_phase; };
+  
+  /**
+   * Modifier for the externally set target tip pose
+   * @param[in] external_target_tip_pose_ The new externally set target tip pose
+   */
+  inline void setExternalTargetTipPose(const Pose& pose) { external_target_tip_pose_ = pose; };
 
   /** Iterates the step phase and updates the progress variables */
   void iteratePhase(void);
@@ -363,11 +369,12 @@ public:
   void generateStanceControlNodes(const double& stride_scaler);
 
 private:
-  shared_ptr<WalkController> walker_; ///< Pointer to walk controller object.
-  shared_ptr<Leg> leg_;               ///< Pointer to the parent leg object.
+  shared_ptr<WalkController> walker_;  ///< Pointer to walk controller object.
+  shared_ptr<Leg> leg_;                ///< Pointer to the parent leg object.
 
-  bool at_correct_phase_ = false;     ///< Flag denoting if the leg is at the correct phase per the walk state.
-  bool completed_first_step_ = false; ///< Flag denoting if the leg has completed its first step.
+  bool at_correct_phase_ = false;         ///< Flag denoting if the leg is at the correct phase per the walk state.
+  bool completed_first_step_ = false;     ///< Flag denoting if the leg has completed its first step.
+  bool generate_target_tip_pose_ = true;  ///< Flag denoting if target tip pose is to be generated internally
 
   int phase_ = 0;    ///< Step cycle phase.
   int phase_offset_; ///< Step cycle phase offset.
@@ -388,11 +395,12 @@ private:
   double swing_delta_t_ = 0.0;
   double stance_delta_t_ = 0.0;
 
-  Pose identity_tip_pose_;      ///< The user defined tip pose assuming a identity walk plane
-  Pose default_tip_pose_;       ///< The default tip pose per the walk controller, updated with walk plane.
-  Pose current_tip_pose_;       ///< The current tip pose per the walk controller.
-  Pose target_tip_pose_;        ///< The target tip pose to achieve at the end of a swing period.
-  Pose origin_tip_pose_;        ///< The origin tip pose used in interpolation to target rotation.
+  Pose identity_tip_pose_;        ///< The user defined tip pose assuming a identity walk plane
+  Pose default_tip_pose_;         ///< The default tip pose per the walk controller, updated with walk plane.
+  Pose current_tip_pose_;         ///< The current tip pose per the walk controller.
+  Pose target_tip_pose_;          ///< The target tip pose to achieve at the end of a swing period.
+  Pose external_target_tip_pose_; ///< The target tip pose to achieve at the end of a swing period (externally set)
+  Pose origin_tip_pose_;          ///< The origin tip pose used in interpolation to target rotation.
   
   Vector3d current_tip_velocity_;   ///< The default tip velocity per the walk controller.
   
@@ -407,4 +415,5 @@ public:
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
 #endif /* SYROPOD_HIGHLEVEL_CONTROLLER_WALK_CONTROLLER_H */
+
 

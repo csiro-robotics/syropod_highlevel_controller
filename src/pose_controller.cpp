@@ -498,7 +498,7 @@ int PoseController::directStartup(void) //Simultaneous leg coordination
       // Create copy of leg at initial state
       shared_ptr<Leg> test_leg = allocate_shared<Leg>(aligned_allocator<Leg>(), leg);
       test_leg->generate(leg);
-      test_leg->init(true);
+      test_leg->init(false);
 
       // Move tip linearly to default stance position
       Pose default_tip_pose = leg_stepper->getDefaultTipPose();
@@ -726,7 +726,7 @@ int PoseController::unpackLegs(const double& time_to_unpack) //Simultaneous leg 
 ***********************************************************************************************************************/
 int PoseController::transitionConfiguration(const double& transition_time) //Simultaneous leg coordination
 {
-  int progress = UNASSIGNED_VALUE; //Percentage progress (0%->100%)
+  int progress = INT_MAX; //Percentage progress (0%->100%)
   
   // Iterate through message and build individual leg configurations
   map<string, sensor_msgs::JointState> configuration_sorter;
@@ -1440,11 +1440,11 @@ int LegPoser::transitionConfiguration(const double& transition_time)
     {
       shared_ptr<Joint> joint = joint_it->second;
       ROS_ASSERT(desired_configuration_.name[i] == joint->id_name_);
-      bool joint_at_target = abs(desired_configuration_.position[i] - joint->current_position_) < JOINT_TOLERANCE;
+      bool joint_at_target = abs(desired_configuration_.position[i] - joint->desired_position_) < JOINT_TOLERANCE;
       all_joints_at_target = all_joints_at_target && joint_at_target;
                              
       origin_configuration_.name.push_back(joint->id_name_);
-      origin_configuration_.position.push_back(joint->current_position_);
+      origin_configuration_.position.push_back(joint->desired_position_);
     }
 
     // Complete early if joint positions are already at target

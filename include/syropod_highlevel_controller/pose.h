@@ -43,6 +43,15 @@ public:
   };
   
   /**
+   * Pose class constructor for geometry_msgs/Pose
+   */
+  inline Pose(const geometry_msgs::Pose& pose)
+  {
+    position_ = Vector3d(pose.position.x, pose.position.y, pose.position.z);
+    rotation_ = Quaterniond(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
+  };
+  
+  /**
    * Operator to check if two poses are equivalent
    * @params[in] pose The pose that is checked for equivalency against *this
    * @return Bool defining if input and *this pose are equivalent.

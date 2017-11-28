@@ -37,6 +37,7 @@
 
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Point.h>
+#include <geometry_msgs/Pose.h>
 
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>

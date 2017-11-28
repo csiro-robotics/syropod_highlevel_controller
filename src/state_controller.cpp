@@ -657,7 +657,7 @@ void StateController::executePlan(void)
     else
     {
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "[SHC]\n\tPlan step %d acquired. Executing . . .\n", plan_step_);
-      int progress = poser_->transitionConfiguration(1.0);
+      int progress = poser_->transitionConfiguration(10);
       if (progress == PROGRESS_COMPLETE)
       {
         ROS_INFO("[SHC]\n\tPlan step %d completed.\n", plan_step_);
@@ -1512,12 +1512,25 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
 
 /*******************************************************************************************************************//**
  * Callback which handles setting desired configuration for pose controller from planner interface.
- * @param desired_configuration The desired configuration that the planner requests transition to.
+ * @param[in] desired_configuration The desired configuration that the planner requests transition to.
 ***********************************************************************************************************************/
 void StateController::plannerCallback(const sensor_msgs::JointState& desired_configuration)
 {
   poser_->setDesiredConfiguration(desired_configuration);
   plan_step_acquired_ = true;
+}
+
+/*******************************************************************************************************************//**
+ * Callback which handles externally set target tip poses to be reached at end of swing periods.
+ * @param[in] target_tip_poses The target tip pose message
+***********************************************************************************************************************/
+void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& target_tip_poses)
+{
+  for (uint i = 0; i < target_tip_poses.name.size(); ++i)
+  {
+    shared_ptr<Leg> leg = model_->getLegByIDName(target_tip_poses.name[i]);
+    leg->getLegStepper()->setExternalTargetTipPose(Pose(target_tip_poses.pose[i]));
+  }
 }
 
 /*******************************************************************************************************************//**
