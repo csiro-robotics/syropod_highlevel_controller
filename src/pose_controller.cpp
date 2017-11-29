@@ -498,14 +498,15 @@ int PoseController::directStartup(void) //Simultaneous leg coordination
       // Create copy of leg at initial state
       shared_ptr<Leg> test_leg = allocate_shared<Leg>(aligned_allocator<Leg>(), leg);
       test_leg->generate(leg);
-      test_leg->init(false);
+      test_leg->init(true);
 
       // Move tip linearly to default stance position
       Pose default_tip_pose = leg_stepper->getDefaultTipPose();
       while (progress != PROGRESS_COMPLETE)
       {
-        progress = leg_poser->stepToPosition(default_tip_pose, model_->getCurrentPose(), 0.0, time_to_start);
-        test_leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), true);
+        shared_ptr<LegPoser> test_leg_poser = test_leg->getLegPoser();
+        progress = test_leg_poser->stepToPosition(default_tip_pose, model_->getCurrentPose(), 0.0, time_to_start);
+        test_leg->setDesiredTipPose(test_leg_poser->getCurrentTipPose(), true);
         test_leg->applyIK(true);
       }
 
@@ -1420,6 +1421,29 @@ LegPoser::LegPoser(shared_ptr<PoseController> poser, shared_ptr<Leg> leg)
 }
 
 /*******************************************************************************************************************//**
+ * Leg poser copy contructor.
+ * @param[in] leg_poser Pointer to the Leg Poser object to be copied from.
+***********************************************************************************************************************/
+LegPoser::LegPoser(shared_ptr<LegPoser> leg_poser)
+  : poser_(leg_poser->poser_)
+  , leg_(leg_poser->leg_)
+  , auto_pose_(leg_poser->auto_pose_)
+  , current_tip_pose_(leg_poser->current_tip_pose_)
+{
+  pose_negation_phase_start_ = leg_poser->pose_negation_phase_start_;
+  pose_negation_phase_end_ = leg_poser->pose_negation_phase_end_;
+  stop_negation_ = leg_poser->stop_negation_;
+  first_iteration_ = leg_poser->first_iteration_;
+  master_iteration_count_ = leg_poser->master_iteration_count_;
+  desired_configuration_ = leg_poser->desired_configuration_;
+  origin_configuration_ = leg_poser->origin_configuration_;
+  origin_tip_pose_ = leg_poser->origin_tip_pose_;
+  target_tip_pose_ = leg_poser->target_tip_pose_;
+  transition_poses_ = leg_poser->transition_poses_;
+  leg_completed_step_ = leg_poser->leg_completed_step_;
+}
+
+/*******************************************************************************************************************//**
  * Uses a bezier curve to smoothly update (over many iterations) the desired joint position of each joint in the leg
  * associated with this Leg Poser object, from the original configuration at the first iteration of this function to
  * the target configuration defined by the pre-set member variable. This transition completes after a time period 
@@ -1442,7 +1466,7 @@ int LegPoser::transitionConfiguration(const double& transition_time)
       ROS_ASSERT(desired_configuration_.name[i] == joint->id_name_);
       bool joint_at_target = abs(desired_configuration_.position[i] - joint->current_position_) < JOINT_TOLERANCE;
       all_joints_at_target = all_joints_at_target && joint_at_target;
-                             
+
       origin_configuration_.name.push_back(joint->id_name_);
       origin_configuration_.position.push_back(joint->current_position_);
     }
@@ -1486,15 +1510,16 @@ int LegPoser::transitionConfiguration(const double& transition_time)
   if (poser_->getParameters().debug_moveToJointPosition.data && leg_->getIDNumber() == 0) //reference leg for debugging
   {
     double time = master_iteration_count_ * delta_t;
-    ROS_DEBUG("MOVE_TO_JOINT_POSITION DEBUG - MASTER ITERATION: %d\t\t"
-              "TIME: %f\t\t"
-              "ORIGIN: %f:%f:%f\t\t"
-              "CURRENT: %f:%f:%f\t\t"
-              "TARGET: %f:%f:%f\n",
-              master_iteration_count_, time,
-              origin_configuration_.position[0], origin_configuration_.position[1], origin_configuration_.position[2],
-              new_configuration.position[0], new_configuration.position[1], new_configuration.position[2],
-              desired_configuration_.position[0], desired_configuration_.position[1], desired_configuration_.position[2]);
+    string origin_string, current_string, target_string;
+    for (uint i = 0; i < new_configuration.name.size(); ++i)
+    {
+      origin_string += stringFormat("%f\t", origin_configuration_.position[i]);
+      current_string += stringFormat("%f\t", new_configuration.position[i]);
+      target_string += stringFormat("%f\t", desired_configuration_.position[i]);
+    }
+    ROS_DEBUG("\nTRANSITION CONFIGURATION DEBUG:\n"
+              "\tMASTER ITERATION: %d\n\tTIME: %f\n\tORIGIN: %s\n\tCURRENT: %s\n\tTARGET: %s\n",
+              master_iteration_count_, time, origin_string.c_str(), current_string.c_str(), target_string.c_str());
   }
 
   //Return percentage of progress completion (1%->100%)

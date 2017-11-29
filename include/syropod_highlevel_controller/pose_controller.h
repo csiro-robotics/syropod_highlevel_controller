@@ -461,6 +461,15 @@ public:
    * @param[in] leg Pointer to the parent leg object associated with the create Leg Poser object.
    */
   LegPoser(shared_ptr<PoseController> poser, shared_ptr<Leg> leg);
+  
+  /**
+   * Leg poser copy contructor.
+   * @param[in] leg_poser Pointer to the Leg Poser object to be copied from.
+   */
+  LegPoser(shared_ptr<LegPoser> leg_poser);
+  
+  /** Accessor for pointer to parent leg object */
+  inline shared_ptr<Leg> getParentLeg(void) { return leg_; };
 
   /** Accessor for current tip pose according to the Leg Poser object. */
   inline Pose getCurrentTipPose(void) { return current_tip_pose_; };
@@ -479,6 +488,9 @@ public:
 
   /** Returns true if leg has completed its required step in a sequence. */
   inline bool getLegCompletedStep(void) { return leg_completed_step_; };
+  
+  /** Modifier for the pointer to the parent leg */
+  inline void setParentLeg(shared_ptr<Leg> parent_leg) { leg_ = parent_leg; };
 
   /** Modifier for current tip pose according to the Leg Poser object. */
   inline void setCurrentTipPose(const Pose& current) { current_tip_pose_ = current; };

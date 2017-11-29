@@ -225,6 +225,15 @@ public:
     * @param[in] identity_tip_pose The default walking stance tip pose about which the step cycle is based.
     */
   LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, const Pose& identity_tip_pose);
+  
+  /**
+   * Leg stepper object copy constructor, initialises member variables from reference leg stepper object.
+   * @param[in] leg_stepper The reference leg stepper object to copy.
+   */
+  LegStepper(shared_ptr<LegStepper> leg_stepper);
+  
+  /** Accessor for pointer to parent leg object */
+  inline shared_ptr<Leg> getParentLeg(void) { return leg_; };
 
   /** Accessor for the current tip pose according to the walk controller. */
   inline Pose getCurrentTipPose(void) { return current_tip_pose_; };
@@ -282,6 +291,12 @@ public:
     * @param[in] i Index of the control node.
     */
   inline Vector3d getStanceControlNode(const int& i) { return stance_nodes_[i]; };
+  
+  /**
+    * Modifier for the pointer to the parent leg object
+    * @param[in] parent_leg The new parent leg pointer.
+    */
+  inline void setParentLeg(shared_ptr<Leg> parent_leg) { leg_ = parent_leg; };
 
   /**
     * Modifier for the current tip pose according to the walk controller.

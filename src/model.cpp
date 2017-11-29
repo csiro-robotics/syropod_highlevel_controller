@@ -18,6 +18,7 @@
 ***********************************************************************************************************************/
 
 #include "../include/syropod_highlevel_controller/model.h"
+#include "../include/syropod_highlevel_controller/walk_controller.h"
 #include "../include/syropod_highlevel_controller/pose_controller.h"
 
 /*******************************************************************************************************************//**
@@ -168,9 +169,6 @@ Leg::Leg(shared_ptr<Leg> leg)
   , leg_state_(leg->leg_state_)
   , admittance_state_(leg->admittance_state_)
 {
-  // Copy Leg variables
-  leg_stepper_ = leg->leg_stepper_;
-  leg_poser_ = leg->leg_poser_;
   leg_state_publisher_ = leg->leg_state_publisher_;
   asc_leg_state_publisher_ = leg->asc_leg_state_publisher_;
   delta_z_ = leg->delta_z_;
@@ -240,6 +238,14 @@ void Leg::generate(shared_ptr<Leg> leg)
     // Copy tip variables
     tip_->identity_transform_ = leg->tip_->identity_transform_;
     tip_->current_transform_ = leg->tip_->current_transform_;
+    
+    // Copy LegStepper
+    leg_stepper_ = allocate_shared<LegStepper>(aligned_allocator<LegStepper>(), leg->getLegStepper());
+    leg_stepper_->setParentLeg(shared_from_this());
+    
+    // Copy LegPoser
+    leg_poser_ = allocate_shared<LegPoser>(aligned_allocator<LegPoser>(), leg->getLegPoser());
+    leg_poser_->setParentLeg(shared_from_this());
   }
 }
 

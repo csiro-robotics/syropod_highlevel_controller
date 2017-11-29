@@ -659,7 +659,7 @@ void StateController::executePlan(void)
     else
     {
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "[SHC]\n\tPlan step %d acquired. Executing . . .\n", plan_step_);
-      int progress = poser_->transitionConfiguration(10);
+      int progress = poser_->transitionConfiguration(5.0);
       if (progress == PROGRESS_COMPLETE)
       {
         ROS_INFO("[SHC]\n\tPlan step %d completed.\n", plan_step_);

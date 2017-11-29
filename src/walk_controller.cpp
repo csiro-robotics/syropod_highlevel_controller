@@ -706,6 +706,47 @@ LegStepper::LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, c
 };
 
 /*******************************************************************************************************************//**
+ * Leg stepper object copy constructor, initialises member variables from reference leg stepper object.
+ * @param[in] leg_stepper The reference leg stepper object to copy.
+***********************************************************************************************************************/
+LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
+  : walker_(leg_stepper->walker_)
+  , leg_(leg_stepper->leg_)
+  , identity_tip_pose_(leg_stepper->identity_tip_pose_)
+  , default_tip_pose_(leg_stepper->default_tip_pose_)
+  , current_tip_pose_(leg_stepper->current_tip_pose_)
+  , target_tip_pose_(leg_stepper->target_tip_pose_)
+  , external_target_tip_pose_(leg_stepper->external_target_tip_pose_)
+  , origin_tip_pose_(leg_stepper->origin_tip_pose_)
+{
+  walk_plane_ = leg_stepper->walk_plane_;
+  stride_vector_ = leg_stepper->stride_vector_;
+  current_tip_velocity_ = leg_stepper->current_tip_velocity_;
+  swing_origin_tip_position_ = leg_stepper->swing_origin_tip_position_;
+  swing_origin_tip_velocity_ = leg_stepper->swing_origin_tip_velocity_;
+  stance_origin_tip_position_ = leg_stepper->stance_origin_tip_position_;
+  swing_clearance_ = leg_stepper->swing_clearance_;  
+  at_correct_phase_ = leg_stepper->at_correct_phase_;
+  completed_first_step_ = leg_stepper->completed_first_step_;
+  generate_target_tip_pose_ = leg_stepper->generate_target_tip_pose_;
+  phase_ = leg_stepper->phase_;
+  phase_offset_ = leg_stepper->phase_offset_;
+  swing_progress_ = leg_stepper->swing_progress_;
+  stance_progress_ = leg_stepper->stance_progress_;
+  step_state_ = leg_stepper->step_state_;
+  swing_delta_t_ = leg_stepper->swing_delta_t_;
+  stance_delta_t_ = leg_stepper->stance_delta_t_;
+
+  // Iterate through and initialise control nodes (5 control nodes for quartic (4th order) bezier curves)
+  for (int i = 0; i < 5; ++i)
+  {
+    swing_1_nodes_[i] = leg_stepper->swing_1_nodes_[i];
+    swing_2_nodes_[i] = leg_stepper->swing_2_nodes_[i];
+    stance_nodes_[i] = leg_stepper->stance_nodes_[i];
+  }
+};
+
+/*******************************************************************************************************************//**
  * Iterates the step phase and updates the progress variables
 ***********************************************************************************************************************/
 void LegStepper::iteratePhase(void)
