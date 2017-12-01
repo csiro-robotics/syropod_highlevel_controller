@@ -327,10 +327,16 @@ public:
   void tipStatesCallback(const syropod_highlevel_controller::TipState& tip_states);
   
   /**
-   * Callback which handles setting desired configuration for pose controller from planner interface.
-   * @param desired_configuration The desired configuration that the planner requests transition to.
+   * Callback which handles setting target configuration for pose controller from planner interface.
+   * @param target_configuration The desired configuration that the planner requests transition to.
    */
-  void plannerCallback(const sensor_msgs::JointState& desired_configuration);
+  void targetConfigurationCallback(const sensor_msgs::JointState& target_configuration);
+  
+  /**
+   * Callback which handles setting target body pose for pose controller from planner interface.
+   * @param target_body_pose The desired configuration that the planner requests the body transition to.
+   */
+  void targetBodyPoseCallback(const geometry_msgs::Pose& target_body_pose);
   
   /**
    * Callback which handles externally set target tip poses to be reached at end of swing periods.
@@ -359,8 +365,11 @@ private:
   ros::Subscriber secondary_tip_velocity_subscriber_; ///< Subscriber for topic "/syropod_remote/secondary_tip_velocity"
   ros::Subscriber parameter_selection_subscriber_;    ///< Subscriber for topic "/syropod_remote/parameter_selection"
   ros::Subscriber parameter_adjustment_subscriber_;   ///< Subscriber for topic "/syropod_remote/parameter_adjustment"
-  ros::Subscriber planner_subscriber_;                ///< Subscirber for topic "/*_shc_interface/desired_configuration"
+  
+  ros::Subscriber target_configuration_subscriber_;   ///< Subscriber for topic "/target_configuration"
+  ros::Subscriber target_body_pose_subscriber_;       ///< Subscriber for topic "/target_body_pose" 
   ros::Subscriber target_tip_pose_subscriber_;        ///< Subscriber for topic "/target_tip_poses"
+  
   ros::Subscriber imu_data_subscriber_;               ///< Subscriber for topic "/imu/data
   ros::Subscriber joint_state_subscriber_;            ///< Subscriber for topic "/joint_states"
   ros::Subscriber tip_state_subscriber_;              ///< Subscriber for topic "/tip_states"
@@ -418,8 +427,10 @@ private:
   bool joint_positions_initialised_ = false;  ///< Flags if all joint objects have been initialised with a position
   bool transition_state_flag_ = false;        ///< Flags that the system state is transitioning
   
-  bool plan_step_acquired_ = false;           ///< Flag denoting if plan step has been acquired from planner interface
-  int plan_step_ = 0;                         ///< The plan step currently being requested/executed
+  bool target_configuration_acquired_ = false;  ///< Flag denoting if configuration has acquired from planner interface
+  bool target_tip_pose_acquired_ = false;       ///< Flag denoting if tip pose has been acquired from planner interface
+  bool target_body_pose_acquired_ = false;      ///< Flag denoting if body pose has been acquiredfrom planner interface
+  int plan_step_ = 0;                           ///< The plan step currently being requested/executed
 
   Vector2d linear_velocity_input_;            ///< Input for the desired linear velocity of the robot body
   double angular_velocity_input_ = 0;         ///< Input for the desired angular velocity of the robot body

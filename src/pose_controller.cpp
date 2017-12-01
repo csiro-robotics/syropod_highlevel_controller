@@ -727,15 +727,15 @@ int PoseController::unpackLegs(const double& time_to_unpack) //Simultaneous leg 
 ***********************************************************************************************************************/
 int PoseController::transitionConfiguration(const double& transition_time) //Simultaneous leg coordination
 {
-  int progress = INT_MAX; //Percentage progress (0%->100%)
+  int min_progress = INT_MAX; //Percentage progress (0%->100%)
   
   // Iterate through message and build individual leg configurations
   map<string, sensor_msgs::JointState> configuration_sorter;
   if (!executing_transition_)
   {
-    for (uint i = 0; i < desired_configuration_.name.size(); ++i)
+    for (uint i = 0; i < target_configuration_.name.size(); ++i)
     {
-      string joint_name = desired_configuration_.name[i];
+      string joint_name = target_configuration_.name[i];
       string leg_name = joint_name.substr(0, joint_name.find("_"));
       int joint_count = model_->getLegByIDName(leg_name)->getJointCount();
       int joint_index = model_->getLegByIDName(leg_name)->getJointByIDName(joint_name)->id_number_ - 1;
@@ -750,25 +750,56 @@ int PoseController::transitionConfiguration(const double& transition_time) //Sim
       }
       
       // Populate configuration with desired values
-      configuration_sorter.at(leg_name).name[joint_index] = desired_configuration_.name[i];
-      configuration_sorter.at(leg_name).position[joint_index] = desired_configuration_.position[i];
+      configuration_sorter.at(leg_name).name[joint_index] = target_configuration_.name[i];
+      configuration_sorter.at(leg_name).position[joint_index] = target_configuration_.position[i];
     }
   }
+  
+  
 
   // Run configuration transition for each leg
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    if (!executing_transition_ && configuration_sorter.find(leg->getIDName()) != configuration_sorter.end())
+    if (!executing_transition_)
     {
-      leg_poser->setDesiredConfiguration(configuration_sorter.at(leg->getIDName()));
+      sensor_msgs::JointState desired_configuration;
+      if (configuration_sorter.find(leg->getIDName()) != configuration_sorter.end())
+      {
+        desired_configuration = configuration_sorter.at(leg->getIDName());
+      }
+      leg_poser->setDesiredConfiguration(desired_configuration);
     }
-    progress = min(progress, leg_poser->transitionConfiguration(transition_time));
+    int progress = leg_poser->transitionConfiguration(transition_time);
+    min_progress = min(progress, min_progress);
   }
 
-  executing_transition_ = (progress != 0 && progress != PROGRESS_COMPLETE);
-  return progress;
+  executing_transition_ = (min_progress != 0 && min_progress != PROGRESS_COMPLETE);
+  return min_progress;
+}
+
+/*******************************************************************************************************************//**
+ * Iterate through legs in robot model and directly move tips to pose defined by target tip pose and target body pose. 
+ * This transition occurs simultaneously for all legs in a time period defined by the input argument.
+ * @param[in] transition_time The time period in which to execute the transition
+ * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
+***********************************************************************************************************************/
+int PoseController::transitionStance(const double& transition_time)
+{
+  int min_progress = INT_MAX; //Percentage progress (0%->100%)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    Pose target_pose = leg_poser->getTargetTipPose();
+    target_pose.rotation_ = UNDEFINED_ROTATION;
+    int progress = leg_poser->stepToPosition(target_pose, target_body_pose_, 0.0, transition_time, false);
+    leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
+    leg->applyIK();
+    min_progress = min(progress, min_progress);
+  }
+  return min_progress;
 }
 
 /*******************************************************************************************************************//**
@@ -1417,6 +1448,7 @@ LegPoser::LegPoser(shared_ptr<PoseController> poser, shared_ptr<Leg> leg)
   , leg_(leg)
   , auto_pose_(Pose::Identity())
   , current_tip_pose_(Pose::Undefined())
+  , target_tip_pose_(Pose::Undefined())
 {
 }
 
@@ -1453,6 +1485,12 @@ LegPoser::LegPoser(shared_ptr<LegPoser> leg_poser)
 ***********************************************************************************************************************/
 int LegPoser::transitionConfiguration(const double& transition_time)
 {
+  // Return early if desired configuration is undefined
+  if (desired_configuration_.name.size() == 0)
+  {
+    return PROGRESS_COMPLETE;
+  }
+  
   // Setup origin and target joint positions for bezier curve
   if (first_iteration_)
   {
@@ -1464,15 +1502,15 @@ int LegPoser::transitionConfiguration(const double& transition_time)
     {
       shared_ptr<Joint> joint = joint_it->second;
       ROS_ASSERT(desired_configuration_.name[i] == joint->id_name_);
-      bool joint_at_target = abs(desired_configuration_.position[i] - joint->current_position_) < JOINT_TOLERANCE;
+      bool joint_at_target = abs(desired_configuration_.position[i] - joint->desired_position_) < JOINT_TOLERANCE;
       all_joints_at_target = all_joints_at_target && joint_at_target;
 
       origin_configuration_.name.push_back(joint->id_name_);
-      origin_configuration_.position.push_back(joint->current_position_);
+      origin_configuration_.position.push_back(joint->desired_position_);
     }
 
     // Complete early if joint positions are already at target
-    if (all_joints_at_target)
+    if (false)//all_joints_at_target) //TODO
     {
       return PROGRESS_COMPLETE;
     }
@@ -1587,64 +1625,49 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
     new_tip_rotation = origin_tip_pose_.rotation_.slerp(smoothStep(completion_ratio), desired_tip_pose.rotation_);
   }
 
-  int half_swing_iteration = num_iterations / 2;
-
-  // Update leg tip position
-  Vector3d control_nodes_primary[5];
-  Vector3d control_nodes_secondary[5];
-  Vector3d origin_to_target = origin_tip_pose_.position_ - desired_tip_pose.position_;
-
-  // Control nodes for dual 3d quartic bezier curves
-  control_nodes_primary[0] = origin_tip_pose_.position_;
-  control_nodes_primary[1] = origin_tip_pose_.position_;
-  control_nodes_primary[2] = origin_tip_pose_.position_;
-  control_nodes_primary[3] = desired_tip_pose.position_ + 0.75 * origin_to_target;
-  control_nodes_primary[4] = desired_tip_pose.position_ + 0.5 * origin_to_target;
-  control_nodes_primary[2][2] += lift_height;
-  control_nodes_primary[3][2] += lift_height;
-  control_nodes_primary[4][2] += lift_height;
-
-  control_nodes_secondary[0] = desired_tip_pose.position_ + 0.5 * origin_to_target;
-  control_nodes_secondary[1] = desired_tip_pose.position_ + 0.25 * origin_to_target;
-  control_nodes_secondary[2] = desired_tip_pose.position_;
-  control_nodes_secondary[3] = desired_tip_pose.position_;
-  control_nodes_secondary[4] = desired_tip_pose.position_;
-  control_nodes_secondary[0][2] += lift_height;
-  control_nodes_secondary[1][2] += lift_height;
-  control_nodes_secondary[2][2] += lift_height;
-
-  Vector3d new_tip_position;
-  int swing_iteration_count = (master_iteration_count_ + (num_iterations - 1)) % (num_iterations) + 1;
-  double time_input;
-
-  // Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
-  if (swing_iteration_count <= half_swing_iteration)
+  Vector3d new_tip_position = origin_tip_pose_.position_;
+  if (desired_tip_pose.position_ != UNDEFINED_POSITION)
   {
-    time_input = swing_iteration_count * delta_t * 2.0;
-    new_tip_position = quarticBezier(control_nodes_primary, time_input);
-  }
-  else
-  {
-    time_input = (swing_iteration_count - half_swing_iteration) * delta_t * 2.0;
-    new_tip_position = quarticBezier(control_nodes_secondary, time_input);
-  }
+    int half_swing_iteration = num_iterations / 2;
 
-  if (leg_->getIDNumber() == 0) //Reference leg for debugging (AR)
-  {
-    ROS_DEBUG_COND(poser_->getParameters().debug_stepToPosition.data,
-                   "STEP_TO_POSITION DEBUG - LEG: %s\t\t"
-                   "MASTER ITERATION: %d\t\t"
-                   "TIME INPUT: %f\t\t"
-                   "COMPLETION RATIO: %f\t\t"
-                   "ORIGIN: %f:%f:%f\t\t"
-                   "CURRENT: %f:%f:%f\t\t"
-                   "TARGET: %f:%f:%f\n",
-                   leg_->getIDName().c_str(),
-                   master_iteration_count_,
-                   time_input, completion_ratio,
-                   origin_tip_pose_.position_[0], origin_tip_pose_.position_[1], origin_tip_pose_.position_[2],
-                   new_tip_position[0], new_tip_position[1], new_tip_position[2],
-                   desired_tip_pose.position_[0], desired_tip_pose.position_[1], desired_tip_pose.position_[2]);
+    // Update leg tip position
+    Vector3d control_nodes_primary[5];
+    Vector3d control_nodes_secondary[5];
+    Vector3d origin_to_target = origin_tip_pose_.position_ - desired_tip_pose.position_;
+
+    // Control nodes for dual 3d quartic bezier curves
+    control_nodes_primary[0] = origin_tip_pose_.position_;
+    control_nodes_primary[1] = origin_tip_pose_.position_;
+    control_nodes_primary[2] = origin_tip_pose_.position_;
+    control_nodes_primary[3] = desired_tip_pose.position_ + 0.75 * origin_to_target;
+    control_nodes_primary[4] = desired_tip_pose.position_ + 0.5 * origin_to_target;
+    control_nodes_primary[2][2] += lift_height;
+    control_nodes_primary[3][2] += lift_height;
+    control_nodes_primary[4][2] += lift_height;
+
+    control_nodes_secondary[0] = desired_tip_pose.position_ + 0.5 * origin_to_target;
+    control_nodes_secondary[1] = desired_tip_pose.position_ + 0.25 * origin_to_target;
+    control_nodes_secondary[2] = desired_tip_pose.position_;
+    control_nodes_secondary[3] = desired_tip_pose.position_;
+    control_nodes_secondary[4] = desired_tip_pose.position_;
+    control_nodes_secondary[0][2] += lift_height;
+    control_nodes_secondary[1][2] += lift_height;
+    control_nodes_secondary[2][2] += lift_height;
+
+    int swing_iteration_count = (master_iteration_count_ + (num_iterations - 1)) % (num_iterations) + 1;
+    double time_input;
+
+    // Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
+    if (swing_iteration_count <= half_swing_iteration)
+    {
+      time_input = swing_iteration_count * delta_t * 2.0;
+      new_tip_position = quarticBezier(control_nodes_primary, time_input);
+    }
+    else
+    {
+      time_input = (swing_iteration_count - half_swing_iteration) * delta_t * 2.0;
+      new_tip_position = quarticBezier(control_nodes_secondary, time_input);
+    }
   }
 
   if (leg_->getLegState() != MANUAL)
@@ -1652,6 +1675,22 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
     current_tip_pose_.position_ = desired_pose.inverseTransformVector(new_tip_position);
     current_tip_pose_.rotation_ = new_tip_rotation;
   }
+
+  ROS_DEBUG_COND(poser_->getParameters().debug_stepToPosition.data,
+                "STEP_TO_POSITION DEBUG - LEG: %s\t\t"
+                "MASTER ITERATION: %d\t\t"
+                "COMPLETION RATIO: %f\t\t"
+                "POSE: %f:%f:%f\t\t"
+                "ORIGIN: %f:%f:%f\t\t"
+                "CURRENT: %f:%f:%f\t\t"
+                "TARGET: %f:%f:%f\n",
+                leg_->getIDName().c_str(),
+                master_iteration_count_,
+                completion_ratio,
+                target_pose.position_[0], target_pose.position_[0], target_pose.position_[0],
+                origin_tip_pose_.position_[0], origin_tip_pose_.position_[1], origin_tip_pose_.position_[2],
+                current_tip_pose_.position_[0], current_tip_pose_.position_[1], current_tip_pose_.position_[2],
+                desired_tip_pose.position_[0], desired_tip_pose.position_[1], desired_tip_pose.position_[2]);
 
   //Return ratio of completion (1.0 when fully complete)
   if (master_iteration_count_ >= num_iterations)

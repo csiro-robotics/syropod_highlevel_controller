@@ -881,7 +881,7 @@ void LegStepper::updateTipPosition(void)
       default_tip_pose_.position_[2] += walker_->getWalkPlane()[2];
       
       // Determine if target tip pose is to be generated internally or is set externally
-      generate_target_tip_pose_ = (external_target_tip_pose_ != Pose::Undefined());
+      generate_target_tip_pose_ = (external_target_tip_pose_ == Pose::Undefined());
       if (!generate_target_tip_pose_)
       {
         target_tip_pose_ = external_target_tip_pose_;

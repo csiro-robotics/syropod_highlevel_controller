@@ -111,6 +111,9 @@ public:
 
   /** Modifier for pose reset mode */
   inline void setPoseResetMode(const PoseResetMode& mode) { pose_reset_mode_ = mode; };
+  
+  /** Modifier for target body pose */
+  inline void setTargetBodyPose(const Pose& pose) { target_body_pose_ = pose; };
 
   /** Modifier for imu data */
   inline void setImuData(const Quaterniond& orientation, 
@@ -146,9 +149,9 @@ public:
   }
   
   /** Modifier for desired configuration */
-  inline void setDesiredConfiguration(const sensor_msgs::JointState& configuration) 
+  inline void setTargetConfiguration(const sensor_msgs::JointState& configuration) 
   { 
-    desired_configuration_ = configuration; 
+    target_configuration_ = configuration; 
   }
 
   /**
@@ -231,6 +234,14 @@ public:
    * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
    */
   int transitionConfiguration(const double& transition_time);
+  
+  /**
+   * Iterate through legs in robot model and directly move tips to pose defined by target tip pose and target body pose.
+   * This transition occurs simultaneously for all legs in a time period defined by the input argument.
+   * @param[in] transition_time The time period in which to execute the transition
+   * @return Returns an int from 0 to 100 signifying the progress of the sequence (100 meaning 100% complete)
+   */
+  int transitionStance(const double& transition_time);
 
   /**
    * Depending on parameter flags, calls multiple posing functions and combines individual poses to update the current
@@ -327,7 +338,8 @@ private:
   Pose walk_plane_pose_;        ///< Pose used to align robot body parallel with walk plane and normal at clearance.
   Pose origin_walk_plane_pose_; ///< Origin pose used in interpolating walk plane pose
   
-  sensor_msgs::JointState desired_configuration_; ///< Desired robot configuration from planner to be transitioned to.
+  sensor_msgs::JointState target_configuration_; ///< Target robot configuration from planner to be transitioned to.
+  Pose target_body_pose_;                        ///< Target body pose from planner to be transitioned to.
 
   bool executing_transition_ = false;           ///< Flag denoting if the pose controller is executing a transition
   
@@ -340,7 +352,7 @@ private:
   bool first_sequence_execution_ = true;        ///< Flags if the controller has executed its first sequence.
   bool reset_transition_sequence_ = true;       ///< Flags if the saved transition sequence needs to be regenerated.
 
-  vector<double> default_joint_positions_[8];   ///< Joint positions for default stance used in Direct Startup
+  vector<double> default_joint_positions_[8];   ///< Joint positions for default stance used in Direct Startup  
 
   AutoPoserContainer auto_poser_container_;         ///< Object containing all Auto Poser objects.
   PosingState auto_posing_state_ = POSING_COMPLETE; ///< The state of auto posing.

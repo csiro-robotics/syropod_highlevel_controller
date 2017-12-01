@@ -28,6 +28,7 @@
 
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int8.h>
+#include <std_msgs/Float64.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/UInt16.h>
 
@@ -38,6 +39,7 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Transform.h>
 
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>

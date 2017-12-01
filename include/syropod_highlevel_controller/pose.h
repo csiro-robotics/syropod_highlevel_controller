@@ -52,6 +52,23 @@ public:
   };
   
   /**
+   * Returns a conversion of this pose object into a geometry_msgs::Pose convertToPoseMessage
+   * @return The converted geometry_msgs::Pose message
+   */
+  inline geometry_msgs::Pose convertToPoseMessage(void)
+  {
+    geometry_msgs::Pose pose;
+    pose.position.x = position_[0];
+    pose.position.y = position_[1];
+    pose.position.z = position_[2];
+    pose.orientation.w = rotation_.w();
+    pose.orientation.x = rotation_.x();
+    pose.orientation.y = rotation_.y();
+    pose.orientation.z = rotation_.z();
+    return pose;
+  }
+  
+  /**
    * Operator to check if two poses are equivalent
    * @params[in] pose The pose that is checked for equivalency against *this
    * @return Bool defining if input and *this pose are equivalent.
@@ -78,6 +95,23 @@ public:
   inline Pose operator~(void) const 
   { 
     return Pose((rotation_.conjugate())._transformVector(-position_), rotation_.conjugate());
+  }
+  
+  /**
+   * Transforms this pose according to an input geometry_msgs::Transform
+   * @params[in] transform The input transformation msg
+   * @return The transformed pose
+   */
+  inline Pose transform(const geometry_msgs::Transform& transform) const
+  {
+    Vector3d position(position_ + Vector3d(transform.translation.x,
+                                           transform.translation.y,
+                                           transform.translation.z));
+    Quaterniond rotation(rotation_ * Quaterniond(transform.rotation.w,
+                                                 transform.rotation.x,
+                                                 transform.rotation.y,
+                                                 transform.rotation.z));
+    return Pose(position, rotation);
   }
   
   /**

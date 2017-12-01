@@ -1,23 +1,23 @@
 Header header
-std_msgs/String leg_name
+string name
 
-geometry_msgs/Point walker_tip_position
-geometry_msgs/Point poser_tip_position
-geometry_msgs/Point model_tip_position
+geometry_msgs/Pose walker_tip_pose
+geometry_msgs/Pose poser_tip_pose
+geometry_msgs/Pose model_tip_pose
 
-geometry_msgs/Point model_tip_velocity
+geometry_msgs/Twist model_tip_velocity
 
-std_msgs/Float32MultiArray joint_positions
-std_msgs/Float32MultiArray joint_velocities
-std_msgs/Float32MultiArray joint_efforts
+float64[] joint_positions
+float64[] joint_velocities
+float64[] joint_efforts
 
-std_msgs/Float64 stance_progress
-std_msgs/Float64 swing_progress
+float64 stance_progress
+float64 swing_progress
 
-geometry_msgs/Twist auto_pose
+geometry_msgs/Pose auto_pose
 
-std_msgs/Float64 tip_force
-std_msgs/Float64 delta_z
-std_msgs/Float64 virtual_stiffness
+float64 tip_force
+float64 delta_z
+float64 virtual_stiffness
 
 

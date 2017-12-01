@@ -75,11 +75,14 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
                                                      &StateController::parameterAdjustCallback, this);
   
   // Planner subscription/publisher
-  planner_subscriber_ = n_.subscribe(params_.syropod_type.data + "_shc_interface/desired_configuration", 1,
-                                     &StateController::plannerCallback, this);
-  plan_step_request_publisher_ = n_.advertise<std_msgs::Int8>("shc/plan_step_request", 1000);
-  
-  target_tip_pose_subscriber_ = n_.subscribe("/target_tip_poses", 1, &StateController::targetTipPoseCallback, this);
+  target_configuration_subscriber_ = n_.subscribe("/target_configuration", 1,
+                                                  &StateController::targetConfigurationCallback, this);
+  target_body_pose_subscriber_ = n_.subscribe("/target_body_pose", 1,
+                                              &StateController::targetBodyPoseCallback, this);
+  target_tip_pose_subscriber_ = n_.subscribe("/target_tip_poses", 1,
+                                             &StateController::targetTipPoseCallback, this);
+  plan_step_request_publisher_ = n_.advertise<std_msgs::Int8>("/shc/plan_step_request", 1000);
+
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);
@@ -647,24 +650,36 @@ void StateController::executePlan(void)
 {
   if (walker_->getWalkState() == STOPPED)
   {
+    int progress;
     // Publish request for step N of plan
-    if (!plan_step_acquired_)
+    if (!target_configuration_acquired_ && !target_tip_pose_acquired_ && !target_body_pose_acquired_)
     {
-      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "[SHC]\n\tWaiting for plan step %d to be published . . .\n", plan_step_);
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\n[SHC]\tWaiting for plan step %d to be published . . .\n", plan_step_);
       std_msgs::Int8 msg;
       msg.data = plan_step_;
       plan_step_request_publisher_.publish(msg);
     }
-    // Execute acquired plan step and iterate to next on completion
     else
     {
-      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "[SHC]\n\tPlan step %d acquired. Executing . . .\n", plan_step_);
-      int progress = poser_->transitionConfiguration(5.0);
+      // Execute acquired plan step and iterate to next on completion
+      if (target_configuration_acquired_)
+      {
+        progress = poser_->transitionConfiguration(5.0);
+      }
+      else if (target_tip_pose_acquired_ || target_body_pose_acquired_)
+      {
+        progress = poser_->transitionStance(5.0);
+      }
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\n[SHC]\tPlan step %d acquired. Executing (%d%%) . . .\n",
+                        plan_step_, progress);
       if (progress == PROGRESS_COMPLETE)
       {
-        ROS_INFO("[SHC]\n\tPlan step %d completed.\n", plan_step_);
+        ROS_INFO("\n[SHC]\tPlan step %d completed.\n", plan_step_);
         plan_step_++;
-        plan_step_acquired_ = false;        
+        poser_->setTargetBodyPose(Pose::Identity());
+        target_configuration_acquired_ = false;
+        target_tip_pose_acquired_ = false;
+        target_body_pose_acquired_ = false;
       }
     }
   }
@@ -725,51 +740,40 @@ void StateController::publishLegState(void)
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     msg.header.stamp = ros::Time::now();
-    msg.leg_name.data = leg->getIDName().c_str();
+    msg.name = leg->getIDName().c_str();
 
-    // Tip positions
-    msg.walker_tip_position.x = leg_stepper->getCurrentTipPose().position_[0];
-    msg.walker_tip_position.y = leg_stepper->getCurrentTipPose().position_[1];
-    msg.walker_tip_position.z = leg_stepper->getCurrentTipPose().position_[2];
-    msg.poser_tip_position.x = leg_poser->getCurrentTipPose().position_[0];
-    msg.poser_tip_position.y = leg_poser->getCurrentTipPose().position_[1];
-    msg.poser_tip_position.z = leg_poser->getCurrentTipPose().position_[2];
-    msg.model_tip_position.x = leg->getCurrentTipPose().position_[0];
-    msg.model_tip_position.y = leg->getCurrentTipPose().position_[1];
-    msg.model_tip_position.z = leg->getCurrentTipPose().position_[2];
+    // Tip poses
+    msg.walker_tip_pose = leg_stepper->getCurrentTipPose().convertToPoseMessage();
+    msg.poser_tip_pose = leg_poser->getCurrentTipPose().convertToPoseMessage();
+    msg.model_tip_pose = leg->getCurrentTipPose().convertToPoseMessage();
 
     // Tip velocities
-    msg.model_tip_velocity.x = leg->getCurrentTipVelocity()[0];
-    msg.model_tip_velocity.y = leg->getCurrentTipVelocity()[1];
-    msg.model_tip_velocity.z = leg->getCurrentTipVelocity()[2];
+    msg.model_tip_velocity.linear.x = leg->getCurrentTipVelocity()[0];
+    msg.model_tip_velocity.linear.y = leg->getCurrentTipVelocity()[1];
+    msg.model_tip_velocity.linear.z = leg->getCurrentTipVelocity()[2];
 
     //Joint positions/velocities
     for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
     {
       shared_ptr<Joint> joint = joint_it_->second;
-      msg.joint_positions.data.push_back(joint->desired_position_);
-      msg.joint_velocities.data.push_back(joint->desired_velocity_);
-      msg.joint_efforts.data.push_back(joint->desired_effort_);
+      msg.joint_positions.push_back(joint->desired_position_);
+      msg.joint_velocities.push_back(joint->desired_velocity_);
+      msg.joint_efforts.push_back(joint->desired_effort_);
     }
 
     // Step progress
-    msg.swing_progress.data = leg_stepper->getSwingProgress();
-    msg.stance_progress.data = leg_stepper->getStanceProgress();
+    msg.swing_progress = leg_stepper->getSwingProgress();
+    msg.stance_progress = leg_stepper->getStanceProgress();
 
     // Leg specific auto pose
     Vector3d position = leg_poser->getAutoPose().position_;
     Quaterniond rotation = leg_poser->getAutoPose().rotation_;
-    msg.auto_pose.linear.x = position[0];
-    msg.auto_pose.linear.y = position[1];
-    msg.auto_pose.linear.z = position[2];
-    msg.auto_pose.angular.x = quaternionToEulerAngles(rotation)[0];
-    msg.auto_pose.angular.y = quaternionToEulerAngles(rotation)[1];
-    msg.auto_pose.angular.z = quaternionToEulerAngles(rotation)[2];
+    msg.auto_pose = Pose(position, rotation).convertToPoseMessage();
 
     // Admittance controller
-    msg.tip_force.data = leg->getTipForce()[2];
-    msg.delta_z.data = leg->getDeltaZ();
-    msg.virtual_stiffness.data = leg->getVirtualStiffness();
+    msg.tip_force = leg->getTipForce()[2];
+    msg.delta_z = leg->getDeltaZ();
+    msg.virtual_stiffness = leg->getVirtualStiffness();
 
     leg->publishState(msg);
 
@@ -783,7 +787,7 @@ void StateController::publishLegState(void)
     {
       asc_msg.data = false;
     }
-    leg->publishASCState(asc_msg);
+    //leg->publishASCState(asc_msg);
   }
 }
 
@@ -1514,24 +1518,60 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
 
 /*******************************************************************************************************************//**
  * Callback which handles setting desired configuration for pose controller from planner interface.
- * @param[in] desired_configuration The desired configuration that the planner requests transition to.
+ * @param[in] target_configuration The desired configuration that the planner requests transition to.
 ***********************************************************************************************************************/
-void StateController::plannerCallback(const sensor_msgs::JointState& desired_configuration)
+void StateController::targetConfigurationCallback(const sensor_msgs::JointState& target_configuration)
 {
-  poser_->setDesiredConfiguration(desired_configuration);
-  plan_step_acquired_ = true;
+  poser_->setTargetConfiguration(target_configuration);
+  target_configuration_acquired_ = true;
+}
+  
+/*******************************************************************************************************************//**
+ * Callback which handles setting target body pose for pose controller from planner interface.
+ * @param target_body_pose The desired configuration that the planner requests the body transition to.
+***********************************************************************************************************************/
+void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_body_pose)
+{
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    leg_poser->setTargetTipPose(Pose::Undefined());
+  }
+  poser_->setTargetBodyPose(Pose(target_body_pose));
+  target_body_pose_acquired_ = true;
 }
 
 /*******************************************************************************************************************//**
- * Callback which handles externally set target tip poses to be reached at end of swing periods.
+ * Callback which handles externally set target tip poses to be reached at end of swing periods OR during planning mode
  * @param[in] target_tip_poses The target tip pose message
 ***********************************************************************************************************************/
 void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& target_tip_poses)
 {
-  for (uint i = 0; i < target_tip_poses.name.size(); ++i)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = model_->getLegByIDName(target_tip_poses.name[i]);
-    leg->getLegStepper()->setExternalTargetTipPose(Pose(target_tip_poses.pose[i]));
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    leg_stepper->setExternalTargetTipPose(Pose::Undefined()); // Reset
+    leg_poser->setTargetTipPose(Pose::Undefined());
+    Pose target = leg_poser->getTargetTipPose();
+    for (uint i = 0; i < target_tip_poses.name.size(); ++i)
+    {
+      if (leg->getIDName() == target_tip_poses.name[i])
+      {
+        if (walker_->getWalkState() == MOVING)
+        {
+          leg_stepper->setExternalTargetTipPose(Pose(target_tip_poses.pose[i]));
+        }
+        else
+        {
+          leg_poser->setTargetTipPose(Pose(target_tip_poses.pose[i]));
+          target_tip_pose_acquired_ = true;
+        }
+      }
+    }
   }
 }
 
