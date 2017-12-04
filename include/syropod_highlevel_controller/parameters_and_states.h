@@ -311,6 +311,7 @@ struct Parameters
   AdjustableParameter step_clearance;                    ///< The stepping clearance of the tip position above default.
   AdjustableParameter body_clearance;                    ///< The requested height of the robot body above ground.
   Parameter<string> velocity_input_mode;                 ///< Determines velocity input as 'real' or 'throttle' based.
+  Parameter<double> body_velocity_scaler;                ///< Scales all body velocity inputs
   Parameter<bool> force_cruise_velocity;                 ///< Flag denoting if cruise control mode uses set values.
   Parameter<map<string, double>> linear_cruise_velocity; ///< Set values used in cruise control mode if requested.
   Parameter<double> angular_cruise_velocity;             ///< Set values used in cruise control mode if requested.

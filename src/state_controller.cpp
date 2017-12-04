@@ -367,7 +367,7 @@ void StateController::transitionRobotState(void)
     }
     else
     {
-      linear_velocity_input_ = Vector2d(0.0, 0.0);
+      linear_velocity_input_ = Vector2d::Zero();
       angular_velocity_input_ = 0.0;
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to transition state . . .\n");
     }
@@ -493,7 +493,7 @@ void StateController::adjustParameter(void)
   // Force Syropod to stop walking
   else
   {
-    linear_velocity_input_ = Vector2d(0.0, 0.0);
+    linear_velocity_input_ = Vector2d::Zero();
     angular_velocity_input_ = 0.0;
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to adjust parameters . . .\n");
   }
@@ -525,7 +525,7 @@ void StateController::changeGait(void)
   // Force Syropod to stop walking
   else
   {
-    linear_velocity_input_ = Vector2d(0.0, 0.0);
+    linear_velocity_input_ = Vector2d::Zero();
     angular_velocity_input_ = 0.0;
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to change gait . . .\n");
   }
@@ -637,7 +637,7 @@ void StateController::legStateToggle(void)
   else
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to transition leg state . . .\n");
-    linear_velocity_input_ = Vector2d(0.0, 0.0);
+    linear_velocity_input_ = Vector2d::Zero();
     angular_velocity_input_ = 0.0;
   }
 }
@@ -962,8 +962,8 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
 ***********************************************************************************************************************/
 void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& input)
 {
-  linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y);
-  angular_velocity_input_ = input.angular.z;
+  linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y) * params_.body_velocity_scaler.data;
+  angular_velocity_input_ = input.angular.z * params_.body_velocity_scaler.data;
 }
 
 /*******************************************************************************************************************//**
@@ -1071,9 +1071,9 @@ void StateController::cruiseControlCallback(const std_msgs::Int8& input)
         if (params_.force_cruise_velocity.data)
         {
           // Set cruise velocity according to parameters
-          linear_cruise_velocity_[0] = params_.linear_cruise_velocity.data["x"];
-          linear_cruise_velocity_[1] = params_.linear_cruise_velocity.data["y"];
-          angular_cruise_velocity_ = params_.angular_cruise_velocity.data;
+          linear_cruise_velocity_[0] = params_.linear_cruise_velocity.data["x"] * params_.body_velocity_scaler.data;
+          linear_cruise_velocity_[1] = params_.linear_cruise_velocity.data["y"] * params_.body_velocity_scaler.data;
+          angular_cruise_velocity_ = params_.angular_cruise_velocity.data * params_.body_velocity_scaler.data;
         }
         else
         {
@@ -1556,7 +1556,6 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     leg_stepper->setExternalTargetTipPose(Pose::Undefined()); // Reset
     leg_poser->setTargetTipPose(Pose::Undefined());
-    Pose target = leg_poser->getTargetTipPose();
     for (uint i = 0; i < target_tip_poses.name.size(); ++i)
     {
       if (leg->getIDName() == target_tip_poses.name[i])
@@ -1607,6 +1606,7 @@ void StateController::initParameters(void)
   params_.step_clearance.init(n_, "step_clearance");
   params_.body_clearance.init(n_, "body_clearance");
   params_.velocity_input_mode.init(n_, "velocity_input_mode");
+  params_.body_velocity_scaler.init(n_, "body_velocity_scaler");
   params_.force_cruise_velocity.init(n_, "force_cruise_velocity");
   params_.linear_cruise_velocity.init(n_, "linear_cruise_velocity");
   params_.angular_cruise_velocity.init(n_, "angular_cruise_velocity");
