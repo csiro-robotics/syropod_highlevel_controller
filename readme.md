@@ -227,7 +227,7 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Renamed impedance controller to 'admittance controller'
     - Removed custom Quat class and instead replaced with Eigen::Quaterniond
     - Removed IMU data transformation - SHC now expects IMU data in ROS REP103 coordinate frame
-    - Removed joint offset parameters - SHC now expects all joint offseting to be enacted at the motor driver level
+    - Removed joint offset parameters - SHC now expects all joint offsetting to be enacted at the motor driver level
 - v0.5.5
     - *Online specific foot placement
 - v0.5.6
@@ -244,8 +244,9 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Consolidated tip force callbacks into single callback with custom message on topic "/tip_states"
     - Added visualisations for the estimated walk plane and terrain
 - v0.5.8
-    - Implemented Plan Execution Mode (Direct joint manipulation to a series of input configurations)
+    - Implemented Plan Execution Mode (Transition to target configuration, body/tip pose/s) (Free Gait/Movement)
     - Merged Auto Navigation mode and Cruise Control mode to free up Y Button for Plan Execution Mode
-    - Added callback and msg for externally setting target tip poses at end of swing period
+    - Added callback and msg for externally setting target tip poses at end of swing period (Adaptive Gait)
+    - Added feature for multi-configuration-step pack/unpacking
 - v0.5.9
     - Complete merge of v0.5.5 with v0.5.8

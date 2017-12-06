@@ -733,20 +733,24 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
   , max_angular_speed_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max_vel"))
 {
   // Populate packed configuration/s joint position/s
+  map<string, double> joint_parameters = params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data;
+  bool get_next_packed_position = true;
+  string packed_position_key = "packed";
   int i = 0;
-  bool packed_position_exists = true;
-  while (packed_position_exists)
+  while (get_next_packed_position)
   {
-    string packed_position_key = "packed_" + numberToString(i);
-    map<string, double> joint_parameters = params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data;
-    packed_position_exists = joint_parameters.find(packed_position_key) != joint_parameters.end();
-    if (packed_position_exists)
+    try 
     {
       packed_positions_.push_back(joint_parameters.at(packed_position_key));
-      i++;
+      get_next_packed_position = (packed_position_key != "packed");
     }
+    catch (out_of_range)
+    {
+      get_next_packed_position = (packed_position_key == "packed");
+    }
+    packed_position_key = "packed_" + numberToString(i);
+    i++;
   }
-  
   
   if (params.joint_parameters[leg->getIDNumber()][id_number_ - 1].initialised)
   {
