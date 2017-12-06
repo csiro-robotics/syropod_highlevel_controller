@@ -1614,8 +1614,18 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
   {
     origin_tip_pose_ = leg_->getCurrentTipPose();
     current_tip_pose_ = origin_tip_pose_;
-    master_iteration_count_ = 0;
-    first_iteration_ = false;
+    
+    //Check if transition is needed
+    Vector3d transition = current_tip_pose_.position_ - target_pose.inverseTransformVector(target_tip_pose.position_);
+    if (transition.norm() < TIP_TOLERANCE)
+    {
+      return PROGRESS_COMPLETE;
+    }
+    else
+    {
+      master_iteration_count_ = 0;
+      first_iteration_ = false;
+    }
   }
 
   // Apply delta z to target tip position (used for transitioning to state using admittance control)

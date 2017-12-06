@@ -25,7 +25,7 @@
 #include "model.h"
 
 #define JOINT_TOLERANCE 0.01 ///< Tolerance allowing assumption that joints are in correct position (rad)
-#define TIP_TOLERANCE 0.005 ///< Tolerance allowing assumption that tip is in correct position (m)
+#define TIP_TOLERANCE 0.01 ///< Tolerance allowing assumption that tip is in correct position (m)
 #define SAFETY_FACTOR 0.15 ///< Joint limit safety factor (i.e. during sequence joints will initially leave 15% buffer)
 #define HORIZONTAL_TRANSITION_TIME 1.0 ///< Step time during horizontal transition (seconds @ step frequency == 1.0)
 #define VERTICAL_TRANSITION_TIME 3.0 ///< Body raise time during vertical transtion (seconds @ step frequency == 1.0)

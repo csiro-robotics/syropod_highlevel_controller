@@ -743,7 +743,7 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
     {
       packed_positions_.push_back(joint_parameters.at(packed_position_key));
       get_next_packed_position = (packed_position_key != "packed");
-    }
+    } 
     catch (out_of_range)
     {
       get_next_packed_position = (packed_position_key == "packed");
