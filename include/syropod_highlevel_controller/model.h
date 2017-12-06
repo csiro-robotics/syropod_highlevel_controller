@@ -370,7 +370,7 @@ public:
     * @param[in] tip_pose The input desired tip pose.
     * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip pose.
     */
-  void setDesiredTipPose(const Pose& tip_pose = Pose::Undefined(), bool apply_delta_z = false);
+  void setDesiredTipPose(const Pose& tip_pose = Pose::Undefined(), bool apply_delta_z = true);
 
   /**
     * Modifier for the desired tip velocity of the tip of this leg object.
@@ -568,11 +568,11 @@ public:
 
   ros::Publisher desired_position_publisher_; ///< The ros publisher for publishing desired position values.
 
-  const double min_position_ = 0.0;      ///< The minimum position allowed for this joint.
-  const double max_position_ = 0.0;      ///< The maximum position allowed for this joint.
-  const double packed_position_ = 0.0;   ///< The defined position of this joint in a 'packed' state.
-  const double unpacked_position_ = 0.0; ///< The defined position of this joint in an 'unpacked' state.
-  const double max_angular_speed_ = 0.0; ///< The maximum angular speed of this joint.
+  const double min_position_ = 0.0;       ///< The minimum position allowed for this joint.
+  const double max_position_ = 0.0;       ///< The maximum position allowed for this joint.
+  vector<double> packed_positions_ ;      ///< The defined position of this joint in a 'packed' state.
+  const double unpacked_position_ = 0.0;  ///< The defined position of this joint in an 'unpacked' state.
+  const double max_angular_speed_ = 0.0;  ///< The maximum angular speed of this joint.
 
   double desired_position_ = 0.0;      ///< The desired angular position of this joint.
   double desired_velocity_ = 0.0;      ///< The desired angular velocity of this joint.

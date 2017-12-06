@@ -83,7 +83,12 @@ void AdmittanceController::updateAdmittance(const bool& use_joint_effort)
                     0.0,
                     step_time,
                     step_time / 30);
-    leg->setDeltaZ(clamped(-(*admittance_state)[0], -0.05, 0.05));
+    
+    // Deadbanding
+    double delta_z = clamped(-(*admittance_state)[0], -0.2, 0.2);
+    double delta_z_norm = delta_z / abs(delta_z);
+    delta_z = (abs(delta_z) < ADMITTANCE_CONTROL_DEADBAND) ? 0.0 :  (delta_z_norm * (abs(delta_z) - ADMITTANCE_CONTROL_DEADBAND) / (1 - ADMITTANCE_CONTROL_DEADBAND));
+    leg->setDeltaZ(delta_z);
   }
 }
 

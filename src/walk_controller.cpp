@@ -873,6 +873,7 @@ void LegStepper::updateTipPosition(void)
       updateStride();
       swing_origin_tip_position_ = current_tip_pose_.position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
+      min_tip_force_ = UNASSIGNED_VALUE;
         
       // Update default tip position height onto walk plane
       Vector3d walk_plane_normal(-walk_plane_[0], -walk_plane_[1], 1.0);
@@ -926,6 +927,19 @@ void LegStepper::updateTipPosition(void)
     
     current_tip_pose_.position_ += delta_pos;
     current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
+    
+    // EXPERIMENTAL - Force based early touchdown correction
+    /*
+    if (first_half)
+    {
+      min_tip_force_ = min(min_tip_force_, leg_->getTipForce()[2]);
+      current_tip_pose_.position_[2] += delta_pos[2];
+    }    
+    else if (leg_->getTipForce()[2] < average_tip_force_ + abs(min_tip_force_))
+    {
+      current_tip_pose_.position_[2] += delta_pos[2];
+    }
+    */
 
     ROS_DEBUG_COND(walker_->getParameters().debug_swing_trajectory.data && leg_->getIDNumber() == 0,
                    "SWING TRAJECTORY_DEBUG - ITERATION: %d\t\t"
@@ -944,6 +958,8 @@ void LegStepper::updateTipPosition(void)
     updateStride();
     
     int iteration = mod(phase_ + (phase_length - stance_start), phase_length) + 1;
+    
+    average_tip_force_ = average_tip_force_*(iteration - 1)/iteration + leg_->getTipForce()[2]/iteration;
 
     // Save initial tip position at beginning of stance
     if (iteration == 1)

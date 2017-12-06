@@ -345,6 +345,7 @@ private:
   
   int transition_step_ = 0;                     ///< The current transition step in the sequence being executed.
   int transition_step_count_ = 0;               ///< The total number of transition steps in the sequence being executed
+  int pack_step_ = 0;                           ///< The current step in pack/unpack sequence
   bool set_target_ = true;                      ///< Flags if the new tip target is to be calculated and set.
   bool proximity_alert_ = false;                ///< Flags if a joint has moved beyond the limit proximity buffer.
   bool horizontal_transition_complete_ = false; ///< Flags if the horizontal transition has completed without error.

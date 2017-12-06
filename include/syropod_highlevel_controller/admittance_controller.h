@@ -25,6 +25,8 @@
 
 #include "model.h"
 
+#define ADMITTANCE_CONTROL_DEADBAND 0.02
+
 /***********************************************************************************************************************
  * This class handles the application of an admittance controller to the robot model. Specifically it calculates a
  * vertical tip position offset value (delta_z) for each leg of the robot which are modelled as mass/spring/damper

@@ -482,8 +482,8 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg, const Pose& current_
   origin.y = tip_position[1];
   origin.z = tip_position[2];
   target = origin;
-  target.x += leg->getTipForce()[0];
-  target.y += leg->getTipForce()[1];
+  //target.x += leg->getTipForce()[0];
+  //target.y += leg->getTipForce()[1];
   target.z += leg->getTipForce()[2];
   tip_force.points.push_back(origin);
   tip_force.points.push_back(target);

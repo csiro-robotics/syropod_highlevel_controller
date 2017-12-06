@@ -407,7 +407,7 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
       double time_to_step = VERTICAL_TRANSITION_TIME / params_.step_frequency.current_value;
       time_to_step *= (first_sequence_execution_ ? 2.0 : 1.0);
       progress = leg_poser->stepToPosition(target_tip_pose, pose, 0.0, time_to_step, apply_delta_z);
-      leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
+      leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), false);
       double limit_proximity = leg->applyIK();
       all_legs_within_workspace = all_legs_within_workspace && !(limit_proximity < safety_factor);
       ROS_DEBUG_COND(debug && limit_proximity < safety_factor,
@@ -644,11 +644,12 @@ int PoseController::packLegs(const double& time_to_pack) //Simultaneous leg coor
 {
   int progress = 0; //Percentage progress (0%->100%)
   transition_step_ = 0; //Reset for startUp/ShutDown sequences
-
+  int number_pack_steps = 1;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    number_pack_steps = model_->getLegByIDNumber(0)->getJointByIDNumber(1)->packed_positions_.size();
     
     // Generate unpacked configuration
     if (!executing_transition_)
@@ -664,7 +665,7 @@ int PoseController::packLegs(const double& time_to_pack) //Simultaneous leg coor
       {
         int joint_index = joint_it->second->id_number_ - 1;
         packed_configuration.name[joint_index] = joint_it->second->id_name_;
-        packed_configuration.position[joint_index] = joint_it->second->packed_position_;
+        packed_configuration.position[joint_index] = joint_it->second->packed_positions_[pack_step_];
       }
       leg_poser->setDesiredConfiguration(packed_configuration);
     }
@@ -674,6 +675,13 @@ int PoseController::packLegs(const double& time_to_pack) //Simultaneous leg coor
   }
   
   executing_transition_ = (progress != 0 && progress != PROGRESS_COMPLETE);
+  if (progress == PROGRESS_COMPLETE && pack_step_ < number_pack_steps - 1)
+  {
+    executing_transition_ = false;
+    pack_step_++;
+    progress = 0;
+  }
+  
   return progress;
 }
 
@@ -704,9 +712,11 @@ int PoseController::unpackLegs(const double& time_to_unpack) //Simultaneous leg 
       JointContainer::iterator joint_it;
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
-        int joint_index = joint_it->second->id_number_ - 1;
-        unpacked_configuration.name[joint_index] = joint_it->second->id_name_;
-        unpacked_configuration.position[joint_index] = joint_it->second->unpacked_position_;
+        shared_ptr<Joint> joint = joint_it->second;
+        int joint_index = joint->id_number_ - 1;
+        unpacked_configuration.name[joint_index] = joint->id_name_;
+        double target_position = (pack_step_ > 0) ? joint->packed_positions_.at(pack_step_ - 1) : joint->unpacked_position_;
+        unpacked_configuration.position[joint_index] =  target_position;
       }
       leg_poser->setDesiredConfiguration(unpacked_configuration);
     }
@@ -716,6 +726,13 @@ int PoseController::unpackLegs(const double& time_to_unpack) //Simultaneous leg 
   }
   
   executing_transition_ = (progress != 0 && progress != PROGRESS_COMPLETE);
+  if (progress == PROGRESS_COMPLETE && pack_step_ != 0)
+  {
+    executing_transition_ = false;
+    pack_step_--;
+    progress = 0;
+  }
+  
   return progress;
 }
 

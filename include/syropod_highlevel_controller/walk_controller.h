@@ -396,6 +396,9 @@ private:
 
   double swing_progress_ = -1.0;  ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
   double stance_progress_ = -1.0; ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
+  
+  double average_tip_force_ = 0.0;
+  double min_tip_force_ = UNASSIGNED_VALUE;
 
   StepState step_state_ = STANCE; ///< The state of the step cycle.
 

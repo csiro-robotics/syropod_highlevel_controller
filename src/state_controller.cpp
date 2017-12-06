@@ -226,7 +226,7 @@ void StateController::transitionRobotState(void)
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
         shared_ptr<Joint> joint = joint_it_->second;
-        joints_packed += int(abs(joint->current_position_ - joint->packed_position_) < JOINT_TOLERANCE);
+        joints_packed += int(abs(joint->current_position_ - joint->packed_positions_.back()) < JOINT_TOLERANCE);
         joints_ready += int(abs(joint->current_position_ - joint->unpacked_position_) < JOINT_TOLERANCE);
       }
       legs_packed += int(joints_packed == leg->getJointCount());

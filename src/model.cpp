@@ -729,10 +729,25 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
   , id_name_(leg->getIDName() + "_" + params.joint_id.data[id_number_ - 1] + "_joint")
   , min_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("min"))
   , max_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max"))
-  , packed_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("packed"))
   , unpacked_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("unpacked"))
   , max_angular_speed_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max_vel"))
 {
+  // Populate packed configuration/s joint position/s
+  int i = 0;
+  bool packed_position_exists = true;
+  while (packed_position_exists)
+  {
+    string packed_position_key = "packed_" + numberToString(i);
+    map<string, double> joint_parameters = params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data;
+    packed_position_exists = joint_parameters.find(packed_position_key) != joint_parameters.end();
+    if (packed_position_exists)
+    {
+      packed_positions_.push_back(joint_parameters.at(packed_position_key));
+      i++;
+    }
+  }
+  
+  
   if (params.joint_parameters[leg->getIDNumber()][id_number_ - 1].initialised)
   {
     identity_transform_ = createDHMatrix(reference_link_->dh_parameter_d_,
@@ -759,7 +774,7 @@ Joint::Joint(shared_ptr<Joint> joint)
   , id_name_(joint->id_name_)
   , min_position_(joint->min_position_)
   , max_position_(joint->max_position_)
-  , packed_position_(joint->packed_position_)
+  , packed_positions_(joint->packed_positions_)
   , unpacked_position_(joint->unpacked_position_)
   , max_angular_speed_(joint->max_angular_speed_)
 {
