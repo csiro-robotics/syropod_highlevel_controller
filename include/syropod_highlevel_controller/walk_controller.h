@@ -240,6 +240,9 @@ public:
 
   /** Accessor for the default tip pose according to the walk controller. */
   inline Pose getDefaultTipPose(void) { return default_tip_pose_;};
+  
+  /** Accessor for the target tip pose according to the walk controller. */
+  inline Pose getTargetTipPose(void) { return target_tip_pose_;};
 
   /** Accessor for the current state of the walk cycle. */
   inline WalkState getWalkState(void) { return walker_->getWalkState(); };

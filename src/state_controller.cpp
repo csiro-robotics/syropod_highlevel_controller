@@ -746,6 +746,10 @@ void StateController::publishLegState(void)
     msg.walker_tip_pose = leg_stepper->getCurrentTipPose().convertToPoseMessage();
     msg.poser_tip_pose = leg_poser->getCurrentTipPose().convertToPoseMessage();
     msg.model_tip_pose = leg->getCurrentTipPose().convertToPoseMessage();
+    
+    Vector3d tip_position = model_->getCurrentPose().inverseTransformVector(leg_stepper->getTargetTipPose().position_);
+    Pose target_tip_pose(tip_position, leg_stepper->getTargetTipPose().rotation_);
+    msg.target_tip_pose = target_tip_pose.convertToPoseMessage();
 
     // Tip velocities
     msg.model_tip_velocity.linear.x = leg->getCurrentTipVelocity()[0];

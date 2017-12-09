@@ -4,6 +4,7 @@ string name
 geometry_msgs/Pose walker_tip_pose
 geometry_msgs/Pose poser_tip_pose
 geometry_msgs/Pose model_tip_pose
+geometry_msgs/Pose target_tip_pose
 
 geometry_msgs/Twist model_tip_velocity
 
