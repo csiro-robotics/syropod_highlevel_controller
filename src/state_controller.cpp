@@ -771,8 +771,12 @@ void StateController::publishLegState(void)
     msg.auto_pose = Pose(position, rotation).convertToPoseMessage();
 
     // Admittance controller
-    msg.tip_force = leg->getTipForce()[2];
-    msg.delta_z = leg->getDeltaZ();
+    msg.tip_force.x = leg->getTipForce()[0];
+    msg.tip_force.y = leg->getTipForce()[1];
+    msg.tip_force.z = leg->getTipForce()[2];
+    msg.admittance_delta.x = leg->getAdmittanceDelta()[0];
+    msg.admittance_delta.y = leg->getAdmittanceDelta()[1];
+    msg.admittance_delta.z = leg->getAdmittanceDelta()[2];
     msg.virtual_stiffness = leg->getVirtualStiffness();
 
     leg->publishState(msg);

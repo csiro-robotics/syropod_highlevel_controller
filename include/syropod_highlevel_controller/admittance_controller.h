@@ -25,11 +25,11 @@
 
 #include "model.h"
 
-#define ADMITTANCE_CONTROL_DEADBAND 0.02
+#define ADMITTANCE_DEADBAND 0.02
 
 /*******************************************************************************************************************//**
  * This class handles the application of an admittance controller to the robot model. Specifically it calculates a
- * vertical tip position offset value (delta_z) for each leg of the robot which are modelled as mass/spring/damper
+ * tip position offset value for each leg of the robot which are modelled as mass/spring/damper
  * systems. The system for each leg is defined by parameterised characteristics (system mass, spring stiffness and
  * damping ratio) and the input to the system is a tip force value scaled by a parameterised force gain. As well as
  * handling calculation of admittance this class handles a dynamic stiffness system which dynamically modifies the
@@ -53,8 +53,8 @@ public:
   void init(void);
 
   /**
-   * Iterates through legs in the robot model and updates the vertical tip position offset value (delta_z) for each.
-   * The calculation of delta_z is achieved through the use of a classical Runge-Kutta ODE solver with a force input
+   * Iterates through legs in the robot model and updates the tip position offset value for each.
+   * The calculation is achieved through the use of a classical Runge-Kutta ODE solver with a force input
    * acquired from a tip force callback OR from estimation from joint effort values.
    * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
    * @todo Implement admittance control in x/y axis

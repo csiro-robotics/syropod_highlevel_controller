@@ -143,6 +143,7 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   , id_name_(params_.leg_id.data.at(id_number))
   , joint_count_(params_.leg_DOF.data.at(id_name_))
   , leg_state_(WALKING)
+  , admittance_delta_(Vector3d::Zero())
   , admittance_state_(vector<double>(2))
 {
   desired_tip_pose_ = Pose::Undefined();
@@ -171,7 +172,7 @@ Leg::Leg(shared_ptr<Leg> leg)
 {
   leg_state_publisher_ = leg->leg_state_publisher_;
   asc_leg_state_publisher_ = leg->asc_leg_state_publisher_;
-  delta_z_ = leg->delta_z_;
+  admittance_delta_ = leg->admittance_delta_;
   virtual_mass_ = leg->virtual_mass_;
   virtual_stiffness_ = leg->virtual_stiffness_;
   virtual_damping_ratio_ = leg->virtual_damping_ratio_;
@@ -367,16 +368,16 @@ shared_ptr<Link> Leg::getLinkByIDName(const string& link_id_name)
 /*******************************************************************************************************************//**
  * Sets desired tip pose to the input, applying admittance controller vertical offset (delta z) if requested.
  * @param[in] tip_pose The input desired tip pose
- * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip position.
+ * @param[in] apply_delta Flag denoting if admittance control position offset should be applied to desired tip position.
 ***********************************************************************************************************************/
-void Leg::setDesiredTipPose(const Pose& tip_pose, bool apply_delta_z)
+void Leg::setDesiredTipPose(const Pose& tip_pose, bool apply_delta)
 {
-  // Don't apply delta_z to manually manipulated legs
-  apply_delta_z = apply_delta_z && !(leg_state_ == MANUAL || leg_state_ == WALKING_TO_MANUAL);
+  // Don't apply delta to manually manipulated legs
+  apply_delta = apply_delta && !(leg_state_ == MANUAL || leg_state_ == WALKING_TO_MANUAL);
 
   bool use_poser_tip_pose = (Pose::Undefined() == tip_pose);
   desired_tip_pose_ = use_poser_tip_pose ? leg_poser_->getCurrentTipPose() : tip_pose;
-  desired_tip_pose_.position_[2] += (apply_delta_z ? delta_z_ : 0.0);
+  desired_tip_pose_.position_ += (apply_delta ? admittance_delta_ : Vector3d::Zero());
 }
 
 /*******************************************************************************************************************//**
@@ -569,6 +570,24 @@ double Leg::applyIK(const bool& simulation)
   Pose leg_frame_desired_tip_pose = base_joint->getPoseJointFrame(desired_tip_pose_);
   Pose leg_frame_current_tip_pose = base_joint->getPoseJointFrame(current_tip_pose_);
   Vector3d position_delta = leg_frame_desired_tip_pose.position_ - leg_frame_current_tip_pose.position_;
+  
+  // EXPERIMENTAL
+  /*
+  Vector3d limit = 0.05*Vector3d(IK_TOLERANCE, IK_TOLERANCE, IK_TOLERANCE);
+  position_delta = clamped(position_delta, limit);
+  
+  // Check for force constaints
+  Vector3d tip_direction = current_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
+  Vector3d aligned_tip_force = getProjection(tip_force_, tip_direction);
+  if (aligned_tip_force.norm() > 0.75)
+  {
+    Vector3d position_delta_projection = getProjection(position_delta, tip_direction);
+    if (position_delta_projection.dot(tip_direction) > 0.0) // Same direction
+    {
+      position_delta = Vector3d::Zero();
+    }
+  }
+  */
   
   MatrixXd delta = Matrix<double, 6, 1>::Zero();
   delta(0) = position_delta[0];

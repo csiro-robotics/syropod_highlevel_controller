@@ -47,8 +47,8 @@ void AdmittanceController::init(void)
 }
 
 /*******************************************************************************************************************//**
- * Iterates through legs in the robot model and updates the vertical tip position offset value (delta_z) for each.
- * The calculation of delta_z is achieved through the use of a classical Runge-Kutta ODE solver with a force input
+ * Iterates through legs in the robot model and updates the tip position offset value for each.
+ * The calculation is achieved through the use of a classical Runge-Kutta ODE solver with a force input
  * acquired from a tip force callback OR from estimation from joint effort values.
  * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
  * @todo Implement admittance control in x/y axis
@@ -65,30 +65,37 @@ void AdmittanceController::updateAdmittance(const bool& use_joint_effort)
       leg->calculateTipForce();
     }
 
-    double force_input = max(leg->getTipForce()[2], 0.0); // Use vertical component of tip force vector //TODO
-    double damping = leg->getVirtualDampingRatio();
-    double stiffness = leg->getVirtualStiffness();
-    double mass = leg->getVirtualMass();
-    double step_time = params_.integrator_step_time.data;
-    state_type* admittance_state = leg->getAdmittanceState();
-    double virtual_damping = damping * 2 * sqrt(mass * stiffness);
-    boost::numeric::odeint::runge_kutta4<state_type> stepper;
-    integrate_const(stepper,
-                    [&](const state_type & x, state_type & dxdt, double t)
-                    {
-                      dxdt[0] = x[1];
-                      dxdt[1] = -force_input / mass - virtual_damping / mass * x[1] - stiffness / mass * x[0];
-                    }, 
-                    *admittance_state,
-                    0.0,
-                    step_time,
-                    step_time / 30);
-    
-    // Deadbanding
-    double delta_z = clamped(-(*admittance_state)[0], -0.2, 0.2);
-    double delta_z_norm = delta_z / abs(delta_z);
-    delta_z = (abs(delta_z) < ADMITTANCE_CONTROL_DEADBAND) ? 0.0 :  (delta_z_norm * (abs(delta_z) - ADMITTANCE_CONTROL_DEADBAND) / (1 - ADMITTANCE_CONTROL_DEADBAND));
-    leg->setDeltaZ(delta_z);
+    Vector3d admittance_delta = Vector3d::Zero();
+    for (int i = 0; i < 3; ++i)
+    {
+      double force_input = max(leg->getTipForce()[i], 0.0); // Use vertical component of tip force vector //TODO
+      double damping = leg->getVirtualDampingRatio();
+      double stiffness = leg->getVirtualStiffness();
+      double mass = leg->getVirtualMass();
+      double step_time = params_.integrator_step_time.data;
+      state_type* admittance_state = leg->getAdmittanceState();
+      double virtual_damping = damping * 2 * sqrt(mass * stiffness);
+      boost::numeric::odeint::runge_kutta4<state_type> stepper;
+      integrate_const(stepper,
+                      [&](const state_type & x, state_type & dxdt, double t)
+                      {
+                        dxdt[0] = x[1];
+                        dxdt[1] = -force_input / mass - virtual_damping / mass * x[1] - stiffness / mass * x[0];
+                      }, 
+                      *admittance_state,
+                      0.0,
+                      step_time,
+                      step_time / 30);
+      
+      // Deadbanding
+      double delta = clamped(-(*admittance_state)[0], -0.2, 0.2);
+      double delta_direction = delta / abs(delta);
+      if (abs(delta) > ADMITTANCE_DEADBAND)
+      {
+        admittance_delta[i] = delta_direction * (abs(delta) - ADMITTANCE_DEADBAND) / (1 - ADMITTANCE_DEADBAND);
+      }
+    }
+    leg->setAdmittanceDelta(admittance_delta);
   }
 }
 

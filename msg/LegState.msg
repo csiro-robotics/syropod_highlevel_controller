@@ -16,8 +16,8 @@ float64 swing_progress
 
 geometry_msgs/Pose auto_pose
 
-float64 tip_force
-float64 delta_z
+geometry_msgs/Vector3 tip_force
+geometry_msgs/Vector3 admittance_delta
 float64 virtual_stiffness
 
 

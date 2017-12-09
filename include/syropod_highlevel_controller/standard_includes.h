@@ -170,6 +170,30 @@ inline double smoothStep(const double& control_input)
 }
 
 /**
+ * Calculates the projection vector of an input vector onto a reference vector.
+ * (en.wikipedia.org/wiki/Vector_projection)
+ * @param[in] a The input vector
+ * @param[in] b The reference vector
+ * @return The resultant projection vector
+ */
+inline Vector3d getProjection(const Vector3d& a, const Vector3d& b)
+{
+  return (a.dot(b) / b.dot(b))*b;
+}
+
+/**
+ * Calculates the rejection vector of an input vector onto a reference vector.
+ * (en.wikipedia.org/wiki/Vector_projection)
+ * @param[in] a The input vector
+ * @param[in] b The reference vector
+ * @return The resultant rejection vector
+ */
+inline Vector3d getRejection(const Vector3d& a, const Vector3d& b)
+{
+  return a - getProjection(a, b);
+}
+
+/**
  * Return rotation with shorter path between identical rotations on quaternion.
  * @params[in] test The test rotation to check for shorter rotation path.
  * @params[in] reference The reference rotation for the target rotation.

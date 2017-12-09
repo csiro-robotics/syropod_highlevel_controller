@@ -179,8 +179,8 @@ public:
   /** Accessor for the calibration offset for the distance from tip to walk surface contact. */
   inline double getTipContactOffset(void) { return tip_contact_offset_; };
 
-  /** Accessor for the current admittance control vertical position offset (delta_z) for this leg.*/
-  inline double getDeltaZ(void) { return delta_z_; };
+  /** Accessor for the current admittance control position offset for this leg.*/
+  inline Vector3d getAdmittanceDelta(void) { return admittance_delta_; };
 
   /** Accessor for the virtual mass value used in the admittance control model of this leg.*/
   inline double getVirtualMass(void) { return virtual_mass_; };
@@ -279,10 +279,14 @@ public:
   inline void setTipContactOffset(const double& offset) { tip_contact_offset_ = offset; };
   
   /**
-    * Modifier for the current admittance control vertical position offset (delta_z) for this leg.
-    * @param[in] delta_z The new delta_z value for this leg.
+    * Modifier for the current admittance control position offset for this leg. Only sets component of input vector 
+    * which aligns with direction of tip.
+    * @param[in] delta The calculated delta vector of this leg
     */
-  inline void setDeltaZ(const double& delta_z) { delta_z_ = delta_z; };
+  inline void setAdmittanceDelta(const Vector3d& delta) 
+  { 
+    admittance_delta_ = getProjection(delta, current_tip_pose_.rotation_._transformVector(Vector3d::UnitX()));
+  };
 
   /**
     * Modifier for the virtual mass value used in the admittance control model of this leg.
@@ -368,9 +372,9 @@ public:
   /**
     * Sets desired tip pose to the input, applying admittance controller vertical offset (delta z) if requested.
     * @param[in] tip_pose The input desired tip pose.
-    * @param[in] apply_delta_z Flag denoting if 'delta_z' should be applied to desired tip pose.
+    * @param[in] apply_delta Flag denoting if the admittance position offset should be applied to desired tip pose.
     */
-  void setDesiredTipPose(const Pose& tip_pose = Pose::Undefined(), bool apply_delta_z = true);
+  void setDesiredTipPose(const Pose& tip_pose = Pose::Undefined(), bool apply_delta = true);
 
   /**
     * Modifier for the desired tip velocity of the tip of this leg object.
@@ -438,7 +442,7 @@ private:
   ros::Publisher leg_state_publisher_;     ///< The ros publisher object that publishes state messages for this leg.
   ros::Publisher asc_leg_state_publisher_; ///< The ros publisher object that publishes ASC state messages for this leg.
 
-  double delta_z_ = 0.0;         ///< The admittance controller vertical tip position offset value.
+  Vector3d admittance_delta_;    ///< The admittance controller tip position offset vector.
   double virtual_mass_;          ///< The virtual mass of the admittance controller virtual model of this leg.
   double virtual_stiffness_;     ///< The virtual stiffness of the admittance controller virtual model of this leg.
   double virtual_damping_ratio_; ///< The virtual damping ratio of the admittance controller virtual model of this leg.
