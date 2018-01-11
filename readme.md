@@ -2,7 +2,7 @@
 
 High level controller for CSIRO multi-legged robots (Syropods).
 
-Current version: v0.5.8
+Current version: v0.5.9
 
 Please use readme in launch folder of individual platform for information on setting up platform for use with Syropod High-level Controller.
 

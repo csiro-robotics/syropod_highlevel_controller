@@ -5,8 +5,8 @@
  *  @brief   Describes the robot model including all legs, joints and links.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    November 2017
- *  @version 0.5.8
+ *  @date    January 2018
+ *  @version 0.5.9
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies

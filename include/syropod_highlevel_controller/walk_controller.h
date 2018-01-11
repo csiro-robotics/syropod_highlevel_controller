@@ -5,8 +5,8 @@
  *  @brief   Handles control of Syropod walking.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    November 2017
- *  @version 0.5.8
+ *  @date    January 2018
+ *  @version 0.5.9
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -26,6 +26,7 @@
 
 #define BEARING_STEP 45 ///< Step to increment bearing in workspace generation algorithm (deg)
 #define WORKSPACE_GENERATION_MAX_ITERATIONS 50 ///< Maximum number of iterations to find limits of workspace
+#define MAX_WORKSPACE_RADIUS 2.0 ///< Maximum radius allowed in workspace polygon (m)
 
 class DebugVisualiser;
 
@@ -99,6 +100,9 @@ public:
     * @param[in] state  The new posing state.
     */
   inline void setPoseState(const PosingState& state) { pose_state_ = state; };
+  
+  /** Modifier for workspace generated flag. */
+  inline void setWorkspaceGenerated(const bool& workspace_generated) { workspace_generated_ = workspace_generated; };
 
   /**
    * Initialises walk controller by setting desired default walking stance tip positions from parameters and creating
@@ -308,10 +312,10 @@ public:
   inline void setCurrentTipPose(const Pose& current_tip_pose) { current_tip_pose_ = current_tip_pose; };
 
   /**
-    * Modifier for the default tip pose according to the walk controller.
+    * Modifier for the identity tip pose according to the walk controller.
     * @param[in] tip_pose The new default tip pose.
     */
-  inline void setDefaultTipPose(const Pose& tip_pose) { default_tip_pose_ = tip_pose; };
+  inline void setIdentityTipPose(const Pose& tip_pose) { identity_tip_pose_ = tip_pose; };
 
   /**
     * Modifier for the current state of step cycle.

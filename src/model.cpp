@@ -3,8 +3,8 @@
  *  @brief   Describes the Syropod model including all legs, joints and links.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    November 2017
- *  @version 0.5.8
+ *  @date    January 2018
+ *  @version 0.5.9
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -376,6 +376,7 @@ void Leg::setDesiredTipPose(const Pose& tip_pose, bool apply_delta)
   apply_delta = apply_delta && !(leg_state_ == MANUAL || leg_state_ == WALKING_TO_MANUAL);
 
   bool use_poser_tip_pose = (Pose::Undefined() == tip_pose);
+
   desired_tip_pose_ = use_poser_tip_pose ? leg_poser_->getCurrentTipPose() : tip_pose;
   desired_tip_pose_.position_ += (apply_delta ? admittance_delta_ : Vector3d::Zero());
 }
@@ -570,6 +571,7 @@ double Leg::applyIK(const bool& simulation)
   Pose leg_frame_desired_tip_pose = base_joint->getPoseJointFrame(desired_tip_pose_);
   Pose leg_frame_current_tip_pose = base_joint->getPoseJointFrame(current_tip_pose_);
   Vector3d position_delta = leg_frame_desired_tip_pose.position_ - leg_frame_current_tip_pose.position_;
+  ROS_ASSERT(position_delta.norm() < UNASSIGNED_VALUE);
   
   // EXPERIMENTAL
   /*

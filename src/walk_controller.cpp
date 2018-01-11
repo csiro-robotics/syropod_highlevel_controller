@@ -3,8 +3,8 @@
  *  @brief   Handles control of Syropod walking.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    November 2017
- *  @version 0.5.8
+ *  @date    January 2018
+ *  @version 0.5.9
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -105,6 +105,7 @@ void WalkController::init(void)
       }
 
       double min_distance = min(distance_to_overlap_1, distance_to_overlap_2);
+      min_distance = min(min_distance, MAX_WORKSPACE_RADIUS);
       if (workspace_map_.find(bearing) != workspace_map_.end() && min_distance < workspace_map_[bearing])
       {
         workspace_map_[bearing] = min_distance;
@@ -180,6 +181,7 @@ void WalkController::generateWorkspace(void)
 
       // Calculate target tip position along search bearing
       Vector3d origin_tip_position = leg->getCurrentTipPose().position_;
+      origin_tip_position[2] += step_clearance_;
       Vector3d target_tip_position = origin_tip_position;
       target_tip_position[0] += current_min * cos(degreesToRadians(search_bearing));
       target_tip_position[1] += current_min * sin(degreesToRadians(search_bearing));
@@ -188,11 +190,11 @@ void WalkController::generateWorkspace(void)
       bool within_limits = true;
       double distance_from_default = 0.0;
       int iteration = 0;
-      while (within_limits && distance_from_default < current_min &&
-             iteration <= WORKSPACE_GENERATION_MAX_ITERATIONS)
+      int number_iterations = debug ? WORKSPACE_GENERATION_MAX_ITERATIONS * 1000 : WORKSPACE_GENERATION_MAX_ITERATIONS;
+      while (within_limits && distance_from_default < current_min && iteration <= number_iterations)
       {
         iteration++;
-        double i = double(iteration) / WORKSPACE_GENERATION_MAX_ITERATIONS; // Interpolation control variable
+        double i = double(iteration) / number_iterations; // Interpolation control variable
         Vector3d desired_tip_position = origin_tip_position * (1.0-i) + target_tip_position * i; //Linearly interpolate
         leg->setDesiredTipPose(Pose(desired_tip_position, UNDEFINED_ROTATION));
         
@@ -575,7 +577,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     if (leg->getLegState() == WALKING && walk_state_ != STOPPED)
     {
       leg_stepper->updateTipPosition();  // updates current tip position through step cycle
-      if (params_.rough_terrain_mode.data)
+      if (params_.rough_terrain_mode.data && leg->getJointCount() > 3)
       {
         leg_stepper->updateTipRotation();
       }
@@ -584,6 +586,10 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
   }
   updateWalkPlane();
+  if (!workspace_generated_)
+  {
+    generateWorkspace();
+  }
 }
 
 /*******************************************************************************************************************//**
@@ -652,6 +658,7 @@ void WalkController::updateWalkPlane(void)
   int legs_in_stance = 0;
   vector<double> raw_A;
   vector<double> raw_B;
+  
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
@@ -667,10 +674,15 @@ void WalkController::updateWalkPlane(void)
       legs_in_stance++;
     }
   }
-  Map<Matrix<double, Dynamic, Dynamic, RowMajor>> A(raw_A.data(), legs_in_stance, 3);
-  Map<VectorXd> B(raw_B.data(), legs_in_stance);
-  MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
-  walk_plane_ = (pseudo_inverse_A*B);
+  
+  // Estimate walk plane if there are at least 3 points to define plane.
+  if (legs_in_stance >= 3)
+  {
+    Map<Matrix<double, Dynamic, Dynamic, RowMajor>> A(raw_A.data(), legs_in_stance, 3);
+    Map<VectorXd> B(raw_B.data(), legs_in_stance);
+    MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
+    walk_plane_ = (pseudo_inverse_A*B);
+  }
 }
 
 /*******************************************************************************************************************//**

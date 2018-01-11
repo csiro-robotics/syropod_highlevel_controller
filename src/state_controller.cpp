@@ -3,8 +3,8 @@
  *  @brief   Top level controller that handles state of Syropod.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    November 2017
- *  @version 0.5.8
+ *  @date    January 2018
+ *  @version 0.5.9
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
@@ -1557,27 +1557,42 @@ void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_b
 ***********************************************************************************************************************/
 void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& target_tip_poses)
 {
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  for (uint i = 0; i < target_tip_poses.name.size(); ++i)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    leg_stepper->setExternalTargetTipPose(Pose::Undefined()); // Reset
-    leg_poser->setTargetTipPose(Pose::Undefined());
-    for (uint i = 0; i < target_tip_poses.name.size(); ++i)
+    shared_ptr<Leg> leg = model_->getLegByIDName(target_tip_poses.name[i]);
+    if (leg != NULL)
     {
+      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+      leg_stepper->setExternalTargetTipPose(Pose::Undefined()); // Reset
+      leg_poser->setTargetTipPose(Pose::Undefined());
+      
       if (leg->getIDName() == target_tip_poses.name[i])
       {
         if (walker_->getWalkState() == MOVING)
         {
-          leg_stepper->setExternalTargetTipPose(Pose(target_tip_poses.pose[i]));
+          if (Pose(target_tip_poses.target[i]) != Pose::Undefined())
+          {
+            leg_stepper->setExternalTargetTipPose(Pose(target_tip_poses.target[i]));
+          }
+          if (Pose(target_tip_poses.identity[i]) != Pose::Undefined())
+          {
+            leg_stepper->setIdentityTipPose(Pose(target_tip_poses.identity[i]));
+            //walker_->setWorkspaceGenerated(false);
+          }
         }
         else
         {
-          leg_poser->setTargetTipPose(Pose(target_tip_poses.pose[i]));
+          leg_poser->setTargetTipPose(Pose(target_tip_poses.target[i]));
           target_tip_pose_acquired_ = true;
         }
       }
+    }
+    else
+    {
+      ROS_ERROR("\nRequested target tip pose for leg '%s' failed. Leg '%s' does not exist in model.\n",
+                target_tip_poses.name[i].c_str(), target_tip_poses.name[i].c_str());
+      return;
     }
   }
 }
