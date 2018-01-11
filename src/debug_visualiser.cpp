@@ -76,6 +76,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
   leg_line_list.color.g = 1;
   leg_line_list.color.b = 1;
   leg_line_list.color.a = 1;
+  leg_line_list.pose = Pose::Identity().convertToPoseMessage();
 
   Pose pose = odometry_pose_;
   Pose current_pose = model->getCurrentPose();
@@ -179,6 +180,7 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
   walk_plane_marker.color.g = 1;
   walk_plane_marker.color.b = 1;
   walk_plane_marker.color.a = 0.5;
+  walk_plane_marker.pose = Pose::Identity().convertToPoseMessage();
   
   Vector3d walk_plane_centroid(0, 0, walk_plane[2]);
   walk_plane_centroid = odometry_pose_.transformVector(walk_plane_centroid);
@@ -215,6 +217,7 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& cur
   tip_position_marker.color.r = 1; //RED
   tip_position_marker.color.a = 1;
   tip_position_marker.lifetime = ros::Duration(TRAJECTORY_DURATION);
+  tip_position_marker.pose = Pose::Identity().convertToPoseMessage();
   
   Pose pose = odometry_pose_;
   pose.position_ += pose.rotation_._transformVector(current_pose.position_);
@@ -262,6 +265,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       terrain_marker.scale.z = tip_position[2] + 0.5;
       terrain_marker.color.r = 1; //RED
       terrain_marker.color.a = 0.5;
+      terrain_marker.pose = Pose::Identity().convertToPoseMessage();
       
       geometry_msgs::Point point;
       point.x = tip_position[0];
@@ -292,6 +296,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_1_nodes.color.g = 1; //YELLOW
   swing_1_nodes.color.r = 1;
   swing_1_nodes.color.a = 1;
+  swing_1_nodes.pose = Pose::Identity().convertToPoseMessage();
 
   visualization_msgs::Marker swing_2_nodes;
   swing_2_nodes.header.frame_id = "/fixed_frame";
@@ -306,6 +311,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_2_nodes.color.r = 1; //YELLOW
   swing_2_nodes.color.g = 1;
   swing_2_nodes.color.a = 1;
+  swing_2_nodes.pose = Pose::Identity().convertToPoseMessage();
 
   visualization_msgs::Marker stance_nodes;
   stance_nodes.header.frame_id = "/fixed_frame";
@@ -318,6 +324,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   stance_nodes.color.r = 1; //YELLOW
   stance_nodes.color.g = 1;
   stance_nodes.color.a = 1;
+  stance_nodes.pose = Pose::Identity().convertToPoseMessage();
 
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
@@ -378,6 +385,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   default_tip_position.color.b = leg_stepper->isAtCorrectPhase() ? 0.0 : 1.0;
   default_tip_position.color.a = 1;
   
+  default_tip_position.pose = Pose::Identity().convertToPoseMessage();
   default_tip_position.pose.position.x = leg_stepper->getDefaultTipPose().position_[0];
   default_tip_position.pose.position.y = leg_stepper->getDefaultTipPose().position_[1];
   default_tip_position.pose.position.z = leg_stepper->getDefaultTipPose().position_[2];
@@ -395,6 +403,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace.color.g = 1;
   workspace.color.b = 1;
   workspace.color.a = 1;
+  workspace.pose = Pose::Identity().convertToPoseMessage();
 
   geometry_msgs::Point origin_point;
   origin_point.x = leg_stepper->getDefaultTipPose().position_[0];
@@ -453,6 +462,7 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   stride.scale.z = 0.02 * sqrt(marker_scale_);
   stride.color.g = 1; //GREEN
   stride.color.a = 1;
+  stride.pose = Pose::Identity().convertToPoseMessage();
 
   stride_publisher_.publish(stride);
 }
@@ -495,6 +505,7 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg, const Pose& current_
   tip_force.color.b = 1; // MAGENTA
   tip_force.color.r = 1;
   tip_force.color.a = 1;
+  tip_force.pose = Pose::Identity().convertToPoseMessage();
 
   tip_force_publisher_.publish(tip_force);
 }
@@ -519,6 +530,8 @@ void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& curre
   tip_rotation_axis.scale.x = 0.01 * sqrt(marker_scale_);
   tip_rotation_axis.scale.y = 0.015 * sqrt(marker_scale_);
   tip_rotation_axis.scale.z = 0.02 * sqrt(marker_scale_);
+  tip_rotation_axis.pose = Pose::Identity().convertToPoseMessage();
+  
   Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
   geometry_msgs::Point origin;
   origin.x = tip_position[0];
