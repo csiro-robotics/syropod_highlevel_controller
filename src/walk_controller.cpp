@@ -45,7 +45,6 @@ void WalkController::init(void)
   time_delta_ = params_.time_delta.data;
   step_clearance_ = params_.step_clearance.current_value;
   body_clearance_ = params_.body_clearance.current_value;
-  bool debug = params_.debug_workspace_calc.data;
   walk_state_ = STOPPED;
   walk_plane_ = Vector3d(0,0,0);
 
@@ -58,65 +57,6 @@ void WalkController::init(void)
     Pose identity_tip_pose(Vector3d(x_position, y_position, 0.0), UNDEFINED_ROTATION);
     leg->setLegStepper(allocate_shared<LegStepper>(aligned_allocator<LegStepper>(),
                                                    shared_from_this(), leg, identity_tip_pose));
-  }
-
-  // Populate workspace map using leg tip position overlaps
-  workspace_map_.clear();
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(mod(leg->getIDNumber() + 1, model_->getLegCount()));
-    shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(mod(leg->getIDNumber() - 1, model_->getLegCount()));
-
-    Vector3d identity_tip_position = leg->getLegStepper()->getDefaultTipPose().position_;
-    Vector3d adjacent_1_tip_position = adjacent_leg_1->getLegStepper()->getDefaultTipPose().position_;
-    Vector3d adjacent_2_tip_position = adjacent_leg_2->getLegStepper()->getDefaultTipPose().position_;
-
-    double distance_to_adjacent_leg_1 = Vector3d(identity_tip_position - adjacent_1_tip_position).norm() / 2.0;
-    double distance_to_adjacent_leg_2 = Vector3d(identity_tip_position - adjacent_2_tip_position).norm() / 2.0;
-
-    int bearing_to_adjacent_leg_1 = radiansToDegrees(atan2(adjacent_1_tip_position[1] - identity_tip_position[1],
-                                    adjacent_1_tip_position[0] - identity_tip_position[0]));
-    int bearing_to_adjacent_leg_2 = radiansToDegrees(atan2(adjacent_2_tip_position[1] - identity_tip_position[1],
-                                    adjacent_2_tip_position[0] - identity_tip_position[0]));
-
-    ROS_DEBUG_COND(debug, "\nLeg %s has adjacent legs:\n"
-                   "\tLeg %s at %d bearing & %f distance.\n"
-                   "\tLeg %s at %d bearing & %f distance.\n",
-                   leg->getIDName().c_str(),
-                   adjacent_leg_1->getIDName().c_str(), bearing_to_adjacent_leg_1, distance_to_adjacent_leg_1,
-                   adjacent_leg_2->getIDName().c_str(), bearing_to_adjacent_leg_2, distance_to_adjacent_leg_2);
-
-    //Populate workspace map if empty
-    for (int bearing = 0; bearing <= 360; bearing += BEARING_STEP)
-    {
-      int bearing_diff_1 = abs(mod(bearing_to_adjacent_leg_1, 360) - bearing);
-      int bearing_diff_2 = abs(mod(bearing_to_adjacent_leg_2, 360) - bearing);
-
-      double distance_to_overlap_1 = UNASSIGNED_VALUE;
-      double distance_to_overlap_2 = UNASSIGNED_VALUE;
-      if ((bearing_diff_1 < 90 || bearing_diff_1 > 270) && distance_to_adjacent_leg_1 > 0.0)
-      {
-        distance_to_overlap_1 = distance_to_adjacent_leg_1 / cos(degreesToRadians(bearing_diff_1));
-      }
-      if ((bearing_diff_2 < 90 || bearing_diff_2 > 270) && distance_to_adjacent_leg_2 > 0.0)
-      {
-        distance_to_overlap_2 = distance_to_adjacent_leg_2 / cos(degreesToRadians(bearing_diff_2));
-      }
-
-      double min_distance = min(distance_to_overlap_1, distance_to_overlap_2);
-      min_distance = min(min_distance, MAX_WORKSPACE_RADIUS);
-      if (workspace_map_.find(bearing) != workspace_map_.end() && min_distance < workspace_map_[bearing])
-      {
-        workspace_map_[bearing] = min_distance;
-        ROS_DEBUG_COND(debug, "Workspace: Bearing %d has modified min distance %f.", bearing, min_distance);
-      }
-      else
-      {
-        workspace_map_.insert(map<int, double>::value_type(bearing, min_distance));
-        ROS_DEBUG_COND(debug, "Workspace: Bearing %d has new min distance of %f.", bearing, min_distance);
-      }
-    }
   }
 
   // Stance radius based around front right leg to ensure positive values
@@ -138,118 +78,230 @@ void WalkController::init(void)
  * Generates universal workspace (map of radii for range of search bearings) for all legs by having each leg search
  * for joint limitations through bearings ranging from zero to 360 degrees. Workspace may be asymetrical, symetrical
  * (all opposite bearing pairs having equal distance) or circular (all search bearings having equal distance).
- * @todo Parameterise symmetric/circular workspace constraint flags.
- * @todo Parameterise BEARING_STEP and SEARCH_VELOCITY constants
+ * @params[in] self_loop Flag that determines if workspace generation occurs iteratively through multiple calls of this
+ * function or in while loop via a single call of this function.
 ***********************************************************************************************************************/
-void WalkController::generateWorkspace(void)
+int WalkController::generateWorkspace(const bool& self_loop)
 {
   bool debug = params_.debug_workspace_calc.data;
-  bool symmetric_workspace = true; //TODO
-  bool circular_workspace = false; //TODO
+  bool display_debug_visualisation = debug && params_.debug_rviz.data && params_.debug_rviz_static_display.data;
+  bool loop = true;
+  int progress = 0;
 
-  int workspace_generation_start = clock();
-  double absolute_min = UNASSIGNED_VALUE;
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  while (loop)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-
-    // Create copy of leg at default state
-    sensor_msgs::JointState default_joint_states;
-    leg->generateDesiredJointStateMsg(&default_joint_states);
-
-    // Iterate through search bearings
-    int opposite_bearing = 0;
-    for (int search_bearing = 0; search_bearing <= 360; search_bearing += BEARING_STEP) // TODO
+    loop = self_loop;
+    if (generate_workspace_)
     {
-      if (debug)
+      workspace_map_.clear();
+      generate_workspace_ = false;
+      workspace_generated_ = false;
+      
+      search_model_ = allocate_shared<Model>(aligned_allocator<Model>(), model_);
+      search_model_->generate(model_);
+      search_model_->initLegs(true);
+      
+      // Initially populate workspace map using leg tip position overlaps
+      for (leg_it_ = search_model_->getLegContainer()->begin();
+           leg_it_ != search_model_->getLegContainer()->end(); ++leg_it_)
       {
-        double progress = 100.0 * (search_bearing + (leg->getIDNumber() * 360.0)) / (360.0 * model_->getLegCount());
-        ROS_DEBUG_THROTTLE(THROTTLE_PERIOD, "\nCalculating workspace (%d%%) . . .\n", roundToInt(progress));
-      }
+        int leg_count = search_model_->getLegCount();
+        shared_ptr<Leg> leg = leg_it_->second;
+        shared_ptr<Leg> adjacent_leg_1 = search_model_->getLegByIDNumber(mod(leg->getIDNumber() + 1, leg_count));
+        shared_ptr<Leg> adjacent_leg_2 = search_model_->getLegByIDNumber(mod(leg->getIDNumber() - 1, leg_count));
 
-      double current_min = workspace_map_.at(search_bearing);
-      if (circular_workspace)
-      {
-        current_min = min(current_min, absolute_min);
-      }
-      else if (symmetric_workspace)
-      {
-        opposite_bearing = mod(search_bearing + 180, 360);
-        current_min = min(current_min, workspace_map_.at(opposite_bearing));
-      }
+        Vector3d identity_tip_position = leg->getLegStepper()->getIdentityTipPose().position_;
+        Vector3d adjacent_1_tip_position = adjacent_leg_1->getLegStepper()->getIdentityTipPose().position_;
+        Vector3d adjacent_2_tip_position = adjacent_leg_2->getLegStepper()->getIdentityTipPose().position_;
 
-      // Calculate target tip position along search bearing
-      Vector3d origin_tip_position = leg->getCurrentTipPose().position_;
-      origin_tip_position[2] += step_clearance_;
-      Vector3d target_tip_position = origin_tip_position;
-      target_tip_position[0] += current_min * cos(degreesToRadians(search_bearing));
-      target_tip_position[1] += current_min * sin(degreesToRadians(search_bearing));
+        double distance_to_adjacent_leg_1 = Vector3d(identity_tip_position - adjacent_1_tip_position).norm() / 2.0;
+        double distance_to_adjacent_leg_2 = Vector3d(identity_tip_position - adjacent_2_tip_position).norm() / 2.0;
 
-      // Move tip position linearly along search bearing in search of workspace limit defined by joint limits.
-      bool within_limits = true;
-      double distance_from_default = 0.0;
-      int iteration = 0;
-      int number_iterations = debug ? WORKSPACE_GENERATION_MAX_ITERATIONS * 1000 : WORKSPACE_GENERATION_MAX_ITERATIONS;
-      while (within_limits && distance_from_default < current_min && iteration <= number_iterations)
-      {
-        iteration++;
-        double i = double(iteration) / number_iterations; // Interpolation control variable
-        Vector3d desired_tip_position = origin_tip_position * (1.0-i) + target_tip_position * i; //Linearly interpolate
-        leg->setDesiredTipPose(Pose(desired_tip_position, UNDEFINED_ROTATION));
-        
-        within_limits = (leg->applyIK(true) != 0.0);
-        Pose current_pose = model_->getCurrentPose();
-        Vector3d default_tip_position = current_pose.inverseTransformVector(leg_stepper->getDefaultTipPose().position_);
-        distance_from_default = Vector3d(leg->getCurrentTipPose().position_ - default_tip_position).norm();
+        int bearing_to_adjacent_leg_1 = radiansToDegrees(atan2(adjacent_1_tip_position[1] - identity_tip_position[1],
+                                        adjacent_1_tip_position[0] - identity_tip_position[0]));
+        int bearing_to_adjacent_leg_2 = radiansToDegrees(atan2(adjacent_2_tip_position[1] - identity_tip_position[1],
+                                        adjacent_2_tip_position[0] - identity_tip_position[0]));
 
-        // Display robot model whilst performing workspace limitation search
-        if (debug && params_.debug_rviz.data && params_.debug_rviz_static_display.data)
+        ROS_DEBUG_COND(debug, "\nLeg %s has adjacent legs:\n"
+                      "\tLeg %s at %d bearing & %f distance.\n"
+                      "\tLeg %s at %d bearing & %f distance.\n",
+                      leg->getIDName().c_str(),
+                      adjacent_leg_1->getIDName().c_str(), bearing_to_adjacent_leg_1, distance_to_adjacent_leg_1,
+                      adjacent_leg_2->getIDName().c_str(), bearing_to_adjacent_leg_2, distance_to_adjacent_leg_2);
+
+        //Populate workspace map if empty
+        for (int bearing = 0; bearing <= 360; bearing += BEARING_STEP)
         {
-          debug_visualiser_->updatePose(Vector2d(0, 0), 0, Vector3d(0,0,0));
-          debug_visualiser_->generateRobotModel(model_);
-          ros::spinOnce();
+          int bearing_diff_1 = abs(mod(bearing_to_adjacent_leg_1, 360) - bearing);
+          int bearing_diff_2 = abs(mod(bearing_to_adjacent_leg_2, 360) - bearing);
+
+          double distance_to_overlap_1 = UNASSIGNED_VALUE;
+          double distance_to_overlap_2 = UNASSIGNED_VALUE;
+          if ((bearing_diff_1 < 90 || bearing_diff_1 > 270) && distance_to_adjacent_leg_1 > 0.0)
+          {
+            distance_to_overlap_1 = distance_to_adjacent_leg_1 / cos(degreesToRadians(bearing_diff_1));
+          }
+          if ((bearing_diff_2 < 90 || bearing_diff_2 > 270) && distance_to_adjacent_leg_2 > 0.0)
+          {
+            distance_to_overlap_2 = distance_to_adjacent_leg_2 / cos(degreesToRadians(bearing_diff_2));
+          }
+
+          double min_distance = min(distance_to_overlap_1, distance_to_overlap_2);
+          min_distance = min(min_distance, MAX_WORKSPACE_RADIUS);
+          if (workspace_map_.find(bearing) != workspace_map_.end() && min_distance < workspace_map_[bearing])
+          {
+            workspace_map_[bearing] = min_distance;
+            ROS_DEBUG_COND(debug, "Workspace: Bearing %d has modified min distance %f.", bearing, min_distance);
+          }
+          else
+          {
+            workspace_map_.insert(map<int, double>::value_type(bearing, min_distance));
+            ROS_DEBUG_COND(debug, "Workspace: Bearing %d has new min distance of %f.", bearing, min_distance);
+          }
         }
       }
-
-      // Save minimum distance from default tip position (of each leg) as workspace radius for defined search bearing.
-      workspace_map_[search_bearing] = min(current_min, distance_from_default);
-      if (symmetric_workspace)
-      {
-        workspace_map_[opposite_bearing] = min(current_min, distance_from_default);
-      }
-      absolute_min = min(workspace_map_[search_bearing], absolute_min);
-      leg->reInit(default_joint_states); // Reinitialise leg state to default tip position
-      leg->setDesiredTipVelocity(Vector3d(0, 0, 0));
-
-      // Display workspace generation
-      if (params_.debug_rviz.data && params_.debug_rviz_static_display.data)
-      {
-        for (int i = 0; i <= leg->getIDNumber(); ++i)
-        {
-          debug_visualiser_->generateWorkspace(model_->getLegByIDNumber(i), workspace_map_);
-        }
-        ros::spinOnce();
-      }
     }
-  }
-
-  // Send debugging info to rosconsole
-  if (debug)
-  {
-    string debug_string = "\nWorkspace:\n";
-    map<int, double>::iterator it;
-    for (it = workspace_map_.begin(); it != workspace_map_.end(); ++it)
+    else if (workspace_generated_)
     {
-      debug_string += stringFormat("\tBearing: %d\t\tDistance: %f\n", it->first, it->second);
+      return PROGRESS_COMPLETE;
     }
-    double elapsed_total_time = (clock() - workspace_generation_start) / double(CLOCKS_PER_SEC);
-    debug_string += stringFormat("\nWorkspace calculations completed in %f seconds.\n", elapsed_total_time);
-    ROS_DEBUG("%s", debug_string.c_str());
-  }
 
-  workspace_generated_ = true;
-  calculateMaxSpeed();
+    bool within_limits = true;
+    double min_distance_from_default = UNASSIGNED_VALUE;
+    int number_iterations = debug ? WORKSPACE_GENERATION_MAX_ITERATIONS * 10 : WORKSPACE_GENERATION_MAX_ITERATIONS;
+    //int number_iterations = (double(swing_length_) / phase_length_) / (step_frequency_ * time_delta_);
+    
+    // Find opposite search bearing and modify current minimum search distance to be smaller or equal.
+    double current_min = workspace_map_.at(search_bearing_);
+    int opposite_bearing = mod(search_bearing_ + 180, 360);
+    current_min = min(current_min, workspace_map_.at(opposite_bearing));
+    
+    // Iterate through all legs and move legs along search bearings to kinematic limits.
+    leg_it_ = search_model_->getLegContainer()->begin();
+    while (leg_it_ != search_model_->getLegContainer()->end() && within_limits)
+    {
+      shared_ptr<Leg> leg = leg_it_->second;
+      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      Pose current_pose = search_model_->getCurrentPose();
+      Vector3d identity_tip_position = current_pose.inverseTransformVector(leg_stepper->getIdentityTipPose().position_);
+      leg_it_++;
+      
+      // Set origin and target for linear interpolation
+      if (iteration_ == 1)
+      {
+        leg->init(true); // Reset leg to default stance
+        if (search_bearing_ == 0)
+        {
+          Vector3d origin_tip_position = leg->getCurrentTipPose().position_;
+          origin_tip_position[2] += search_height_;
+          origin_tip_position_.push_back(origin_tip_position);
+          target_tip_position_.push_back(identity_tip_position);
+        }
+        else
+        {
+          Vector3d origin_tip_position = identity_tip_position;
+          origin_tip_position[2] += search_height_;
+          origin_tip_position_.push_back(origin_tip_position);
+          Vector3d target_tip_position = origin_tip_position;
+          target_tip_position[0] += current_min * cos(degreesToRadians(search_bearing_));
+          target_tip_position[1] += current_min * sin(degreesToRadians(search_bearing_));
+          target_tip_position_.push_back(target_tip_position);
+        }
+      }
+      
+      // Move tip position linearly along search bearing in search of kinematic workspace limit.
+      double i = double(iteration_) / number_iterations; // Interpolation control variable
+      int l = leg->getIDNumber();
+      Vector3d desired_tip_position = origin_tip_position_[l] * (1.0 - i) + target_tip_position_[l] * i; // Interpolate
+      leg->setDesiredTipPose(Pose(desired_tip_position, UNDEFINED_ROTATION));
+      double ik_result = leg->applyIK(true);
+      
+      // Check if leg is still within limits
+      if (search_bearing_ != 0)
+      {
+        double distance_from_default = Vector3d(leg->getCurrentTipPose().position_ - identity_tip_position).norm();
+        min_distance_from_default = min(distance_from_default, min_distance_from_default);
+        within_limits = within_limits && distance_from_default < current_min && ik_result != 0.0;
+        // Display debugging messages
+        ROS_DEBUG_COND(debug,"LEG: %s\tSEARCH: %f:%d:%d\tDISTANCE: %f\tIK_RESULT: %f\tWITHIN LIMITS: %s",
+                      leg->getIDName().c_str(), search_height_, search_bearing_,
+                      iteration_, distance_from_default, ik_result, within_limits ? "TRUE" : "FALSE");
+      }
+    }
+    
+    // Calculate workspace generation progress
+    progress = 0;
+    progress += (100.0 * ((search_height_ == 0.0) ? 0 : 0.5));
+    progress += ((100.0 * search_bearing_) / (360 + BEARING_STEP)) / 2.0;
+    progress += (((100.0 * iteration_) / number_iterations) / 2.0) / (360 / BEARING_STEP + 1);
+
+    // Search not complete -> iterate along current search bearing
+    if (within_limits && iteration_ <= number_iterations)
+    {
+      iteration_++;
+    }
+    // Current search along bearing complete -> save min distance and iterate search bearing
+    else 
+    {
+      if (search_bearing_ == 0)
+      {
+        search_model_->updateDefaultConfiguration();
+      }
+      else
+      {
+        workspace_map_[search_bearing_] = min(current_min, min_distance_from_default) ;
+        workspace_map_[opposite_bearing] = min(current_min, min_distance_from_default);
+      }
+      min_distance_from_default = UNASSIGNED_VALUE;
+      origin_tip_position_.clear();
+      target_tip_position_.clear();
+      iteration_ = 1;
+      if (search_bearing_ + BEARING_STEP <= 360)
+      {
+        search_bearing_ += BEARING_STEP;
+      }
+      // All search bearings at search height completed -> iterate search height
+      else
+      {
+        search_bearing_ = 0;
+        if (search_height_ == 0.0)
+        {
+          search_height_ += step_clearance_;
+        }
+        // All searches complete -> set workspace generation complete and reset.
+        else
+        {
+          workspace_map_[0] = workspace_map_[360];
+          search_height_ = 0.0;
+          workspace_generated_ = true;
+          progress = PROGRESS_COMPLETE;
+          loop = false;
+        }
+      }
+    }
+    
+    // Display robot model and workspace for debugging purposes
+    if (display_debug_visualisation && self_loop)
+    {
+      debug_visualiser_->updatePose(Vector2d(0, 0), 0, Vector3d(0,0,0));
+      debug_visualiser_->generateRobotModel(search_model_);
+      for (leg_it_ = search_model_->getLegContainer()->begin();
+           leg_it_ != search_model_->getLegContainer()->end(); ++leg_it_)
+      {
+        shared_ptr<Leg> leg = leg_it_->second;
+        debug_visualiser_->generateWorkspace(leg, workspace_map_);
+      }
+      ros::spinOnce();
+    }
+  }
+  
+  // Calculate max speeds using generated workspace
+  if (progress == PROGRESS_COMPLETE)
+  {
+    calculateMaxSpeed();
+  }
+  
+  return progress;
 }
 
 /*******************************************************************************************************************//**
@@ -396,11 +448,28 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     int bearing = mod(roundToInt(radiansToDegrees(atan2(stride_vector[1], stride_vector[0]))), 360);
     int upper_bound = workspace_map_.lower_bound(bearing)->first;
     int lower_bound = mod(upper_bound - BEARING_STEP, 360);
+    bearing += (bearing < lower_bound) ? 360 : 0;
+    upper_bound += (upper_bound < lower_bound) ? 360 : 0;
+    double interpolation_progress = (bearing - lower_bound) / (upper_bound - lower_bound);
+    max_linear_speed = linearInterpolation(max_linear_speed_.at(lower_bound),
+                                           max_linear_speed_.at(mod(upper_bound, 360)),
+                                           interpolation_progress);
+    max_angular_speed = linearInterpolation(max_angular_speed_.at(lower_bound),
+                                            max_angular_speed_.at(mod(upper_bound, 360)),
+                                            interpolation_progress);
+    max_linear_acceleration = linearInterpolation(max_linear_acceleration_.at(lower_bound),
+                                                  max_linear_acceleration_.at(mod(upper_bound, 360)),
+                                                  interpolation_progress);
+    max_angular_acceleration = linearInterpolation(max_angular_acceleration_.at(lower_bound),
+                                                   max_angular_acceleration_.at(mod(upper_bound, 360)),
+                                                   interpolation_progress);
+    /*
     int closest_bearing = (abs(upper_bound - bearing) < abs(lower_bound - bearing)) ? upper_bound : lower_bound;
     max_linear_speed = min(max_linear_speed, max_linear_speed_.at(closest_bearing));
     max_angular_speed = min(max_angular_speed, max_angular_speed_.at(closest_bearing));
     max_linear_acceleration = min(max_linear_acceleration, max_linear_acceleration_.at(closest_bearing));
     max_angular_acceleration = min(max_angular_acceleration, max_angular_acceleration_.at(closest_bearing));
+    */
   }
 
   // Calculate desired angular/linear velocities according to input mode and max limits
@@ -488,6 +557,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
       leg_stepper->setAtCorrectPhase(false);
       leg_stepper->setCompletedFirstStep(false);
       leg_stepper->setStepState(STANCE);
+      leg_stepper->setPhase(leg_stepper->getPhaseOffset());
       leg_stepper->updateStepState();
     }
     return; //Skips iteration of phase so auto posing can catch up
@@ -577,7 +647,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     if (leg->getLegState() == WALKING && walk_state_ != STOPPED)
     {
       leg_stepper->updateTipPosition();  // updates current tip position through step cycle
-      if (params_.rough_terrain_mode.data && leg->getJointCount() > 3)
+      if (false)//params_.rough_terrain_mode.data && leg->getJointCount() > 3)
       {
         leg_stepper->updateTipRotation();
       }
@@ -586,9 +656,9 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
   }
   updateWalkPlane();
-  if (!workspace_generated_)
+  if (generate_workspace_ || !workspace_generated_)
   {
-    generateWorkspace();
+    generateWorkspace(false);
   }
 }
 
@@ -655,7 +725,6 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
 ***********************************************************************************************************************/
 void WalkController::updateWalkPlane(void)
 {
-  int legs_in_stance = 0;
   vector<double> raw_A;
   vector<double> raw_B;
   
@@ -664,6 +733,12 @@ void WalkController::updateWalkPlane(void)
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     
+    raw_A.push_back(leg_stepper->getDefaultTipPose().position_[0]);
+    raw_A.push_back(leg_stepper->getDefaultTipPose().position_[1]);
+    raw_A.push_back(1.0);
+    raw_B.push_back(leg_stepper->getDefaultTipPose().position_[2]);
+    
+    /*
     if (leg_stepper->getStepState() != SWING)
     {
       // Populate matrices A and B, where AX = B and A(n) = [x(n) y(n) 1], B(n) = [z(n)] and X = [a b c]^T
@@ -673,9 +748,11 @@ void WalkController::updateWalkPlane(void)
       raw_B.push_back(leg_stepper->getCurrentTipPose().position_[2]);
       legs_in_stance++;
     }
+    */
   }
   
   // Estimate walk plane if there are at least 3 points to define plane.
+  /*
   if (legs_in_stance >= 3)
   {
     Map<Matrix<double, Dynamic, Dynamic, RowMajor>> A(raw_A.data(), legs_in_stance, 3);
@@ -683,6 +760,12 @@ void WalkController::updateWalkPlane(void)
     MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
     walk_plane_ = (pseudo_inverse_A*B);
   }
+  */
+  Map<Matrix<double, Dynamic, Dynamic, RowMajor>> A(raw_A.data(), model_->getLegCount(), 3);
+  Map<VectorXd> B(raw_B.data(), model_->getLegCount());
+  MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
+  walk_plane_ = (pseudo_inverse_A*B);
+  
 }
 
 /*******************************************************************************************************************//**
@@ -886,12 +969,12 @@ void LegStepper::updateTipPosition(void)
       swing_origin_tip_position_ = current_tip_pose_.position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
       min_tip_force_ = UNASSIGNED_VALUE;
-        
-      // Update default tip position height onto walk plane
-      Vector3d walk_plane_normal(-walk_plane_[0], -walk_plane_[1], 1.0);
-      Quaterniond walk_plane_rotation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), walk_plane_normal);
-      default_tip_pose_.position_ = walk_plane_rotation._transformVector(identity_tip_pose_.position_);
-      default_tip_pose_.position_[2] += walker_->getWalkPlane()[2];
+      
+      // Update default tip position along walk plane normal
+      if (default_tip_pose_ != identity_tip_pose_)
+      {
+        default_tip_pose_ = identity_tip_pose_;
+      }
       
       // Determine if target tip pose is to be generated internally or is set externally
       generate_target_tip_pose_ = (external_target_tip_pose_ == Pose::Undefined());
@@ -908,21 +991,33 @@ void LegStepper::updateTipPosition(void)
       target_tip_pose_.position_ = default_tip_pose_.position_ + 0.5 * stride_vector_;
       
       // Update tip position according to tip state
-      if (walker_->getParameters().rough_terrain_mode.data && !first_half)
+      if (/*walker_->getParameters().rough_terrain_mode.data && */!first_half)
       {
         Vector3d position_error = leg_->getCurrentTipPose().position_ - leg_->getDesiredTipPose().position_;
-        double contact_range = leg_->getTipContactRange();
-        if (contact_range != UNASSIGNED_VALUE && position_error.norm() < IK_TOLERANCE)
+        Pose step_plane_pose = leg_->getStepPlanePose();
+        if (step_plane_pose != Pose::Undefined() && position_error.norm() < IK_TOLERANCE)
         {
-          Vector3d b(-walker_->getWalkPlane()[0], -walker_->getWalkPlane()[1], 1.0);
-          Vector3d a = current_tip_pose_.position_ - target_tip_pose_.position_;
-          Vector3d projection = (a.dot(b) / b.dot(b))*b;
-          target_tip_pose_.position_ += (b.normalized() * (projection.norm() - contact_range));
+          // Calculate target tip position based on step plane estimate
+          Vector3d step_plane_position = step_plane_pose.position_ - leg_->getCurrentTipPose().position_;
+          Vector3d target_tip_position = current_tip_pose_.position_ + step_plane_position;
+          
+          // Correct target by projecting vector along walk plane normal at default target tip position
+          Vector3d difference = target_tip_position - target_tip_pose_.position_;
+          Vector3d walk_plane_normal(-walker_->getWalkPlane()[0], -walker_->getWalkPlane()[1], 1.0);
+          target_tip_pose_.position_ += getProjection(difference, walk_plane_normal);
         }
       }
     }
 
-    generateSwingControlNodes();
+    // Generate swing control nodes (once at beginning of 1st half and continuously for 2nd half)
+    if (iteration == 1)
+    {
+      generatePrimarySwingControlNodes();
+    }
+    else if (!first_half)
+    {
+      generateSecondarySwingControlNodes();
+    }
     
     Vector3d delta_pos(0,0,0);
     double time_input = 0;
@@ -977,6 +1072,12 @@ void LegStepper::updateTipPosition(void)
     if (iteration == 1)
     {
       stance_origin_tip_position_ = current_tip_pose_.position_;
+      
+      Vector3d default_tip_position = stance_origin_tip_position_ - 0.5*stride_vector_;
+      Vector3d difference = default_tip_position - default_tip_pose_.position_;
+      Vector3d walk_plane_normal(-walker_->getWalkPlane()[0], -walker_->getWalkPlane()[1], 1.0);
+      default_tip_pose_.position_ += getProjection(difference, walk_plane_normal);
+      identity_tip_pose_ = default_tip_pose_;
     }
 
     // Scales stride vector according to stance length specifically for STARTING state of walker
@@ -1031,9 +1132,11 @@ void LegStepper::updateTipRotation(void)
  * Generates control nodes for quartic bezier curve of 1st half of the swing tip trajectory calculation.
  * of swing trajectory generation.
 ***********************************************************************************************************************/
-void LegStepper::generateSwingControlNodes(void)
+void LegStepper::generatePrimarySwingControlNodes(void)
 {
-  Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_pose_.position_)/2.0 + swing_clearance_;
+  Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_pose_.position_)/2.0;
+  mid_tip_position[2] = max(swing_origin_tip_position_[2], target_tip_pose_.position_[2]);
+  mid_tip_position += swing_clearance_;
   Vector3d swing1_node_seperation = 0.25 * swing_origin_tip_velocity_ * (walker_->getTimeDelta() / swing_delta_t_);
   
   // Control nodes for primary swing quartic bezier curves
@@ -1047,7 +1150,25 @@ void LegStepper::generateSwingControlNodes(void)
   swing_1_nodes_[3] = (mid_tip_position + (swing_1_nodes_[2] + swing_clearance_)) / 2.0;
   // Set to default tip position so max swing height and transition to 2nd swing curve occurs at default tip position
   swing_1_nodes_[4] = mid_tip_position;
+  
+  if (walker_->getParameters().rough_terrain_mode.data)
+  {
+    Vector3d final_tip_velocity = -stride_vector_ * (stance_delta_t_ / walker_->getTimeDelta());
+    Vector3d swing2_node_seperation = 0.25 * final_tip_velocity * (walker_->getTimeDelta() / swing_delta_t_);
+    
+    swing_1_nodes_[4] = target_tip_pose_.position_ + swing_clearance_ - 4.0 * swing2_node_seperation;
+    swing_2_nodes_[0] = swing_1_nodes_[4];
+    swing_2_nodes_[2] = target_tip_pose_.position_ - 2.0 * swing2_node_seperation;
+    swing_1_nodes_[3] = swing_1_nodes_[4] + (swing_2_nodes_[0] - swing_2_nodes_[2])/2.0;
+  }
+}
 
+/*******************************************************************************************************************//**
+ * Generates control nodes for quartic bezier curve of 1st half of the swing tip trajectory calculation.
+ * of swing trajectory generation.
+***********************************************************************************************************************/
+void LegStepper::generateSecondarySwingControlNodes(void)
+{
   Vector3d final_tip_velocity = -stride_vector_ * (stance_delta_t_ / walker_->getTimeDelta());
   Vector3d swing2_node_seperation = 0.25 * final_tip_velocity * (walker_->getTimeDelta() / swing_delta_t_);
   
@@ -1062,15 +1183,6 @@ void LegStepper::generateSwingControlNodes(void)
   swing_2_nodes_[3] = target_tip_pose_.position_ - swing2_node_seperation;
   // Set for position continuity at transition between secondary swing and stance curves (C0 Smoothness)
   swing_2_nodes_[4] = target_tip_pose_.position_;
-  
-  // Control node modification for secondary swing trajectory orthogonal to walk plane estimate
-  if (walker_->getParameters().rough_terrain_mode.data)
-  {
-    swing_1_nodes_[4] = default_tip_pose_.position_ + 0.5 * stride_vector_ + swing_clearance_ - 4.0 * swing2_node_seperation;
-    swing_2_nodes_[0] = swing_1_nodes_[4];
-    swing_2_nodes_[1] = (swing_2_nodes_[2] + swing_2_nodes_[0]) / 2.0;
-    swing_1_nodes_[3] = swing_1_nodes_[4] + (swing_2_nodes_[0] - swing_2_nodes_[1]);
-  }
 }
 
 /*******************************************************************************************************************//**

@@ -25,7 +25,7 @@
 #include "model.h"
 
 #define BEARING_STEP 45 ///< Step to increment bearing in workspace generation algorithm (deg)
-#define WORKSPACE_GENERATION_MAX_ITERATIONS 50 ///< Maximum number of iterations to find limits of workspace
+#define WORKSPACE_GENERATION_MAX_ITERATIONS 10 ///< Maximum number of iterations to find limits of workspace
 #define MAX_WORKSPACE_RADIUS 2.0 ///< Maximum radius allowed in workspace polygon (m)
 
 class DebugVisualiser;
@@ -101,8 +101,8 @@ public:
     */
   inline void setPoseState(const PosingState& state) { pose_state_ = state; };
   
-  /** Modifier for workspace generated flag. */
-  inline void setWorkspaceGenerated(const bool& workspace_generated) { workspace_generated_ = workspace_generated; };
+  /** Modifier for generate workspace flag. */
+  inline void regenerateWorkspace(void) { generate_workspace_ = true; };
 
   /**
    * Initialises walk controller by setting desired default walking stance tip positions from parameters and creating
@@ -111,14 +111,14 @@ public:
    */
   void init(void);
 
-  /*
+  /**
    * Generates universal workspace (map of radii for range of search bearings) for all legs by having each leg search
    * for joint limitations through bearings ranging from zero to 360 degrees. Workspace may be asymetrical, symetrical
    * (all opposite bearing pairs having equal distance) or circular (all search bearings having equal distance).
-   * @todo Parameterise symmetric/circular workspace constraint flags.
-   * @todo Parameterise BEARING_STEP and SEARCH_VELOCITY constants
+   * @params[in] self_loop Flag that determines if workspace generation occurs iteratively through multiple calls of 
+   * this function or in while loop via a single call of this function.
    */
-  void generateWorkspace(void);
+  int generateWorkspace(const bool& self_loop = true);
 
   /*
    * Calculate maximum linear and angular speed/acceleration for each workspace radius in workspace map. These
@@ -185,11 +185,18 @@ private:
   int swing_end_;     ///< The phase at which the swing period ends.
   int stance_start_;  ///< The phase at which the stance period starts.
 
-  // Workspace variables
+  // Workspace generation variables
   map<int, double> workspace_map_;                ///< A map of workspace radii for given bearing in degrees
+  shared_ptr<Model> search_model_;                ///< A copy of the robot model used to search for kinematic limits
   bool workspace_generated_ = false;              ///< Flag denoting if workspace map has been generated.
+  bool generate_workspace_ = true;                ///< Flag denoting if workspace is currently being generated
   double stance_radius_;                          ///< The radius of the turning circle used for angular body velocity.
   Vector3d walk_plane_;                           ///< The co-efficients of an estimated planar walk surface
+  int iteration_ = 1;                             ///< The iteration of the workspace limit search along current bearing 
+  int search_bearing_ = 0;                        ///< The current bearing being searched for kinematic limits
+  double search_height_ = 0.0;                    ///< The current height being searched for kinematic limits
+  vector<Vector3d> origin_tip_position_;          ///< The origin tip position of the kinematic search along a bearing.
+  vector<Vector3d> target_tip_position_;          ///< The target tip position of the kinematic search along a bearing.
 
   // Velocity/acceleration variables
   Vector2d desired_linear_velocity_;          ///< The desired linear velocity of the robot body.
@@ -244,6 +251,9 @@ public:
 
   /** Accessor for the default tip pose according to the walk controller. */
   inline Pose getDefaultTipPose(void) { return default_tip_pose_;};
+  
+  /** Accessor for the identity tip pose according to the walk controller. */
+  inline Pose getIdentityTipPose(void) { return identity_tip_pose_; };
   
   /** Accessor for the target tip pose according to the walk controller. */
   inline Pose getTargetTipPose(void) { return target_tip_pose_;};
@@ -310,6 +320,12 @@ public:
     * @param[in] current_tip_pose The new current tip pose.
     */
   inline void setCurrentTipPose(const Pose& current_tip_pose) { current_tip_pose_ = current_tip_pose; };
+  
+  /**
+    * Modifier for the default tip pose according to the walk controller.
+    * @param[in] tip_pose The new default tip pose.
+    */
+  inline void setDefaultTipPose(const Pose& tip_pose) { default_tip_pose_ = tip_pose; };
 
   /**
     * Modifier for the identity tip pose according to the walk controller.
@@ -349,7 +365,7 @@ public:
   
   /**
    * Modifier for the externally set target tip pose
-   * @param[in] external_target_tip_pose_ The new externally set target tip pose
+   * @param[in] pose The new externally set target tip pose
    */
   inline void setExternalTargetTipPose(const Pose& pose) { external_target_tip_pose_ = pose; };
 
@@ -377,10 +393,18 @@ public:
    * rotation to orthogonal rotation occurs during first half of swing and is kept orthogonal during second half.
    */
   void updateTipRotation(void);
-
+  
   /**
-   * Generates control nodes for quartic bezier curve of the swing tip trajectory calculation.
+   * Generates control nodes for quartic bezier curve of the 1st half of swing tip trajectory calculation.
    */
+  void generatePrimarySwingControlNodes(void);
+  
+  /**
+   * Generates control nodes for quartic bezier curve of the 2nd half of swing tip trajectory calculation.
+   */
+  void generateSecondarySwingControlNodes(void);
+
+  //TODO
   void generateSwingControlNodes(void);
 
   /**

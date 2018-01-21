@@ -273,7 +273,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       point.z = tip_position[2] - terrain_marker.scale.z / 2.0;
       terrain_marker.points.push_back(point);
       tip_trajectory_publisher_.publish(terrain_marker);
-      terrain_marker_id_ = (terrain_marker_id_ + 1) % (model->getLegCount());
+      terrain_marker_id_ = (terrain_marker_id_ + 1) % (model->getLegCount() * 5);
     }
   }
 }
@@ -406,9 +406,9 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace.pose = Pose::Identity().convertToPoseMessage();
 
   geometry_msgs::Point origin_point;
-  origin_point.x = leg_stepper->getDefaultTipPose().position_[0];
-  origin_point.y = leg_stepper->getDefaultTipPose().position_[1];
-  origin_point.z = leg_stepper->getDefaultTipPose().position_[2];
+  origin_point.x = leg_stepper->getIdentityTipPose().position_[0];
+  origin_point.y = leg_stepper->getIdentityTipPose().position_[1];
+  origin_point.z = leg_stepper->getIdentityTipPose().position_[2];
   map<int, double>::iterator it;
   geometry_msgs::Point first_point;
   for (it = workspace_map.begin(); it != workspace_map.end(); ++it)

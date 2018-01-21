@@ -281,6 +281,7 @@ void StateController::transitionRobotState(void)
     if (progress == PROGRESS_COMPLETE)
     {
       robot_state_ = READY;
+      model_->updateDefaultConfiguration();
       walker_->generateWorkspace();
       ROS_INFO("\nDirect startup sequence complete. Place Syropod on walking surface and press START to proceed.\n");
     }
@@ -288,8 +289,6 @@ void StateController::transitionRobotState(void)
   // READY -> RUNNING (Direct)
   else if (robot_state_ == READY && new_robot_state_ == RUNNING && !params_.start_up_sequence.data)
   {
-    //TODO Implement settling feature in order to start on rough terrain
-    model_->initTipRanges();
     robot_state_ = RUNNING;
     ROS_INFO("\nReady to Walk.\n");
   }
@@ -331,6 +330,7 @@ void StateController::transitionRobotState(void)
     if (progress == PROGRESS_COMPLETE)
     {
       walker_->init();
+      model_->updateDefaultConfiguration();
       walker_->generateWorkspace();
       robot_state_ = RUNNING;
       ROS_INFO("\nState transition complete. Syropod is in RUNNING state. Ready to walk.\n");
@@ -746,10 +746,7 @@ void StateController::publishLegState(void)
     msg.walker_tip_pose = leg_stepper->getCurrentTipPose().convertToPoseMessage();
     msg.poser_tip_pose = leg_poser->getCurrentTipPose().convertToPoseMessage();
     msg.model_tip_pose = leg->getCurrentTipPose().convertToPoseMessage();
-    
-    Vector3d tip_position = model_->getCurrentPose().inverseTransformVector(leg_stepper->getTargetTipPose().position_);
-    Pose target_tip_pose(tip_position, leg_stepper->getTargetTipPose().rotation_);
-    msg.target_tip_pose = target_tip_pose.convertToPoseMessage();
+    msg.target_tip_pose = leg_stepper->getTargetTipPose().convertToPoseMessage();
 
     // Tip velocities
     msg.model_tip_velocity.linear.x = leg->getCurrentTipVelocity()[0];
@@ -888,7 +885,7 @@ void StateController::RVIZDebugging(const bool& static_display)
   debug_visualiser_.updatePose(linear_velocity, angular_velocity, walker_->getWalkPlane());
   debug_visualiser_.generateRobotModel(model_);
   
-  if (params_.rough_terrain_mode.data)
+  if (true)//params_.rough_terrain_mode.data)
   {
     debug_visualiser_.generateWalkPlane(walker_->getWalkPlane());
     debug_visualiser_.generateTerrainEstimate(model_);
@@ -1486,7 +1483,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
 void StateController::tipStatesCallback(const syropod_highlevel_controller::TipState& tip_states)
 {
   bool get_wrench_values = tip_states.wrench.size() > 0;
-  bool get_range_values = tip_states.range.size() > 0;
+  bool get_step_plane_values = tip_states.step_plane.size() > 0;
   
   // Iterate through message and assign found contact proximity value to leg objects
   string error_string;
@@ -1503,18 +1500,23 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
       Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
       leg->setTipTorque(tip_torque);
     }
-    if (get_range_values)
+    if (get_step_plane_values)
     {
-      double range = tip_states.range[i].range;
-      if (range >= 0.0)
+      if (tip_states.step_plane[i].z != UNASSIGNED_VALUE)
       {
-        range += leg->getTipContactOffset(); // Add offset set at initialisation
-        range = max(0.0, range); // Ensure no overrun to negative values.
-        leg->setTipContactRange(range);
+        // From step plane representation calculate position and orientation of plane relative to tip frame
+        Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
+        Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
+        Quaterniond step_plane_orientation =  Quaterniond::FromTwoVectors(Vector3d(0,0,1.0), -step_plane_normal);
+        
+        // Transform into robot frame and store
+        Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));
+        leg->setStepPlanePose(step_plane_pose); 
       }
-      else if (range == -2.0)
+      else
       {
-        error_string += stringFormat("\nLost contact with tip range sensor of leg %s.\n", leg_name.c_str());
+        leg->setStepPlanePose(Pose::Undefined()); 
+        error_string += stringFormat("\nLost contact with tip range sensor/s of leg %s.\n", leg_name.c_str());
       }
     }
   }
@@ -1578,7 +1580,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
           if (Pose(target_tip_poses.identity[i]) != Pose::Undefined())
           {
             leg_stepper->setIdentityTipPose(Pose(target_tip_poses.identity[i]));
-            //walker_->setWorkspaceGenerated(false);
+            walker_->regenerateWorkspace();
           }
         }
         else

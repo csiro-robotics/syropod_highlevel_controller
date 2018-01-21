@@ -52,6 +52,12 @@ public:
     * @param[in] params A pointer to the parameter data structure.
     */
   Model(const Parameters& params);
+  
+  /**
+   * Copy Constructor for a robot model object. Initialises member variables from existing Model object.
+   * @param[in] model A pointer to a existing reference robot model object
+   */
+  Model(shared_ptr<Model> model);
 
   /** Accessor for leg object container.*/
   inline LegContainer* getLegContainer(void) { return &leg_container_; };
@@ -72,9 +78,11 @@ public:
   inline void setCurrentPose(const Pose& pose)  { current_pose_ = pose; };
 
   /**
-   * Generates child leg objects. Separated from constructor due to shared_from_this() constraints.
+   * Generates child leg objects and copies state from reference model if provided.
+   * Separated from constructor due to shared_from_this() constraints.
+   * @param[in] model A pointer to a existing reference robot model object
    */
-  void generate(void);
+  void generate(shared_ptr<Model> model = NULL);
 
   /**
    * Iterate through legs in robot model and have them run their initialisation.
@@ -82,12 +90,6 @@ public:
    * values for any joint with unknown current position values.
    */
   void initLegs(const bool& use_default_joint_positions);
-  
-  /**
-   * Sets tip contact range offset used in calibrating the input range data such that values are zeroed when tip in
-   * contact with walk surface. Function is run assuming all tips are in contact with walk surface.
-   */
-  void initTipRanges(void);
 
   /**
    * Estimates if the robot is bearing its load on its legs. Estimates the average distance between body and leg tips
@@ -109,6 +111,11 @@ public:
    * @param[in] leg_id_name The identification name of the requested leg object pointer.
    */
   shared_ptr<Leg> getLegByIDName(const string& leg_id_name);
+  
+  /**
+   * Updates joint default positions for each leg according to current joint positions of each leg.
+   */
+  void updateDefaultConfiguration(void);
   
   /**
    * Updates model configuration by applying inverse kinematics to solve desired tip poses generated from walk/pose
@@ -173,11 +180,8 @@ public:
   /** Accessor for the current estimated torque vector on the tip of this leg */
   inline Vector3d getTipTorque(void) { return tip_torque_; };
   
-  /** Accessor for the current estimated distance from tip to walk surface contact. */
-  inline double getTipContactRange(void) { return tip_contact_range_; };
-  
-  /** Accessor for the calibration offset for the distance from tip to walk surface contact. */
-  inline double getTipContactOffset(void) { return tip_contact_offset_; };
+  /** Accessor for the current estimated pose of the stepping surface plane. */
+  inline Pose getStepPlanePose(void) { return step_plane_pose_; };
 
   /** Accessor for the current admittance control position offset for this leg.*/
   inline Vector3d getAdmittanceDelta(void) { return admittance_delta_; };
@@ -267,16 +271,10 @@ public:
   inline void setTipTorque(const Vector3d& tip_torque) { tip_torque_ = tip_torque; };
   
   /**
-    * Modifier for the current estimated distance from tip to walk surface contact.
-    * @param[in] contact_range The new contact range estimate for this leg.
+    * Modifier for the current estimated pose of the stepping surface plane.
+    * @param[in] step_plane_pose_ The new estimate of the pose of the stepping surface plane for this leg.
     */
-  inline void setTipContactRange(const double& contact_range) { tip_contact_range_ = contact_range; };
-  
-  /**
-    * Modifier for the calibration offset for the current estimated distance from tip to walk surface contact.
-    * @param[in] offset The new contact range offset for this leg.
-    */
-  inline void setTipContactOffset(const double& offset) { tip_contact_offset_ = offset; };
+  inline void setStepPlanePose(const Pose& step_plane_pose) { step_plane_pose_ = step_plane_pose; };
   
   /**
     * Modifier for the current admittance control position offset for this leg. Only sets component of input vector 
@@ -319,8 +317,9 @@ public:
   inline void publishASCState(const std_msgs::Bool& msg) { asc_leg_state_publisher_.publish(msg); };
 
   /**
-   * Generates child joint/link/tip objects and copies state from reference leg is provided.
+   * Generates child joint/link/tip objects and copies state from reference leg if provided.
    * Separated from constructor due to shared_from_this() constraints.
+   * @param[in] leg A pointer to a existing reference robot model leg object
    */
   void generate(shared_ptr<Leg> leg = NULL);
 
@@ -331,13 +330,11 @@ public:
     * values for any joint with unknown current position values.
     */
   void init(const bool& use_default_joint_positions);
-
+  
   /**
-    * Re-Initialises leg object by setting desired joint state to values from JointState message input and running
-    * forward kinematics for tip position.
-    * @param[in] desired_joint_states JointState message containing desired joint states values for leg object.
-    */
-  void reInit(const sensor_msgs::JointState& desired_joint_states);
+   * Updates joint default positions according to current joint positions.
+   */
+  void updateDefaultConfiguration(void);
 
   /**
     * Generates a JointState message from the desired state of the joints of the leg object.
@@ -458,8 +455,7 @@ private:
 
   Vector3d tip_force_;        ///< Force estimation on the tip.
   Vector3d tip_torque_;       ///< Torque estimation on the tip.
-  double tip_contact_range_;  ///< Estimation of the distance from the tip to contacting the walking surface.
-  double tip_contact_offset_; ///< Calibration offset set once assumed all legs are on walking surface.
+  Pose step_plane_pose_;      ///< Estimation of the pose of the stepping surface plane.
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -588,6 +584,10 @@ public:
   double current_position_ = UNASSIGNED_VALUE; ///< The current position of this joint according to hardware.
   double current_velocity_ = 0.0;              ///< The current velocity of this joint according to hardware.
   double current_effort_ = 0.0;                ///< The current effort of this joint according to hardware.
+  
+  double default_position_ = UNASSIGNED_VALUE; ///< The default position of this joint.
+  double default_velocity_ = 0.0;              ///< The default velocity of this joint.
+  double default_effort_ = 0.0;                ///< The default effort of this joint.
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

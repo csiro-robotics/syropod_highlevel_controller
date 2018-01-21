@@ -194,6 +194,19 @@ inline Vector3d getRejection(const Vector3d& a, const Vector3d& b)
 }
 
 /**
+ * Returns the linear interpolation between origin and target defined by the control input
+ * @param[in] origin The origin of the linear interpolation (control input == 0.0)
+ * @param[in] target The target of the linear interpolation (control_input == 1.0)
+ * @param[in] control_input The input determining the interpolation point between origin and target.
+ * @return The resultant linear interpolation value
+ */
+inline double linearInterpolation(const double& origin, const double& target, const double& control_input)
+{
+  ROS_ASSERT(control_input >= 0.0 && control_input <= 1.0);
+  return (1.0 - control_input) * origin + control_input * target;
+}
+
+/**
  * Return rotation with shorter path between identical rotations on quaternion.
  * @params[in] test The test rotation to check for shorter rotation path.
  * @params[in] reference The reference rotation for the target rotation.

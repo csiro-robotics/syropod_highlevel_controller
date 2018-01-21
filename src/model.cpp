@@ -34,14 +34,38 @@ Model::Model(const Parameters& params)
 }
 
 /*******************************************************************************************************************//**
- * Generates child leg objects. Separated from constructor due to shared_from_this() constraints.
+ * Copy Constructor for a robot model object. Initialises member variables from existing Model object.
+ * @param[in] model A pointer to a existing reference robot model object
 ***********************************************************************************************************************/
-void Model::generate(void)
+Model::Model(shared_ptr<Model> model)
+  : params_(model->params_)
+  , leg_count_(model->leg_count_)
+  , time_delta_(model->time_delta_)
+  , current_pose_(model->current_pose_)
+{
+}
+
+/*******************************************************************************************************************//**
+ * Generates child leg objects and copies state from reference model if provided.
+ * Separated from constructor due to shared_from_this() constraints.
+ * @param[in] model A pointer to a existing reference robot model object
+***********************************************************************************************************************/
+void Model::generate(shared_ptr<Model> model)
 {
   for (int i = 0; i < leg_count_; ++i)
   {
-    shared_ptr<Leg> leg = allocate_shared<Leg>(aligned_allocator<Leg>(), shared_from_this(), i, params_);
-    leg->generate();
+    shared_ptr<Leg> leg;
+    if (model != NULL)
+    {
+      shared_ptr<Leg> reference_leg = model->leg_container_.find(i)->second;
+      leg = allocate_shared<Leg>(aligned_allocator<Leg>(), reference_leg);
+      leg->generate(reference_leg);
+    }
+    else
+    {
+      leg = allocate_shared<Leg>(aligned_allocator<Leg>(), shared_from_this(), i, params_);
+      leg->generate();
+    }
     leg_container_.insert(LegContainer::value_type(i, leg));
   }
 }
@@ -59,20 +83,6 @@ void Model::initLegs(const bool& use_default_joint_positions)
   {
     shared_ptr<Leg> leg = leg_it->second;
     leg->init(use_default_joint_positions);
-  }
-}
-
-/*******************************************************************************************************************//**
-  * Sets tip contact range offset used in calibrating the input range data such that values are zeroed when tip in
-  * contact with walk surface. Function is run assuming all tips are in contact with walk surface.
-***********************************************************************************************************************/
-void Model::initTipRanges(void)
-{
-  LegContainer::iterator leg_it;
-  for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
-  {
-    shared_ptr<Leg> leg = leg_it->second;
-    leg->setTipContactOffset(-leg->getTipContactRange());
   }
 }
 
@@ -114,6 +124,19 @@ shared_ptr<Leg> Model::getLegByIDName(const string& leg_id_name)
 }
 
 /*******************************************************************************************************************//**
+ * Updates joint default positions for each leg according to current joint positions of each leg.
+***********************************************************************************************************************/
+void Model::updateDefaultConfiguration(void)
+{
+  LegContainer::iterator leg_it;
+  for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
+  {
+    shared_ptr<Leg> leg = leg_it->second;
+    leg->updateDefaultConfiguration();
+  }
+}
+
+/*******************************************************************************************************************//**
  * Updates model configuration by applying inverse kinematics to solve desired tip poses generated from walk/pose
  * controllers.
 ***********************************************************************************************************************/
@@ -152,14 +175,13 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   current_tip_velocity_ = Vector3d::Zero();
   tip_force_ = Vector3d::Zero();
   tip_torque_ = Vector3d::Zero();
-  tip_contact_range_ = UNASSIGNED_VALUE;
-  tip_contact_offset_ = 0.0;
+  step_plane_pose_ = Pose::Undefined();
   group_ = (id_number % 2); // Even/odd groups
 }
 
 /*******************************************************************************************************************//**
  * Copy Constructor for a robot model leg object. Initialises member variables from existing Leg object.
- * @param[in] leg A pointer to the parent robot model.
+ * @param[in] leg A pointer to the existing robot model leg object.
 ***********************************************************************************************************************/
 Leg::Leg(shared_ptr<Leg> leg)
   : model_(leg->model_)
@@ -183,13 +205,13 @@ Leg::Leg(shared_ptr<Leg> leg)
   group_ = leg->group_;
   tip_force_ = leg->tip_force_;
   tip_torque_ = leg->tip_torque_;
-  tip_contact_range_ = leg->tip_contact_range_;
-  tip_contact_offset_ = leg->tip_contact_offset_;
+  step_plane_pose_ = leg->step_plane_pose_;
 }
 
 /*******************************************************************************************************************//**
- * Generates child joint/link/tip objects and copies state from reference leg is provided.
+ * Generates child joint/link/tip objects and copies state from reference leg if provided.
  * Separated from constructor due to shared_from_this() constraints.
+ * @param[in] leg A pointer to a existing reference robot model leg object
 ***********************************************************************************************************************/
 void Leg::generate(shared_ptr<Leg> leg)
 {
@@ -231,6 +253,9 @@ void Leg::generate(shared_ptr<Leg> leg)
       new_joint->current_position_ = old_joint->current_position_;
       new_joint->current_velocity_ = old_joint->current_velocity_;
       new_joint->current_effort_ = old_joint->current_effort_;
+      new_joint->default_position_ = old_joint->default_position_;
+      new_joint->default_velocity_ = old_joint->default_velocity_;
+      new_joint->default_effort_ = old_joint->default_effort_;
     }
 
     // Copy Link variables 
@@ -262,11 +287,11 @@ void Leg::init(const bool& use_default_joint_positions)
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
     shared_ptr<Joint> joint = joint_it->second;
-    if (use_default_joint_positions /*&& joint->current_position_ == UNASSIGNED_VALUE*/)
+    if (use_default_joint_positions)
     {
-      joint->current_position_ = clamped(0.0, joint->min_position_, joint->max_position_);
-      joint->current_velocity_ = 0.0;
-      joint->current_effort_ = 0.0;
+      joint->current_position_ = joint->default_position_;
+      joint->current_velocity_ = joint->default_velocity_;
+      joint->current_effort_ = joint->default_effort_;
     }
     joint->desired_position_ = joint->current_position_;
     joint->desired_velocity_ = joint->current_velocity_;
@@ -278,37 +303,16 @@ void Leg::init(const bool& use_default_joint_positions)
 }
 
 /*******************************************************************************************************************//**
-  * Re-Initialises leg object by setting desired joint state to values from JointState message input and running
-  * forward kinematics for tip position.
-  * @param[in] desired_joint_states JointState message containing desired joint states values for leg object.
+ * Updates joint default positions according to current joint positions.
 ***********************************************************************************************************************/
-void Leg::reInit(const sensor_msgs::JointState& desired_joint_states)
+void Leg::updateDefaultConfiguration(void)
 {
-  bool get_effort_values = (desired_joint_states.effort.size() != 0);
-  bool get_velocity_values = (desired_joint_states.velocity.size() != 0);
-  for (uint i = 0; i < desired_joint_states.name.size(); ++i)
+  JointContainer::iterator joint_it;
+  for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    string joint_name(desired_joint_states.name[i]);
-    shared_ptr<Joint> joint = getJointByIDName(joint_name);
-    if (joint != NULL)
-    {
-      joint->current_position_ = desired_joint_states.position[i];
-      if (get_velocity_values)
-      {
-        joint->current_velocity_ = desired_joint_states.velocity[i];
-      }
-      if (get_effort_values)
-      {
-        joint->current_effort_ = desired_joint_states.effort[i];
-      }
-      joint->desired_position_ = joint->current_position_;
-      joint->desired_velocity_ = joint->current_velocity_;
-      joint->desired_effort_ = joint->current_effort_;
-      joint->prev_desired_position_ = joint->desired_position_;
-    }
+    shared_ptr<Joint> joint = joint_it->second;
+    joint->default_position_ = joint->desired_position_;
   }
-  applyFK();
-  desired_tip_pose_ = current_tip_pose_;
 }
 
 /*******************************************************************************************************************//**
@@ -633,22 +637,19 @@ double Leg::applyIK(const bool& simulation)
                  current_tip_pose_.position_[0], current_tip_pose_.position_[1], current_tip_pose_.position_[2]);
 
   // Display warning messages for associated inverse kinematic deviations
-  if (!params_.ignore_IK_warnings.data)
+  string axis_label[3] = {"x", "y", "z"};
+  for (int i = 0; i < 3; ++i)
   {
-    string axis_label[3] = {"x", "y", "z"};
-    for (int i = 0; i < 3; ++i)
+    Vector3d position_error = current_tip_pose_.position_ - desired_tip_pose_.position_;
+    if (abs(position_error[i]) > IK_TOLERANCE)
     {
-      Vector3d position_error = current_tip_pose_.position_ - desired_tip_pose_.position_;
-      if (abs(position_error[i]) > IK_TOLERANCE)
-      {
-        ik_success = 0.0;
-        ROS_WARN_COND(!simulation,
-                      "\nInverse kinematics deviation! Calculated tip %s position of leg %s (%s: %f)"
-                      " differs from desired tip position (%s: %f)\n",
-                      axis_label[i].c_str(), id_name_.c_str(),
-                      axis_label[i].c_str(), current_tip_pose_.position_[i],
-                      axis_label[i].c_str(), desired_tip_pose_.position_[i]);
-      }
+      ik_success = 0.0;
+      ROS_WARN_COND(!simulation && !params_.ignore_IK_warnings.data,
+                    "\nInverse kinematics deviation! Calculated tip %s position of leg %s (%s: %f)"
+                    " differs from desired tip position (%s: %f)\n",
+                    axis_label[i].c_str(), id_name_.c_str(),
+                    axis_label[i].c_str(), current_tip_pose_.position_[i],
+                    axis_label[i].c_str(), desired_tip_pose_.position_[i]);
     }
   }
   return ik_success;
@@ -753,6 +754,8 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
   , unpacked_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("unpacked"))
   , max_angular_speed_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max_vel"))
 {
+  default_position_ = clamped(0.0, min_position_, max_position_);
+  
   // Populate packed configuration/s joint position/s
   map<string, double> joint_parameters = params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data;
   bool get_next_packed_position = true;
@@ -818,6 +821,10 @@ Joint::Joint(shared_ptr<Joint> joint)
   current_position_ = joint->current_position_;
   current_velocity_ = joint->current_velocity_;
   current_effort_ = joint->current_effort_;
+  
+  default_position_ = joint->default_position_;
+  default_velocity_ = joint->default_velocity_;
+  default_effort_ = joint->default_effort_;
 }
 
 /*******************************************************************************************************************//**
