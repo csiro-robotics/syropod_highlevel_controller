@@ -357,6 +357,7 @@ struct Parameters
   Parameter<vector<double>> x_amplitudes;                 ///< The max amplitudes of x posing in each auto pose cycle.
   Parameter<vector<double>> y_amplitudes;                 ///< The max amplitudes of y posing in each auto pose cycle.
   Parameter<vector<double>> z_amplitudes;                 ///< The max amplitudes of z posing in each auto pose cycle.
+  Parameter<vector<double>> gravity_amplitudes;           ///< The max amplitudes of posing in each auto pose cycle.
   Parameter<vector<double>> roll_amplitudes;              ///< The max amplitudes of roll in each auto pose cycle.
   Parameter<vector<double>> pitch_amplitudes;             ///< The max amplitudes of pitch in each auto pose cycle.
   Parameter<vector<double>> yaw_amplitudes;               ///< The max amplitudes of yaw in each auto pose cycle.

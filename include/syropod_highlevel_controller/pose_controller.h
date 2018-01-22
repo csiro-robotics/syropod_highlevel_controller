@@ -285,7 +285,6 @@ public:
    * object into a single pose. The input master phase is either an iteration of the pose phase or synced to the step
    * phase from the Walk Controller. This function also iterates through all leg objects in the robot model and updates
    * each Leg Poser's specific Auto Poser pose (this pose is used when the leg needs to ignore the default auto pose)
-   * @bug Adding pitch and roll simultaneously adds unwanted yaw - fixed by moving away from using quat.h
    */
   void updateAutoPose(void);
 
@@ -416,6 +415,9 @@ public:
 
   /** Modifier for amplitude of z axis component of linear translation in auto pose. */
   inline void setZAmplitude(const double& z) { z_amplitude_ = z; };
+  
+  /** Modifier for amplitude of component linear translation in auto pose in direction of gravity. */
+  inline void setGravityAmplitude(const double& g) { gravity_amplitude_ = g; };
 
   /** Modifier for amplitude of roll component of angular rotation in auto pose. */
   inline void setRollAmplitude(const double& roll) { roll_amplitude_ = roll; };
@@ -453,12 +455,13 @@ private:
   pair<bool, bool> end_check_;       ///< Pair of flags which together denote if posing cycle should end / has ended.
   bool allow_posing_ = false;        ///< Flag denoting if the Auto Poser is allowed to continue updating pose output.
 
-  double x_amplitude_;      ///< Amplitude of x axis component of linear translation in auto pose.
-  double y_amplitude_;      ///< Amplitude of y axis component of linear translation in auto pose.
-  double z_amplitude_;      ///< Amplitude of z axis component of linear translation in auto pose.
-  double roll_amplitude_;   ///< Amplitude of roll component of angular rotation in auto pose.
-  double pitch_amplitude_;  ///< Amplitude of pitch component of angular rotation in auto pose.
-  double yaw_amplitude_;    ///< Amplitude of yaw component of angular rotation in auto pose.
+  double x_amplitude_;       ///< Amplitude of x axis component of linear translation in auto pose.
+  double y_amplitude_;       ///< Amplitude of y axis component of linear translation in auto pose.
+  double z_amplitude_;       ///< Amplitude of z axis component of linear translation in auto pose.
+  double gravity_amplitude_; ///< Amplitude of the linear translation in auto pose in the direction of gravity.
+  double roll_amplitude_;    ///< Amplitude of roll component of angular rotation in auto pose.
+  double pitch_amplitude_;   ///< Amplitude of pitch component of angular rotation in auto pose.
+  double yaw_amplitude_;     ///< Amplitude of yaw component of angular rotation in auto pose.
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

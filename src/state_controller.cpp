@@ -1814,6 +1814,7 @@ void StateController::initAutoPoseParameters(void)
   params_.x_amplitudes.init(n_, "x_amplitudes", base_auto_pose_parameters_name);
   params_.y_amplitudes.init(n_, "y_amplitudes", base_auto_pose_parameters_name);
   params_.z_amplitudes.init(n_, "z_amplitudes", base_auto_pose_parameters_name);
+  params_.gravity_amplitudes.init(n_, "gravity_amplitudes", base_auto_pose_parameters_name);
   params_.roll_amplitudes.init(n_, "roll_amplitudes", base_auto_pose_parameters_name);
   params_.pitch_amplitudes.init(n_, "pitch_amplitudes", base_auto_pose_parameters_name);
   params_.yaw_amplitudes.init(n_, "yaw_amplitudes", base_auto_pose_parameters_name);

@@ -117,6 +117,7 @@ void PoseController::setAutoPoseParams(void)
     auto_poser->setXAmplitude(params_.x_amplitudes.data[id]);
     auto_poser->setYAmplitude(params_.y_amplitudes.data[id]);
     auto_poser->setZAmplitude(params_.z_amplitudes.data[id]);
+    auto_poser->setGravityAmplitude(params_.gravity_amplitudes.data[id]);
     auto_poser->setRollAmplitude(params_.roll_amplitudes.data[id]);
     auto_poser->setPitchAmplitude(params_.pitch_amplitudes.data[id]);
     auto_poser->setYawAmplitude(params_.yaw_amplitudes.data[id]);
@@ -1146,7 +1147,6 @@ void PoseController::updateWalkPlanePose(void)
  * object into a single pose. The input master phase is either an iteration of the pose phase or synced to the step
  * phase from the Walk Controller. This function also iterates through all leg objects in the robot model and updates
  * each Leg Poser's specific Auto Poser pose (this pose is used when the leg needs to ignore the default auto pose)
- * @bug Adding pitch and roll simultaneously adds unwanted yaw - fixed by moving away from using quat.h
 ***********************************************************************************************************************/
 void PoseController::updateAutoPose(void)
 {
@@ -1186,7 +1186,6 @@ void PoseController::updateAutoPose(void)
     Pose updated_pose = auto_poser->updatePose(master_phase);
     auto_posers_complete += int(!auto_poser->isPosing());
     auto_pose_ = auto_pose_.addPose(updated_pose);
-    // BUG: ^Adding pitch and roll simultaneously adds unwanted yaw
   }
 
   // All auto posers have completed their required posing cycle (Allows walkController to transition to STARTING)
@@ -1430,20 +1429,37 @@ Pose AutoPoser::updatePose(int phase)
     Vector3d rotation_control_nodes[5] = {zero, zero, zero, zero, zero};
 
     bool first_half = iteration <= num_iterations / 2; // Flag for 1st vs 2nd half of posing cycle
+    Vector3d gravity_direction = poser_->estimateGravity().normalized();
 
     if (first_half)
     {
-      position_control_nodes[3] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
-      position_control_nodes[4] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
       rotation_control_nodes[3] = Vector3d(roll_amplitude_, pitch_amplitude_, yaw_amplitude_);
       rotation_control_nodes[4] = Vector3d(roll_amplitude_, pitch_amplitude_, yaw_amplitude_);
+      if (gravity_amplitude_ != 0.0)
+      {
+        position_control_nodes[3] = gravity_direction * gravity_amplitude_;
+        position_control_nodes[4] = gravity_direction * gravity_amplitude_;
+      }
+      else
+      {
+        position_control_nodes[3] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
+        position_control_nodes[4] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
+      }
     }
     else
     {
-      position_control_nodes[0] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
-      position_control_nodes[1] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
       rotation_control_nodes[0] = Vector3d(roll_amplitude_, pitch_amplitude_, yaw_amplitude_);
       rotation_control_nodes[1] = Vector3d(roll_amplitude_, pitch_amplitude_, yaw_amplitude_);
+      if (gravity_amplitude_ != 0.0)
+      {
+        position_control_nodes[0] = gravity_direction * gravity_amplitude_;
+        position_control_nodes[1] = gravity_direction * gravity_amplitude_;
+      }
+      else
+      {
+        position_control_nodes[0] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
+        position_control_nodes[1] = Vector3d(x_amplitude_, y_amplitude_, z_amplitude_);
+      }
     }
 
     double delta_t = 1.0 / (num_iterations / 2.0);

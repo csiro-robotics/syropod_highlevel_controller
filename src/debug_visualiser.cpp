@@ -86,8 +86,8 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
   pose.rotation_ *= current_pose.rotation_;
 
   geometry_msgs::Point point;
-  Vector3d previous_body_position = pose.transformVector(Vector3d(0.0, 0.0, 0.0));
-  Vector3d initial_body_position = pose.transformVector(Vector3d(0.0, 0.0, 0.0));
+  Vector3d previous_body_position = pose.transformVector(Vector3d::Zero());
+  Vector3d initial_body_position = pose.transformVector(Vector3d::Zero());
 
   LegContainer::iterator leg_it;
   for (leg_it = model->getLegContainer()->begin(); leg_it != model->getLegContainer()->end(); ++leg_it)

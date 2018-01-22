@@ -639,7 +639,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     if (leg->getLegState() == WALKING && walk_state_ != STOPPED)
     {
       leg_stepper->updateTipPosition();  // updates current tip position through step cycle
-      if (false)//params_.rough_terrain_mode.data && leg->getJointCount() > 3) //TODO
+      if (params_.rough_terrain_mode.data) //TODO
       {
         leg_stepper->updateTipRotation();
       }
