@@ -1279,6 +1279,21 @@ void PoseController::updateInclinationPose(void)
   inclination_pose_.position_[1] = lateral_correction;
 }
 
+/*******************************************************************************************************************//**
+ * Estimates the acceleration vector due to gravity from pitch and roll orientations from IMU data
+ * @return The estimated acceleration vector due to gravity.
+***********************************************************************************************************************/
+Vector3d PoseController::estimateGravity(void)
+{
+  Vector3d euler = quaternionToEulerAngles(imu_data_.orientation);
+  AngleAxisd pitch(-euler[1], Vector3d::UnitY());
+  AngleAxisd roll(-euler[0], Vector3d::UnitX());
+  Vector3d gravity(0, 0, GRAVITY_MAGNITUDE);
+  gravity = pitch * gravity;
+  gravity = roll * gravity;
+  return gravity;
+}
+
 /***********************************************************************************************************************
  * Attempts to generate a pose (x/y linear translation only) to position body such that there is a zero sum of moments
  * from the force acting on the load bearing feet, allowing the robot to shift its centre of mass away from manually

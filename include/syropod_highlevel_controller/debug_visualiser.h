@@ -34,6 +34,8 @@
 #define STANCE_BEZIER_CURVE_MARKER_ID 70  ///< Base id for bezier curve visualisations
 #define TIP_FORCE_MARKER_ID 80            ///< Base id for tip force vector visualisations
 #define TIP_ROTATION_MARKER_ID 90         ///< Base id for tip rotation visualisations
+#define GRAVITY_MARKER_ID 100             ///< Base id for gravity visualisation
+
 #define ID_LIMIT 10000                    ///< Id value limit to prevent overflow
 #define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
 
@@ -117,6 +119,13 @@ public:
    * @param[in] current_pose The current pose of the body in the robot model.
    */
   void generateTipRotation(shared_ptr<Leg> leg, const Pose& current_pose);
+  
+  /**
+   * Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
+   * @param[in] gravity_estimate An estimate of the gravitational acceleration vector
+   * @param[in] current_pose The current pose of the body in the robot model.
+   */
+  void generateGravity(const Vector3d& gravity_estimate, const Pose& current_pose);
 
 private:
   ros::NodeHandle n_;                        ///< Ros node handle
@@ -124,9 +133,11 @@ private:
   ros::Publisher tip_trajectory_publisher_;  ///< Publisher for topic "/shc/visualisation/tip_trajectories"
   ros::Publisher bezier_curve_publisher_;    ///< Publisher for topic "/shc/visualisation/bezier_curves"
   ros::Publisher workspace_publisher_;       ///< Publisher for topic "/shc/visualisation/workspaces"
+  ros::Publisher walk_plane_publisher_;      ///< Publisher for topic "/shc/visualisation/walk_plane"
   ros::Publisher stride_publisher_;          ///< Publisher for topic "/shc/visualisation/stride"
   ros::Publisher tip_force_publisher_;       ///< Publisher for topic "/shc/visualisation/tip_force"
   ros::Publisher tip_rotation_publisher_;    ///< Publisher for topic "/shc/visualisation/tip_rotation"
+  ros::Publisher gravity_publisher_;         ///< Publisher fot topic "/shc/visualisation/gravity"
 
   Pose odometry_pose_;        ///< Pose representing odometry pf robot model
   double time_delta_ = 0.0;   ///< Time period of main loop cycle used for marker duration

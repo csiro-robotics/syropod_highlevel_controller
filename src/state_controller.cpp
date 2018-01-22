@@ -884,6 +884,7 @@ void StateController::RVIZDebugging(const bool& static_display)
 
   debug_visualiser_.updatePose(linear_velocity, angular_velocity, walker_->getWalkPlane());
   debug_visualiser_.generateRobotModel(model_);
+  debug_visualiser_.generateGravity(poser_->estimateGravity(), model_->getCurrentPose());
   
   if (params_.rough_terrain_mode.data)
   {

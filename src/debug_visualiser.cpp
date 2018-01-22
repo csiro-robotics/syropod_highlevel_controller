@@ -29,9 +29,11 @@ DebugVisualiser::DebugVisualiser(void)
   tip_trajectory_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_trajectories", 1000);
   bezier_curve_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/bezier_curves", 1000);
   workspace_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/workspaces", 1000);
+  walk_plane_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/walk_plane", 1000);
   stride_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/stride", 1000);
   tip_force_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_force", 1000);
   tip_rotation_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_rotation", 1000);
+  gravity_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/gravity", 1000);
   odometry_pose_ = Pose::Identity();
 }
 
@@ -196,7 +198,7 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
   walk_plane_marker.pose.orientation.y = walk_plane_orientation.y();
   walk_plane_marker.pose.orientation.z = walk_plane_orientation.z();
   
-  workspace_publisher_.publish(walk_plane_marker);
+  walk_plane_publisher_.publish(walk_plane_marker);
 }
 
 /*******************************************************************************************************************//**
@@ -569,6 +571,50 @@ void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& curre
   tip_rotation_axis.color.a = 1;
   tip_rotation_publisher_.publish(tip_rotation_axis);
   tip_rotation_axis.points.clear();
+}
+
+/*******************************************************************************************************************//**
+  * Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
+  * @param[in] gravity_estimate An estimate of the gravitational acceleration vector
+  * @param[in] current_pose The current pose of the body in the robot model.
+***********************************************************************************************************************/
+void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate, const Pose& current_pose)
+{
+  Pose pose = odometry_pose_;
+  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
+  pose.rotation_ *= current_pose.rotation_;
+  
+  visualization_msgs::Marker gravity;
+  gravity.header.frame_id = "/fixed_frame";
+  gravity.header.stamp = ros::Time::now();
+  gravity.ns = "gravity_marker";
+  gravity.id = GRAVITY_MARKER_ID;
+  gravity.type = visualization_msgs::Marker::ARROW;
+  gravity.action = visualization_msgs::Marker::ADD;
+  
+  Vector3d robot_position = pose.transformVector(Vector3d::Zero());
+  geometry_msgs::Point origin;
+  origin.x = robot_position[0];
+  origin.y = robot_position[1];
+  origin.z = robot_position[2];
+  
+  Vector3d direction_vector = gravity_estimate.normalized() * 0.1 * sqrt(marker_scale_); //Arrow Length  
+  geometry_msgs::Point target;
+  target = origin;
+  target.x += direction_vector[0];
+  target.y += direction_vector[1];
+  target.z += direction_vector[2];
+  gravity.points.push_back(origin);
+  gravity.points.push_back(target);
+  gravity.scale.x = 0.01 * sqrt(marker_scale_);
+  gravity.scale.y = 0.015 * sqrt(marker_scale_);
+  gravity.scale.z = 0.02 * sqrt(marker_scale_);
+  gravity.color.r = 1; // YELLOW
+  gravity.color.g = 1;
+  gravity.color.a = 1;
+  gravity.pose = Pose::Identity().convertToPoseMessage();
+
+  gravity_publisher_.publish(gravity);
 }
 
 /***********************************************************************************************************************

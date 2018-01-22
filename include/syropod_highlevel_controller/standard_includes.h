@@ -53,11 +53,13 @@
 #include <memory>
 
 #define UNASSIGNED_VALUE 1e10 ///< Value used to determine if variable has been assigned
-#define PROGRESS_COMPLETE 100 ///< Vale denoting 100% and a completion of progress of various functions
+#define PROGRESS_COMPLETE 100 ///< Value denoting 100% and a completion of progress of various functions
 #define THROTTLE_PERIOD 5  ///< Default throttle period for all throttled rosconsole messages (seconds)
 
 #define UNDEFINED_ROTATION Quaterniond(0,0,0,0)
 #define UNDEFINED_POSITION Vector3d(1e10, 1e10, 1e10)
+
+#define GRAVITY_MAGNITUDE -9.78971 ///< Gravitational acceleration magnitude for Brisbane, Australia (m/s/s)
 
 using namespace Eigen;
 using namespace std;

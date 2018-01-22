@@ -301,6 +301,12 @@ public:
    * the vertically projected centre of the support polygon in accordance with the inclination of the terrain.
    */
   void updateInclinationPose(void);
+  
+  /**
+   * Estimates the acceleration vector due to gravity.
+   * @return The estimated acceleration vector due to gravity.
+   */
+  Vector3d estimateGravity(void);
 
   /**
    * Attempts to generate a pose (x/y linear translation only) to position body such that there is a zero sum of moments
@@ -310,9 +316,9 @@ public:
   void calculateDefaultPose(void);
 
 private:
-  shared_ptr<Model> model_;  ///< Pointer to robot model object.
-  ImuData imu_data_;         ///< Imu data structure.
-  const Parameters& params_; ///< Pointer to parameter data structure for storing parameter variables.
+  shared_ptr<Model> model_;       ///< Pointer to robot model object.
+  ImuData imu_data_;              ///< Imu data structure.
+  const Parameters& params_;      ///< Pointer to parameter data structure for storing parameter variables.
 
   shared_ptr<Leg> auto_pose_reference_leg_; ///< Reference leg for auto posing system
 
