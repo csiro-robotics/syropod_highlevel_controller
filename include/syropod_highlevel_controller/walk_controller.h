@@ -404,9 +404,6 @@ public:
    */
   void generateSecondarySwingControlNodes(void);
 
-  //TODO
-  void generateSwingControlNodes(void);
-
   /**
    * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.
    * @param[in] stride_scaler A scaling variable which modifies stride vector according to stance length specifically 

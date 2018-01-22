@@ -169,7 +169,6 @@ int WalkController::generateWorkspace(const bool& self_loop)
     bool within_limits = true;
     double min_distance_from_default = UNASSIGNED_VALUE;
     int number_iterations = debug ? WORKSPACE_GENERATION_MAX_ITERATIONS * 10 : WORKSPACE_GENERATION_MAX_ITERATIONS;
-    //int number_iterations = (double(swing_length_) / phase_length_) / (step_frequency_ * time_delta_);
     
     // Find opposite search bearing and modify current minimum search distance to be smaller or equal.
     double current_min = workspace_map_.at(search_bearing_);
@@ -463,13 +462,6 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     max_angular_acceleration = linearInterpolation(max_angular_acceleration_.at(lower_bound),
                                                    max_angular_acceleration_.at(mod(upper_bound, 360)),
                                                    interpolation_progress);
-    /*
-    int closest_bearing = (abs(upper_bound - bearing) < abs(lower_bound - bearing)) ? upper_bound : lower_bound;
-    max_linear_speed = min(max_linear_speed, max_linear_speed_.at(closest_bearing));
-    max_angular_speed = min(max_angular_speed, max_angular_speed_.at(closest_bearing));
-    max_linear_acceleration = min(max_linear_acceleration, max_linear_acceleration_.at(closest_bearing));
-    max_angular_acceleration = min(max_angular_acceleration, max_angular_acceleration_.at(closest_bearing));
-    */
   }
 
   // Calculate desired angular/linear velocities according to input mode and max limits
@@ -647,7 +639,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     if (leg->getLegState() == WALKING && walk_state_ != STOPPED)
     {
       leg_stepper->updateTipPosition();  // updates current tip position through step cycle
-      if (false)//params_.rough_terrain_mode.data && leg->getJointCount() > 3)
+      if (false)//params_.rough_terrain_mode.data && leg->getJointCount() > 3) //TODO
       {
         leg_stepper->updateTipRotation();
       }
@@ -727,45 +719,22 @@ void WalkController::updateWalkPlane(void)
 {
   vector<double> raw_A;
   vector<double> raw_B;
-  
+
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    
     raw_A.push_back(leg_stepper->getDefaultTipPose().position_[0]);
     raw_A.push_back(leg_stepper->getDefaultTipPose().position_[1]);
     raw_A.push_back(1.0);
     raw_B.push_back(leg_stepper->getDefaultTipPose().position_[2]);
-    
-    /*
-    if (leg_stepper->getStepState() != SWING)
-    {
-      // Populate matrices A and B, where AX = B and A(n) = [x(n) y(n) 1], B(n) = [z(n)] and X = [a b c]^T
-      raw_A.push_back(leg_stepper->getCurrentTipPose().position_[0]);
-      raw_A.push_back(leg_stepper->getCurrentTipPose().position_[1]);
-      raw_A.push_back(1.0);
-      raw_B.push_back(leg_stepper->getCurrentTipPose().position_[2]);
-      legs_in_stance++;
-    }
-    */
   }
-  
-  // Estimate walk plane if there are at least 3 points to define plane.
-  /*
-  if (legs_in_stance >= 3)
-  {
-    Map<Matrix<double, Dynamic, Dynamic, RowMajor>> A(raw_A.data(), legs_in_stance, 3);
-    Map<VectorXd> B(raw_B.data(), legs_in_stance);
-    MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
-    walk_plane_ = (pseudo_inverse_A*B);
-  }
-  */
+
+  // Estimate walk plane
   Map<Matrix<double, Dynamic, Dynamic, RowMajor>> A(raw_A.data(), model_->getLegCount(), 3);
   Map<VectorXd> B(raw_B.data(), model_->getLegCount());
   MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
   walk_plane_ = (pseudo_inverse_A*B);
-  
 }
 
 /*******************************************************************************************************************//**
@@ -991,7 +960,7 @@ void LegStepper::updateTipPosition(void)
       target_tip_pose_.position_ = default_tip_pose_.position_ + 0.5 * stride_vector_;
       
       // Update tip position according to tip state
-      if (/*walker_->getParameters().rough_terrain_mode.data && */!first_half)
+      if (walker_->getParameters().rough_terrain_mode.data && !first_half)
       {
         Vector3d position_error = leg_->getCurrentTipPose().position_ - leg_->getDesiredTipPose().position_;
         Pose step_plane_pose = leg_->getStepPlanePose();

@@ -744,9 +744,9 @@ void StateController::publishLegState(void)
 
     // Tip poses
     msg.walker_tip_pose = leg_stepper->getCurrentTipPose().convertToPoseMessage();
+    msg.target_tip_pose = leg_stepper->getTargetTipPose().convertToPoseMessage();
     msg.poser_tip_pose = leg_poser->getCurrentTipPose().convertToPoseMessage();
     msg.model_tip_pose = leg->getCurrentTipPose().convertToPoseMessage();
-    msg.target_tip_pose = leg_stepper->getTargetTipPose().convertToPoseMessage();
 
     // Tip velocities
     msg.model_tip_velocity.linear.x = leg->getCurrentTipVelocity()[0];
@@ -885,7 +885,7 @@ void StateController::RVIZDebugging(const bool& static_display)
   debug_visualiser_.updatePose(linear_velocity, angular_velocity, walker_->getWalkPlane());
   debug_visualiser_.generateRobotModel(model_);
   
-  if (true)//params_.rough_terrain_mode.data)
+  if (params_.rough_terrain_mode.data)
   {
     debug_visualiser_.generateWalkPlane(walker_->getWalkPlane());
     debug_visualiser_.generateTerrainEstimate(model_);
