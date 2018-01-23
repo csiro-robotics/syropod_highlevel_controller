@@ -168,7 +168,7 @@ int WalkController::generateWorkspace(const bool& self_loop)
 
     bool within_limits = true;
     double min_distance_from_default = UNASSIGNED_VALUE;
-    int number_iterations = debug ? WORKSPACE_GENERATION_MAX_ITERATIONS * 10 : WORKSPACE_GENERATION_MAX_ITERATIONS;
+    int number_iterations = debug ? WORKSPACE_GENERATION_MAX_ITERATIONS * 100 : WORKSPACE_GENERATION_MAX_ITERATIONS;
     
     // Find opposite search bearing and modify current minimum search distance to be smaller or equal.
     double current_min = workspace_map_.at(search_bearing_);
@@ -183,6 +183,7 @@ int WalkController::generateWorkspace(const bool& self_loop)
       shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       Pose current_pose = search_model_->getCurrentPose();
       Vector3d identity_tip_position = current_pose.inverseTransformVector(leg_stepper->getIdentityTipPose().position_);
+      identity_tip_position[2] += search_height_;
       leg_it_++;
       
       // Set origin and target for linear interpolation
@@ -192,14 +193,12 @@ int WalkController::generateWorkspace(const bool& self_loop)
         if (search_bearing_ == 0)
         {
           Vector3d origin_tip_position = leg->getCurrentTipPose().position_;
-          origin_tip_position[2] += search_height_;
           origin_tip_position_.push_back(origin_tip_position);
           target_tip_position_.push_back(identity_tip_position);
         }
         else
         {
           Vector3d origin_tip_position = identity_tip_position;
-          origin_tip_position[2] += search_height_;
           origin_tip_position_.push_back(origin_tip_position);
           Vector3d target_tip_position = origin_tip_position;
           target_tip_position[0] += current_min * cos(degreesToRadians(search_bearing_));
@@ -366,12 +365,9 @@ void WalkController::calculateMaxSpeed(void)
       stance_overshoot = max(stance_overshoot, d1 + d2 - workspace_radius); // Max overshoot past workspace limitations
     }
 
-    // Scale workspace to accomodate stance overshoot
-    double scaled_workspace_radius = (workspace_radius / (workspace_radius + stance_overshoot)) * workspace_radius;
-
-    // Further scale workspace to accomodate normal max swing overshoot
+    // Scale workspace to accomodate stance overshoot and normal swing overshoot
     double swing_overshoot = 0.5 * max_speed * swing_length_ / (2.0 * phase_length_ * step_frequency_); // From swing node 1
-    scaled_workspace_radius *= (scaled_workspace_radius / (scaled_workspace_radius + swing_overshoot));
+    double scaled_workspace_radius = (workspace_radius / (workspace_radius + stance_overshoot + swing_overshoot)) * workspace_radius;
 
     // Distance: scaled_workspace_radius*2.0 (i.e. max stride length)
     // Time: on_ground_ratio*(1/step_frequency_) where step frequency is FULL step cycles/s)
@@ -522,18 +518,24 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
 
   // Update linear velocity according to acceleration limits
   Vector2d linear_acceleration = new_linear_velocity - desired_linear_velocity_;
-  if (linear_acceleration.norm() > 0.0)
+  if (linear_acceleration.norm() < max_linear_acceleration * time_delta_)
   {
-    desired_linear_velocity_ +=
-      linear_acceleration * min(1.0, max_linear_acceleration  * time_delta_ / linear_acceleration.norm());
+    desired_linear_velocity_ += linear_acceleration;
+  }
+  else
+  {
+    desired_linear_velocity_ += linear_acceleration.normalized() * max_linear_acceleration * time_delta_;
   }
 
   // Update angular velocity according to acceleration limits
   double angular_acceleration = new_angular_velocity - desired_angular_velocity_;
-  if (abs(angular_acceleration) > 0.0)
+  if (abs(angular_acceleration) < max_angular_acceleration * time_delta_)
   {
-    desired_angular_velocity_ +=
-      angular_acceleration * min(1.0, max_angular_acceleration * time_delta_ / abs(angular_acceleration));
+    desired_angular_velocity_ += angular_acceleration;
+  }
+  else
+  {
+    desired_angular_velocity_ += sign(angular_acceleration) * max_angular_acceleration * time_delta_;
   }
 
   // State transitions for Walk State Machine
@@ -928,13 +930,13 @@ void LegStepper::updateTipPosition(void)
   // Swing Phase
   if (step_state_ == SWING)
   {
+    updateStride();
     int iteration = phase_ - swing_start + 1;
     bool first_half = iteration <= swing_iterations / 2;
 
     // Save initial tip position/velocity
     if (iteration == 1)
     {
-      updateStride();
       swing_origin_tip_position_ = current_tip_pose_.position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
       min_tip_force_ = UNASSIGNED_VALUE;
