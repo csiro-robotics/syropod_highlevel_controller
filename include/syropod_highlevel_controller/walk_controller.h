@@ -94,6 +94,9 @@ public:
   
   /** Accessor for walk plane estimate. */
   inline Vector3d getWalkPlane(void) { return walk_plane_; };
+  
+  /** Accessor for ideal odemetry pose. */
+  inline Pose getOdometryIdeal(void) { return odometry_ideal_; };
 
   /**
     * Modifier for posing state.
@@ -160,6 +163,11 @@ public:
    * Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
    */
   void updateWalkPlane(void);
+  
+  /**
+   * Updates the ideal odometry pose of the robot body from desired velocities
+   */
+  void updateOdometry(void);
 
 private:
   shared_ptr<Model> model_;            ///< Pointer to robot model object.
@@ -201,6 +209,7 @@ private:
   // Velocity/acceleration variables
   Vector2d desired_linear_velocity_;          ///< The desired linear velocity of the robot body.
   double desired_angular_velocity_;           ///< The desired angular velocity of the robot body.
+  Pose odometry_ideal_;                       ///< The ideal odometry from the world frame
   map<int, double> max_linear_speed_;         ///< A map of max allowable linear body speeds for potential bearings.
   map<int, double> max_angular_speed_;        ///< A map of max allowable angular speeds for potential bearings.
   map<int, double> max_linear_acceleration_;  ///< A map of max allowable linear accelerations for potential bearings.

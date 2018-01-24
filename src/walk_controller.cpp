@@ -47,6 +47,7 @@ void WalkController::init(void)
   body_clearance_ = params_.body_clearance.current_value;
   walk_state_ = STOPPED;
   walk_plane_ = Vector3d(0,0,0);
+  odometry_ideal_ = Pose::Identity();
 
   // Set default stance tip positions from parameters
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -281,7 +282,6 @@ int WalkController::generateWorkspace(const bool& self_loop)
     // Display robot model and workspace for debugging purposes
     if (display_debug_visualisation && self_loop)
     {
-      debug_visualiser_->updatePose(Vector2d(0, 0), 0, Vector3d(0,0,0));
       debug_visualiser_->generateRobotModel(search_model_);
       for (leg_it_ = search_model_->getLegContainer()->begin();
            leg_it_ != search_model_->getLegContainer()->end(); ++leg_it_)
@@ -650,6 +650,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
   }
   updateWalkPlane();
+  updateOdometry();
   if (generate_workspace_ || !workspace_generated_)
   {
     generateWorkspace(false);
@@ -737,6 +738,21 @@ void WalkController::updateWalkPlane(void)
   Map<VectorXd> B(raw_B.data(), model_->getLegCount());
   MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
   walk_plane_ = (pseudo_inverse_A*B);
+}
+
+/*******************************************************************************************************************//**
+ * Updates the ideal odometry pose of the robot body from desired velocities
+***********************************************************************************************************************/
+void WalkController::updateOdometry(void)
+{
+  Vector3d walk_plane_normal(walk_plane_[0], walk_plane_[1], -1.0);
+  Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -walk_plane_normal);
+  
+  Vector3d desired_linear_velocity = Vector3d(desired_linear_velocity_[0], desired_linear_velocity_[1], 0);
+  Vector3d position_delta = walk_plane_orientation._transformVector(desired_linear_velocity * time_delta_);
+  odometry_ideal_.position_ += odometry_ideal_.rotation_._transformVector(position_delta);
+  odometry_ideal_.rotation_ *= Quaterniond(AngleAxisd(desired_angular_velocity_ * time_delta_,
+                                                      -walk_plane_normal.normalized()));
 }
 
 /*******************************************************************************************************************//**

@@ -12,6 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   dynamic_reconfigure
+  tf2
+  tf2_ros
  )
 
 generate_dynamic_reconfigure_options(config/dynamic_parameter.cfg)

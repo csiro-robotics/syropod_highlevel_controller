@@ -23,7 +23,6 @@
  * StateController class constructor. Initialises parameters, creates robot model object, sets up ros topic
  * subscriptions and advertisments.
  * @param[in] n The ros node handle, used to subscribe/publish topics and assign callbacks
- * @todo Remove ASC publisher object
 ***********************************************************************************************************************/
 StateController::StateController(const ros::NodeHandle& n) : n_(n)
 {
@@ -92,7 +91,6 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   //Set up debugging publishers
   pose_publisher_ = n_.advertise<geometry_msgs::Twist>("/shc/pose", 1000);
   workspace_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/workspace", 1000);
-  body_velocity_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/body_velocity", 1000);
   rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/rotation_pose_error", 1000);
 
   //Set up combined desired joint state publisher
@@ -743,15 +741,28 @@ void StateController::publishLegState(void)
     msg.name = leg->getIDName().c_str();
 
     // Tip poses
-    msg.walker_tip_pose = leg_stepper->getCurrentTipPose().convertToPoseMessage();
-    msg.target_tip_pose = leg_stepper->getTargetTipPose().convertToPoseMessage();
-    msg.poser_tip_pose = leg_poser->getCurrentTipPose().convertToPoseMessage();
-    msg.model_tip_pose = leg->getCurrentTipPose().convertToPoseMessage();
+    msg.walker_tip_pose.header.stamp = ros::Time::now();
+    msg.walker_tip_pose.header.frame_id = "walk_plane";
+    msg.walker_tip_pose.pose = leg_stepper->getCurrentTipPose().convertToPoseMessage();
+    
+    msg.target_tip_pose.header.stamp = ros::Time::now();
+    msg.target_tip_pose.header.frame_id = "walk_plane";
+    msg.target_tip_pose.pose = leg_stepper->getTargetTipPose().convertToPoseMessage();
+    
+    msg.poser_tip_pose.header.stamp = ros::Time::now();
+    msg.poser_tip_pose.header.frame_id = "base_link";
+    msg.poser_tip_pose.pose = leg_poser->getCurrentTipPose().convertToPoseMessage();
+    
+    msg.model_tip_pose.header.stamp = ros::Time::now();
+    msg.model_tip_pose.header.frame_id = "base_link";
+    msg.model_tip_pose.pose = leg->getCurrentTipPose().convertToPoseMessage();
 
     // Tip velocities
-    msg.model_tip_velocity.linear.x = leg->getCurrentTipVelocity()[0];
-    msg.model_tip_velocity.linear.y = leg->getCurrentTipVelocity()[1];
-    msg.model_tip_velocity.linear.z = leg->getCurrentTipVelocity()[2];
+    msg.model_tip_velocity.header.stamp = ros::Time::now();
+    msg.model_tip_pose.header.frame_id = "base_link";
+    msg.model_tip_velocity.twist.linear.x = leg->getCurrentTipVelocity()[0];
+    msg.model_tip_velocity.twist.linear.y = leg->getCurrentTipVelocity()[1];
+    msg.model_tip_velocity.twist.linear.z = leg->getCurrentTipVelocity()[2];
 
     //Joint positions/velocities
     for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
@@ -794,19 +805,6 @@ void StateController::publishLegState(void)
     }
     //leg->publishASCState(asc_msg);
   }
-}
-
-/*******************************************************************************************************************//**
- * Publishes body velocity for debugging
-***********************************************************************************************************************/
-void StateController::publishBodyVelocity(void)
-{
-  std_msgs::Float32MultiArray msg;
-  msg.data.clear();
-  msg.data.push_back(walker_->getDesiredLinearVelocity()[0]);
-  msg.data.push_back(walker_->getDesiredLinearVelocity()[1]);
-  msg.data.push_back(walker_->getDesiredAngularVelocity());
-  body_velocity_publisher_.publish(msg);
 }
 
 /*******************************************************************************************************************//**
@@ -871,41 +869,66 @@ void StateController::publishRotationPoseError(void)
 }
 
 /*******************************************************************************************************************//**
- * Sets up velocities for and calls debug visualiser object to publish various debugging visualations via rviz
- * @param[in] static_display Flag which determines if the vizualisation is kept statically in place at the origin
- * @todo Implement calculation of actual body velocity
+ * Publishes transforms linking world, base_link and walk_plane frames.
 ***********************************************************************************************************************/
-void StateController::RVIZDebugging(const bool& static_display)
+void StateController::publishFrameTransforms(void)
 {
-  Vector2d linear_velocity = walker_->getDesiredLinearVelocity(); //TODO
-  linear_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
-  double angular_velocity = walker_->getDesiredAngularVelocity();
-  angular_velocity *= (static_display) ? 0.0 : params_.time_delta.data;
-
-  debug_visualiser_.updatePose(linear_velocity, angular_velocity, walker_->getWalkPlane());
-  debug_visualiser_.generateRobotModel(model_);
-  debug_visualiser_.generateGravity(poser_->estimateGravity(), model_->getCurrentPose());
+  // World frame to Base_Link frame transform
+  geometry_msgs::TransformStamped world_to_walk_plane;
+  world_to_walk_plane.header.stamp = ros::Time::now();
+  world_to_walk_plane.header.frame_id = "world";
+  world_to_walk_plane.child_frame_id = "walk_plane";
+  Pose odometry_estimate = walker_->getOdometryIdeal();
+  world_to_walk_plane.transform.translation.x = odometry_estimate.position_[0];
+  world_to_walk_plane.transform.translation.y = odometry_estimate.position_[1];
+  world_to_walk_plane.transform.translation.z = odometry_estimate.position_[2];
+  world_to_walk_plane.transform.rotation.w = odometry_estimate.rotation_.w();
+  world_to_walk_plane.transform.rotation.x = odometry_estimate.rotation_.x();
+  world_to_walk_plane.transform.rotation.y = odometry_estimate.rotation_.y();
+  world_to_walk_plane.transform.rotation.z = odometry_estimate.rotation_.z();
   
-  if (params_.rough_terrain_mode.data)
-  {
-    debug_visualiser_.generateWalkPlane(walker_->getWalkPlane());
-    debug_visualiser_.generateTerrainEstimate(model_);
-  }
+  // Base_Link frame to Walk_Plane frame transform
+  geometry_msgs::TransformStamped walk_plane_to_base_link;
+  walk_plane_to_base_link.header.stamp = ros::Time::now();
+  walk_plane_to_base_link.header.frame_id = "walk_plane";
+  walk_plane_to_base_link.child_frame_id = "base_link";
+  Pose current_pose = model_->getCurrentPose();
+  walk_plane_to_base_link.transform.translation.x = current_pose.position_[0];
+  walk_plane_to_base_link.transform.translation.y = current_pose.position_[1];
+  walk_plane_to_base_link.transform.translation.z = current_pose.position_[2];
+  walk_plane_to_base_link.transform.rotation.w = current_pose.rotation_.w();
+  walk_plane_to_base_link.transform.rotation.x = current_pose.rotation_.x();
+  walk_plane_to_base_link.transform.rotation.y = current_pose.rotation_.y();
+  walk_plane_to_base_link.transform.rotation.z = current_pose.rotation_.z();
+  
+  transform_broadcaster_.sendTransform(world_to_walk_plane);
+  transform_broadcaster_.sendTransform(walk_plane_to_base_link);
+}
+
+/*******************************************************************************************************************//**
+ * Sets up velocities for and calls debug visualiser object to publish various debugging visualations via rviz
+***********************************************************************************************************************/
+void StateController::RVIZDebugging(void)
+{
+  debug_visualiser_.generateRobotModel(model_);
+  debug_visualiser_.generateGravity(poser_->estimateGravity());
+  debug_visualiser_.generateWalkPlane(walker_->getWalkPlane());
+  debug_visualiser_.generateTerrainEstimate(model_);
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
-    debug_visualiser_.generateTipTrajectory(leg, model_->getCurrentPose());
+    debug_visualiser_.generateTipTrajectory(leg);
     
-    if (static_display && robot_state_ == RUNNING)
+    if (robot_state_ == RUNNING)
     {
-      debug_visualiser_.generateTipRotation(leg, model_->getCurrentPose());
+      debug_visualiser_.generateTipRotation(leg);
       debug_visualiser_.generateWorkspace(leg, walker_->getWorkspaceMap());
       debug_visualiser_.generateBezierCurves(leg);
       debug_visualiser_.generateStride(leg);
       if (params_.admittance_control.data)
       {
-        debug_visualiser_.generateTipForce(leg, model_->getCurrentPose());
+        debug_visualiser_.generateTipForce(leg);
       }
     }
   }

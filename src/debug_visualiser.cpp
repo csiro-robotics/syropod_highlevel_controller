@@ -34,23 +34,7 @@ DebugVisualiser::DebugVisualiser(void)
   tip_force_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_force", 1000);
   tip_rotation_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_rotation", 1000);
   gravity_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/gravity", 1000);
-  odometry_pose_ = Pose::Identity();
-}
-
-/*******************************************************************************************************************//**
- * Updates the odometry pose of the robot body from velocity inputs
- * @param[in] input_linear_body_velocity The linear velocity of the robot body in the x/y plane
- * @param[in] input_angular_body_velocity The angular velocity of the robot body
- * @param[in] walk_plane A Vector representing the walk plane
-***********************************************************************************************************************/
-void DebugVisualiser::updatePose(const Vector2d& input_linear_body_velocity,
-                                 const double& input_angular_body_velocity,
-                                 const Vector3d& walk_plane)
-{
-  Vector3d walk_plane_normal(-walk_plane[0], -walk_plane[1], 1.0);
-  Vector3d linear_body_velocity = Vector3d(input_linear_body_velocity[0], input_linear_body_velocity[1], 0);
-  odometry_pose_.position_ += odometry_pose_.rotation_._transformVector(linear_body_velocity);
-  odometry_pose_.rotation_ *= Quaterniond(AngleAxisd(input_angular_body_velocity, walk_plane_normal.normalized()));
+  terrain_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/terrain", 1000);
 }
 
 /*******************************************************************************************************************//**
@@ -67,7 +51,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
   }
   
   visualization_msgs::Marker leg_line_list;
-  leg_line_list.header.frame_id = "/fixed_frame";
+  leg_line_list.header.frame_id = "/base_link";
   leg_line_list.header.stamp = ros::Time::now();
   leg_line_list.ns = "robot_model";
   leg_line_list.action = visualization_msgs::Marker::ADD;
@@ -80,14 +64,9 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
   leg_line_list.color.a = 1;
   leg_line_list.pose = Pose::Identity().convertToPoseMessage();
 
-  Pose pose = odometry_pose_;
-  Pose current_pose = model->getCurrentPose();
-  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
-  pose.rotation_ *= current_pose.rotation_;
-
   geometry_msgs::Point point;
-  Vector3d previous_body_position = pose.transformVector(Vector3d::Zero());
-  Vector3d initial_body_position = pose.transformVector(Vector3d::Zero());
+  Vector3d previous_body_position = Vector3d::Zero();
+  Vector3d initial_body_position = Vector3d::Zero();
 
   LegContainer::iterator leg_it;
   for (leg_it = model->getLegContainer()->begin(); leg_it != model->getLegContainer()->end(); ++leg_it)
@@ -102,7 +81,6 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 
     shared_ptr<Joint> first_joint = leg->getJointContainer()->begin()->second;
     Vector3d first_joint_position = first_joint->getPoseRobotFrame().position_;
-    first_joint_position = pose.transformVector(first_joint_position);
     point.x = first_joint_position[0];
     point.y = first_joint_position[1];
     point.z = first_joint_position[2];
@@ -127,7 +105,6 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 
       shared_ptr<Joint> joint = joint_it->second;
       Vector3d joint_position = joint->getPoseRobotFrame().position_;
-      joint_position = pose.transformVector(joint_position);
       point.x = joint_position[0];
       point.y = joint_position[1];
       point.z = joint_position[2];
@@ -142,7 +119,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
     point.z = previous_joint_position[2];
     leg_line_list.points.push_back(point);
 
-    Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
+    Vector3d tip_position = leg->getCurrentTipPose().position_;
     point.x = tip_position[0];
     point.y = tip_position[1];
     point.z = tip_position[2];
@@ -170,7 +147,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
 {
   visualization_msgs::Marker walk_plane_marker;
-  walk_plane_marker.header.frame_id = "/fixed_frame";
+  walk_plane_marker.header.frame_id = "/walk_plane";
   walk_plane_marker.header.stamp = ros::Time::now();
   walk_plane_marker.ns = "walk_plane_markers";
   walk_plane_marker.id = WALK_PLANE_ID;
@@ -178,21 +155,19 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
   walk_plane_marker.action = visualization_msgs::Marker::ADD;
   walk_plane_marker.scale.x = 2.0 * sqrt(marker_scale_);
   walk_plane_marker.scale.y = 2.0 * sqrt(marker_scale_);
-  walk_plane_marker.scale.z = 0.0 * sqrt(marker_scale_);
+  walk_plane_marker.scale.z = 1e-3 * sqrt(marker_scale_);
   walk_plane_marker.color.g = 1;
   walk_plane_marker.color.b = 1;
   walk_plane_marker.color.a = 0.5;
   walk_plane_marker.pose = Pose::Identity().convertToPoseMessage();
   
   Vector3d walk_plane_centroid(0, 0, walk_plane[2]);
-  walk_plane_centroid = odometry_pose_.transformVector(walk_plane_centroid);
   walk_plane_marker.pose.position.x = walk_plane_centroid[0];
   walk_plane_marker.pose.position.y = walk_plane_centroid[1];
   walk_plane_marker.pose.position.z = walk_plane_centroid[2];
   
   Vector3d plane_normal(walk_plane[0], walk_plane[1], -1.0);
   Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -plane_normal);
-  walk_plane_orientation = odometry_pose_.rotation_ * walk_plane_orientation;
   walk_plane_marker.pose.orientation.w = walk_plane_orientation.w();
   walk_plane_marker.pose.orientation.x = walk_plane_orientation.x();
   walk_plane_marker.pose.orientation.y = walk_plane_orientation.y();
@@ -204,12 +179,11 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
 /*******************************************************************************************************************//**
  * Publishes visualisation markers which represent the trajectory of the tip of the input leg.
  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
- * @param[in] current_pose The current pose of the body in the robot model - modifies the tip trajectory
 ***********************************************************************************************************************/
-void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& current_pose)
+void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker tip_position_marker;
-  tip_position_marker.header.frame_id = "/fixed_frame";
+  tip_position_marker.header.frame_id = "/base_link";
   tip_position_marker.header.stamp = ros::Time::now();
   tip_position_marker.ns = "tip_trajectory_markers";
   tip_position_marker.id = tip_position_id_;
@@ -220,12 +194,8 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const Pose& cur
   tip_position_marker.color.a = 1;
   tip_position_marker.lifetime = ros::Duration(TRAJECTORY_DURATION);
   tip_position_marker.pose = Pose::Identity().convertToPoseMessage();
-  
-  Pose pose = odometry_pose_;
-  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
-  pose.rotation_ *= current_pose.rotation_;
 
-  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
+  Vector3d tip_position = leg->getCurrentTipPose().position_;
   geometry_msgs::Point point;
   point.x = tip_position[0];
   point.y = tip_position[1];
@@ -249,14 +219,10 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
     shared_ptr<Leg> leg = leg_it->second;
     if (leg->getLegStepper()->getSwingProgress() == 1.0)
     {
-      Pose pose = odometry_pose_;
-      Pose current_pose = model->getCurrentPose();
-      pose.position_ += pose.rotation_._transformVector(current_pose.position_);
-      pose.rotation_ *= current_pose.rotation_;
-      Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
+      Vector3d tip_position = leg->getCurrentTipPose().position_;
       
       visualization_msgs::Marker terrain_marker;
-      terrain_marker.header.frame_id = "/fixed_frame";
+      terrain_marker.header.frame_id = "/base_link";
       terrain_marker.header.stamp = ros::Time::now();
       terrain_marker.ns = "terrain_markers";
       terrain_marker.id = terrain_marker_id_;
@@ -274,7 +240,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       point.y = tip_position[1];
       point.z = tip_position[2] - terrain_marker.scale.z / 2.0;
       terrain_marker.points.push_back(point);
-      tip_trajectory_publisher_.publish(terrain_marker);
+      terrain_publisher_.publish(terrain_marker);
       terrain_marker_id_ = (terrain_marker_id_ + 1) % (model->getLegCount() * 5);
     }
   }
@@ -288,7 +254,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
 void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker swing_1_nodes;
-  swing_1_nodes.header.frame_id = "/fixed_frame";
+  swing_1_nodes.header.frame_id = "/walk_plane";
   swing_1_nodes.header.stamp = ros::Time::now();
   swing_1_nodes.ns = "primary_swing_control_nodes";
   swing_1_nodes.id = SWING_BEZIER_CURVE_1_MARKER_ID + leg->getIDNumber();
@@ -301,7 +267,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_1_nodes.pose = Pose::Identity().convertToPoseMessage();
 
   visualization_msgs::Marker swing_2_nodes;
-  swing_2_nodes.header.frame_id = "/fixed_frame";
+  swing_2_nodes.header.frame_id = "/walk_plane";
   swing_2_nodes.header.stamp = ros::Time::now();
   swing_2_nodes.ns = "secondary_swing_control_nodes";
   swing_2_nodes.id = SWING_BEZIER_CURVE_2_MARKER_ID + leg->getIDNumber();
@@ -316,7 +282,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_2_nodes.pose = Pose::Identity().convertToPoseMessage();
 
   visualization_msgs::Marker stance_nodes;
-  stance_nodes.header.frame_id = "/fixed_frame";
+  stance_nodes.header.frame_id = "/walk_plane";
   stance_nodes.header.stamp = ros::Time::now();
   stance_nodes.ns = "stance_control_nodes";
   stance_nodes.id = STANCE_BEZIER_CURVE_MARKER_ID + leg->getIDNumber();
@@ -335,7 +301,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
     geometry_msgs::Point point;
     if (leg_stepper->getStepState() == STANCE)
     {
-      Vector3d stance_node = odometry_pose_.transformVector(leg_stepper->getStanceControlNode(i));
+      Vector3d stance_node = leg_stepper->getStanceControlNode(i);
       point.x = stance_node[0];
       point.y = stance_node[1];
       point.z = stance_node[2];
@@ -344,13 +310,13 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
     }
     else if (leg_stepper->getStepState() == SWING)
     {
-      Vector3d swing_1_node = odometry_pose_.transformVector(leg_stepper->getSwing1ControlNode(i));
+      Vector3d swing_1_node = leg_stepper->getSwing1ControlNode(i);
       point.x = swing_1_node[0];
       point.y = swing_1_node[1];
       point.z = swing_1_node[2];
       ROS_ASSERT(point.x + point.y + point.z < 1e3); //Check that point has valid values
       swing_1_nodes.points.push_back(point);
-      Vector3d swing_2_node = odometry_pose_.transformVector(leg_stepper->getSwing2ControlNode(i));
+      Vector3d swing_2_node = leg_stepper->getSwing2ControlNode(i);
       point.x = swing_2_node[0];
       point.y = swing_2_node[1];
       point.z = swing_2_node[2];
@@ -374,7 +340,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
   
   visualization_msgs::Marker default_tip_position;
-  default_tip_position.header.frame_id = "/fixed_frame";
+  default_tip_position.header.frame_id = "/walk_plane";
   default_tip_position.header.stamp = ros::Time::now();
   default_tip_position.ns = "workspace_markers";
   default_tip_position.id = DEFAULT_TIP_POSITION_ID + leg->getIDNumber();
@@ -395,7 +361,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace_publisher_.publish(default_tip_position);
 
   visualization_msgs::Marker workspace;
-  workspace.header.frame_id = "/fixed_frame";
+  workspace.header.frame_id = "/walk_plane";
   workspace.header.stamp = ros::Time::now();
   workspace.ns = "workspace_markers";
   workspace.id = WORKSPACE_ID + leg->getIDNumber();
@@ -442,7 +408,7 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   Vector3d stride_vector = leg_stepper->getStrideVector();
 
   visualization_msgs::Marker stride;
-  stride.header.frame_id = "/fixed_frame";
+  stride.header.frame_id = "/walk_plane";
   stride.header.stamp = ros::Time::now();
   stride.ns = "stride_markers";
   stride.id = STRIDE_MARKER_ID + leg->getIDNumber();
@@ -472,22 +438,17 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
 /*******************************************************************************************************************//**
   * Publishes visualisation markers which represent the estimated tip force vector for input leg.
   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-  * @param[in] current_pose The current pose of the body in the robot model.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg, const Pose& current_pose)
+void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
 {
-  Pose pose = odometry_pose_;
-  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
-  pose.rotation_ *= current_pose.rotation_;
-  
   visualization_msgs::Marker tip_force;
-  tip_force.header.frame_id = "/fixed_frame";
+  tip_force.header.frame_id = "/base_link";
   tip_force.header.stamp = ros::Time::now();
   tip_force.ns = "tip_force_markers";
   tip_force.id = TIP_FORCE_MARKER_ID + leg->getIDNumber();
   tip_force.type = visualization_msgs::Marker::ARROW;
   tip_force.action = visualization_msgs::Marker::ADD;
-  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
+  Vector3d tip_position = leg->getCurrentTipPose().position_;
   Vector3d tip_direction = leg->getCurrentTipPose().rotation_._transformVector(Vector3d::UnitX());
   Vector3d aligned_tip_force = getProjection(leg->getTipForce(), tip_direction);
   geometry_msgs::Point origin;
@@ -515,16 +476,11 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg, const Pose& current_
 /*******************************************************************************************************************//**
   * Publishes visualisation markers which represent the orientation of the tip for input leg.
   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-  * @param[in] current_pose The current pose of the body in the robot model.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& current_pose)
+void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg)
 {
-  Pose pose = odometry_pose_;
-  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
-  pose.rotation_ *= current_pose.rotation_;
-  
   visualization_msgs::Marker tip_rotation_axis;
-  tip_rotation_axis.header.frame_id = "/fixed_frame";
+  tip_rotation_axis.header.frame_id = "/base_link";
   tip_rotation_axis.header.stamp = ros::Time::now();
   tip_rotation_axis.ns = "tip_rotation_markers";
   tip_rotation_axis.type = visualization_msgs::Marker::ARROW;
@@ -534,7 +490,7 @@ void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& curre
   tip_rotation_axis.scale.z = 0.02 * sqrt(marker_scale_);
   tip_rotation_axis.pose = Pose::Identity().convertToPoseMessage();
   
-  Vector3d tip_position = pose.transformVector(leg->getCurrentTipPose().position_);
+  Vector3d tip_position = leg->getCurrentTipPose().position_;
   geometry_msgs::Point origin;
   origin.x = tip_position[0];
   origin.y = tip_position[1];
@@ -550,7 +506,7 @@ void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& curre
   // Add desired tip rotation axis (x/y/z) (if defined)
   bool desired_rotation_defined = !leg->getDesiredTipPose().rotation_.isApprox(UNDEFINED_ROTATION);
   tip_rotation_axis.id = ++id;
-  direction_vector = (pose.rotation_ * leg->getDesiredTipPose().rotation_)._transformVector(base_direction_vector);
+  direction_vector = leg->getDesiredTipPose().rotation_._transformVector(base_direction_vector);
   target.x = origin.x + direction_vector[0];
   target.y = origin.y + direction_vector[1];
   target.z = origin.z + direction_vector[2];
@@ -562,7 +518,7 @@ void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& curre
   
   // Add current tip rotation axis (x/y/z)
   tip_rotation_axis.id = ++id;
-  direction_vector = (pose.rotation_ * leg->getCurrentTipPose().rotation_)._transformVector(base_direction_vector);
+  direction_vector = leg->getCurrentTipPose().rotation_._transformVector(base_direction_vector);
   target.x = origin.x + direction_vector[0];
   target.y = origin.y + direction_vector[1];
   target.z = origin.z + direction_vector[2];
@@ -576,23 +532,18 @@ void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg, const Pose& curre
 /*******************************************************************************************************************//**
   * Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
   * @param[in] gravity_estimate An estimate of the gravitational acceleration vector
-  * @param[in] current_pose The current pose of the body in the robot model.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate, const Pose& current_pose)
+void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate)
 {
-  Pose pose = odometry_pose_;
-  pose.position_ += pose.rotation_._transformVector(current_pose.position_);
-  pose.rotation_ *= current_pose.rotation_;
-  
   visualization_msgs::Marker gravity;
-  gravity.header.frame_id = "/fixed_frame";
+  gravity.header.frame_id = "/base_link";
   gravity.header.stamp = ros::Time::now();
   gravity.ns = "gravity_marker";
   gravity.id = GRAVITY_MARKER_ID;
   gravity.type = visualization_msgs::Marker::ARROW;
   gravity.action = visualization_msgs::Marker::ADD;
   
-  Vector3d robot_position = pose.transformVector(Vector3d::Zero());
+  Vector3d robot_position = Vector3d::Zero();
   geometry_msgs::Point origin;
   origin.x = robot_position[0];
   origin.y = robot_position[1];

@@ -40,6 +40,9 @@
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Transform.h>
+#include <geometry_msgs/TransformStamped.h>
+
+#include <tf2_ros/transform_broadcaster.h>
 
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>

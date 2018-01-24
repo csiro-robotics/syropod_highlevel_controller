@@ -5,6 +5,11 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /Grid1
+        - /TF1/Frames1
+        - /TF1/Tree1/world1/walk_plane1
+        - /Imu1/Axes properties1
+        - /Imu1/Acceleration properties1
       Splitter Ratio: 0.5
     Tree Height: 1309
   - Class: rviz/Selection
@@ -44,7 +49,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 10
+      Plane Cell Count: 1000
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/Marker
@@ -52,7 +57,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/robot_model
       Name: Marker
       Namespaces:
-        {}
+        robot_model: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -60,7 +65,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/tip_trajectories
       Name: Marker
       Namespaces:
-        {}
+        tip_trajectory_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -68,7 +73,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/workspaces
       Name: Marker
       Namespaces:
-        {}
+        workspace_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -76,7 +81,9 @@ Visualization Manager:
       Marker Topic: /shc/debug/bezier_curves
       Name: Marker
       Namespaces:
-        {}
+        primary_swing_control_nodes: true
+        secondary_swing_control_nodes: true
+        stance_control_nodes: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -84,7 +91,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/stride
       Name: Marker
       Namespaces:
-        {}
+        stride_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -92,7 +99,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/tip_rotation
       Name: Marker
       Namespaces:
-        {}
+        tip_rotation_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -103,10 +110,69 @@ Visualization Manager:
         {}
       Queue Size: 100
       Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /shc/debug/gravity
+      Name: Marker
+      Namespaces:
+        gravity_marker: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /stair_model
+      Name: Marker
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /shc/debug/walk_plane
+      Name: Marker
+      Namespaces:
+        walk_plane_markers: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: false
+      Marker Topic: /shc/debug/terrain
+      Name: Marker
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: false
+    - Class: rviz/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: false
+        base_link:
+          Value: true
+        imu_link_ned:
+          Value: false
+        walk_plane:
+          Value: true
+        world:
+          Value: true
+      Marker Scale: 0.5
+      Name: TF
+      Show Arrows: false
+      Show Axes: true
+      Show Names: false
+      Tree:
+        imu_link_ned:
+          {}
+        world:
+          walk_plane:
+            base_link:
+              {}
+      Update Interval: 0
+      Value: true
     - Acceleration properties:
         Acc. vector alpha: 1
-        Acc. vector color: 255; 0; 0
-        Acc. vector scale: 1
+        Acc. vector color: 255; 255; 0
+        Acc. vector scale: 0.00999999978
         Derotate acceleration: true
         Enable acceleration: false
       Axes properties:
@@ -120,25 +186,17 @@ Visualization Manager:
         y_scale: 1
         z_scale: 1
       Class: rviz_imu_plugin/Imu
-      Enabled: true
+      Enabled: false
       Name: Imu
       Topic: /imu/data
       Unreliable: false
-      Value: true
+      Value: false
       fixed_frame_orientation: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /shc/debug/gravity
-      Name: Marker
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: fixed_frame
+    Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:
@@ -159,7 +217,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.61935687
+      Distance: 2
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -174,26 +232,46 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.420398563
-      Target Frame: <Fixed Frame>
+      Pitch: 0.523599982
+      Target Frame: walk_plane
       Value: Orbit (rviz)
-      Yaw: 5.46858215
-    Saved: ~
+      Yaw: 0.785398185
+    Saved:
+      - Class: rviz/Orbit
+        Distance: 2
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.0599999987
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
+        Focal Point:
+          X: 0
+          Y: 0
+          Z: 0
+        Focal Shape Fixed Size: false
+        Focal Shape Size: 0.0500000007
+        Invert Z Axis: false
+        Name: Orbit
+        Near Clip Distance: 0.00999999978
+        Pitch: 0.523599982
+        Target Frame: walk_plane
+        Value: Orbit (rviz)
+        Yaw: 0.785398185
 Window Geometry:
   "&Displays":
+    collapsed: false
+  "&Views":
     collapsed: false
   Height: 1571
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000016a000005b8fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006c01000003fb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730000000044000005b8000000e301000003fb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000011000000247fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000004400000247000000c601000003fb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004fc0000004cfc0100000002fb0000000800540069006d00650000000000000004fc0000025e01000003fb0000000800540069006d00650100000000000004500000000000000000000004fc000005b800000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000016a000005b8fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006c01000003fb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730000000044000005b8000000e301000003fb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c000002610000000100000110000005b8fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000044000005b8000000c601000003fb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004fc0000004cfc0100000002fb0000000800540069006d00650000000000000004fc0000025e01000003fb0000000800540069006d00650100000000000004500000000000000000000004fc000005b800000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
     collapsed: false
   Tool Properties:
     collapsed: false
-  Views:
-    collapsed: false
   Width: 1276
-  X: 1276
+  X: 1280
   Y: 0

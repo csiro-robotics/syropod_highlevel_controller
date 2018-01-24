@@ -156,9 +156,6 @@ public:
    */
   void publishLegState(void);
 
-  /** Publishes body velocity for debugging */
-  void publishBodyVelocity(void);
-
   /** Publishes current pose (roll, pitch, yaw, x, y, z) for debugging */
   void publishPose(void);
 
@@ -167,13 +164,12 @@ public:
 
   /** Publishes imu pose rotation absement, position and velocity errors used in the PID controller, for debugging */
   void publishRotationPoseError(void);
+  
+  /** Publishes transforms linking world, base_link and walk_plane frames. */
+  void publishFrameTransforms(void);
 
-  /**
-   * Sets up velocities for and calls debug output object to publish various debugging visualations via rviz
-   * @param[in] static_display Flag which determines if the vizualisation is kept statically in place at the origin
-   * @todo Implement calculation of actual body velocity
-   */
-  void RVIZDebugging(const bool& static_display = false);
+  /** Sets up velocities for and calls debug output object to publish various debugging visualations via rviz */
+  void RVIZDebugging(void);
 
   /**
    * Callback handling the desired system state. Sends message to user interface when system enters OPERATIONAL state.
@@ -377,9 +373,10 @@ private:
   ros::Publisher desired_joint_state_publisher_;      ///< Publisher for topic "/desired_joint_state"
   ros::Publisher pose_publisher_;                     ///< Publisher for topic "/shc/pose"
   ros::Publisher workspace_publisher_;                ///< Publisher for topic "/shc/workspace"
-  ros::Publisher body_velocity_publisher_;            ///< Publisher for topic "/shc/body_velocity"
   ros::Publisher rotation_pose_error_publisher_;      ///< Publisher for topic "/shc/rotation_pose_error"
   ros::Publisher plan_step_request_publisher_;        ///< Publisher for topic "/shc/plan_step_request"
+  
+  tf2_ros::TransformBroadcaster transform_broadcaster_;
 
   boost::recursive_mutex mutex_; ///< Mutex used in setup of dynamic reconfigure server
   dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>* dynamic_reconfigure_server_;

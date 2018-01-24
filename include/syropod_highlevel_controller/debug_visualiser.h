@@ -51,16 +51,6 @@ public:
   inline void setTimeDelta(const double& time_delta) { time_delta_ = time_delta; };
 
   /**
-   * Updates the odometry pose of the robot body from velocity inputs
-   * @param[in] linear_body_velocity The linear velocity of the robot body in the x/y plane
-   * @param[in] angular_body_velocity The angular velocity of the robot body
-   * @param[in] walk_plane A Vector representing the walk plane
-   */
-  void updatePose(const Vector2d& linear_body_velocity,
-                  const double& angular_body_velocity,
-                  const Vector3d& walk_plane);
-
-  /**
    * Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
    * linking the origin points of each joint and tip of each leg.
    * @param[in] model A pointer to the robot model object
@@ -76,9 +66,8 @@ public:
   /**
    * Publishes visualisation markers which represent the trajectory of the tip of the input leg.
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-   * @param[in] current_pose The current pose of the body in the robot model - modifies the tip trajectory
    */
-  void generateTipTrajectory(shared_ptr<Leg> leg, const Pose& current_pose);
+  void generateTipTrajectory(shared_ptr<Leg> leg);
   
   /**
    * Publishes visualisation markers which represent an estimate of the terrain being traversed
@@ -109,23 +98,20 @@ public:
   /**
    * Publishes visualisation markers which represent the estimated tip force vector for input leg.
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-   * @param[in] current_pose The current pose of the body in the robot model.
    */
-  void generateTipForce(shared_ptr<Leg> leg, const Pose& current_pose);
+  void generateTipForce(shared_ptr<Leg> leg);
   
   /**
    * Publishes visualisation markers which represent the orientation of the tip for input leg.
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-   * @param[in] current_pose The current pose of the body in the robot model.
    */
-  void generateTipRotation(shared_ptr<Leg> leg, const Pose& current_pose);
+  void generateTipRotation(shared_ptr<Leg> leg);
   
   /**
    * Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
    * @param[in] gravity_estimate An estimate of the gravitational acceleration vector
-   * @param[in] current_pose The current pose of the body in the robot model.
    */
-  void generateGravity(const Vector3d& gravity_estimate, const Pose& current_pose);
+  void generateGravity(const Vector3d& gravity_estimate);
 
 private:
   ros::NodeHandle n_;                        ///< Ros node handle
@@ -137,9 +123,9 @@ private:
   ros::Publisher stride_publisher_;          ///< Publisher for topic "/shc/visualisation/stride"
   ros::Publisher tip_force_publisher_;       ///< Publisher for topic "/shc/visualisation/tip_force"
   ros::Publisher tip_rotation_publisher_;    ///< Publisher for topic "/shc/visualisation/tip_rotation"
-  ros::Publisher gravity_publisher_;         ///< Publisher fot topic "/shc/visualisation/gravity"
+  ros::Publisher gravity_publisher_;         ///< Publisher for topic "/shc/visualisation/gravity"
+  ros::Publisher terrain_publisher_;         ///< Publisher for topic "/shc/visualisation/terrain"
 
-  Pose odometry_pose_;        ///< Pose representing odometry pf robot model
   double time_delta_ = 0.0;   ///< Time period of main loop cycle used for marker duration
   int tip_position_id_ = 0;   ///< Id for tip trajectory markers
   int terrain_marker_id_ = 0; ///< Id for terrain markers

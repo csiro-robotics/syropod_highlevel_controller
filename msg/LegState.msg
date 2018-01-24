@@ -1,12 +1,12 @@
 Header header
 string name
 
-geometry_msgs/Pose walker_tip_pose
-geometry_msgs/Pose poser_tip_pose
-geometry_msgs/Pose model_tip_pose
-geometry_msgs/Pose target_tip_pose
+geometry_msgs/PoseStamped walker_tip_pose
+geometry_msgs/PoseStamped target_tip_pose
+geometry_msgs/PoseStamped poser_tip_pose
+geometry_msgs/PoseStamped model_tip_pose
 
-geometry_msgs/Twist model_tip_velocity
+geometry_msgs/TwistStamped model_tip_velocity
 
 float64[] joint_positions
 float64[] joint_velocities

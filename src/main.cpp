@@ -119,12 +119,12 @@ int main(int argc, char* argv[])
       state.publishLegState();
       state.publishPose();
       state.publishWorkspace();
-      state.publishBodyVelocity();
       state.publishRotationPoseError();
+      state.publishFrameTransforms();
 
       if (params.debug_rviz.data)
       {
-        state.RVIZDebugging(params.debug_rviz_static_display.data);
+        state.RVIZDebugging();
       }
 
       state.publishDesiredJointState();
