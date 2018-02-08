@@ -1,4 +1,4 @@
 Header header
 string[] name
-geometry_msgs/Pose[] target
-geometry_msgs/Pose[] identity
+geometry_msgs/PoseStamped[] target
+geometry_msgs/PoseStamped[] identity

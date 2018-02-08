@@ -15,6 +15,9 @@ float64[] joint_efforts
 float64 stance_progress
 float64 swing_progress
 
+float64 time_to_swing_end
+geometry_msgs/Pose pose_delta
+
 geometry_msgs/Pose auto_pose
 
 geometry_msgs/Vector3 tip_force

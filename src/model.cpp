@@ -31,6 +31,9 @@ Model::Model(const Parameters& params)
   , time_delta_(params_.time_delta.data)
   , current_pose_(Pose::Identity())
 {
+  imu_data_.orientation = UNDEFINED_ROTATION;
+  imu_data_.linear_acceleration = Vector3d::Zero();
+  imu_data_.angular_velocity = Vector3d::Zero();
 }
 
 /*******************************************************************************************************************//**
@@ -42,6 +45,7 @@ Model::Model(shared_ptr<Model> model)
   , leg_count_(model->leg_count_)
   , time_delta_(model->time_delta_)
   , current_pose_(model->current_pose_)
+  , imu_data_(model->imu_data_)
 {
 }
 
@@ -652,6 +656,14 @@ double Leg::applyIK(const bool& simulation)
                     axis_label[i].c_str(), desired_tip_pose_.position_[i]);
     }
   }
+  
+  // If IK fails because of constrained rotation - try again with unconstrained rotation
+  if (rotation_constrained && !ik_success)
+  {
+    desired_tip_pose_.rotation_ = UNDEFINED_ROTATION;
+    ik_success = applyIK(simulation);
+  }
+  
   return ik_success;
 }
 

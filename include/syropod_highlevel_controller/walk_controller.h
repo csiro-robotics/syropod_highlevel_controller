@@ -25,7 +25,7 @@
 #include "model.h"
 
 #define BEARING_STEP 45 ///< Step to increment bearing in workspace generation algorithm (deg)
-#define WORKSPACE_GENERATION_MAX_ITERATIONS 10 ///< Maximum number of iterations to find limits of workspace
+#define WORKSPACE_GENERATION_MAX_ITERATIONS 100 ///< Maximum number of iterations to find limits of workspace
 #define MAX_WORKSPACE_RADIUS 2.0 ///< Maximum radius allowed in workspace polygon (m)
 
 class DebugVisualiser;
@@ -52,6 +52,12 @@ public:
 
   /** Accessor for step cycle phase length. */
   inline int getPhaseLength(void) { return phase_length_; };
+  
+  /** Accessor for step cycle swing period phase length. */
+  inline int getSwingLength(void) { return swing_length_; };
+  
+  /** Accessor for step cycle stance period phase length. */
+  inline int getStanceLength(void) { return stance_length_; };
 
   /** Accessor for phase for start of swing period of step cycle. */
   inline int getSwingStart(void) { return swing_start_; };
@@ -165,9 +171,17 @@ public:
   void updateWalkPlane(void);
   
   /**
-   * Updates the ideal odometry pose of the robot body from desired velocities
+   * Estimates the acceleration vector due to gravity.
+   * @return The estimated acceleration vector due to gravity.
    */
-  void updateOdometry(void);
+  Vector3d estimateGravity(void);
+  
+  /**
+   * Calculates the change in pose over the desired time period assuming constant desired body velocity and walk plane.
+   * @params[in] time_period The period of time for which to estimate the odometry pose change.
+   * @return The estimated odometry pose change over the desired time period.
+   */
+  Pose calculateOdometry(const double& time_period);
 
 private:
   shared_ptr<Model> model_;            ///< Pointer to robot model object.
@@ -318,6 +332,9 @@ public:
     */
   inline Vector3d getStanceControlNode(const int& i) { return stance_nodes_[i]; };
   
+  /** Accessor for the externally set target tip pose request time */
+  inline ros::Time getTargetRequestTime(void) { return target_request_time_; };
+  
   /**
     * Modifier for the pointer to the parent leg object
     * @param[in] parent_leg The new parent leg pointer.
@@ -376,7 +393,23 @@ public:
    * Modifier for the externally set target tip pose
    * @param[in] pose The new externally set target tip pose
    */
-  inline void setExternalTargetTipPose(const Pose& pose) { external_target_tip_pose_ = pose; };
+  inline void setExternalTargetTipPose(const Pose& pose) 
+  { 
+    external_target_tip_pose_ = pose;
+    generate_target_tip_pose_ = false;
+  };
+  
+  /**
+   * Modifier for the externally set target tip pose request time
+   * @param[in] time The new externally set target tip pose request time
+   */
+  inline void setTargetRequestTime(const ros::Time& time) { target_request_time_ = time; };
+  
+  /**
+   * Modifier for the transform between target tip pose reference frames at the time of request and current time.
+   * @param[in] transform The new transform
+   */
+  inline void setTargetTipPoseTransform(const Pose& transform) { target_tip_pose_transform_ = transform; };
 
   /** Iterates the step phase and updates the progress variables */
   void iteratePhase(void);
@@ -432,7 +465,7 @@ private:
   int phase_offset_; ///< Step cycle phase offset.
 
   double swing_progress_ = -1.0;  ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
-  double stance_progress_ = -1.0; ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
+  double stance_progress_ = 0.0;  ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
   
   double average_tip_force_ = 0.0;
   double min_tip_force_ = UNASSIGNED_VALUE;
@@ -453,9 +486,12 @@ private:
   Pose identity_tip_pose_;        ///< The user defined tip pose assuming a identity walk plane
   Pose default_tip_pose_;         ///< The default tip pose per the walk controller, updated with walk plane.
   Pose current_tip_pose_;         ///< The current tip pose per the walk controller.
-  Pose target_tip_pose_;          ///< The target tip pose to achieve at the end of a swing period.
-  Pose external_target_tip_pose_; ///< The target tip pose to achieve at the end of a swing period (externally set)
   Pose origin_tip_pose_;          ///< The origin tip pose used in interpolation to target rotation.
+  Pose target_tip_pose_;          ///< The target tip pose to achieve at the end of a swing period.
+
+  Pose external_target_tip_pose_;  ///< The target tip pose to achieve at the end of a swing period (externally set)
+  ros::Time target_request_time_;  ///< The ros time at which the external target tip pose request was made.
+  Pose target_tip_pose_transform_; ///< The transform between reference frames at time of request and current time.
   
   Vector3d current_tip_velocity_;   ///< The default tip velocity per the walk controller.
   

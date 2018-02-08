@@ -24,7 +24,7 @@
 #include "pose.h"
 #include "syropod_highlevel_controller/LegState.h"
 
-#define IK_TOLERANCE 0.015 ///< Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
+#define IK_TOLERANCE 0.005 ///< Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
 #define HALF_BODY_DEPTH 0.05 ///< Threshold used to estimate if leg tip has broken the plane of the robot body. (m)
 #define DLS_COEFFICIENT 0.02 ///< Coefficient used in Damped Least Squares method for inverse kinematics.
 #define JOINT_LIMIT_COST_WEIGHT 0.1 ///< Gain used in determining cost weight for joints approaching limits
@@ -38,6 +38,19 @@ class WalkController;
 class LegStepper;
 class PoseController;
 class LegPoser;
+
+/*******************************************************************************************************************//**
+ * This struct contains data from IMU hardware.
+***********************************************************************************************************************/
+struct ImuData
+{
+public:
+  Quaterniond orientation;
+  Vector3d linear_acceleration;
+  Vector3d angular_velocity;
+
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
 
 /*******************************************************************************************************************//**
  * This class serves as the top-level parent of each leg object and associated tip/joint/link objects. It contains data
@@ -112,6 +125,27 @@ public:
    */
   shared_ptr<Leg> getLegByIDName(const string& leg_id_name);
   
+  /** Accessor for imu data */
+  inline ImuData getImuData(void) 
+  { 
+    ImuData imu_data(imu_data_);
+    if (imu_data_.orientation.isApprox(UNDEFINED_ROTATION))
+    {
+      imu_data.orientation = current_pose_.rotation_.normalized();
+    }
+    return imu_data;
+  };
+  
+  /** Modifier for imu data */
+  inline void setImuData(const Quaterniond& orientation, 
+                         const Vector3d& linear_acceleration, 
+                         const Vector3d& angular_velocity)
+  {
+    imu_data_.orientation = orientation.normalized();
+    imu_data_.linear_acceleration = linear_acceleration;
+    imu_data_.angular_velocity = angular_velocity;
+  }
+  
   /**
    * Updates joint default positions for each leg according to current joint positions of each leg.
    */
@@ -129,6 +163,7 @@ private:
   int leg_count_;                ///< The number of leg objects within the robot model.
   double time_delta_;            ///< The time period of the ros cycle.
   Pose current_pose_;            ///< Current pose of robot model body.
+  ImuData imu_data_;             ///< Imu data structure.
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -272,7 +307,7 @@ public:
   
   /**
     * Modifier for the current estimated pose of the stepping surface plane.
-    * @param[in] step_plane_pose_ The new estimate of the pose of the stepping surface plane for this leg.
+    * @param[in] step_plane_pose The new estimate of the pose of the stepping surface plane for this leg.
     */
   inline void setStepPlanePose(const Pose& step_plane_pose) { step_plane_pose_ = step_plane_pose; };
   

@@ -42,7 +42,10 @@
 #include <geometry_msgs/Transform.h>
 #include <geometry_msgs/TransformStamped.h>
 
+#include <visualization_msgs/Marker.h>
+
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>
@@ -64,8 +67,10 @@
 
 #define GRAVITY_MAGNITUDE -9.78971 ///< Gravitational acceleration magnitude for Brisbane, Australia (m/s/s)
 
-using namespace Eigen;
 using namespace std;
+using namespace ros;
+using namespace tf2_ros;
+using namespace Eigen;
 
 /**
  * Converts Degrees to Radians.
@@ -183,7 +188,14 @@ inline double smoothStep(const double& control_input)
  */
 inline Vector3d getProjection(const Vector3d& a, const Vector3d& b)
 {
-  return (a.dot(b) / b.dot(b))*b;
+  if (a.norm() == 0.0 || b.norm() == 0.0)
+  {
+    return Vector3d::Zero();
+  }
+  else
+  {
+    return (a.dot(b) / b.dot(b))*b;
+  }
 }
 
 /**
@@ -205,7 +217,8 @@ inline Vector3d getRejection(const Vector3d& a, const Vector3d& b)
  * @param[in] control_input The input determining the interpolation point between origin and target.
  * @return The resultant linear interpolation value
  */
-inline double linearInterpolation(const double& origin, const double& target, const double& control_input)
+template <class T>
+inline T interpolate(const T& origin, const T& target, const double& control_input)
 {
   ROS_ASSERT(control_input >= 0.0 && control_input <= 1.0);
   return (1.0 - control_input) * origin + control_input * target;

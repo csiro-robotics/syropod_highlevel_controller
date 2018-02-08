@@ -52,6 +52,15 @@ public:
   };
   
   /**
+   * Pose class constructor for geometry_msgs/Transform
+   */
+  inline Pose(const geometry_msgs::Transform& transform)
+  {
+    position_ = Vector3d(transform.translation.x, transform.translation.y, transform.translation.z);
+    rotation_ = Quaterniond(transform.rotation.w, transform.rotation.x, transform.rotation.y, transform.rotation.z);
+  };
+  
+  /**
    * Returns a conversion of this pose object into a geometry_msgs::Pose convertToPoseMessage
    * @return The converted geometry_msgs::Pose message
    */

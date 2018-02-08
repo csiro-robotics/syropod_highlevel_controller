@@ -31,10 +31,6 @@ PoseController::PoseController(shared_ptr<Model> model, const Parameters& params
 {
   resetAllPosing();
 
-  imu_data_.orientation = Quaterniond::Identity();
-  imu_data_.linear_acceleration = Vector3d::Zero();
-  imu_data_.angular_velocity = Vector3d::Zero();
-
   rotation_absement_error_ = Vector3d::Zero();
   rotation_position_error_ = Vector3d::Zero();
   rotation_velocity_error_ = Vector3d::Zero();
@@ -865,8 +861,8 @@ void PoseController::updateCurrentPose(const RobotState& robot_state)
   {
     //updateTipAlignPose(walk_plane);
     //new_pose = new_pose.addPose(tip_align_pose_);
-    updateIKErrorPose();
-    new_pose = new_pose.addPose(ik_error_pose_);
+    //updateIKErrorPose();
+    //new_pose = new_pose.addPose(ik_error_pose_);
   }
   
   model_->setCurrentPose(new_pose);
@@ -1210,7 +1206,7 @@ void PoseController::updateAutoPose(void)
 ***********************************************************************************************************************/
 void PoseController::updateIMUPose(void)
 {
-  Quaterniond current_rotation = correctRotation(imu_data_.orientation, Quaterniond::Identity());
+  Quaterniond current_rotation = correctRotation(model_->getImuData().orientation, Quaterniond::Identity());
   Quaterniond target_rotation = correctRotation(manual_pose_.rotation_, Quaterniond::Identity());
   Quaterniond rotation_error = (current_rotation * target_rotation.inverse()).normalized();
 
@@ -1231,7 +1227,7 @@ void PoseController::updateIMUPose(void)
 
   // Low pass filter of IMU angular velocity data
   double smoothing_factor = 0.15;
-  rotation_velocity_error_ = smoothing_factor * -imu_data_.angular_velocity +
+  rotation_velocity_error_ = smoothing_factor * -model_->getImuData().angular_velocity +
                              (1 - smoothing_factor) * rotation_velocity_error_;
 
   Vector3d rotation_correction =  -(kd * rotation_velocity_error_ +
@@ -1261,7 +1257,7 @@ void PoseController::updateIMUPose(void)
 void PoseController::updateInclinationPose(void)
 {
   Quaterniond compensation_combined = (manual_pose_.rotation_ * auto_pose_.rotation_).normalized();
-  Quaterniond compensation_removed = (imu_data_.orientation * compensation_combined.inverse()).normalized();
+  Quaterniond compensation_removed = (model_->getImuData().orientation * compensation_combined.inverse()).normalized();
   
   Vector3d euler = quaternionToEulerAngles(compensation_removed);
 
@@ -1284,7 +1280,7 @@ void PoseController::updateInclinationPose(void)
 ***********************************************************************************************************************/
 Vector3d PoseController::estimateGravity(void)
 {
-  Vector3d euler = quaternionToEulerAngles(imu_data_.orientation);
+  Vector3d euler = quaternionToEulerAngles(model_->getImuData().orientation);
   AngleAxisd pitch(-euler[1], Vector3d::UnitY());
   AngleAxisd roll(-euler[0], Vector3d::UnitX());
   Vector3d gravity(0, 0, GRAVITY_MAGNITUDE);
@@ -1680,7 +1676,10 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
   Quaterniond new_tip_rotation = UNDEFINED_ROTATION;
   if (!desired_tip_pose.rotation_.isApprox(UNDEFINED_ROTATION))
   {
-    new_tip_rotation = origin_tip_pose_.rotation_.slerp(smoothStep(completion_ratio), desired_tip_pose.rotation_);
+    Vector3d origin_tip_direction = origin_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
+    Vector3d desired_tip_direction = desired_tip_pose.rotation_._transformVector(Vector3d::UnitX());
+    Vector3d new_tip_direction = interpolate(origin_tip_direction, desired_tip_direction, smoothStep(completion_ratio));
+    new_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), new_tip_direction.normalized());
   }
 
   Vector3d new_tip_position = origin_tip_pose_.position_;

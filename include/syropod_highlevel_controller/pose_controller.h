@@ -36,19 +36,6 @@
 class AutoPoser;
 
 /*******************************************************************************************************************//**
- * This struct contains data from IMU hardware.
-***********************************************************************************************************************/
-struct ImuData
-{
-public:
-  Quaterniond orientation;
-  Vector3d linear_acceleration;
-  Vector3d angular_velocity;
-
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-};
-
-/*******************************************************************************************************************//**
  * This class has two purposes. One is to manage functions which iteratively execute robot leg posing sequences, both
  * via direct joint control, and via tip position control and inverse kinematics (IK). Such sequences include the
  * packing and unpacking of legs into pre-defined joint positions (joint control) and direct movement of legs to target
@@ -75,9 +62,6 @@ public:
 
   /** Accessor for auto posing state*/
   inline PosingState getAutoPoseState(void) { return auto_posing_state_; };
-
-  /** Accessor for imu data */
-  inline ImuData getImuData(void) { return imu_data_; };
 
   /** Accessor for parameter object */
   inline const Parameters& getParameters(void) { return params_; };
@@ -114,16 +98,6 @@ public:
   
   /** Modifier for target body pose */
   inline void setTargetBodyPose(const Pose& pose) { target_body_pose_ = pose; };
-
-  /** Modifier for imu data */
-  inline void setImuData(const Quaterniond& orientation, 
-                         const Vector3d& linear_acceleration, 
-                         const Vector3d& angular_velocity)
-  {
-    imu_data_.orientation = orientation.normalized();
-    imu_data_.linear_acceleration = linear_acceleration;
-    imu_data_.angular_velocity = angular_velocity;
-  }
 
   /** Modifier for manual pose velocity input */
   inline void setManualPoseInput(const Vector3d& translation, const Vector3d& rotation)
@@ -316,7 +290,6 @@ public:
 
 private:
   shared_ptr<Model> model_;       ///< Pointer to robot model object.
-  ImuData imu_data_;              ///< Imu data structure.
   const Parameters& params_;      ///< Pointer to parameter data structure for storing parameter variables.
 
   shared_ptr<Leg> auto_pose_reference_leg_; ///< Reference leg for auto posing system

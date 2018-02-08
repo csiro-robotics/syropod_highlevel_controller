@@ -34,6 +34,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   model_->generate();
 
   debug_visualiser_.setTimeDelta(params_.time_delta.data);
+  transform_listener_ = allocate_shared<TransformListener>(aligned_allocator<TransformListener>(), transform_buffer_);
 
   // Hexapod Remote topic subscriptions
   system_state_subscriber_            = n_.subscribe("syropod_remote/system_state", 1,
@@ -78,7 +79,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
                                                   &StateController::targetConfigurationCallback, this);
   target_body_pose_subscriber_ = n_.subscribe("/target_body_pose", 1,
                                               &StateController::targetBodyPoseCallback, this);
-  target_tip_pose_subscriber_ = n_.subscribe("/target_tip_poses", 1,
+  target_tip_pose_subscriber_ = n_.subscribe("/target_tip_poses", 100,
                                              &StateController::targetTipPoseCallback, this);
   plan_step_request_publisher_ = n_.advertise<std_msgs::Int8>("/shc/plan_step_request", 1000);
 
@@ -776,6 +777,19 @@ void StateController::publishLegState(void)
     // Step progress
     msg.swing_progress = leg_stepper->getSwingProgress();
     msg.stance_progress = leg_stepper->getStanceProgress();
+    double swing_time = (double(walker_->getSwingLength()) / walker_->getPhaseLength()) / walker_->getStepFrequency();
+    double stance_time = (double(walker_->getStanceLength()) / walker_->getPhaseLength()) / walker_->getStepFrequency();
+    double time_to_swing_end;
+    if (leg_stepper->getStanceProgress() >= 0.0)
+    {
+      time_to_swing_end = stance_time * (1.0 - leg_stepper->getStanceProgress()) + swing_time;
+    }
+    else
+    {
+      time_to_swing_end = swing_time * (1.0 - leg_stepper->getSwingProgress());
+    }
+    msg.time_to_swing_end = time_to_swing_end;
+    msg.pose_delta = walker_->calculateOdometry(time_to_swing_end).convertToPoseMessage();
 
     // Leg specific auto pose
     Vector3d position = leg_poser->getAutoPose().position_;
@@ -873,7 +887,7 @@ void StateController::publishRotationPoseError(void)
 ***********************************************************************************************************************/
 void StateController::publishFrameTransforms(void)
 {
-  // World frame to Base_Link frame transform
+  // World frame to Walk Plane frame transform
   geometry_msgs::TransformStamped world_to_walk_plane;
   world_to_walk_plane.header.stamp = ros::Time::now();
   world_to_walk_plane.header.frame_id = "world";
@@ -886,8 +900,9 @@ void StateController::publishFrameTransforms(void)
   world_to_walk_plane.transform.rotation.x = odometry_estimate.rotation_.x();
   world_to_walk_plane.transform.rotation.y = odometry_estimate.rotation_.y();
   world_to_walk_plane.transform.rotation.z = odometry_estimate.rotation_.z();
+  transform_broadcaster_.sendTransform(world_to_walk_plane);
   
-  // Base_Link frame to Walk_Plane frame transform
+  // Walk Plane frame to Base Link frame transform
   geometry_msgs::TransformStamped walk_plane_to_base_link;
   walk_plane_to_base_link.header.stamp = ros::Time::now();
   walk_plane_to_base_link.header.frame_id = "walk_plane";
@@ -900,9 +915,46 @@ void StateController::publishFrameTransforms(void)
   walk_plane_to_base_link.transform.rotation.x = current_pose.rotation_.x();
   walk_plane_to_base_link.transform.rotation.y = current_pose.rotation_.y();
   walk_plane_to_base_link.transform.rotation.z = current_pose.rotation_.z();
-  
-  transform_broadcaster_.sendTransform(world_to_walk_plane);
   transform_broadcaster_.sendTransform(walk_plane_to_base_link);
+  
+  // Base Link frame to Tip frames
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    geometry_msgs::TransformStamped base_link_to_tip;
+    base_link_to_tip.header.stamp = ros::Time::now();
+    base_link_to_tip.header.frame_id = "base_link";
+    base_link_to_tip.child_frame_id = leg->getIDName() + "_tip";
+
+    Pose tip_robot_frame = leg->getTip()->getPoseRobotFrame();
+    base_link_to_tip.transform.translation.x = tip_robot_frame.position_[0];
+    base_link_to_tip.transform.translation.y = tip_robot_frame.position_[1];
+    base_link_to_tip.transform.translation.z = tip_robot_frame.position_[2];
+    base_link_to_tip.transform.rotation.w = tip_robot_frame.rotation_.w();
+    base_link_to_tip.transform.rotation.x = tip_robot_frame.rotation_.x();
+    base_link_to_tip.transform.rotation.y = tip_robot_frame.rotation_.y();
+    base_link_to_tip.transform.rotation.z = tip_robot_frame.rotation_.z();
+    transform_broadcaster_.sendTransform(base_link_to_tip);
+  }
+  
+  // Lookup transform between current walk plane frame and walk plane frame at time of tip target request
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    ros::Time past = leg_stepper->getTargetRequestTime();
+    geometry_msgs::TransformStamped walk_plane_time_shift;
+    try
+    {
+      geometry_msgs::TransformStamped walk_plane_time_shift;
+      walk_plane_time_shift = transform_buffer_.lookupTransform("walk_plane", past, "walk_plane", Time(0), "world");
+      leg_stepper->setTargetTipPoseTransform(Pose(walk_plane_time_shift.transform));
+    }
+    catch (tf2::TransformException &ex) 
+    {
+      ROS_DEBUG_COND(false, "\nUnable to look up transform to past walk plane frame -- (%s)\n",ex.what());
+    }
+  }
 }
 
 /*******************************************************************************************************************//**
@@ -1444,7 +1496,7 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
     Quaterniond orientation(data.orientation.w, data.orientation.x, data.orientation.y, data.orientation.z);
     Vector3d angular_velocity(data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z);
     Vector3d linear_acceleration(data.linear_acceleration.x, data.linear_acceleration.y, data.linear_acceleration.z);
-    poser_->setImuData(orientation, linear_acceleration, angular_velocity);
+    model_->setImuData(orientation, linear_acceleration, angular_velocity);
   }
 }
 
@@ -1590,26 +1642,25 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
     {
       shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-      leg_stepper->setExternalTargetTipPose(Pose::Undefined()); // Reset
-      leg_poser->setTargetTipPose(Pose::Undefined());
-      
+
       if (leg->getIDName() == target_tip_poses.name[i])
       {
-        if (walker_->getWalkState() == MOVING)
+        if (walker_->getWalkState() != STOPPED)
         {
-          if (Pose(target_tip_poses.target[i]) != Pose::Undefined())
+          if (Pose(target_tip_poses.target[i].pose) != Pose::Undefined())
           {
-            leg_stepper->setExternalTargetTipPose(Pose(target_tip_poses.target[i]));
+            leg_stepper->setExternalTargetTipPose(Pose(target_tip_poses.target[i].pose));
+            leg_stepper->setTargetRequestTime(target_tip_poses.target[i].header.stamp);
           }
-          if (Pose(target_tip_poses.identity[i]) != Pose::Undefined())
+          if (Pose(target_tip_poses.identity[i].pose) != Pose::Undefined())
           {
-            leg_stepper->setIdentityTipPose(Pose(target_tip_poses.identity[i]));
+            leg_stepper->setIdentityTipPose(Pose(target_tip_poses.identity[i].pose));
             walker_->regenerateWorkspace();
           }
         }
         else
         {
-          leg_poser->setTargetTipPose(Pose(target_tip_poses.target[i]));
+          leg_poser->setTargetTipPose(Pose(target_tip_poses.target[i].pose));
           target_tip_pose_acquired_ = true;
         }
       }

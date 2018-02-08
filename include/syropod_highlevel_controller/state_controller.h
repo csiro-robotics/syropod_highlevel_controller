@@ -376,6 +376,8 @@ private:
   ros::Publisher rotation_pose_error_publisher_;      ///< Publisher for topic "/shc/rotation_pose_error"
   ros::Publisher plan_step_request_publisher_;        ///< Publisher for topic "/shc/plan_step_request"
   
+  tf2_ros::Buffer transform_buffer_;
+  shared_ptr<tf2_ros::TransformListener> transform_listener_;
   tf2_ros::TransformBroadcaster transform_broadcaster_;
 
   boost::recursive_mutex mutex_; ///< Mutex used in setup of dynamic reconfigure server
