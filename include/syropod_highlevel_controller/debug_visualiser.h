@@ -35,6 +35,7 @@
 #define TIP_FORCE_MARKER_ID 80            ///< Base id for tip force vector visualisations
 #define TIP_ROTATION_MARKER_ID 90         ///< Base id for tip rotation visualisations
 #define GRAVITY_MARKER_ID 100             ///< Base id for gravity visualisation
+#define JOINT_TORQUE_MARKER_ID 110        ///< Base id for joint torque markers
 
 #define ID_LIMIT 10000                    ///< Id value limit to prevent overflow
 #define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
@@ -104,6 +105,12 @@ public:
   void generateTipForce(shared_ptr<Leg> leg);
   
   /**
+   * Publishes visualisation markers which represent the estimated percentage of max torque in each joint.
+   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+   */
+  void generateJointTorques(shared_ptr<Leg> leg);
+  
+  /**
    * Publishes visualisation markers which represent the orientation of the tip for input leg.
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
    */
@@ -124,6 +131,7 @@ private:
   ros::Publisher walk_plane_publisher_;      ///< Publisher for topic "/shc/visualisation/walk_plane"
   ros::Publisher stride_publisher_;          ///< Publisher for topic "/shc/visualisation/stride"
   ros::Publisher tip_force_publisher_;       ///< Publisher for topic "/shc/visualisation/tip_force"
+  ros::Publisher joint_torque_publisher_;    ///< Publisher for topic "/shc/visualisation/joint_torque"
   ros::Publisher tip_rotation_publisher_;    ///< Publisher for topic "/shc/visualisation/tip_rotation"
   ros::Publisher gravity_publisher_;         ///< Publisher for topic "/shc/visualisation/gravity"
   ros::Publisher terrain_publisher_;         ///< Publisher for topic "/shc/visualisation/terrain"

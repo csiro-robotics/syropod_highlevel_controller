@@ -32,6 +32,7 @@ DebugVisualiser::DebugVisualiser(void)
   walk_plane_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/walk_plane", 1000);
   stride_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/stride", 1000);
   tip_force_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_force", 1000);
+  joint_torque_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/joint_torque", 1000);
   tip_rotation_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/tip_rotation", 1000);
   gravity_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/gravity", 1000);
   terrain_publisher_ = n_.advertise<visualization_msgs::Marker>("/shc/debug/terrain", 1000);
@@ -481,6 +482,41 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
   tip_force.pose = Pose::Identity().convertToPoseMessage();
 
   tip_force_publisher_.publish(tip_force);
+}
+
+/*******************************************************************************************************************//**
+  * Publishes visualisation markers which represent the estimated percentage of max torque in each joint.
+  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+***********************************************************************************************************************/
+void DebugVisualiser::generateJointTorques(shared_ptr<Leg> leg)
+{
+  JointContainer::iterator joint_it;
+  int marker_id = JOINT_TORQUE_MARKER_ID + leg->getIDNumber() * leg->getJointCount();
+  for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+  {
+    shared_ptr<Joint> joint = joint_it->second;
+    visualization_msgs::Marker joint_torque;
+    joint_torque.header.frame_id = "/base_link";
+    joint_torque.header.stamp = ros::Time::now();
+    joint_torque.ns = "joint_torque_markers";
+    joint_torque.type = visualization_msgs::Marker::SPHERE;
+    joint_torque.action = visualization_msgs::Marker::ADD;
+    Vector3d joint_position = joint->getPoseRobotFrame().position_;
+    joint_torque.pose = Pose(joint_position, Quaterniond::Identity()).convertToPoseMessage();
+    double torque_maximum_ratio = clamped(abs(joint->current_effort_), 0.1, 1.0);
+    double sphere_radius = 0.1 * sqrt(marker_scale_) * torque_maximum_ratio;
+    
+    // Actual value
+    joint_torque.id = marker_id++;
+    joint_torque.scale.x = sphere_radius;
+    joint_torque.scale.y = sphere_radius;
+    joint_torque.scale.z = sphere_radius;
+    joint_torque.color.r = torque_maximum_ratio;
+    joint_torque.color.g = 1.0 - torque_maximum_ratio;
+    joint_torque.color.b = 0.0;
+    joint_torque.color.a = 1.0;
+    joint_torque_publisher_.publish(joint_torque);
+  }
 }
 
 /*******************************************************************************************************************//**

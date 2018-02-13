@@ -55,8 +55,12 @@ void WalkController::init(void)
     shared_ptr<Leg> leg = leg_it_->second;
     double x_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("x");
     double y_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("y");
-    Quaterniond identity_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), -Vector3d::UnitZ());
-    identity_tip_rotation = correctRotation(identity_tip_rotation, Quaterniond::Identity());
+    Quaterniond identity_tip_rotation = UNDEFINED_ROTATION;
+    if (leg->getJointCount() > 3)
+    {
+      identity_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), -Vector3d::UnitZ());
+      identity_tip_rotation = correctRotation(identity_tip_rotation, Quaterniond::Identity());
+    }
     Pose identity_tip_pose(Vector3d(x_position, y_position, 0.0), identity_tip_rotation);
     leg->setLegStepper(allocate_shared<LegStepper>(aligned_allocator<LegStepper>(),
                                                    shared_from_this(), leg, identity_tip_pose));

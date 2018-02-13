@@ -978,6 +978,7 @@ void StateController::RVIZDebugging(void)
       debug_visualiser_.generateWorkspace(leg, walker_->getWorkspaceMap());
       debug_visualiser_.generateBezierCurves(leg);
       debug_visualiser_.generateStride(leg);
+      debug_visualiser_.generateJointTorques(leg);
       if (params_.admittance_control.data)
       {
         debug_visualiser_.generateTipForce(leg);

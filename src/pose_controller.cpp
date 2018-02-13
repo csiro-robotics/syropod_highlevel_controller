@@ -238,24 +238,26 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
         shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
         leg_poser->setLegCompletedStep(false);
 
-        Pose target_tip_pose;
+        Vector3d target_tip_position;
         if (leg_poser->hasTransitionPose(next_transition_step))
         {
           ROS_DEBUG_COND(debug, "\nLeg %s targeting transition position %d.\n",
                          leg->getIDName().c_str(), next_transition_step);
-          target_tip_pose = leg_poser->getTransitionPose(next_transition_step);
+          target_tip_position = leg_poser->getTransitionPose(next_transition_step).position_;
         }
         else
         {
           ROS_DEBUG_COND(debug, "\nNo transition pose found for leg %s - targeting default stance pose.\n",
                          leg->getIDName().c_str());
-          target_tip_pose = leg_stepper->getDefaultTipPose();
+          Vector3d default_tip_position = leg_stepper->getDefaultTipPose().position_;
+          target_tip_position = model_->getCurrentPose().inverseTransformVector(default_tip_position);
         }
-
+        
         //Maintain horizontal position
-        target_tip_pose.position_[2] = leg->getCurrentTipPose().position_[2];
-
-        leg_poser->setTargetTipPose(target_tip_pose);
+        target_tip_position[2] = leg->getCurrentTipPose().position_[2];
+        
+        Quaterniond target_tip_rotation = leg_stepper->getTargetTipPose().rotation_;
+        leg_poser->setTargetTipPose(Pose(target_tip_position, target_tip_rotation));
       }
     }
 
@@ -273,11 +275,10 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
         {
           Pose target_tip_pose = leg_poser->getTargetTipPose();
           bool apply_delta = (sequence == START_UP && final_transition); //Only add delta at end of StartUp sequence
-          Pose pose = (apply_delta ? model_->getCurrentPose() : Pose::Identity());
           double step_height = direct_step ? 0.0 : params_.step_clearance.current_value;
           double time_to_step = HORIZONTAL_TRANSITION_TIME / params_.step_frequency.current_value;
           time_to_step *= (first_sequence_execution_ ? 2.0 : 1.0); // Double time for initial sequence
-          progress = leg_poser->stepToPosition(target_tip_pose, pose, step_height, time_to_step, apply_delta);
+          progress = leg_poser->stepToPosition(target_tip_pose, Pose::Identity(), step_height, time_to_step, apply_delta);
           leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
           double limit_proximity = leg->applyIK();
           bool exceeded_workspace = limit_proximity < safety_factor; // Leg attempted to move beyond safe workspace
@@ -371,24 +372,27 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
         shared_ptr<Leg> leg = leg_it_->second;
         shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
         shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-        Pose target_tip_pose = Pose::Identity();
+        Vector3d target_tip_position;
         if (leg_poser->hasTransitionPose(next_transition_step))
         {
           ROS_DEBUG_COND(debug, "\nLeg %s targeting transition position %d.\n",
                          leg->getIDName().c_str(), next_transition_step);
-          target_tip_pose = leg_poser->getTransitionPose(next_transition_step);
+          target_tip_position = leg_poser->getTransitionPose(next_transition_step).position_;
         }
         else
         {
           ROS_DEBUG_COND(debug, "\nNo transition position found for leg %s - targeting default stance position.\n",
                          leg->getIDName().c_str());
-          target_tip_pose = leg_stepper->getDefaultTipPose();
+          Vector3d default_tip_position = leg_stepper->getDefaultTipPose().position_;
+          target_tip_position = model_->getCurrentPose().inverseTransformVector(default_tip_position);
         }
 
         //Maintain horizontal position
-        target_tip_pose.position_[0] = leg->getCurrentTipPose().position_[0];
-        target_tip_pose.position_[1] = leg->getCurrentTipPose().position_[1];
-        leg_poser->setTargetTipPose(target_tip_pose);
+        target_tip_position[0] = leg->getCurrentTipPose().position_[0];
+        target_tip_position[1] = leg->getCurrentTipPose().position_[1];
+        
+        Quaterniond target_tip_rotation = leg_stepper->getTargetTipPose().rotation_;
+        leg_poser->setTargetTipPose(Pose(target_tip_position, target_tip_rotation));
       }
     }
 
@@ -400,10 +404,9 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
       shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
       Pose target_tip_pose = leg_poser->getTargetTipPose();
       bool apply_delta = (sequence == START_UP && final_transition);
-      Pose pose = (apply_delta ? model_->getCurrentPose() : Pose::Identity());
       double time_to_step = VERTICAL_TRANSITION_TIME / params_.step_frequency.current_value;
       time_to_step *= (first_sequence_execution_ ? 2.0 : 1.0);
-      progress = leg_poser->stepToPosition(target_tip_pose, pose, 0.0, time_to_step, apply_delta);
+      progress = leg_poser->stepToPosition(target_tip_pose, Pose::Identity(), 0.0, time_to_step, apply_delta);
       leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), false);
       double limit_proximity = leg->applyIK();
       all_legs_within_workspace = all_legs_within_workspace && !(limit_proximity < safety_factor);
@@ -1636,6 +1639,7 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
                              const double& lift_height, const double& time_to_step, const bool& apply_delta)
 {
   Pose desired_tip_pose = target_tip_pose;
+  double time_input;
 
   if (first_iteration_)
   {
@@ -1712,7 +1716,6 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
     control_nodes_secondary[2][2] += lift_height;
 
     int swing_iteration_count = (master_iteration_count_ + (num_iterations - 1)) % (num_iterations) + 1;
-    double time_input;
 
     // Calculate change in position using 1st/2nd bezier curve (depending on 1st/2nd half of swing)
     if (swing_iteration_count <= half_swing_iteration)
@@ -1733,21 +1736,20 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
     current_tip_pose_.rotation_ = new_tip_rotation;
   }
 
-  ROS_DEBUG_COND(poser_->getParameters().debug_stepToPosition.data,
-                "STEP_TO_POSITION DEBUG - LEG: %s\t\t"
-                "MASTER ITERATION: %d\t\t"
-                "COMPLETION RATIO: %f\t\t"
-                "POSE: %f:%f:%f\t\t"
-                "ORIGIN: %f:%f:%f\t\t"
-                "CURRENT: %f:%f:%f\t\t"
-                "TARGET: %f:%f:%f\n",
-                leg_->getIDName().c_str(),
-                master_iteration_count_,
-                completion_ratio,
-                target_pose.position_[0], target_pose.position_[0], target_pose.position_[0],
-                origin_tip_pose_.position_[0], origin_tip_pose_.position_[1], origin_tip_pose_.position_[2],
-                current_tip_pose_.position_[0], current_tip_pose_.position_[1], current_tip_pose_.position_[2],
-                desired_tip_pose.position_[0], desired_tip_pose.position_[1], desired_tip_pose.position_[2]);
+  ROS_DEBUG_COND(poser_->getParameters().debug_stepToPosition.data && leg_->getIDNumber() == 0,
+                 "STEP_TO_POSITION DEBUG - LEG: %s\t\t"
+                 "MASTER ITERATION: %d\t\t"
+                 "TIME INPUT: %f\t\t"
+                 "COMPLETION RATIO: %f\t\t"
+                 "POSE: %f:%f:%f\t\t"
+                 "ORIGIN: %f:%f:%f\t\t"
+                 "CURRENT: %f:%f:%f\t\t"
+                 "TARGET: %f:%f:%f\n",
+                 leg_->getIDName().c_str(), master_iteration_count_, time_input, completion_ratio,
+                 target_pose.position_[0], target_pose.position_[0], target_pose.position_[0],
+                 origin_tip_pose_.position_[0], origin_tip_pose_.position_[1], origin_tip_pose_.position_[2],
+                 current_tip_pose_.position_[0], current_tip_pose_.position_[1], current_tip_pose_.position_[2],
+                 desired_tip_pose.position_[0], desired_tip_pose.position_[1], desired_tip_pose.position_[2]);
 
   //Return ratio of completion (1.0 when fully complete)
   if (master_iteration_count_ >= num_iterations)
