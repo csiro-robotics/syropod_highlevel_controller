@@ -850,16 +850,8 @@ void StateController::publishWorkspace(void)
   map<int, double>::iterator workspace_it;
   for (workspace_it = workspace_map.begin(); workspace_it != workspace_map.end(); ++workspace_it, ++radius_count)
   {
-    double radius = workspace_it->second;
-    average_radius += radius;
-    min_radius = min(min_radius, radius);
-    max_radius = max(max_radius, radius);
+    msg.data.push_back(workspace_it->second);
   }
-  average_radius /= radius_count;
-  msg.data.clear();
-  msg.data.push_back(average_radius);
-  msg.data.push_back(min_radius);
-  msg.data.push_back(max_radius);
   workspace_publisher_.publish(msg);
 }
 
