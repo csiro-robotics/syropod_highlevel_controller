@@ -643,7 +643,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
       leg_stepper->setStepState(FORCE_STOP);
       leg_stepper->setPhase(leg_stepper->getPhaseOffset());
     }
-
+    
     // Update tip positions
     if (leg->getLegState() == WALKING && walk_state_ != STOPPED)
     {
@@ -892,14 +892,10 @@ void LegStepper::iteratePhase(void)
 ***********************************************************************************************************************/
 void LegStepper::updateStepState(void)
 {
-  // Step State Machine
-  if (step_state_ == FORCE_STANCE)
+  // Update step state from phase unless force stopped
+  if (step_state_ == FORCE_STOP)
   {
-    step_state_ = STANCE; // Force STANCE for STARTING walk state
-  }
-  else if (step_state_ == FORCE_STOP)
-  {
-    step_state_ = FORCE_STOP; // Force STOP for STOPPING walk state
+    return;
   }
   else if (phase_ >= walker_->getSwingStart() && phase_ < walker_->getSwingEnd())
   {
@@ -1080,7 +1076,7 @@ void LegStepper::updateTipPosition(void)
                    target_tip_pose_.position_[0], target_tip_pose_.position_[1], target_tip_pose_.position_[2]);
   }
   // Stance phase
-  else if (step_state_ == STANCE)
+  else if (step_state_ == STANCE || step_state_ == FORCE_STANCE)
   {
     updateStride();
     

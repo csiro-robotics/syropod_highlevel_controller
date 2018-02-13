@@ -844,11 +844,9 @@ void StateController::publishPose(void)
 void StateController::publishWorkspace(void)
 {
   std_msgs::Float32MultiArray msg;
-  double min_radius = UNASSIGNED_VALUE, max_radius = 0, average_radius = 0;
-  int radius_count = 0;
   map<int, double> workspace_map = walker_->getWorkspaceMap();
   map<int, double>::iterator workspace_it;
-  for (workspace_it = workspace_map.begin(); workspace_it != workspace_map.end(); ++workspace_it, ++radius_count)
+  for (workspace_it = workspace_map.begin(); workspace_it != workspace_map.end(); ++workspace_it)
   {
     msg.data.push_back(workspace_it->second);
   }
