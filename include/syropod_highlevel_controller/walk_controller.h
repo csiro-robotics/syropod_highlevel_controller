@@ -452,6 +452,12 @@ public:
    * for STARTING state of walker
    */
   void generateStanceControlNodes(const double& stride_scaler);
+  
+  /**
+   * Updates control nodes for quartic bezier curves of both halves of swing tip trajectory calculation to force the 
+   * trajectory of the touchdown period of the swing period to be normal to the walk plane.
+   */
+  void forceNormalTouchdown(void);
 
 private:
   shared_ptr<WalkController> walker_;  ///< Pointer to walk controller object.

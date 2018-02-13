@@ -36,6 +36,9 @@
 #define MAX_MANUAL_LEGS 2 ///< Maximum number of legs able to be manually manipulated simultaneously
 #define PACK_TIME 2.0 ///< Joint transition time during pack/unpack sequences (seconds @ step frequency == 1.0)
 
+#define TOUCHDOWN_THRESHOLD 100.0 //TODO Parameterise
+#define LIFTOFF_THRESHOLD 10.0 //TODO Parameterise
+
 /*******************************************************************************************************************//**
  * This class creates and initialises all ros publishers/subscriptions; sub-controllers: Walk Controller,
  * Pose Controller and Admittance Controller; and the parameter handling struct. It handles all the ros publishing and

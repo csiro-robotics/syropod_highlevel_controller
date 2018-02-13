@@ -297,18 +297,21 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
             legs_completed_step_ ++;
             if (first_sequence_execution_)
             {
-              string joint_position_string;
-              for (joint_it_ = leg->getJointContainer()->begin();
-                   joint_it_ != leg->getJointContainer()->end();
-                   ++joint_it_)
+              // Send sequence optimisation debug message
+              if (debug && transition_step_ == 0)
               {
-                shared_ptr<Joint> joint = joint_it_->second;
-                joint_position_string += stringFormat("\tJoint: %s\tPosition: %f\n",
-                                                      joint->id_name_.c_str(), joint->desired_position_);
+                string joint_position_string;
+                for (joint_it_ = leg->getJointContainer()->begin();
+                     joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
+                {
+                  shared_ptr<Joint> joint = joint_it_->second;
+                  joint_position_string += stringFormat("\tJoint: %s\tPosition: %f\n",
+                                                        joint->id_name_.c_str(), joint->desired_position_);
+                }
+                ROS_DEBUG("\nLeg %s has completed first transition.\n"
+                          "Optimise sequence by setting 'unpacked' joint positions to the following:\n%s", 
+                          leg->getIDName().c_str(), joint_position_string.c_str());
               }
-              ROS_DEBUG_COND(debug, "\nLeg %s has completed first transition.\n"
-                             "Optimise sequence by setting 'unpacked' joint positions to the following:\n%s", 
-                             leg->getIDName().c_str(), joint_position_string.c_str());
               bool reached_target = !exceeded_workspace;
               Pose target_tip_pose = leg_poser->getTargetTipPose();
               Pose current_tip_pose = leg_poser->getCurrentTipPose();

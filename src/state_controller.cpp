@@ -971,6 +971,7 @@ void StateController::RVIZDebugging(void)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     debug_visualiser_.generateTipTrajectory(leg);
+    debug_visualiser_.generateJointTorques(leg);
     
     if (robot_state_ == RUNNING)
     {
@@ -978,7 +979,6 @@ void StateController::RVIZDebugging(void)
       debug_visualiser_.generateWorkspace(leg, walker_->getWorkspaceMap());
       debug_visualiser_.generateBezierCurves(leg);
       debug_visualiser_.generateStride(leg);
-      debug_visualiser_.generateJointTorques(leg);
       if (params_.admittance_control.data)
       {
         debug_visualiser_.generateTipForce(leg);
@@ -1576,6 +1576,16 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
       leg->setTipForce(tip_force);
       Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
       leg->setTipTorque(tip_torque);
+      
+      // Use tip force to instantaneously define the location of the step plane
+      if (tip_force.norm() > TOUCHDOWN_THRESHOLD && leg->getStepPlanePose() == Pose::Undefined())
+      {
+        leg->setStepPlanePose(leg->getCurrentTipPose());
+      }
+      else if (tip_force.norm() < LIFTOFF_THRESHOLD)
+      {
+        leg->setStepPlanePose(Pose::Undefined());
+      }
     }
     if (get_step_plane_values)
     {
