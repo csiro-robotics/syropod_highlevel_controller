@@ -56,7 +56,7 @@ void WalkController::init(void)
     double x_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("x");
     double y_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("y");
     Quaterniond identity_tip_rotation = UNDEFINED_ROTATION;
-    if (leg->getJointCount() > 3)
+    if (leg->getJointCount() > 3 && params_.gravity_aligned_tips.data)
     {
       identity_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), -Vector3d::UnitZ());
       identity_tip_rotation = correctRotation(identity_tip_rotation, Quaterniond::Identity());

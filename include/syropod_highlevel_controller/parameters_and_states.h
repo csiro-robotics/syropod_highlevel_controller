@@ -317,7 +317,7 @@ struct Parameters
   Parameter<double> angular_cruise_velocity;             ///< Set values used in cruise control mode if requested.
   Parameter<double> cruise_control_time_limit;           ///< Time limit after which cruise control input will zero.
   Parameter<map<string, double>> leg_stance_positions[8];///< An array of maps of default tip stance positions.
-
+  Parameter<bool> gravity_aligned_tips;                  ///< Flag denoting if tip should align with gravity direction
 
   // Pose controller parameters
   Parameter<string> auto_pose_type;                     ///< String denoting the default auto posing cycle type.
@@ -372,7 +372,6 @@ struct Parameters
   Parameter<bool> debug_workspace_calc;      ///< Flag determining if workspace calculations output debug info.
   Parameter<bool> debug_IK;                  ///< Flag determining if inverse kinematics engine outputs debug info.
   Parameter<bool> debug_rviz;                ///< Flag determining if visualisation markers are output for debugging.
-  Parameter<bool> debug_rviz_static_display; ///< Flag determining if visualisation markers incoorporate robot odometry.
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

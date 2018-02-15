@@ -806,18 +806,6 @@ void StateController::publishLegState(void)
     msg.virtual_stiffness = leg->getVirtualStiffness();
 
     leg->publishState(msg);
-
-    // Publish leg state (ASC) //TODO Remove
-    std_msgs::Bool asc_msg;
-    if (leg_stepper->getStepState() == SWING || (leg->getLegState() != WALKING && leg->getLegState() != MANUAL))
-    {
-      asc_msg.data = true;
-    }
-    else
-    {
-      asc_msg.data = false;
-    }
-    //leg->publishASCState(asc_msg);
   }
 }
 
@@ -1712,6 +1700,7 @@ void StateController::initParameters(void)
   params_.linear_cruise_velocity.init(n_, "linear_cruise_velocity");
   params_.angular_cruise_velocity.init(n_, "angular_cruise_velocity");
   params_.cruise_control_time_limit.init(n_, "cruise_control_time_limit");
+  params_.gravity_aligned_tips.init(n_, "gravity_aligned_tips");
   // Pose controller parameters
   params_.auto_pose_type.init(n_, "auto_pose_type");
   params_.start_up_sequence.init(n_, "start_up_sequence");
@@ -1734,7 +1723,6 @@ void StateController::initParameters(void)
   params_.force_gain.init(n_, "force_gain");
   // Debug Parameters
   params_.debug_rviz.init(n_, "debug_rviz");
-  params_.debug_rviz_static_display.init(n_, "debug_rviz_static_display");
   params_.console_verbosity.init(n_, "console_verbosity");
   params_.debug_moveToJointPosition.init(n_, "debug_move_to_joint_position");
   params_.debug_stepToPosition.init(n_, "debug_step_to_position");

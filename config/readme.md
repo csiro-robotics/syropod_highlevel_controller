@@ -174,19 +174,6 @@
       (default: {default: 0.3, min: 0.1, max: 0.5, step: 0.05})
       (unit: metres)
 
-### /syropod/parameters/leg_span:
-    Placeholder - currently does nothing.
-    Note: This is an dynamically adjustable parameter and thus consists of a map of values which describe the 
-    possible values of this parameter:
-      default: The default parameter value.
-      min: The minimum allowed parameter value.
-      max: The maximum allowed parameter value.
-      step: The increment/decrement step of this value when adjusted.
-      (type: {string: double, string: double, string: double, string: double})
-      (default: {default: 0.0, min: 0.0, max: 0.0, step: 0.0})
-      (unit: metres)
-      
-
 ### /syropod/parameters/velocity_input_mode:
     String which defines the type of velocity input required:
       throttle: The controller expects all velocity inputs to be between 0.0 and 1.0 which describe a real world 
@@ -195,6 +182,12 @@
         body velocities.
       (type: string)
       (default: throttle)
+      
+### /syropod/parameters/body_velocity_scaler:
+    Double between 0.0 and 1.0 which scales the input desired body velocity and is primarily used for debugging
+    purposes as a factor of safety.
+      (type: double)
+      (default: 1.0)
 
 ### /syropod/parameters/force_cruise_velocity:
     Bool which denotes whether defined cruise velocity inputs (see below) are used in cruise control mode. 
@@ -229,6 +222,14 @@
       y: y-axis coordinate (positive y-axis is robot left)
       (type: {string: double, string: double})
       (unit: metres)
+      
+### /syropod/parameters/gravity_aligned_tips:
+    Bool which denotes if the last link of the model attempts to align itself parallel to the direction of a gravity
+    vector calculated from IMU data. If IMU data is not provided the gravity direction is assumed along the negative z
+    direction (downward). Gravity aligned tips uses redundancy in the leg define a target orientation and thus is 
+    automatically turned off for legs with 3 or less degrees of freedom (joints).
+      (type: bool)
+      (default: true)
 
 ## Pose Controller Parameters:
 ### /syropod/parameters/auto_pose_type:
@@ -299,6 +300,11 @@
     Set to false if robot has tip force sensing capabilities.
       (type: bool)
       (default: false)
+      
+### /syropod/parameters/integrator_step_time:
+    Time step used in admittance controller ODE solver.
+      (type: double)
+      (default: 0.5)
     
 ### /syropod/parameters/virtual_mass:
     Virtual mass variable used in admittance controller spring-mass-damper virtualisation.
@@ -312,11 +318,6 @@
       (default: {default: 10, min: 1, max: 100, step: 5})
       (unit: unitless)
 
-### /syropod/parameters/integrator_step_time:
-    Time step used in admittance controller ODE solver.
-      (type: double)
-      (default: 0.5)
-
 ### /syropod/parameters/virtual_stiffness:
     Virtual stiffness variable used in admittance controller spring-mass-damper virtualisation.
     Note: This is a dynamically adjustable parameter and thus consists of a map of values which describe the possible 
@@ -328,17 +329,6 @@
       (type: {string: double, string: double, string: double, string: double})
       (default: {default: 10, min: 1, max: 50, step: 5})
       (unit: unitless)
-
-### /syropod/parameters/load_stiffness_scaler:
-    Value used to scale the default virtual stiffness up when an individual leg is adjacent to a swinging leg and 
-    therefore under increased load.
-      (type: double)
-      (default: 5.0)
-
-### /syropod/parameters/swing_stiffness_scaler:
-    Value used to scale the default virtual stiffness down when an individual leg is swinging.
-      (type: double)
-      (default: 0.1)
 
 ### /syropod/parameters/virtual_damping_ratio:
     Virtual damping ratio variable used in admittance controller spring-mass-damper virtualisation.
@@ -363,6 +353,17 @@
       (type: {string: double, string: double, string: double, string: double})
       (default: {default: 0.1, min: 0.001, max: 100.0, step: 1.0})
       (unit: unitless)
+      
+### /syropod/parameters/load_stiffness_scaler:
+    Value used to scale the default virtual stiffness up when an individual leg is adjacent to a swinging leg and 
+    therefore under increased load.
+      (type: double)
+      (default: 5.0)
+
+### /syropod/parameters/swing_stiffness_scaler:
+    Value used to scale the default virtual stiffness down when an individual leg is swinging.
+      (type: double)
+      (default: 0.1)
 
 ## Debug Parameters:
 ### /syropod/parameters/console_verbosity: 
@@ -410,12 +411,6 @@
     Turns on output for use in simulation in RVIZ.
         (type: bool)
         (default: false)
-
-### /syropod/parameters/debug_rviz_static_display:
-    Determines if RVIZ visualisation has a static body position.
-        (type: bool)
-        (default: false)
-
 
 # Gait Parameters File 
 *config/gait.yaml*
