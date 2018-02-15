@@ -514,7 +514,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     shared_ptr<Leg> leg = leg_it_->second;
     if (leg->getLegState() != WALKING)
     {
-      if (has_velocity_command)
+      if (linear_velocity_input.norm())
       {
         ROS_INFO_THROTTLE(THROTTLE_PERIOD,
                           "\nUnable to walk whilst manually manipulating legs, ensure each leg is in walking state.\n");
@@ -694,7 +694,7 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
       }
 
       // Joint control works only for 3DOF legs as velocity inputs for x/y/z axes mapped to positions for joints 1/2/3
-      if (params_.leg_manipulation_mode.data == "joint_control" && leg->getJointCount() == 3)
+      if (params_.leg_manipulation_mode.data == "joint_control" && leg->getJointCount() == 3) //HACK
       {
         double coxa_joint_velocity = tip_velocity_input[0] * params_.max_rotation_velocity.data * time_delta_;
         double femur_joint_velocity = tip_velocity_input[1] * params_.max_rotation_velocity.data * time_delta_;
@@ -713,7 +713,15 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
       }
       else if (params_.leg_manipulation_mode.data == "tip_control")
       {
+        Vector3d ik_error = leg->getDesiredTipPose().position_ - leg->getCurrentTipPose().position_;
         Vector3d tip_position_change = tip_velocity_input * params_.max_translation_velocity.data * time_delta_;
+        if (ik_error.norm() >= IK_TOLERANCE)
+        {
+          tip_position_change = tip_position_change.norm() * -ik_error.normalized();
+          ROS_WARN_THROTTLE(THROTTLE_PERIOD, "\nCannot move leg %s any further due to IK or joint limits.\n",
+                            leg->getIDName().c_str());
+        }
+        
         Vector3d new_tip_position = leg_stepper->getCurrentTipPose().position_ + tip_position_change;
         leg_stepper->setCurrentTipPose(Pose(new_tip_position, UNDEFINED_ROTATION));
       }
