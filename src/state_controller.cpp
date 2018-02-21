@@ -424,7 +424,7 @@ void StateController::runningState(void)
     update_tip_position = false;
   }
   // Cruise control (constant velocity input)
-  else if (cruise_control_mode_ == CRUISE_CONTROL_ON &&
+  else if (cruise_control_mode_ == CRUISE_CONTROL_ON && auto_navigation_mode_ == AUTO_NAVIGATION_OFF &&
           (params_.cruise_control_time_limit.data == 0.0 || elapsed_time_ < params_.cruise_control_time_limit.data))
   {
     linear_velocity_input_ = linear_cruise_velocity_;

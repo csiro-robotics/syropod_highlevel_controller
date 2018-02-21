@@ -645,13 +645,10 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     
     // Update tip positions
-    if (leg->getLegState() == WALKING && walk_state_ != STOPPED)
+    if (leg->getLegState() == WALKING/* && walk_state_ != STOPPED*/)
     {
       leg_stepper->updateTipPosition();  // updates current tip position through step cycle
-      if (params_.rough_terrain_mode.data) //TODO
-      {
-        leg_stepper->updateTipRotation();
-      }
+      leg_stepper->updateTipRotation();
       leg_stepper->iteratePhase();
       leg_stepper->updateStepState();
     }
@@ -1141,7 +1138,8 @@ void LegStepper::updateTipPosition(void)
 ***********************************************************************************************************************/
 void LegStepper::updateTipRotation(void)
 {
-  if (stance_progress_ >= 0.0 || swing_progress_ >= 0.5)
+  if (walker_->getParameters().gravity_aligned_tips.data && leg_->getJointCount() > 3 &&
+      (stance_progress_ >= 0.0 || swing_progress_ >= 0.5))
   {
     /* 
     // WALK PLANE NORMAL ALIGNMENT

@@ -19,7 +19,7 @@
 
 #include "syropod_highlevel_controller/state_controller.h"
 
-#define ACQUISTION_TIME 5 ///< Max time controller will wait to acquire intitial joint states (seconds)
+#define ACQUISTION_TIME 10 ///< Max time controller will wait to acquire intitial joint states (seconds)
 
 /*******************************************************************************************************************//**
  * Main loop. Sets up ros environment including the node handle, rosconsole messaging, loop rate etc. Also creates and
