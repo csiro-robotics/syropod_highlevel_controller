@@ -46,7 +46,8 @@ void WalkController::init(void)
   step_clearance_ = params_.step_clearance.current_value;
   body_clearance_ = params_.body_clearance.current_value;
   walk_state_ = STOPPED;
-  walk_plane_ = Vector3d(0,0,0);
+  walk_plane_ = Vector3d::Zero();
+  walk_plane_normal_ = Vector3d::UnitZ();
   odometry_ideal_ = Pose::Identity();
 
   // Set default stance tip positions from parameters
@@ -218,8 +219,8 @@ int WalkController::generateWorkspace(const bool& self_loop)
       double i = double(iteration_) / number_iterations; // Interpolation control variable
       int l = leg->getIDNumber();
       Vector3d desired_tip_position = origin_tip_position_[l] * (1.0 - i) + target_tip_position_[l] * i; // Interpolate
-      Quaterniond desired_tip_rotation = leg_stepper->getIdentityTipPose().rotation_;
-      leg->setDesiredTipPose(Pose(desired_tip_position, search_height_ == 0 ? desired_tip_rotation : UNDEFINED_ROTATION));
+      //Quaterniond desired_tip_rotation = leg_stepper->getIdentityTipPose().rotation_;
+      leg->setDesiredTipPose(Pose(desired_tip_position, /*search_height_ == 0 ? desired_tip_rotation :*/ UNDEFINED_ROTATION));
       double ik_result = leg->applyIK(true);
       
       // Check if leg is still within limits
@@ -641,7 +642,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     else if (walk_state_ == STOPPED)
     {
       leg_stepper->setStepState(FORCE_STOP);
-      leg_stepper->setPhase(leg_stepper->getPhaseOffset());
+      leg_stepper->setPhase(0.0);//leg_stepper->getPhaseOffset());
     }
     
     // Update tip positions
@@ -750,6 +751,7 @@ void WalkController::updateWalkPlane(void)
   Map<VectorXd> B(raw_B.data(), model_->getLegCount());
   MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
   walk_plane_ = (pseudo_inverse_A*B);
+  walk_plane_normal_ = Vector3d(-walk_plane_[0], -walk_plane_[1], 1.0).normalized();
 }
 
 /*******************************************************************************************************************//**
@@ -774,14 +776,12 @@ Vector3d WalkController::estimateGravity(void)
 ***********************************************************************************************************************/
 Pose WalkController::calculateOdometry(const double& time_period)
 {
-  Vector3d walk_plane_normal(walk_plane_[0], walk_plane_[1], -1.0);
-  Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -walk_plane_normal);
+  Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d::UnitZ(), walk_plane_normal_);
   
   Vector3d desired_linear_velocity = Vector3d(desired_linear_velocity_[0], desired_linear_velocity_[1], 0);
   Vector3d position_delta = walk_plane_orientation._transformVector(desired_linear_velocity * time_period);
   position_delta = odometry_ideal_.rotation_._transformVector(position_delta);
-  Quaterniond rotation_delta = Quaterniond(AngleAxisd(desired_angular_velocity_ * time_period,
-                                                      -walk_plane_normal.normalized()));
+  Quaterniond rotation_delta = Quaterniond(AngleAxisd(desired_angular_velocity_ * time_period, walk_plane_normal_));
   return Pose(position_delta, rotation_delta);
 }
 
@@ -919,8 +919,8 @@ void LegStepper::updateStepState(void)
 void LegStepper::updateStride(void)
 {
   walk_plane_ = walker_->getWalkPlane();
-  Vector3d plane_normal(walk_plane_[0], walk_plane_[1], -1.0);
-  Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -plane_normal);
+  walk_plane_normal_ = walker_->getWalkPlaneNormal();
+  Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d::UnitZ(), walk_plane_normal_);
   
   // Linear stride vector
   Vector2d velocity = walker_->getDesiredLinearVelocity();
@@ -930,12 +930,12 @@ void LegStepper::updateStride(void)
   Vector3d tip_position = current_tip_pose_.position_;
   // Shift walk plane (and normal) vertically such that tip position is on the plane
   double intersection_shift = tip_position[2] - walk_plane_[0]*tip_position[0] - walk_plane_[1]*tip_position[1];
-  Vector3d shifted_normal(plane_normal[0], plane_normal[1], plane_normal[2] + intersection_shift);
+  Vector3d shifted_normal(walk_plane_normal_[0], walk_plane_normal_[1], walk_plane_normal_[2] + intersection_shift);
   // Project vector from tip position to origin onto the shifted plane
   Vector3d projection = shifted_normal.cross((-tip_position).cross(shifted_normal)) / sqr(shifted_normal.norm());
   // Find vector normal to both projection vector and shifted plane normal
   Vector3d rotation_normal = shifted_normal.cross(projection);
-  Vector3d stride_vector_angular = walker_->getDesiredAngularVelocity() * rotation_normal;
+  Vector3d stride_vector_angular = -walker_->getDesiredAngularVelocity() * rotation_normal;
   
   // Combination and scaling
   stride_vector_ = stride_vector_linear + stride_vector_angular;
@@ -943,7 +943,7 @@ void LegStepper::updateStride(void)
 
   // Swing clearance
   double step_clearance = walker_->getParameters().step_clearance.current_value;
-  swing_clearance_ = walk_plane_orientation._transformVector(Vector3d(0, 0, step_clearance));
+  swing_clearance_ = /*walk_plane_orientation._transformVector*/(Vector3d(0, 0, step_clearance));
 }
 
 /*******************************************************************************************************************//**
@@ -989,12 +989,6 @@ void LegStepper::updateTipPosition(void)
       swing_origin_tip_position_ = current_tip_pose_.position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
       min_tip_force_ = UNASSIGNED_VALUE;
-      
-      // Update default tip position along walk plane normal
-      if (default_tip_pose_ != identity_tip_pose_)
-      {
-        default_tip_pose_ = identity_tip_pose_;
-      }
     }
     
     //Update target tip position (i.e. desired tip position at end of swing)
@@ -1013,21 +1007,21 @@ void LegStepper::updateTipPosition(void)
           
           // Correct target by projecting vector along walk plane normal at default target tip position
           Vector3d difference = target_tip_position - target_tip_pose_.position_;
-          Vector3d walk_plane_normal(-walker_->getWalkPlane()[0], -walker_->getWalkPlane()[1], 1.0);
-          target_tip_pose_.position_ += getProjection(difference, walk_plane_normal);
+          target_tip_pose_.position_ += getProjection(difference, walk_plane_normal_);
         }
       }
     }
     // Update target tip pose to externally requested target tip pose transformed based on robot movement since request
     else
     {
-      target_tip_pose_ = external_target_tip_pose_.removePose(target_tip_pose_transform_);
+      target_tip_pose_ = external_target_tip_pose_;//.removePose(target_tip_pose_transform_);
     }
 
     // Generate swing control nodes (once at beginning of 1st half and continuously for 2nd half)
     if (iteration == 1)
     {
       generatePrimarySwingControlNodes();
+      generateSecondarySwingControlNodes();
     }
     else if (!first_half)
     {
@@ -1053,8 +1047,11 @@ void LegStepper::updateTipPosition(void)
       delta_pos = swing_delta_t_ * quarticBezierDot(swing_2_nodes_, time_input);
     }
     
-    current_tip_pose_.position_ += delta_pos;
-    current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
+    if (leg_->getStepPlanePose() == Pose::Undefined() || first_half)
+    {
+      current_tip_pose_.position_ += delta_pos;
+      current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
+    }
     
     // EXPERIMENTAL - Force based early touchdown correction
     /*
@@ -1095,16 +1092,13 @@ void LegStepper::updateTipPosition(void)
       stance_origin_tip_position_ = current_tip_pose_.position_;
       generate_target_tip_pose_ = true;
       
+      // Update default tip position as projection of tip position at beginning of STANCE period onto walk plane
       double height_change = abs(stance_origin_tip_position_[2] - default_tip_pose_.position_[2]);
       if (height_change > IK_TOLERANCE)
       {
-        Vector3d t = stance_origin_tip_position_ - default_tip_pose_.position_;
-        Vector3d s = stride_vector_ / 2.0;
-        Vector3d a = t.cross(s);
-        Vector3d b = s.cross(a);
-        Vector3d d = getProjection(t, b);
-        default_tip_pose_.position_ += d;
-        identity_tip_pose_ = default_tip_pose_;
+        Vector3d identity_to_stance_origin = stance_origin_tip_position_ - identity_tip_pose_.position_;
+        Vector3d projection_to_walk_plane = getProjection(identity_to_stance_origin, walk_plane_normal_);
+        default_tip_pose_.position_ = identity_tip_pose_.position_ + projection_to_walk_plane;
       }
     }
 
@@ -1143,8 +1137,7 @@ void LegStepper::updateTipRotation(void)
   {
     /* 
     // WALK PLANE NORMAL ALIGNMENT
-    Vector3d walk_plane_normal = Vector3d(walk_plane_[0], walk_plane_[1], -1.0).normalized();
-    walk_plane_normal = leg_->getBodyPose().rotation_.inverse()._transformVector(walk_plane_normal);
+    Vector3d walk_plane_normal = leg_->getBodyPose().rotation_.inverse()._transformVector(walk_plane_normal_);
     Quaterniond target_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), walk_plane_normal);
     target_tip_rotation = correctRotation(target_tip_rotation, origin_tip_pose_.rotation_);
     */

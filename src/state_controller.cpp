@@ -942,7 +942,7 @@ void StateController::RVIZDebugging(void)
 {
   debug_visualiser_.generateRobotModel(model_);
   debug_visualiser_.generateGravity(poser_->estimateGravity());
-  debug_visualiser_.generateWalkPlane(walker_->getWalkPlane());
+  debug_visualiser_.generateWalkPlane(walker_->getWalkPlane(), walker_->getWalkPlaneNormal());
   debug_visualiser_.generateTerrainEstimate(model_);
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -1622,34 +1622,34 @@ void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_b
  * Callback which handles externally set target tip poses to be reached at end of swing periods OR during planning mode
  * @param[in] target_tip_poses The target tip pose message
 ***********************************************************************************************************************/
-void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& target_tip_poses)
+void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& data)
 {
-  for (uint i = 0; i < target_tip_poses.name.size(); ++i)
+  for (uint i = 0; i < data.name.size(); ++i)
   {
-    shared_ptr<Leg> leg = model_->getLegByIDName(target_tip_poses.name[i]);
+    shared_ptr<Leg> leg = model_->getLegByIDName(data.name[i]);
     if (leg != NULL)
     {
       shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
 
-      if (leg->getIDName() == target_tip_poses.name[i])
+      if (leg->getIDName() == data.name[i])
       {
         if (walker_->getWalkState() != STOPPED)
         {
-          if (Pose(target_tip_poses.target[i].pose) != Pose::Undefined())
+          if (Pose(data.target[i].pose) != Pose::Undefined())
           {
-            leg_stepper->setExternalTargetTipPose(Pose(target_tip_poses.target[i].pose));
-            leg_stepper->setTargetRequestTime(target_tip_poses.target[i].header.stamp);
+            leg_stepper->setExternalTargetTipPose(Pose(data.target[i].pose));
+            leg_stepper->setTargetRequestTime(data.target[i].header.stamp);
           }
-          if (Pose(target_tip_poses.identity[i].pose) != Pose::Undefined())
+          if (Pose(data.stance[i].pose) != Pose::Undefined())
           {
-            leg_stepper->setIdentityTipPose(Pose(target_tip_poses.identity[i].pose));
+            leg_stepper->setDefaultTipPose(Pose(data.stance[i].pose));
             walker_->regenerateWorkspace();
           }
         }
         else
         {
-          leg_poser->setTargetTipPose(Pose(target_tip_poses.target[i].pose));
+          leg_poser->setTargetTipPose(Pose(data.target[i].pose));
           target_tip_pose_acquired_ = true;
         }
       }
@@ -1657,7 +1657,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
     else
     {
       ROS_ERROR("\nRequested target tip pose for leg '%s' failed. Leg '%s' does not exist in model.\n",
-                target_tip_poses.name[i].c_str(), target_tip_poses.name[i].c_str());
+                data.name[i].c_str(), data.name[i].c_str());
       return;
     }
   }

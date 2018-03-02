@@ -62,8 +62,9 @@ public:
   /**
    * Publishes visualisation markers which represent the estimated walking plane.
    * @param[in] walk_plane A Vector representing the walk plane
+   * @param[in] walk_plane_normal A Vector of the normal to the walk plane
    */
-  void generateWalkPlane(const Vector3d& walk_plane);
+  void generateWalkPlane(const Vector3d& walk_plane, const Vector3d& walk_plane_normal);
 
   /**
    * Publishes visualisation markers which represent the trajectory of the tip of the input leg.

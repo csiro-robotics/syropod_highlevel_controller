@@ -101,8 +101,14 @@ public:
   /** Accessor for walk plane estimate. */
   inline Vector3d getWalkPlane(void) { return walk_plane_; };
   
+  /** Accessor for normal to walk plane estimate. */
+  inline Vector3d getWalkPlaneNormal(void) { return walk_plane_normal_; };
+  
   /** Accessor for ideal odemetry pose. */
   inline Pose getOdometryIdeal(void) { return odometry_ideal_; };
+  
+  /** Accessor for model current pose. */
+  inline Pose getModelCurrentPose(void) { return model_->getCurrentPose(); };
 
   /**
     * Modifier for posing state.
@@ -214,6 +220,7 @@ private:
   bool generate_workspace_ = true;                ///< Flag denoting if workspace is currently being generated
   double stance_radius_;                          ///< The radius of the turning circle used for angular body velocity.
   Vector3d walk_plane_;                           ///< The co-efficients of an estimated planar walk surface
+  Vector3d walk_plane_normal_;                    ///< The normal of the estimated planar walk surface
   int iteration_ = 1;                             ///< The iteration of the workspace limit search along current bearing 
   int search_bearing_ = 0;                        ///< The current bearing being searched for kinematic limits
   double search_height_ = 0.0;                    ///< The current height being searched for kinematic limits
@@ -284,8 +291,11 @@ public:
   /** Accessor for the current state of the walk cycle. */
   inline WalkState getWalkState(void) { return walker_->getWalkState(); };
   
-  /** Accessor for the current state of the walk cycle. */
+  /** Accessor for the saved estimation of the walk plane */
   inline Vector3d getWalkPlane(void) { return walk_plane_; };
+  
+  /** Accessor for the normal of the saved estimation of the walk plane. */
+  inline Vector3d getWalkPlaneNormal(void) { return walk_plane_normal_; };
 
   /** Accessor for the current state of the step cycle. */
   inline StepState getStepState(void) { return step_state_; };
@@ -352,12 +362,6 @@ public:
     * @param[in] tip_pose The new default tip pose.
     */
   inline void setDefaultTipPose(const Pose& tip_pose) { default_tip_pose_ = tip_pose; };
-
-  /**
-    * Modifier for the identity tip pose according to the walk controller.
-    * @param[in] tip_pose The new default tip pose.
-    */
-  inline void setIdentityTipPose(const Pose& tip_pose) { identity_tip_pose_ = tip_pose; };
 
   /**
     * Modifier for the current state of step cycle.
@@ -482,9 +486,10 @@ private:
   Vector3d swing_2_nodes_[5]; ///< An array of 3d control nodes defining the secondary swing bezier curve.
   Vector3d stance_nodes_[5];  ///< An array of 3d control nodes defining the stance bezier curve.
 
-  Vector3d walk_plane_;      ///< A saved version of the estimated walk plane which is kept static during swing periods
-  Vector3d stride_vector_;   ///< The desired stride vector.
-  Vector3d swing_clearance_; ///< The position relative to the default tip position to achieve during swing period.
+  Vector3d walk_plane_;        ///< A saved version of the estimated walk plane which is kept static during swing
+  Vector3d walk_plane_normal_; ///< The normal of the saved estimated planar walk surface
+  Vector3d stride_vector_;     ///< The desired stride vector.
+  Vector3d swing_clearance_;   ///< The position relative to the default tip position to achieve during swing period.
 
   double swing_delta_t_ = 0.0;
   double stance_delta_t_ = 0.0;

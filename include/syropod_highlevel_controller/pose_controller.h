@@ -244,8 +244,9 @@ public:
    * the 2nd half of swing. This is used to orient tip sensors to point toward the desired tip landing position at the
    * end of the swing.
    * @param[in] walk_plane A Vector representing the walk plane estimate
+   * @param[in] walk_plane_normal A Vector of the normal to the walk plane estimate
    */
-  void updateTipAlignPose(const Vector3d& walk_plane);
+  void updateTipAlignPose(const Vector3d& walk_plane, const Vector3d& walk_plane_normal);
   
   /**
    * Calculates a pose for the robot body such that the robot body is parallel to a calculated walk plane at a normal 

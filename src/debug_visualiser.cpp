@@ -154,7 +154,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model, const bool& re
   * Publishes visualisation markers which represent the estimated walking plane.
   * @param[in] walk_plane A Vector representing the walk plane
 ***********************************************************************************************************************/
-void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
+void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector3d& walk_plane_normal)
 {
   visualization_msgs::Marker walk_plane_marker;
   walk_plane_marker.header.frame_id = "/walk_plane";
@@ -171,13 +171,11 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane)
   walk_plane_marker.color.a = 0.5;
   walk_plane_marker.pose = Pose::Identity().convertToPoseMessage();
   
-  Vector3d walk_plane_centroid(0, 0, walk_plane[2]);
-  walk_plane_marker.pose.position.x = walk_plane_centroid[0];
-  walk_plane_marker.pose.position.y = walk_plane_centroid[1];
-  walk_plane_marker.pose.position.z = walk_plane_centroid[2];
+  walk_plane_marker.pose.position.x = 0.0;
+  walk_plane_marker.pose.position.y = 0.0;
+  walk_plane_marker.pose.position.z = walk_plane[2];
   
-  Vector3d plane_normal(walk_plane[0], walk_plane[1], -1.0);
-  Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d(0,0,1), -plane_normal);
+  Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d::UnitZ(), walk_plane_normal);
   walk_plane_marker.pose.orientation.w = walk_plane_orientation.w();
   walk_plane_marker.pose.orientation.x = walk_plane_orientation.x();
   walk_plane_marker.pose.orientation.y = walk_plane_orientation.y();
@@ -382,12 +380,13 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace.color.g = 1;
   workspace.color.b = 1;
   workspace.color.a = 1;
-  workspace.pose = Pose::Identity().convertToPoseMessage();
+  Pose pose(Vector3d::Zero(), Quaterniond::FromTwoVectors(Vector3d::UnitZ(), leg_stepper->getWalkPlaneNormal()));
+  workspace.pose = pose.convertToPoseMessage();
 
   geometry_msgs::Point origin_point;
-  origin_point.x = leg_stepper->getIdentityTipPose().position_[0];
-  origin_point.y = leg_stepper->getIdentityTipPose().position_[1];
-  origin_point.z = leg_stepper->getIdentityTipPose().position_[2];
+  origin_point.x = pose.inverseTransformVector(leg_stepper->getDefaultTipPose().position_)[0];
+  origin_point.y = pose.inverseTransformVector(leg_stepper->getDefaultTipPose().position_)[1];
+  origin_point.z = pose.inverseTransformVector(leg_stepper->getDefaultTipPose().position_)[2];
   map<int, double>::iterator it;
   geometry_msgs::Point first_point;
   for (it = workspace_map.begin(); it != workspace_map.end(); ++it)
@@ -503,7 +502,7 @@ void DebugVisualiser::generateJointTorques(shared_ptr<Leg> leg)
     joint_torque.action = visualization_msgs::Marker::ADD;
     Vector3d joint_position = joint->getPoseRobotFrame().position_;
     joint_torque.pose = Pose(joint_position, Quaterniond::Identity()).convertToPoseMessage();
-    double torque_maximum_ratio = clamped(abs(joint->current_effort_), 0.1, 1.0);
+    double torque_maximum_ratio = clamped(abs(joint->current_effort_) * 5.0, 0.1, 1.0);
     double sphere_radius = 0.1 * sqrt(marker_scale_) * torque_maximum_ratio;
     
     // Actual value
