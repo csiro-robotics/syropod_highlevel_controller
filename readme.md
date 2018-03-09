@@ -139,20 +139,24 @@ For information on parameters see readme in config folder.
 * Leg State:
     * Description: The leg state message combines several leg specific data for use in debugging.
       * header: Header with timestamp
-      * leg_name: Leg designation
-      * walker_tip_position: Desired tip position generated from the walk controller.
-      * poser_tip_position: Desired tip position with applied posing (poser).
-      * model_tip_position: Desired tip position finalised by the model inverse/forward kinematics (model).
+      * name: Leg designation
+      * walker_tip_pose: Desired tip pose generated from the walk controller (walk_plane frame)
+      * target_tip_pose: Future desired tip pose at end of swing period (walk_plane frame)
+      * poser_tip_pose: Desired tip pose generated from the pose controller (base_link frame)
+      * model_tip_pose: Desired tip pose finalised by the model inverse/forward kinematics (base_link frame)
       * model_tip_velocity: Desired tip velocity finalised by the model inverse/forward kinematics (model).
       * joint_positions: Array of desired joint positions for each joint.
       * joint_velocities: Array of desired joint velocities for each joint.
+      * joint_efforts: Array of desired joint efforts for each joint.
       * stance_progress: Progress along stance state (0.0->1.0 OR -1 if not in stance)
       * swing_progress: Progress along swing state (0.0->1.0 OR -1 if not in swing)
+      * time_to_swing_end: Time until this leg completes swing period.
+      * pose_delta: The estimated change in pose of the walk_plane frame with regard to world frame from current time to end of swing period.
       * auto_pose: The automatic cyclic posing applied to this leg from the auto-pose system.
-      * tip_force: Tip force used in impedance control calculations
-      * delta_z: Vertical tip position offset - output of impedance control.
-      * virtual_stiffness: Current virtual stiffness used in impedance control calculations 
-    * Topic: */syropod_highlevel_controller/\*LEG_ID\*\_leg/state*
+      * tip_force: Tip force vector used in impedance control calculations
+      * admittance_delta: Vertical tip position offset - output of admittance control.
+      * virtual_stiffness: Current virtual stiffness used in admittance control calculations 
+    * Topic: */shc/\*LEG_ID\*\_leg/state*
     * Type: syropod_highlevel_controller::LegState (custom message)
 
 

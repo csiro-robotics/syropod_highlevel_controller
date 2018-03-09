@@ -42,9 +42,9 @@ DebugVisualiser::DebugVisualiser(void)
  * Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
  * linking the origin points of each joint and tip of each leg.
  * @param[in] model A pointer to the robot model object
- * @param[in] ref_world A bool denoting if the generated markers should reference the world frame or default frame.
+ * @param[in] ref_odom A bool denoting if the generated markers should reference the odom frame or default frame.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateRobotModel(shared_ptr<Model> model, const bool& ref_world)
+void DebugVisualiser::generateRobotModel(shared_ptr<Model> model, const bool& ref_odom)
 {
   // Estimate of robot body length used in scaling markers
   if (marker_scale_ == 0)
@@ -53,7 +53,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model, const bool& re
   }
   
   visualization_msgs::Marker leg_line_list;
-  leg_line_list.header.frame_id = ref_world ? "/world" : "/base_link";
+  leg_line_list.header.frame_id = ref_odom ? "/odom" : "/base_link";
   leg_line_list.header.stamp = ros::Time::now();
   leg_line_list.ns = "robot_model";
   leg_line_list.action = visualization_msgs::Marker::ADD;
@@ -139,7 +139,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model, const bool& re
   point.z = initial_body_position[2];
   leg_line_list.points.push_back(point);
   
-  if (ref_world)
+  if (ref_odom)
   {
     for (uint i = 0; i < leg_line_list.points.size(); ++i)
     {
@@ -342,14 +342,14 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   * Publises visualisation markers which represent the workspace for each leg.
   * @param[in] leg A pointer to a leg of the robot model object
   * @param[in] workspace_map A map of worksapce radii for a range of bearings
-  * @param[in] ref_world A bool denoting if the generated markers should reference the world frame or default frame.
+  * @param[in] ref_odom A bool denoting if the generated markers should reference the odom frame or default frame.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> workspace_map, const bool& ref_world)
+void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> workspace_map, const bool& ref_odom)
 {
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
   visualization_msgs::Marker default_tip_position;
-  default_tip_position.header.frame_id = ref_world ? "/world" : "/walk_plane";
+  default_tip_position.header.frame_id = ref_odom ? "/odom" : "/walk_plane";
   default_tip_position.header.stamp = ros::Time::now();
   default_tip_position.ns = "workspace_markers";
   default_tip_position.id = DEFAULT_TIP_POSITION_ID + leg->getIDNumber();
@@ -370,7 +370,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace_publisher_.publish(default_tip_position);
 
   visualization_msgs::Marker workspace;
-  workspace.header.frame_id = ref_world ? "/world" : "/walk_plane";
+  workspace.header.frame_id = ref_odom ? "/odom" : "/walk_plane";
   workspace.header.stamp = ros::Time::now();
   workspace.ns = "workspace_markers";
   workspace.id = WORKSPACE_ID + leg->getIDNumber();

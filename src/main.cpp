@@ -125,6 +125,7 @@ int main(int argc, char* argv[])
       state.publishRotationPoseError();
       state.publishFrameTransforms();
       
+      /*
       try
       {
         geometry_msgs::TransformStamped walk_plane_time_shift;
@@ -134,6 +135,7 @@ int main(int argc, char* argv[])
       {
         ROS_WARN("%s",ex.what());
       }
+      */
 
       if (params.debug_rviz.data)
       {

@@ -804,6 +804,7 @@ LegStepper::LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, c
   , target_tip_pose_transform_(Pose::Identity())
 {
   walk_plane_ = Vector3d::Zero();
+  walk_plane_normal_ = Vector3d::UnitZ();
   stride_vector_ = Vector3d::Zero();
   current_tip_velocity_ = Vector3d::Zero();
   swing_origin_tip_position_ = default_tip_pose_.position_;

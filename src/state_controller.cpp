@@ -861,24 +861,24 @@ void StateController::publishRotationPoseError(void)
 }
 
 /*******************************************************************************************************************//**
- * Publishes transforms linking world, base_link and walk_plane frames.
+ * Publishes transforms linking odom, base_link and walk_plane frames.
 ***********************************************************************************************************************/
 void StateController::publishFrameTransforms(void)
 {
   // World frame to Walk Plane frame transform
-  geometry_msgs::TransformStamped world_to_walk_plane;
-  world_to_walk_plane.header.stamp = ros::Time::now();
-  world_to_walk_plane.header.frame_id = "world";
-  world_to_walk_plane.child_frame_id = "walk_plane";
+  geometry_msgs::TransformStamped odom_to_walk_plane;
+  odom_to_walk_plane.header.stamp = ros::Time::now();
+  odom_to_walk_plane.header.frame_id = "odom";
+  odom_to_walk_plane.child_frame_id = "walk_plane";
   Pose odometry_estimate = walker_->getOdometryIdeal();
-  world_to_walk_plane.transform.translation.x = odometry_estimate.position_[0];
-  world_to_walk_plane.transform.translation.y = odometry_estimate.position_[1];
-  world_to_walk_plane.transform.translation.z = odometry_estimate.position_[2];
-  world_to_walk_plane.transform.rotation.w = odometry_estimate.rotation_.w();
-  world_to_walk_plane.transform.rotation.x = odometry_estimate.rotation_.x();
-  world_to_walk_plane.transform.rotation.y = odometry_estimate.rotation_.y();
-  world_to_walk_plane.transform.rotation.z = odometry_estimate.rotation_.z();
-  transform_broadcaster_.sendTransform(world_to_walk_plane);
+  odom_to_walk_plane.transform.translation.x = odometry_estimate.position_[0];
+  odom_to_walk_plane.transform.translation.y = odometry_estimate.position_[1];
+  odom_to_walk_plane.transform.translation.z = odometry_estimate.position_[2];
+  odom_to_walk_plane.transform.rotation.w = odometry_estimate.rotation_.w();
+  odom_to_walk_plane.transform.rotation.x = odometry_estimate.rotation_.x();
+  odom_to_walk_plane.transform.rotation.y = odometry_estimate.rotation_.y();
+  odom_to_walk_plane.transform.rotation.z = odometry_estimate.rotation_.z();
+  transform_broadcaster_.sendTransform(odom_to_walk_plane);
   
   // Walk Plane frame to Base Link frame transform
   geometry_msgs::TransformStamped walk_plane_to_base_link;
@@ -925,7 +925,7 @@ void StateController::publishFrameTransforms(void)
     try
     {
       geometry_msgs::TransformStamped walk_plane_time_shift;
-      walk_plane_time_shift = transform_buffer_.lookupTransform("walk_plane", past, "walk_plane", Time(0), "world");
+      walk_plane_time_shift = transform_buffer_.lookupTransform("walk_plane", past, "walk_plane", Time(0), "odom");
       leg_stepper->setTargetTipPoseTransform(Pose(walk_plane_time_shift.transform));
     }
     catch (tf2::TransformException &ex) 
@@ -1820,30 +1820,23 @@ void StateController::initParameters(void)
 ***********************************************************************************************************************/
 void StateController::initGaitParameters(const GaitDesignation& gait_selection)
 {
-  if (params_.rough_terrain_mode.data)
+  switch (gait_selection)
   {
-    params_.gait_type.init(n_, "gait_type"); //Force default gait for tip alignment posing
-  }
-  else
-  {
-    switch (gait_selection)
-    {
-      case (TRIPOD_GAIT):
-        params_.gait_type.data = "tripod_gait";
-        break;
-      case (RIPPLE_GAIT):
-        params_.gait_type.data = "ripple_gait";
-        break;
-      case (WAVE_GAIT):
-        params_.gait_type.data = "wave_gait";
-        break;
-      case (AMBLE_GAIT):
-        params_.gait_type.data = "amble_gait";
-        break;
-      case (GAIT_UNDESIGNATED):
-        params_.gait_type.init(n_, "gait_type");
-        break;
-    }
+    case (TRIPOD_GAIT):
+      params_.gait_type.data = "tripod_gait";
+      break;
+    case (RIPPLE_GAIT):
+      params_.gait_type.data = "ripple_gait";
+      break;
+    case (WAVE_GAIT):
+      params_.gait_type.data = "wave_gait";
+      break;
+    case (AMBLE_GAIT):
+      params_.gait_type.data = "amble_gait";
+      break;
+    case (GAIT_UNDESIGNATED):
+      params_.gait_type.init(n_, "gait_type");
+      break;
   }
 
   string base_gait_parameters_name = "/syropod/gait_parameters/";
