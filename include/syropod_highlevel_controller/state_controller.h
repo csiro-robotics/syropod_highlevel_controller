@@ -307,7 +307,7 @@ public:
 
   /**
    * Callback handling the transformation of IMU data from imu frame to base link frame
-   * @param[in] data The Imu sensor message provided by the subscribed ros topic "/imu/data"
+   * @param[in] data The Imu sensor message provided by the subscribed ros topic "/SYROPOD_TYPE/imu/data"
    */
   void imuCallback(const sensor_msgs::Imu& data);
 
@@ -369,7 +369,7 @@ private:
   ros::Subscriber target_body_pose_subscriber_;       ///< Subscriber for topic "/target_body_pose" 
   ros::Subscriber target_tip_pose_subscriber_;        ///< Subscriber for topic "/target_tip_poses"
   
-  ros::Subscriber imu_data_subscriber_;               ///< Subscriber for topic "/imu/data
+  ros::Subscriber imu_data_subscriber_;               ///< Subscriber for topic "/SYROPOD_TYPE/imu/data"
   ros::Subscriber joint_state_subscriber_;            ///< Subscriber for topic "/joint_states"
   ros::Subscriber tip_state_subscriber_;              ///< Subscriber for topic "/tip_states"
 

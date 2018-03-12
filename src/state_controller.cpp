@@ -85,7 +85,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
 
 
   // Motor and other sensor topic subscriptions
-  imu_data_subscriber_ = n_.subscribe("/imu/data", 1, &StateController::imuCallback, this);
+  imu_data_subscriber_ = n_.subscribe(params_.syropod_type.data + "/imu/data", 1, &StateController::imuCallback, this);
   joint_state_subscriber_ = n_.subscribe("/joint_states", 1, &StateController::jointStatesCallback, this);
   tip_state_subscriber_ = n_.subscribe("/tip_states", 1, &StateController::tipStatesCallback, this);
 
@@ -1466,7 +1466,7 @@ void StateController::dynamicParameterCallback(syropod_highlevel_controller::Dyn
 
 /*******************************************************************************************************************//**
  * Callback handling input IMU data
- * @param[in] data The Imu sensor message provided by the subscribed ros topic "/imu/data"
+ * @param[in] data The Imu sensor message provided by the subscribed ros topic "/SYROPOD_NAME/imu/data"
 ***********************************************************************************************************************/
 void StateController::imuCallback(const sensor_msgs::Imu& data)
 {
