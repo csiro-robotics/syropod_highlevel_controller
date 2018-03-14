@@ -448,7 +448,7 @@ public:
   /**
    * Generates control nodes for quartic bezier curve of the 2nd half of swing tip trajectory calculation.
    */
-  void generateSecondarySwingControlNodes(void);
+  void generateSecondarySwingControlNodes(const bool& ground_contact = false);
 
   /**
    * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.

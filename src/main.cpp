@@ -28,7 +28,7 @@
 ***********************************************************************************************************************/
 int main(int argc, char* argv[])
 {
-  ros::init(argc, argv, "syropod_highlevel_controller");
+  ros::init(argc, argv, "shc");
   ros::NodeHandle n;
 
   StateController state(n);
@@ -124,18 +124,6 @@ int main(int argc, char* argv[])
       state.publishWorkspace();
       state.publishRotationPoseError();
       state.publishFrameTransforms();
-      
-      /*
-      try
-      {
-        geometry_msgs::TransformStamped walk_plane_time_shift;
-        walk_plane_time_shift = transform_buffer_.lookupTransform("world", "walk_plane", ros::Time(0));
-      }
-      catch (tf2::TransformException &ex) 
-      {
-        ROS_WARN("%s",ex.what());
-      }
-      */
 
       if (params.debug_rviz.data)
       {

@@ -944,7 +944,7 @@ void LegStepper::updateStride(void)
 
   // Swing clearance
   double step_clearance = walker_->getParameters().step_clearance.current_value;
-  swing_clearance_ = /*walk_plane_orientation._transformVector*/(Vector3d(0, 0, step_clearance));
+  swing_clearance_ = step_clearance * walk_plane_normal_.normalized();
 }
 
 /*******************************************************************************************************************//**
@@ -998,6 +998,7 @@ void LegStepper::updateTipPosition(void)
       // Update tip position according to tip state
       if (walker_->getParameters().rough_terrain_mode.data && !first_half)
       {
+        /*
         Vector3d position_error = leg_->getCurrentTipPose().position_ - leg_->getDesiredTipPose().position_;
         Pose step_plane_pose = leg_->getStepPlanePose();
         if (step_plane_pose != Pose::Undefined() && position_error.norm() < IK_TOLERANCE)
@@ -1010,6 +1011,8 @@ void LegStepper::updateTipPosition(void)
           Vector3d difference = target_tip_position - target_tip_pose_.position_;
           target_tip_pose_.position_ += getProjection(difference, walk_plane_normal_);
         }
+        */
+        target_tip_pose_.position_ -= swing_clearance_;
       }
     }
     // Update target tip pose to externally requested target tip pose transformed based on robot movement since request
@@ -1019,6 +1022,7 @@ void LegStepper::updateTipPosition(void)
     }
 
     // Generate swing control nodes (once at beginning of 1st half and continuously for 2nd half)
+    bool ground_contact = (leg_->getStepPlanePose() != Pose::Undefined());
     if (iteration == 1)
     {
       generatePrimarySwingControlNodes();
@@ -1026,11 +1030,10 @@ void LegStepper::updateTipPosition(void)
     }
     else if (!first_half)
     {
-      generateSecondarySwingControlNodes();
+      generateSecondarySwingControlNodes(ground_contact);
     }
-    
     // Force touchdown normal to walk plane in rough terrain mode
-    if (walker_->getParameters().rough_terrain_mode.data)
+    if (walker_->getParameters().rough_terrain_mode.data && !ground_contact)
     {
       forceNormalTouchdown();
     }
@@ -1048,24 +1051,8 @@ void LegStepper::updateTipPosition(void)
       delta_pos = swing_delta_t_ * quarticBezierDot(swing_2_nodes_, time_input);
     }
     
-    if (leg_->getStepPlanePose() == Pose::Undefined() || first_half)
-    {
-      current_tip_pose_.position_ += delta_pos;
-      current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
-    }
-    
-    // EXPERIMENTAL - Force based early touchdown correction
-    /*
-    if (first_half)
-    {
-      min_tip_force_ = min(min_tip_force_, leg_->getTipForce()[2]);
-      current_tip_pose_.position_[2] += delta_pos[2];
-    }    
-    else if (leg_->getTipForce()[2] < average_tip_force_ + abs(min_tip_force_))
-    {
-      current_tip_pose_.position_[2] += delta_pos[2];
-    }
-    */
+    current_tip_pose_.position_ += delta_pos;
+    current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
 
     ROS_DEBUG_COND(walker_->getParameters().debug_swing_trajectory.data && leg_->getIDNumber() == 0,
                    "SWING TRAJECTORY_DEBUG - ITERATION: %d\t\t"
@@ -1176,7 +1163,9 @@ void LegStepper::updateTipRotation(void)
 void LegStepper::generatePrimarySwingControlNodes(void)
 {
   Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_pose_.position_)/2.0;
-  mid_tip_position[2] = max(swing_origin_tip_position_[2], target_tip_pose_.position_[2]);
+  double walk_plane_projected_z_position = mid_tip_position[0] * walk_plane_[0] +
+                                           mid_tip_position[1] * walk_plane_[1] + walk_plane_[2];
+  mid_tip_position[2] = max(max(mid_tip_position[2], target_tip_pose_.position_[2]), walk_plane_projected_z_position);
   mid_tip_position += swing_clearance_;
   Vector3d swing1_node_seperation = 0.25 * swing_origin_tip_velocity_ * (walker_->getTimeDelta() / swing_delta_t_);
   
@@ -1197,7 +1186,7 @@ void LegStepper::generatePrimarySwingControlNodes(void)
  * Generates control nodes for quartic bezier curve of 1st half of the swing tip trajectory calculation.
  * of swing trajectory generation.
 ***********************************************************************************************************************/
-void LegStepper::generateSecondarySwingControlNodes(void)
+void LegStepper::generateSecondarySwingControlNodes(const bool& ground_contact)
 {
   Vector3d final_tip_velocity = -stride_vector_ * (stance_delta_t_ / walker_->getTimeDelta());
   Vector3d swing2_node_seperation = 0.25 * final_tip_velocity * (walker_->getTimeDelta() / swing_delta_t_);
@@ -1213,6 +1202,15 @@ void LegStepper::generateSecondarySwingControlNodes(void)
   swing_2_nodes_[3] = target_tip_pose_.position_ - swing2_node_seperation;
   // Set for position continuity at transition between secondary swing and stance curves (C0 Smoothness)
   swing_2_nodes_[4] = target_tip_pose_.position_;
+  
+  if (ground_contact)
+  {
+    swing_2_nodes_[0] = current_tip_pose_.position_ + 0.0 * swing2_node_seperation;
+    swing_2_nodes_[1] = current_tip_pose_.position_ + 1.0 * swing2_node_seperation;
+    swing_2_nodes_[2] = current_tip_pose_.position_ + 2.0 * swing2_node_seperation;
+    swing_2_nodes_[3] = current_tip_pose_.position_ + 3.0 * swing2_node_seperation;
+    swing_2_nodes_[4] = current_tip_pose_.position_ + 4.0 * swing2_node_seperation;
+  }
 }
 
 /*******************************************************************************************************************//**

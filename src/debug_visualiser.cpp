@@ -241,12 +241,13 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       terrain_marker.scale.z = tip_position[2] + 0.5;
       terrain_marker.color.r = 1; //RED
       terrain_marker.color.a = 0.5;
-      terrain_marker.pose = Pose::Identity().convertToPoseMessage();
+      Pose pose(Vector3d(0, 0, -terrain_marker.scale.z / 2.0), model->getCurrentPose().rotation_.inverse());
+      terrain_marker.pose = pose.convertToPoseMessage();
       
       geometry_msgs::Point point;
       point.x = tip_position[0];
       point.y = tip_position[1];
-      point.z = tip_position[2] - terrain_marker.scale.z / 2.0;
+      point.z = tip_position[2];
       terrain_marker.points.push_back(point);
       terrain_publisher_.publish(terrain_marker);
       terrain_marker_id_ = (terrain_marker_id_ + 1) % (model->getLegCount() * 5);
