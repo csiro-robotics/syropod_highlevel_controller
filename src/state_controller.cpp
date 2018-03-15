@@ -1558,11 +1558,11 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
       }
       
       // Use tip force to instantaneously define the location of the step plane
-      if (tip_force.norm() > TOUCHDOWN_THRESHOLD && leg->getStepPlanePose() == Pose::Undefined())
+      if (tip_force.norm() > params_.touchdown_threshold.data && leg->getStepPlanePose() == Pose::Undefined())
       {
         leg->setStepPlanePose(leg->getCurrentTipPose());
       }
-      else if (tip_force.norm() < LIFTOFF_THRESHOLD)
+      else if (tip_force.norm() < params_.liftoff_threshold.data)
       {
         leg->setStepPlanePose(Pose::Undefined());
       }
@@ -1703,6 +1703,8 @@ void StateController::initParameters(void)
   params_.angular_cruise_velocity.init(n_, "angular_cruise_velocity");
   params_.cruise_control_time_limit.init(n_, "cruise_control_time_limit");
   params_.gravity_aligned_tips.init(n_, "gravity_aligned_tips");
+  params_.liftoff_threshold.init(n_, "liftoff_threshold");
+  params_.touchdown_threshold.init(n_, "touchdown_threshold");
   // Pose controller parameters
   params_.auto_pose_type.init(n_, "auto_pose_type");
   params_.start_up_sequence.init(n_, "start_up_sequence");
