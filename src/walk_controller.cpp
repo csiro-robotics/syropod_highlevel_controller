@@ -931,11 +931,12 @@ void LegStepper::updateStride(void)
   Vector3d tip_position = current_tip_pose_.position_;
   // Shift walk plane (and normal) vertically such that tip position is on the plane
   double intersection_shift = tip_position[2] - walk_plane_[0]*tip_position[0] - walk_plane_[1]*tip_position[1];
-  Vector3d shifted_normal(walk_plane_normal_[0], walk_plane_normal_[1], walk_plane_normal_[2] + intersection_shift);
+  /*Vector3d shifted_normal(walk_plane_normal_[0], walk_plane_normal_[1], walk_plane_normal_[2] + intersection_shift);*/
+  Vector3d shifted_normal(0,0,1.0+intersection_shift);
   // Project vector from tip position to origin onto the shifted plane
   Vector3d projection = shifted_normal.cross((-tip_position).cross(shifted_normal)) / sqr(shifted_normal.norm());
   // Find vector normal to both projection vector and shifted plane normal
-  Vector3d rotation_normal(0,0,1);//= shifted_normal.cross(projection);
+  Vector3d rotation_normal = shifted_normal.cross(projection);
   Vector3d stride_vector_angular = -walker_->getDesiredAngularVelocity() * rotation_normal;
   
   // Combination and scaling
@@ -944,7 +945,7 @@ void LegStepper::updateStride(void)
 
   // Swing clearance
   double step_clearance = walker_->getParameters().step_clearance.current_value;
-  swing_clearance_ = step_clearance * walk_plane_normal_.normalized();
+  swing_clearance_ = step_clearance * Vector3d(0,0,1);//walk_plane_normal_.normalized();
 }
 
 /*******************************************************************************************************************//**
@@ -1022,7 +1023,8 @@ void LegStepper::updateTipPosition(void)
     }
 
     // Generate swing control nodes (once at beginning of 1st half and continuously for 2nd half)
-    bool ground_contact = (leg_->getStepPlanePose() != Pose::Undefined());
+    bool ground_contact = (leg_->getStepPlanePose() != Pose::Undefined() &&
+		           walker_->getParameters().rough_terrain_mode.data);
     if (iteration == 1)
     {
       generatePrimarySwingControlNodes();
@@ -1165,7 +1167,7 @@ void LegStepper::generatePrimarySwingControlNodes(void)
   Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_pose_.position_)/2.0;
   double walk_plane_projected_z_position = mid_tip_position[0] * walk_plane_[0] +
                                            mid_tip_position[1] * walk_plane_[1] + walk_plane_[2];
-  mid_tip_position[2] = max(max(mid_tip_position[2], target_tip_pose_.position_[2]), walk_plane_projected_z_position);
+  //mid_tip_position[2] = max(max(mid_tip_position[2], target_tip_pose_.position_[2]), walk_plane_projected_z_position);
   mid_tip_position += swing_clearance_;
   Vector3d swing1_node_seperation = 0.25 * swing_origin_tip_velocity_ * (walker_->getTimeDelta() / swing_delta_t_);
   

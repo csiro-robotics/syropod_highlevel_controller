@@ -69,10 +69,10 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
                                                      &StateController::secondaryLegStateCallback, this);
   secondary_tip_velocity_subscriber_  = n_.subscribe("syropod_remote/secondary_tip_velocity", 1,
                                                      &StateController::secondaryTipVelocityInputCallback, this);
-  parameter_selection_subscriber_     = n_.subscribe("syropod_remote/parameter_selection", 1,
-                                                     &StateController::parameterSelectionCallback, this);
-  parameter_adjustment_subscriber_    = n_.subscribe("syropod_remote/parameter_adjustment", 1,
-                                                     &StateController::parameterAdjustCallback, this);
+  //parameter_selection_subscriber_     = n_.subscribe("syropod_remote/parameter_selection", 1,
+  //                                                   &StateController::parameterSelectionCallback, this);
+  //parameter_adjustment_subscriber_    = n_.subscribe("syropod_remote/parameter_adjustment", 1,
+  //                                                   &StateController::parameterAdjustCallback, this);
   
   // Planner subscription/publisher
   target_configuration_subscriber_ = n_.subscribe("/target_configuration", 1,
@@ -1783,7 +1783,7 @@ void StateController::initParameters(void)
   dynamic_reconfigure_server_ = new dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>(mutex_);
   dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>::CallbackType callback_type;
   callback_type = boost::bind(&StateController::dynamicParameterCallback, this, _1, _2);
-  dynamic_reconfigure_server_->setCallback(callback_type);
+  //dynamic_reconfigure_server_->setCallback(callback_type);
 
   // Set min/max/default values for dynamic reconfigure server
   syropod_highlevel_controller::DynamicConfig config_max, config_min, config_default;
