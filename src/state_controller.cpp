@@ -1101,9 +1101,7 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
   if (robot_state_ == RUNNING)
   {
     GaitDesignation new_gait_selection = static_cast<GaitDesignation>(int(input.data));
-    if (new_gait_selection != gait_selection_ && 
-        new_gait_selection != GAIT_UNDESIGNATED && 
-        !params_.rough_terrain_mode.data)
+    if (new_gait_selection != gait_selection_ && new_gait_selection != GAIT_UNDESIGNATED)
     {
       gait_selection_ = new_gait_selection;
       gait_change_flag_ = true;
@@ -1551,9 +1549,13 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     if (get_wrench_values)
     {
       Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
-      leg->setTipForce(tip_force);
       Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
-      leg->setTipTorque(tip_torque);
+      
+      if (!params_.use_joint_effort.data)
+      {
+        leg->setTipForce(tip_force);
+        leg->setTipTorque(tip_torque);
+      }
       
       // Use tip force to instantaneously define the location of the step plane
       if (tip_force.norm() > TOUCHDOWN_THRESHOLD && leg->getStepPlanePose() == Pose::Undefined())

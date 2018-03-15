@@ -131,7 +131,7 @@ public:
     ImuData imu_data(imu_data_);
     if (imu_data_.orientation.isApprox(UNDEFINED_ROTATION))
     {
-      imu_data.orientation = current_pose_.rotation_.normalized();
+      imu_data.orientation = Quaterniond::Identity();//current_pose_.rotation_.normalized();
     }
     return imu_data;
   };

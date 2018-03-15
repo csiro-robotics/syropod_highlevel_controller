@@ -779,9 +779,9 @@ Pose WalkController::calculateOdometry(const double& time_period)
   Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d::UnitZ(), walk_plane_normal_);
   
   Vector3d desired_linear_velocity = Vector3d(desired_linear_velocity_[0], desired_linear_velocity_[1], 0);
-  Vector3d position_delta = walk_plane_orientation._transformVector(desired_linear_velocity * time_period);
+  Vector3d position_delta = /*walk_plane_orientation._transformVector*/(desired_linear_velocity * time_period);
   position_delta = odometry_ideal_.rotation_._transformVector(position_delta);
-  Quaterniond rotation_delta = Quaterniond(AngleAxisd(desired_angular_velocity_ * time_period, walk_plane_normal_));
+  Quaterniond rotation_delta = Quaterniond(AngleAxisd(desired_angular_velocity_ * time_period, Vector3d(0,0,1)));//walk_plane_normal_));
   return Pose(position_delta, rotation_delta);
 }
 
@@ -925,7 +925,7 @@ void LegStepper::updateStride(void)
   
   // Linear stride vector
   Vector2d velocity = walker_->getDesiredLinearVelocity();
-  Vector3d stride_vector_linear = walk_plane_orientation._transformVector(Vector3d(velocity[0], velocity[1], 0.0));
+  Vector3d stride_vector_linear = /*walk_plane_orientation._transformVector*/(Vector3d(velocity[0], velocity[1], 0.0));
   
   // Angular stride vector
   Vector3d tip_position = current_tip_pose_.position_;
@@ -935,7 +935,7 @@ void LegStepper::updateStride(void)
   // Project vector from tip position to origin onto the shifted plane
   Vector3d projection = shifted_normal.cross((-tip_position).cross(shifted_normal)) / sqr(shifted_normal.norm());
   // Find vector normal to both projection vector and shifted plane normal
-  Vector3d rotation_normal = shifted_normal.cross(projection);
+  Vector3d rotation_normal(0,0,1);//= shifted_normal.cross(projection);
   Vector3d stride_vector_angular = -walker_->getDesiredAngularVelocity() * rotation_normal;
   
   // Combination and scaling
