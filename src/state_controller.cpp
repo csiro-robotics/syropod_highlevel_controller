@@ -1546,8 +1546,10 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     string leg_name = tip_name.substr(0, tip_name.find("_"));
     shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
     ROS_ASSERT(leg != NULL);
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (get_wrench_values)
     {
+      leg_stepper->setTouchdownDetection(true);
       Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
       Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
       if (!params_.use_joint_effort.data)
@@ -1568,6 +1570,7 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     }
     if (get_step_plane_values)
     {
+      leg_stepper->setTouchdownDetection(true);
       if (tip_states.step_plane[i].z != UNASSIGNED_VALUE)
       {
         // From step plane representation calculate position and orientation of plane relative to tip frame

@@ -992,23 +992,31 @@ void LegStepper::updateTipPosition(void)
       // Update default target to meet step surface either proactively or reactively
       if (use_default_target_)
       {
-        // Shift target to step surface according to data from tip state (PROACTIVE)
-        // TODO Move proactive target shifting to seperate node and use external target API
-        Pose step_plane_pose = leg_->getStepPlanePose();
-        if (step_plane_pose != Pose::Undefined())
+        if (touchdown_detection_)
         {
-          // Calculate target tip position based on step plane estimate
-          Vector3d step_plane_position = step_plane_pose.position_ - leg_->getCurrentTipPose().position_;
-          Vector3d target_tip_position = current_tip_pose_.position_ + step_plane_position;
-          
-          // Correct target by projecting vector along walk plane normal at default target tip position
-          Vector3d difference = target_tip_position - target_tip_pose_.position_;
-          target_tip_pose_.position_ += getProjection(difference, walk_plane_normal_);
+          // Shift target to step surface according to data from tip state (PROACTIVE)
+          // TODO Move proactive target shifting to seperate node and use external target API
+          Pose step_plane_pose = leg_->getStepPlanePose();
+          if (step_plane_pose != Pose::Undefined())
+          {
+            // Calculate target tip position based on step plane estimate
+            Vector3d step_plane_position = step_plane_pose.position_ - leg_->getCurrentTipPose().position_;
+            Vector3d target_tip_position = current_tip_pose_.position_ + step_plane_position;
+            
+            // Correct target by projecting vector along walk plane normal at default target tip position
+            Vector3d difference = target_tip_position - target_tip_pose_.position_;
+            target_tip_pose_.position_ += getProjection(difference, walk_plane_normal_);
+          }
+          // Shift target toward step surface by defined distance and rely on step surface contact detection (REACTIVE)
+          else
+          {
+            target_tip_pose_.position_ -= swing_clearance_;
+          }
         }
-        // Shift target toward step surface by defined distance and rely on step surface contact detection (REACTIVE)
         else
         {
-          target_tip_pose_.position_ -= swing_clearance_;
+          ROS_WARN_THROTTLE(THROTTLE_PERIOD, "\n[SHC] Rough terrain mode is enabled but SHC is not receiving"
+                                             "any tip state messages used for touchdown detection.\n");
         }
       }
       // Update target tip pose to externally requested target tip pose transformed based on robot movement since request
@@ -1154,7 +1162,9 @@ void LegStepper::updateTipRotation(void)
 ***********************************************************************************************************************/
 void LegStepper::generatePrimarySwingControlNodes(void)
 {
-  Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_pose_.position_)/2.0 + swing_clearance_;
+  Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_pose_.position_)/2.0;
+  mid_tip_position[2] = max(swing_origin_tip_position_[2], target_tip_pose_.position_[2]);
+  mid_tip_position += swing_clearance_;
   Vector3d stance_node_seperation = 0.25 * swing_origin_tip_velocity_ * (walker_->getTimeDelta() / swing_delta_t_);
   
   // Control nodes for primary swing quartic bezier curves
@@ -1235,8 +1245,9 @@ void LegStepper::forceNormalTouchdown(void)
   Vector3d default_target_tip_position = default_tip_pose_.position_ + 0.5 * stride_vector_;
   
   Vector3d bezier_target = target_tip_pose_.position_;
-  Vector3d bezier_origin = target_tip_pose_.position_ + swing_clearance_ - 4.0 * stance_node_seperation;
-  bezier_origin[2] = default_target_tip_position[2] + swing_clearance_[2] - 4.0 * stance_node_seperation[2];
+  Vector3d bezier_origin = target_tip_pose_.position_ - 4.0 * stance_node_seperation;
+  bezier_origin[2] = max(default_target_tip_position[2], target_tip_pose_.position_[2]);
+  bezier_origin += swing_clearance_;
   
   swing_1_nodes_[4] = bezier_origin;
   swing_2_nodes_[0] = bezier_origin;

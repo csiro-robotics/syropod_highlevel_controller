@@ -394,6 +394,12 @@ public:
   inline void setAtCorrectPhase(const bool& at_correct_phase) { at_correct_phase_ = at_correct_phase; };
   
   /**
+   * Modifier for the flag denoting touchdown detection enabled.
+   * @param[in] touchdown_detection The new value for the flag.
+   */
+  inline void setTouchdownDetection(const bool& touchdown_detection) { touchdown_detection_ = touchdown_detection; };
+  
+  /**
    * Modifier for the externally set target tip pose
    * @param[in] pose The new externally set target tip pose
    */
@@ -472,6 +478,8 @@ private:
   bool at_correct_phase_ = false;     ///< Flag denoting if the leg is at the correct phase per the walk state.
   bool completed_first_step_ = false; ///< Flag denoting if the leg has completed its first step.
   bool use_default_target_ = true;    ///< Flag denoting if target tip pose is to be generated internally
+  
+  bool touchdown_detection_ = false;  ///< Flag denoting whether touchdown detection is enabled
 
   int phase_ = 0;    ///< Step cycle phase.
   int phase_offset_; ///< Step cycle phase offset.
