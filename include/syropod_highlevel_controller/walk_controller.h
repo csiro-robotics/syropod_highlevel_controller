@@ -400,7 +400,7 @@ public:
   inline void setExternalTargetTipPose(const Pose& pose) 
   { 
     external_target_tip_pose_ = pose;
-    generate_target_tip_pose_ = false;
+    use_default_target_ = false;
   };
   
   /**
@@ -431,6 +431,7 @@ public:
     * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in
     * tip position using two bezier curves for swing phase and one for stance phase. Each Bezier curve uses 5 control
     * nodes designed specifically to give a C2 smooth trajectory for the entire step cycle.
+    * @todo Move proactive target shifting to seperate node and use external target API
     */
   void updateTipPosition(void);
   
@@ -447,6 +448,7 @@ public:
   
   /**
    * Generates control nodes for quartic bezier curve of the 2nd half of swing tip trajectory calculation.
+   * @param[in] ground_contact Denotes if leg has made ground contact and swing trajectory towards ground should cease.
    */
   void generateSecondarySwingControlNodes(const bool& ground_contact = false);
 
@@ -467,9 +469,9 @@ private:
   shared_ptr<WalkController> walker_;  ///< Pointer to walk controller object.
   shared_ptr<Leg> leg_;                ///< Pointer to the parent leg object.
 
-  bool at_correct_phase_ = false;         ///< Flag denoting if the leg is at the correct phase per the walk state.
-  bool completed_first_step_ = false;     ///< Flag denoting if the leg has completed its first step.
-  bool generate_target_tip_pose_ = true;  ///< Flag denoting if target tip pose is to be generated internally
+  bool at_correct_phase_ = false;     ///< Flag denoting if the leg is at the correct phase per the walk state.
+  bool completed_first_step_ = false; ///< Flag denoting if the leg has completed its first step.
+  bool use_default_target_ = true;    ///< Flag denoting if target tip pose is to be generated internally
 
   int phase_ = 0;    ///< Step cycle phase.
   int phase_offset_; ///< Step cycle phase offset.

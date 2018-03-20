@@ -318,8 +318,8 @@ struct Parameters
   Parameter<double> cruise_control_time_limit;           ///< Time limit after which cruise control input will zero.
   Parameter<map<string, double>> leg_stance_positions[8];///< An array of maps of default tip stance positions.
   Parameter<bool> gravity_aligned_tips;                  ///< Flag denoting if tip should align with gravity direction
-  Parameter<double> touchdown_threshold;
-  Parameter<double> liftoff_threshold;
+  Parameter<double> touchdown_threshold;                 ///< Threshold of tip force before touchdown is recognized
+  Parameter<double> liftoff_threshold;                   ///< Threshold of tip force before liftoff is recognized
 
   // Pose controller parameters
   Parameter<string> auto_pose_type;                     ///< String denoting the default auto posing cycle type.

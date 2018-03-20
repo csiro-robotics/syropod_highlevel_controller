@@ -865,7 +865,7 @@ void StateController::publishRotationPoseError(void)
 ***********************************************************************************************************************/
 void StateController::publishFrameTransforms(void)
 {
-  // World frame to Walk Plane frame transform
+  // Odom frame to Walk Plane frame transform
   geometry_msgs::TransformStamped odom_to_walk_plane;
   odom_to_walk_plane.header.stamp = ros::Time::now();
   odom_to_walk_plane.header.frame_id = "odom";
@@ -1550,7 +1550,6 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     {
       Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
       Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
-      
       if (!params_.use_joint_effort.data)
       {
         leg->setTipForce(tip_force);
@@ -1622,36 +1621,36 @@ void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_b
 
 /*******************************************************************************************************************//**
  * Callback which handles externally set target tip poses to be reached at end of swing periods OR during planning mode
- * @param[in] target_tip_poses The target tip pose message
+ * @param[in] msg The target tip pose message
 ***********************************************************************************************************************/
-void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& data)
+void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& msg)
 {
-  for (uint i = 0; i < data.name.size(); ++i)
+  for (uint i = 0; i < msg.name.size(); ++i)
   {
-    shared_ptr<Leg> leg = model_->getLegByIDName(data.name[i]);
+    shared_ptr<Leg> leg = model_->getLegByIDName(msg.name[i]);
     if (leg != NULL)
     {
       shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
 
-      if (leg->getIDName() == data.name[i])
+      if (leg->getIDName() == msg.name[i])
       {
         if (walker_->getWalkState() != STOPPED)
         {
-          if (Pose(data.target[i].pose) != Pose::Undefined())
+          if (Pose(msg.target[i].pose) != Pose::Undefined())
           {
-            leg_stepper->setExternalTargetTipPose(Pose(data.target[i].pose));
-            leg_stepper->setTargetRequestTime(data.target[i].header.stamp);
+            leg_stepper->setExternalTargetTipPose(Pose(msg.target[i].pose));
+            leg_stepper->setTargetRequestTime(msg.target[i].header.stamp);
           }
-          if (Pose(data.stance[i].pose) != Pose::Undefined())
+          if (Pose(msg.stance[i].pose) != Pose::Undefined())
           {
-            leg_stepper->setDefaultTipPose(Pose(data.stance[i].pose));
+            leg_stepper->setDefaultTipPose(Pose(msg.stance[i].pose));
             walker_->regenerateWorkspace();
           }
         }
         else
         {
-          leg_poser->setTargetTipPose(Pose(data.target[i].pose));
+          leg_poser->setTargetTipPose(Pose(msg.target[i].pose));
           target_tip_pose_acquired_ = true;
         }
       }
@@ -1659,7 +1658,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
     else
     {
       ROS_ERROR("\nRequested target tip pose for leg '%s' failed. Leg '%s' does not exist in model.\n",
-                data.name[i].c_str(), data.name[i].c_str());
+                msg.name[i].c_str(), msg.name[i].c_str());
       return;
     }
   }

@@ -227,13 +227,13 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/terrain
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /syropod_stair_climb/stair_model
@@ -353,7 +353,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 2.22812986
+      Distance: 2.34645104
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -368,10 +368,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.374797076
-      Target Frame: walk_plane
+      Pitch: -0.0546017848
+      Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 5.25860548
+      Yaw: 4.72358036
     Saved:
       - Class: rviz/Orbit
         Distance: 2
@@ -396,6 +396,8 @@ Visualization Manager:
 Window Geometry:
   "&Displays":
     collapsed: false
+  "&Views":
+    collapsed: false
   Height: 1571
   Hide Left Dock: false
   Hide Right Dock: false
@@ -406,8 +408,6 @@ Window Geometry:
     collapsed: false
   Tool Properties:
     collapsed: false
-  Views:
-    collapsed: false
   Width: 1276
-  X: 1272
+  X: 1268
   Y: 0

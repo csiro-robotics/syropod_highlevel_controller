@@ -336,9 +336,9 @@ public:
   
   /**
    * Callback which handles externally set target tip poses to be reached at end of swing periods.
-   * @param[in] target_tip_poses The target tip pose message
+   * @param[in] msg The target tip pose message
    */
-  void targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& target_tip_poses);
+  void targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& msg);
 
 private:
   ros::NodeHandle n_;                                 ///< Ros node handle
