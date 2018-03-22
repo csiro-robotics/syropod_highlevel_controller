@@ -30,6 +30,7 @@ Model::Model(const Parameters& params)
   , leg_count_(params_.leg_id.data.size())
   , time_delta_(params_.time_delta.data)
   , current_pose_(Pose::Identity())
+  , default_pose_(Pose::Identity())
 {
   imu_data_.orientation = UNDEFINED_ROTATION;
   imu_data_.linear_acceleration = Vector3d::Zero();
@@ -45,6 +46,7 @@ Model::Model(shared_ptr<Model> model)
   , leg_count_(model->leg_count_)
   , time_delta_(model->time_delta_)
   , current_pose_(model->current_pose_)
+  , default_pose_(model->default_pose_)
   , imu_data_(model->imu_data_)
 {
 }
@@ -387,6 +389,7 @@ void Leg::setDesiredTipPose(const Pose& tip_pose, bool apply_delta)
 
   desired_tip_pose_ = use_poser_tip_pose ? leg_poser_->getCurrentTipPose() : tip_pose;
   desired_tip_pose_.position_ += (apply_delta ? admittance_delta_ : Vector3d::Zero());
+  ROS_ASSERT(desired_tip_pose_.isValid());
 }
 
 /*******************************************************************************************************************//**
@@ -705,7 +708,7 @@ Pose Leg::applyFK(const bool& set_current)
     current_tip_pose_ = tip_pose;
   }
   
-  ROS_ASSERT(current_tip_pose_.position_.norm() < UNASSIGNED_VALUE);
+  ROS_ASSERT(current_tip_pose_.isValid());
   
   return tip_pose;
 }

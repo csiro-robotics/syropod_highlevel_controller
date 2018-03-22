@@ -145,7 +145,9 @@ void PoseController::updateStance(void)
       // Apply pose to current walking tip position to calculate new 'posed' tip position
       Vector3d new_tip_position = current_pose.inverseTransformVector(leg_stepper->getCurrentTipPose().position_);
       Quaterniond new_tip_rotation = leg_stepper->getCurrentTipPose().rotation_;
-      leg_poser->setCurrentTipPose(Pose(new_tip_position, new_tip_rotation));
+      Pose new_pose(new_tip_position, new_tip_rotation);
+      ROS_ASSERT(new_pose.isValid());
+      leg_poser->setCurrentTipPose(new_pose);
     }
     // Do not apply any posing to manually manipulated legs
     else if (leg_state == MANUAL || leg_state == WALKING_TO_MANUAL)
@@ -834,6 +836,7 @@ void PoseController::updateCurrentPose(const RobotState& robot_state)
   // Pose body at clearance offset normal to walk plane and rotate to align parallel
   updateWalkPlanePose();
   new_pose = new_pose.addPose(walk_plane_pose_);
+  model_->setDefaultPose(walk_plane_pose_);
 
   // Manually set (joystick controlled) body pose
   if (params_.manual_posing.data)
@@ -871,6 +874,7 @@ void PoseController::updateCurrentPose(const RobotState& robot_state)
     //new_pose = new_pose.addPose(ik_error_pose_);
   }
   
+  ROS_ASSERT(new_pose.isValid());
   model_->setCurrentPose(new_pose);
 }
 
@@ -1138,6 +1142,7 @@ void PoseController::updateWalkPlanePose(void)
   
   // Interpolate walk plane pose as transitioning from old to new.
   walk_plane_pose_ = origin_walk_plane_pose_.interpolate(c, new_walk_plane_pose);
+  ROS_ASSERT(walk_plane_pose_.isValid());
   if (c == 1.0)
   {
     origin_walk_plane_pose_ = walk_plane_pose_;

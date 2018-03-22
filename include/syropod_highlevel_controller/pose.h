@@ -52,6 +52,21 @@ public:
   };
   
   /**
+   * Checks for NaN values within pose elements
+   * @return Bool denoting whether pose contains no NaN values
+   */
+  inline bool isValid(void)
+  {
+    return abs(position_[0]) < UNASSIGNED_VALUE &&
+           abs(position_[1]) < UNASSIGNED_VALUE &&
+           abs(position_[2]) < UNASSIGNED_VALUE &&
+           abs(rotation_.w()) < UNASSIGNED_VALUE &&
+           abs(rotation_.x()) < UNASSIGNED_VALUE &&
+           abs(rotation_.y()) < UNASSIGNED_VALUE &&
+           abs(rotation_.z()) < UNASSIGNED_VALUE;
+  }
+  
+  /**
    * Pose class constructor for geometry_msgs/Transform
    */
   inline Pose(const geometry_msgs::Transform& transform)

@@ -752,6 +752,8 @@ void WalkController::updateWalkPlane(void)
   MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
   walk_plane_ = (pseudo_inverse_A*B);
   walk_plane_normal_ = Vector3d(-walk_plane_[0], -walk_plane_[1], 1.0).normalized();
+  ROS_ASSERT(walk_plane_.norm() < UNASSIGNED_VALUE);
+  ROS_ASSERT(walk_plane_normal_.norm() < UNASSIGNED_VALUE);
 }
 
 /*******************************************************************************************************************//**
@@ -919,6 +921,8 @@ void LegStepper::updateStride(void)
 {
   walk_plane_ = walker_->getWalkPlane();
   walk_plane_normal_ = walker_->getWalkPlaneNormal();
+  ROS_ASSERT(walk_plane_.norm() < UNASSIGNED_VALUE);
+  ROS_ASSERT(walk_plane_normal_.norm() < UNASSIGNED_VALUE);
   
   // Linear stride vector
   Vector2d velocity = walker_->getDesiredLinearVelocity();
@@ -935,7 +939,7 @@ void LegStepper::updateStride(void)
 
   // Swing clearance
   double step_clearance = walker_->getParameters().step_clearance.current_value;
-  swing_clearance_ = step_clearance * walk_plane_normal_.normalized();
+  swing_clearance_ = step_clearance * Vector3d::UnitZ();//walk_plane_normal_.normalized();
 }
 
 /*******************************************************************************************************************//**
@@ -997,6 +1001,7 @@ void LegStepper::updateTipPosition(void)
           // Shift target to step surface according to data from tip state (PROACTIVE)
           // TODO Move proactive target shifting to seperate node and use external target API
           Pose step_plane_pose = leg_->getStepPlanePose();
+          
           if (step_plane_pose != Pose::Undefined())
           {
             // Calculate target tip position based on step plane estimate
@@ -1037,8 +1042,8 @@ void LegStepper::updateTipPosition(void)
     {
       generateSecondarySwingControlNodes(ground_contact);
     }
-    // Force touchdown normal to walk plane in rough terrain mode
-    if (rough_terrain_mode && !ground_contact)
+    // Force touchdown normal to walk plane in rough terrain mode (with reactive/proactive touchdown detection)
+    if (rough_terrain_mode && use_default_target_ && touchdown_detection_ && !ground_contact)
     {
       forceNormalTouchdown();
     }
@@ -1056,6 +1061,7 @@ void LegStepper::updateTipPosition(void)
       delta_pos = swing_delta_t_ * quarticBezierDot(swing_2_nodes_, time_input);
     }
     
+    ROS_ASSERT(delta_pos.norm() < UNASSIGNED_VALUE);
     current_tip_pose_.position_ += delta_pos;
     current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
 
@@ -1084,10 +1090,11 @@ void LegStepper::updateTipPosition(void)
       use_default_target_ = true;
       
       // Update default tip position as projection of tip position at beginning of STANCE period onto walk plane
-      Vector3d identity_tip_position = leg_->getBodyPose().transformVector(identity_tip_pose_.position_);
+      Vector3d identity_tip_position = leg_->getDefaultBodyPose().transformVector(identity_tip_pose_.position_);
       Vector3d identity_to_stance_origin = stance_origin_tip_position_ - identity_tip_position;
       Vector3d projection_to_walk_plane = getProjection(identity_to_stance_origin, walk_plane_normal_);
       default_tip_pose_.position_ = identity_tip_position + projection_to_walk_plane;
+      ROS_ASSERT(default_tip_pose_.isValid());
     }
 
     // Scales stride vector according to stance length specifically for STARTING state of walker
@@ -1098,6 +1105,7 @@ void LegStepper::updateTipPosition(void)
     // reach the target but this is less important than ensuring correct velocity according to stride vector
     double time_input = iteration * stance_delta_t_;
     Vector3d delta_pos = stance_delta_t_ * quarticBezierDot(stance_nodes_, time_input);
+    ROS_ASSERT(delta_pos.norm() < UNASSIGNED_VALUE);
     current_tip_pose_.position_ += delta_pos;
     current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
 

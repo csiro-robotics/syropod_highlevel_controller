@@ -80,6 +80,9 @@ public:
 
   /** Accessor for current pose of the robot model body.*/
   inline Pose getCurrentPose(void) { return current_pose_; };
+  
+  /** Accessor for default pose of the robot model body.*/
+  inline Pose getDefaultPose(void) { return default_pose_; };
 
   /** Accessor for the time delta value which defines the period of the ros cycle.*/
   inline double getTimeDelta(void) { return time_delta_; }
@@ -89,6 +92,12 @@ public:
    * @param[in] pose The input pose to be set as the current robot model body pose.
    */
   inline void setCurrentPose(const Pose& pose)  { current_pose_ = pose; };
+  
+  /**
+   * Modifier for the default pose of the robot model body.
+   * @param[in] pose The input pose to be set as the default robot model body pose.
+   */
+  inline void setDefaultPose(const Pose& pose)  { default_pose_ = pose; };
 
   /**
    * Generates child leg objects and copies state from reference model if provided.
@@ -162,7 +171,8 @@ private:
   LegContainer leg_container_;   ///< The container map for all robot model leg objects.
   int leg_count_;                ///< The number of leg objects within the robot model.
   double time_delta_;            ///< The time period of the ros cycle.
-  Pose current_pose_;            ///< Current pose of robot model body.
+  Pose current_pose_;            ///< Current pose of robot model body (i.e. walk_plane -> base_link)
+  Pose default_pose_;            ///< Default pose of robot model body (i.e. only body clearance above walk plane)
   ImuData imu_data_;             ///< Imu data structure.
   
 public:
@@ -261,7 +271,10 @@ public:
   inline Vector3d getCurrentTipVelocity(void) { return current_tip_velocity_; };
   
   /** Accessor for the current pose of the robot body. */
-  inline Pose getBodyPose(void) { return model_->getCurrentPose(); };
+  inline Pose getCurrentBodyPose(void) { return model_->getCurrentPose(); };
+  
+  /** Accessor for the current pose of the robot body. */
+  inline Pose getDefaultBodyPose(void) { return model_->getDefaultPose(); };
 
   /**
     * Modifier for the curent state of this leg.
