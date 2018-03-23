@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /TF1
         - /TF1/Frames1
         - /TF1/Tree1
       Splitter Ratio: 0.5
@@ -54,7 +55,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/robot_model
       Name: Marker
       Namespaces:
-        {}
+        robot_model: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -69,14 +70,41 @@ Visualization Manager:
       Enabled: true
       Frame Timeout: 15
       Frames:
+        AL_tip:
+          Value: true
+        AR_tip:
+          Value: true
         All Enabled: false
+        BL_tip:
+          Value: true
+        BR_tip:
+          Value: true
+        base_link:
+          Value: true
+        imu:
+          Value: false
+        odom:
+          Value: true
+        walk_plane:
+          Value: true
       Marker Scale: 0.5
       Name: TF
       Show Arrows: false
       Show Axes: true
       Show Names: false
       Tree:
-        {}
+        imu:
+          odom:
+            walk_plane:
+              base_link:
+                AL_tip:
+                  {}
+                AR_tip:
+                  {}
+                BL_tip:
+                  {}
+                BR_tip:
+                  {}
       Update Interval: 0
       Value: true
     - Class: rviz/Marker
@@ -84,7 +112,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/gravity
       Name: Marker
       Namespaces:
-        {}
+        gravity_marker: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -92,7 +120,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/tip_trajectories
       Name: Marker
       Namespaces:
-        {}
+        tip_trajectory_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -124,7 +152,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/walk_plane
       Name: Marker
       Namespaces:
-        {}
+        walk_plane_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -270,7 +298,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 2.06487703
+      Distance: 1.05568087
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -285,10 +313,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.145398319
+      Pitch: 0.290398121
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.1553967
+      Yaw: 3.25539947
     Saved:
       - Class: rviz/Orbit
         Distance: 2
@@ -326,5 +354,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1276
-  X: 1268
+  X: 1276
   Y: 0

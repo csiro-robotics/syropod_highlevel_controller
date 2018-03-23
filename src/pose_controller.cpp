@@ -866,10 +866,10 @@ void PoseController::updateCurrentPose(const RobotState& robot_state)
   }
   
   // Automatic (non-feedback) body posing to align tips orthogonal to walk plane during 2nd half of swing
-  if (params_.rough_terrain_mode.data) // TODO EXPERIMENTAL
+  if (params_.gravity_aligned_tips.data && model_->getLegByIDNumber(0)->getJointCount() < 4) // TODO EXPERIMENTAL
   {
-    //updateTipAlignPose(walk_plane);
-    //new_pose = new_pose.addPose(tip_align_pose_);
+    updateTipAlignPose();
+    new_pose = new_pose.addPose(tip_align_pose_);
     //updateIKErrorPose();
     //new_pose = new_pose.addPose(ik_error_pose_);
   }
@@ -1049,9 +1049,8 @@ void PoseController::updateIKErrorPose(void)
  * plane normal. This causes the last link of the leg to be oriented orthogonal to the walk plane estimate during the
  * 2nd half of swing. This is used to orient tip sensors to point toward the desired tip landing position at the end of
  * the swing.
- * @param[in] walk_plane A Vector representing the walk plane estimate
 ***********************************************************************************************************************/
-void PoseController::updateTipAlignPose(const Vector3d& walk_plane, const Vector3d& walk_plane_normal)
+void PoseController::updateTipAlignPose(void)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -1061,6 +1060,7 @@ void PoseController::updateTipAlignPose(const Vector3d& walk_plane, const Vector
     if (swing_progress != -1.0)
     {
       // Calculate vector normal to walk plane and rotation of this vector from vertical.
+      Vector3d walk_plane_normal = leg_stepper->getWalkPlaneNormal();
       Quaterniond walk_plane_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitZ(), walk_plane_normal);
 
       // Calculate vector from tip position to final joint position
@@ -1093,8 +1093,18 @@ void PoseController::updateTipAlignPose(const Vector3d& walk_plane, const Vector
       target_translation = clamped(target_translation, limit);
 
       // Interpolate between origin tip align pose and calculated target translation
-      double c = smoothStep(min(1.0, 2.0 * swing_progress)); // Control input (0.0 -> 1.0)
-      tip_align_pose_ = origin_tip_align_pose_.interpolate(c, Pose(target_translation, Quaterniond::Identity()));
+      double c = smoothStep(swing_progress); // Control input (0.0 -> 1.0)
+      ROS_ASSERT(c >= 0.0 && c <= 1.0); 
+      if (swing_progress < 0.5)
+      {
+        c = smoothStep(c * 2.0); // 0.0:0.5 -> 0.0:1.0
+        tip_align_pose_ = origin_tip_align_pose_.interpolate(c, Pose::Identity());
+      }
+      else if (swing_progress >= 0.5)
+      {
+        c = smoothStep((c - 0.5) * 2.0); // 0.5:1.0 -> 0.0:1.0
+        tip_align_pose_ = Pose::Identity().interpolate(c, Pose(target_translation, Quaterniond::Identity()));
+      }
 
       // Save pose for origin of interpolation durin next swing period
       if (swing_progress == 1.0)
