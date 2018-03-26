@@ -374,6 +374,18 @@ public:
     * @param[in] phase The new phase.
     */
   inline void setPhase(const int& phase) { phase_ = phase; };
+  
+  /**
+    * Modifier for the progress of the swing period.
+    * @param[in] progress The new swing progress.
+    */
+  inline void setSwingProgress(const int& progress) { swing_progress_ = progress; };
+  
+  /**
+    * Modifier for the progress of the stance period.
+    * @param[in] progress The new stance progress.
+    */
+  inline void setStanceProgress(const int& progress) { stance_progress_ = progress; };
 
   /**
     * Modifier for the phase offset of the step cycle.

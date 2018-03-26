@@ -513,6 +513,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (leg->getLegState() != WALKING)
     {
       if (linear_velocity_input.norm())
@@ -765,7 +766,7 @@ Vector3d WalkController::estimateGravity(void)
   Vector3d euler = quaternionToEulerAngles(model_->getImuData().orientation);
   AngleAxisd pitch(-euler[1], Vector3d::UnitY());
   AngleAxisd roll(-euler[0], Vector3d::UnitX());
-  Vector3d gravity(0, 0, GRAVITY_MAGNITUDE);
+  Vector3d gravity(0, 0, GRAVITY_ACCELERATION);
   gravity = pitch * gravity;
   gravity = roll * gravity;
   return gravity;
@@ -887,7 +888,7 @@ void LegStepper::iteratePhase(void)
   else if (step_state_ == STANCE || step_state_ == FORCE_STOP)
   {
     stance_progress_ = double(mod(phase_ + (phase_length - stance_start), phase_length) + 1) /
-                       double(mod(stance_end - stance_start, phase_length));
+                      double(mod(stance_end - stance_start, phase_length));
     stance_progress_ = clamped(stance_progress_, 0.0, 1.0);
     swing_progress_ = -1.0;
   }

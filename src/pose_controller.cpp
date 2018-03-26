@@ -595,7 +595,7 @@ int PoseController::stepToNewStance(void) //Tripod leg coordination
 int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
 {
   Pose target_pose;
-  int progress = 0; // Percentage progress (0%->100%)
+  int min_progress = UNASSIGNED_VALUE; // Percentage progress (0%->100%)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
@@ -625,18 +625,23 @@ int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
     if (leg->getLegState() == WALKING_TO_MANUAL)
     {
       leg_stepper->setCurrentTipPose(target_tip_pose);
+      step_height = 0.0; // Zero step height in transition from WALKING to MANUAL
     }
     else if (leg->getLegState() == MANUAL_TO_WALKING)
     {
       leg_stepper->setCurrentTipPose(leg_stepper->getDefaultTipPose());
     }
 
-    progress = leg_poser->stepToPosition(target_tip_pose, Pose::Identity(), step_height, step_time);
-    leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
-    leg->applyIK();
+    int progress = leg_poser->stepToPosition(target_tip_pose, Pose::Identity(), step_height, step_time);
+    min_progress = min(progress, min_progress);
+    if (progress != PROGRESS_COMPLETE)
+    {
+      leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
+      leg->applyIK();
+    }
   }
 
-  return progress;
+  return min_progress;
 }
 
 /*******************************************************************************************************************//**
@@ -1304,7 +1309,7 @@ Vector3d PoseController::estimateGravity(void)
   Vector3d euler = quaternionToEulerAngles(model_->getImuData().orientation);
   AngleAxisd pitch(-euler[1], Vector3d::UnitY());
   AngleAxisd roll(-euler[0], Vector3d::UnitX());
-  Vector3d gravity(0, 0, GRAVITY_MAGNITUDE);
+  Vector3d gravity(0, 0, GRAVITY_ACCELERATION);
   gravity = pitch * gravity;
   gravity = roll * gravity;
   return gravity;

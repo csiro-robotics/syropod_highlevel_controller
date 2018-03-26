@@ -555,7 +555,7 @@ void StateController::legStateToggle(void)
     string leg_name = leg->getIDName();
 
     // Calculate default pose for new loading pattern
-    poser_->calculateDefaultPose();
+    //poser_->calculateDefaultPose(); // TODO temporarily removed
 
     // Set new leg state and transition position if required
     // WALKING -> WALKING_TO_MANUAL
@@ -567,6 +567,9 @@ void StateController::legStateToggle(void)
                       "\n%s leg transitioning to MANUAL state . . .\n",
                       leg->getIDName().c_str());
         leg->setLegState(WALKING_TO_MANUAL);
+        shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+        leg_stepper->setSwingProgress(-1.0);
+        leg_stepper->setStanceProgress(-1.0);
       }
       else
       {

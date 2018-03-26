@@ -58,14 +58,14 @@
 #include <stdlib.h>
 #include <memory>
 
-#define UNASSIGNED_VALUE 1e10 ///< Value used to determine if variable has been assigned
+#define UNASSIGNED_VALUE double(INT_MAX) ///< Value used to determine if variable has been assigned
 #define PROGRESS_COMPLETE 100 ///< Value denoting 100% and a completion of progress of various functions
 #define THROTTLE_PERIOD 5  ///< Default throttle period for all throttled rosconsole messages (seconds)
 
 #define UNDEFINED_ROTATION Quaterniond(0,0,0,0)
-#define UNDEFINED_POSITION Vector3d(1e10, 1e10, 1e10)
+#define UNDEFINED_POSITION Vector3d(double(INT_MAX), double(INT_MAX), double(INT_MAX))
 
-#define GRAVITY_MAGNITUDE -9.78971 ///< Gravitational acceleration magnitude for Brisbane, Australia (m/s/s)
+#define GRAVITY_ACCELERATION -9.81 ///< Approximate gravitational acceleration (m/s/s)
 
 using namespace std;
 using namespace ros;
