@@ -43,8 +43,7 @@ WalkController::WalkController(shared_ptr<Model> model, const Parameters& params
 void WalkController::init(void)
 {
   time_delta_ = params_.time_delta.data;
-  step_clearance_ = params_.step_clearance.current_value;
-  body_clearance_ = params_.body_clearance.current_value;
+  step_frequency_ = params_.step_frequency.current_value;
   walk_state_ = STOPPED;
   walk_plane_ = Vector3d::Zero();
   walk_plane_normal_ = Vector3d::UnitZ();
@@ -273,7 +272,7 @@ int WalkController::generateWorkspace(const bool& self_loop)
         search_bearing_ = 0;
         if (search_height_ == 0.0)
         {
-          search_height_ += step_clearance_;
+          search_height_ += params_.step_clearance.current_value;
         }
         // All searches complete -> set workspace generation complete and reset.
         else
@@ -939,7 +938,7 @@ void LegStepper::updateStride(void)
   stride_vector_ *= (walker_->getOnGroundRatio() / walker_->getStepFrequency());
 
   // Swing clearance
-  double step_clearance = walker_->getParameters().step_clearance.current_value;
+  double step_clearance = walker_->getStepClearance();
   swing_clearance_ = step_clearance * Vector3d::UnitZ();//walk_plane_normal_.normalized();
 }
 
@@ -1002,7 +1001,6 @@ void LegStepper::updateTipPosition(void)
           // Shift target to step surface according to data from tip state (PROACTIVE)
           // TODO Move proactive target shifting to seperate node and use external target API
           Pose step_plane_pose = leg_->getStepPlanePose();
-          
           if (step_plane_pose != Pose::Undefined())
           {
             // Calculate target tip position based on step plane estimate
@@ -1062,6 +1060,7 @@ void LegStepper::updateTipPosition(void)
       delta_pos = swing_delta_t_ * quarticBezierDot(swing_2_nodes_, time_input);
     }
     
+    ROS_ASSERT(time_input <= 1.0);    
     ROS_ASSERT(delta_pos.norm() < UNASSIGNED_VALUE);
     current_tip_pose_.position_ += delta_pos;
     current_tip_velocity_ = delta_pos / walker_->getTimeDelta();
@@ -1090,8 +1089,14 @@ void LegStepper::updateTipPosition(void)
       stance_origin_tip_position_ = current_tip_pose_.position_;
       use_default_target_ = true;
       
+      // Modify identity tip positions according to desired stance span modifier parameter
+      Vector3d identity_tip_position = identity_tip_pose_.position_;
+      Vector3d stance_span_change = walker_->getStanceSpanChange();
+      bool positive_y_axis = Vector3d::UnitY().dot(identity_tip_position) > 0.0;
+      identity_tip_position += positive_y_axis ? stance_span_change : -stance_span_change;
+      
       // Update default tip position as projection of tip position at beginning of STANCE period onto walk plane
-      Vector3d identity_tip_position = leg_->getDefaultBodyPose().transformVector(identity_tip_pose_.position_);
+      identity_tip_position = leg_->getDefaultBodyPose().transformVector(identity_tip_position);
       Vector3d identity_to_stance_origin = stance_origin_tip_position_ - identity_tip_position;
       Vector3d projection_to_walk_plane = getProjection(identity_to_stance_origin, walk_plane_normal_);
       default_tip_pose_.position_ = identity_tip_position + projection_to_walk_plane;

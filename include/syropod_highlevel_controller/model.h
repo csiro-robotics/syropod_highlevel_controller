@@ -434,6 +434,12 @@ public:
   void calculateTipForce(void);
   
   /**
+   * Checks tip force magnitude against touchdown/liftoff thresholds to instantaneously define the location of the 
+   * step plane.
+   */
+  void touchdownDetection(void);
+  
+  /**
     * Applies inverse kinematics to calculate required joint positions to achieve desired tip pose. Inverse
     * kinematics is generated via the calculation of a jacobian for the current state of the leg, which is used as per
     * the Damped Least Squares method to generate a change in joint position for each joint.

@@ -47,19 +47,12 @@ public:
   AdmittanceController(shared_ptr<Model> model, const Parameters& params);
 
   /**
-   * Admittance controller initialisation. Assigns integrator step time and force gain for robot model and for each leg
-   * sets virtual mass/stiffness/damping ratio from parameters.
-   */
-  void init(void);
-
-  /**
    * Iterates through legs in the robot model and updates the tip position offset value for each.
    * The calculation is achieved through the use of a classical Runge-Kutta ODE solver with a force input
    * acquired from a tip force callback OR from estimation from joint effort values.
-   * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
    * @todo Implement admittance control in x/y axis
    */
-  void updateAdmittance(const bool& use_joint_effort);
+  void updateAdmittance(void);
 
   /**
    * Scales virtual stiffness of an input swinging leg and two 'adjacent legs' according to an input reference.

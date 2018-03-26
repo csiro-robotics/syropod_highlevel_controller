@@ -153,6 +153,10 @@ void Model::updateModel(void)
   for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
     shared_ptr<Leg> leg = leg_it->second;
+    if (params_.use_joint_effort.data)
+    {
+      leg->calculateTipForce();
+    }
     leg->setDesiredTipPose();
     leg->applyIK();
   }
@@ -437,6 +441,26 @@ void Leg::calculateTipForce(void)
   tip_force_[0] = s * raw_tip_force[0] * params_.force_gain.current_value + (1 - s) * tip_force_[0];
   tip_force_[1] = s * raw_tip_force[1] * params_.force_gain.current_value + (1 - s) * tip_force_[1];
   tip_force_[2] = s * raw_tip_force[2] * params_.force_gain.current_value + (1 - s) * tip_force_[2];
+  
+  // Use newly calculated tip force for touchdown detection
+  leg_stepper_->setTouchdownDetection(true);
+  touchdownDetection();
+}
+
+/*******************************************************************************************************************//**
+  * Checks tip force magnitude against touchdown/liftoff thresholds to instantaneously define the location of the 
+  * step plane.
+***********************************************************************************************************************/
+void Leg::touchdownDetection(void)
+{
+  if (tip_force_.norm() > params_.touchdown_threshold.data && step_plane_pose_ == Pose::Undefined())
+  {
+    step_plane_pose_ = current_tip_pose_;
+  }
+  else if (tip_force_.norm() < params_.liftoff_threshold.data)
+  {
+    step_plane_pose_ = Pose::Undefined();
+  }
 }
 
 /*******************************************************************************************************************//**

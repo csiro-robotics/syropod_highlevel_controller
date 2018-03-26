@@ -173,7 +173,7 @@ enum ParameterSelection
   STEP_FREQUENCY,         ///< Designation for the adjustable parameter 'step_frequency'.
   STEP_CLEARANCE,         ///< Designation for the adjustable parameter 'step_clearance'.
   BODY_CLEARANCE,         ///< Designation for the adjustable parameter 'body_clearance'.
-  LEG_SPAN_SCALE,         ///< Designation for the adjustable parameter 'leg_span_scale'.
+  STANCE_SPAN_MODIFIER,   ///< Designation for the adjustable parameter 'stance_span_modifier'.
   VIRTUAL_MASS,           ///< Designation for the adjustable parameter 'virtual_mass'.
   VIRTUAL_STIFFNESS,      ///< Designation for the adjustable parameter 'virtual_stiffness'.
   VIRTUAL_DAMPING,        ///< Designation for the adjustable parameter 'virtual_damping'.
@@ -219,7 +219,7 @@ public:
   T data;                   ///< Data which defines parameter
   bool required = true;     ///< Denotes if this parameter is required to be initialised
   bool initialised = false; ///< Denotes if this parameter has been initialised
-  
+
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
@@ -299,7 +299,7 @@ struct Parameters
   Parameter<map<string, int>> leg_DOF;            ///< A map of the leg name and its degrees of freedom.
   Parameter<bool> clamp_joint_positions;          ///< A bool denoting if joint position limits are adhered to
   Parameter<bool> clamp_joint_velocities;         ///< A bool denoting if joint velocity limits are adhered to
-  Parameter<bool> ignore_IK_warnings;             ///< A bool denoting if IK deviation warnings are displayed to user. 
+  Parameter<bool> ignore_IK_warnings;             ///< A bool denoting if IK deviation warnings are displayed to user.
 
   Parameter<map<string, double>> joint_parameters[8][6];  ///< An array of maps of joint parameter names and values.*
   Parameter<map<string, double>> link_parameters[8][7];   ///< An array of maps of link parameter names and values.*
@@ -310,6 +310,7 @@ struct Parameters
   AdjustableParameter step_frequency;                    ///< The frequency of complete step cycles (Hz).
   AdjustableParameter step_clearance;                    ///< The stepping clearance of the tip position above default.
   AdjustableParameter body_clearance;                    ///< The requested height of the robot body above ground.
+  AdjustableParameter stance_span_modifier;              ///< The modifier for stance width (-1.0 = min, 1.0 = max)
   Parameter<string> velocity_input_mode;                 ///< Determines velocity input as 'real' or 'throttle' based.
   Parameter<double> body_velocity_scaler;                ///< Scales all body velocity inputs
   Parameter<bool> force_cruise_velocity;                 ///< Flag denoting if cruise control mode uses set values.
@@ -374,7 +375,7 @@ struct Parameters
   Parameter<bool> debug_workspace_calc;      ///< Flag determining if workspace calculations output debug info.
   Parameter<bool> debug_IK;                  ///< Flag determining if inverse kinematics engine outputs debug info.
   Parameter<bool> debug_rviz;                ///< Flag determining if visualisation markers are output for debugging.
-  
+
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };

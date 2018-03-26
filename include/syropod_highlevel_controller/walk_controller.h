@@ -78,13 +78,13 @@ public:
   inline double getStepFrequency(void) { return step_frequency_; };
 
   /** Accessor for step clearance. */
-  inline double getStepClearance(void) { return step_clearance_; };
+  inline double getStepClearance(void) { return params_.step_clearance.current_value; };
   
   /** Calculates ratio of walk cycle that occurs on the walk plane. */
   inline double getOnGroundRatio(void) { return double(stance_length_) / double(phase_length_); };
 
   /** Accessor for default body clearance above ground. */
-  inline double getBodyHeight(void) { return body_clearance_; };
+  inline double getBodyClearance(void) { return params_.body_clearance.current_value; };
 
   /** Accessor for desired linear body velocity. */
   inline Vector2d getDesiredLinearVelocity(void) { return desired_linear_velocity_; };
@@ -116,8 +116,14 @@ public:
     */
   inline void setPoseState(const PosingState& state) { pose_state_ = state; };
   
-  /** Modifier for generate workspace flag. */
+  /** Modifier for the scaler for lateral stance positions. */
   inline void regenerateWorkspace(void) { generate_workspace_ = true; };
+  
+  /** Returns the lateral workspace radius scaled by stance width scaler */
+  inline Vector3d getStanceSpanChange(void) 
+  { 
+    return Vector3d(0.0, params_.stance_span_modifier.current_value*workspace_map_.at(90), 0.0);
+  };
 
   /**
    * Initialises walk controller by setting desired default walking stance tip positions from parameters and creating
@@ -199,10 +205,7 @@ private:
   PosingState pose_state_ = POSING_COMPLETE; ///< The current state of auto posing.
 
   // Walk parameters
-  double step_frequency_; ///< The frequency of the step cycle.
-  double step_clearance_; ///< The desired clearance of the leg tip above default position during swing period.
-  double step_depth_;     ///< The desired depth of the leg tip below default position during stance period.
-  double body_clearance_; ///< The desired clearance of the body above the default tip positions.
+  double step_frequency_;      ///< The frequency of the step cycle.
 
   // Gait cycle parameters
   int phase_length_;  ///< The phase length of the step cycle.

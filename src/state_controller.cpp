@@ -69,10 +69,10 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
                                                      &StateController::secondaryLegStateCallback, this);
   secondary_tip_velocity_subscriber_  = n_.subscribe("syropod_remote/secondary_tip_velocity", 1,
                                                      &StateController::secondaryTipVelocityInputCallback, this);
-  //parameter_selection_subscriber_     = n_.subscribe("syropod_remote/parameter_selection", 1,
-  //                                                   &StateController::parameterSelectionCallback, this);
-  //parameter_adjustment_subscriber_    = n_.subscribe("syropod_remote/parameter_adjustment", 1,
-  //                                                   &StateController::parameterAdjustCallback, this);
+  parameter_selection_subscriber_     = n_.subscribe("syropod_remote/parameter_selection", 1,
+                                                     &StateController::parameterSelectionCallback, this);
+  parameter_adjustment_subscriber_    = n_.subscribe("syropod_remote/parameter_adjustment", 1,
+                                                     &StateController::parameterAdjustCallback, this);
   
   // Planner subscription/publisher
   target_configuration_subscriber_ = n_.subscribe("/target_configuration", 1,
@@ -159,7 +159,6 @@ void StateController::init(void)
   poser_ = allocate_shared<PoseController>(aligned_allocator<PoseController>(), model_, params_);
   poser_->init();
   admittance_ = allocate_shared<AdmittanceController>(aligned_allocator<AdmittanceController>(), model_, params_);
-  admittance_->init();
 
   robot_state_ = UNKNOWN;
 
@@ -188,8 +187,7 @@ void StateController::loop(void)
       {
         admittance_->updateStiffness(walker_);
       }
-      
-      admittance_->updateAdmittance(params_.use_joint_effort.data);
+      admittance_->updateAdmittance();
     }
   }
 
@@ -394,6 +392,12 @@ void StateController::runningState(void)
 {
   bool update_tip_position = true;
   
+  // Dynamically adjust parameters and change stance if required
+  if (parameter_adjust_flag_)
+  {
+    adjustParameter();
+  }
+  
   // Force Syropod to stop walking
   if (transition_state_flag_)
   {
@@ -404,12 +408,6 @@ void StateController::runningState(void)
   else if (gait_change_flag_)
   {
     changeGait();
-    update_tip_position = false;
-  }
-  // Dynamically adjust parameters and change stance if required
-  else if (parameter_adjust_flag_)
-  {
-    adjustParameter();
     update_tip_position = false;
   }
   // Toggle state of leg and transition between states
@@ -454,48 +452,27 @@ void StateController::runningState(void)
 }
 
 /*******************************************************************************************************************//**
- * Handles parameter adjustment. Forces robot velocity input to zero until it is in a STOPPED walk state and then
- * reinitialises the walk/pose/admittance controllers with the new parameter value to be applied. The pose controller is
- * then called to step to new stance if required.
+ * Updates adjustment of parameters
+ * @todo Implement smooth "whilst walking" adjustment of step_frequency and body_clearance
 ***********************************************************************************************************************/
 void StateController::adjustParameter(void)
 {
-  if (walker_->getWalkState() == STOPPED)
+  AdjustableParameter* p = dynamic_parameter_;
+  
+  if (p->name == "step_frequency" ||
+      p->name == "body_clearance")
   {
-    AdjustableParameter* p = dynamic_parameter_;
-
-    // Set new parameter value and apply by reinitialising individual controllers.
-    if (apply_new_parameter_)
-    {
-      p->current_value = new_parameter_value_;
-      walker_->init();
-      admittance_->init();
-      poser_->setAutoPoseParams();
-      apply_new_parameter_ = false;
-      ROS_INFO("\nAttempting to adjust '%s' parameter to %f. (Default: %f, Min: %f, Max: %f) . . .\n",
-               p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
-    }
-    // Update tip Positions for new parameter value
-    else
-    {
-      int progress = poser_->stepToNewStance();
-      if (progress == PROGRESS_COMPLETE)
-      {
-        walker_->generateWorkspace();
-        parameter_adjust_flag_ = false;
-        apply_new_parameter_ = true;
-        ROS_INFO("\nParameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
-                 p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
-      }
-    }
+    ROS_INFO("\n[SHC] Dynamic adjustment of parameter '%s' has been temporarily disabled for this"
+             " version of SHC but will be re-implemented soon.\n", p->name.c_str());
   }
-  // Force Syropod to stop walking
   else
   {
-    linear_velocity_input_ = Vector2d::Zero();
-    angular_velocity_input_ = 0.0;
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to adjust parameters . . .\n");
+    // Set new parameter value and apply by reinitialising individual controllers.
+    p->current_value = new_parameter_value_;
+    ROS_INFO("\n[SHC] Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
+                p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
   }
+  parameter_adjust_flag_ = false;
 }
 
 /*******************************************************************************************************************//**
@@ -1425,6 +1402,14 @@ void StateController::dynamicParameterCallback(syropod_highlevel_controller::Dyn
                                      dynamic_parameter_->max_value);
       config.body_clearance = new_parameter_value_;
     }
+    else if (config.stance_span_modifier != params_.stance_span_modifier.current_value)
+    {
+      dynamic_parameter_ = &params_.stance_span_modifier;
+      new_parameter_value_ = clamped(config.stance_span_modifier,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.stance_span_modifier = new_parameter_value_;
+    }
     else if (config.virtual_mass != params_.virtual_mass.current_value)
     {
       dynamic_parameter_ = &params_.virtual_mass;
@@ -1552,23 +1537,14 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (get_wrench_values)
     {
-      leg_stepper->setTouchdownDetection(true);
       Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
       Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
       if (!params_.use_joint_effort.data)
       {
+        leg_stepper->setTouchdownDetection(true);
         leg->setTipForce(tip_force);
         leg->setTipTorque(tip_torque);
-      }
-      
-      // Use tip force to instantaneously define the location of the step plane
-      if (tip_force.norm() > params_.touchdown_threshold.data && leg->getStepPlanePose() == Pose::Undefined())
-      {
-        leg->setStepPlanePose(leg->getCurrentTipPose());
-      }
-      else if (tip_force.norm() < params_.liftoff_threshold.data)
-      {
-        leg->setStepPlanePose(Pose::Undefined());
+        leg->touchdownDetection();
       }
     }
     if (get_step_plane_values)
@@ -1701,6 +1677,7 @@ void StateController::initParameters(void)
   params_.step_frequency.init(n_, "step_frequency");
   params_.step_clearance.init(n_, "step_clearance");
   params_.body_clearance.init(n_, "body_clearance");
+  params_.stance_span_modifier.init(n_, "stance_span_modifier");
   params_.velocity_input_mode.init(n_, "velocity_input_mode");
   params_.body_velocity_scaler.init(n_, "body_velocity_scaler");
   params_.force_cruise_velocity.init(n_, "force_cruise_velocity");
@@ -1779,6 +1756,7 @@ void StateController::initParameters(void)
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_FREQUENCY, &params_.step_frequency));
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_CLEARANCE, &params_.step_clearance));
   params_.adjustable_map.insert(AdjustableMapType::value_type(BODY_CLEARANCE, &params_.body_clearance));
+  params_.adjustable_map.insert(AdjustableMapType::value_type(STANCE_SPAN_MODIFIER, &params_.stance_span_modifier));
   params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_MASS, &params_.virtual_mass));
   params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_STIFFNESS, &params_.virtual_stiffness));
   params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_DAMPING, &params_.virtual_damping_ratio));
@@ -1788,7 +1766,7 @@ void StateController::initParameters(void)
   dynamic_reconfigure_server_ = new dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>(mutex_);
   dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>::CallbackType callback_type;
   callback_type = boost::bind(&StateController::dynamicParameterCallback, this, _1, _2);
-  //dynamic_reconfigure_server_->setCallback(callback_type);
+  dynamic_reconfigure_server_->setCallback(callback_type);
 
   // Set min/max/default values for dynamic reconfigure server
   syropod_highlevel_controller::DynamicConfig config_max, config_min, config_default;
@@ -1801,6 +1779,9 @@ void StateController::initParameters(void)
   config_max.body_clearance = params_.body_clearance.max_value;
   config_min.body_clearance = params_.body_clearance.min_value;
   config_default.body_clearance = params_.body_clearance.default_value;
+  config_max.stance_span_modifier = params_.stance_span_modifier.max_value;
+  config_min.stance_span_modifier = params_.stance_span_modifier.min_value;
+  config_default.stance_span_modifier = params_.stance_span_modifier.default_value;
   config_max.virtual_mass = params_.virtual_mass.max_value;
   config_min.virtual_mass = params_.virtual_mass.min_value;
   config_default.virtual_mass = params_.virtual_mass.default_value;

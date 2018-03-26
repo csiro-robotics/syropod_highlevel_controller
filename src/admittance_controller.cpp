@@ -32,46 +32,25 @@ AdmittanceController::AdmittanceController(shared_ptr<Model> model, const Parame
 }
 
 /*******************************************************************************************************************//**
- * Admittance controller initialisation. For each leg sets virtual mass/stiffness/damping ratio from parameters.
-***********************************************************************************************************************/
-void AdmittanceController::init(void)
-{
-  LegContainer::iterator leg_it;
-  for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
-  {
-    shared_ptr<Leg> leg = leg_it->second;
-    leg->setVirtualMass(params_.virtual_mass.current_value);
-    leg->setVirtualStiffness(params_.virtual_stiffness.current_value);
-    leg->setVirtualDampingRatio(params_.virtual_damping_ratio.current_value);
-  }
-}
-
-/*******************************************************************************************************************//**
  * Iterates through legs in the robot model and updates the tip position offset value for each.
  * The calculation is achieved through the use of a classical Runge-Kutta ODE solver with a force input
  * acquired from a tip force callback OR from estimation from joint effort values.
- * @param[in] use_joint_effort Bool which determines whether the tip force input is derived from joint effort
  * @todo Implement admittance control in x/y axis
 ***********************************************************************************************************************/
-void AdmittanceController::updateAdmittance(const bool& use_joint_effort)
+void AdmittanceController::updateAdmittance(void)
 {
   // Get current force value on leg and run admittance calculations to get a vertical tip offset (deltaZ)
   LegContainer::iterator leg_it;
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
     shared_ptr<Leg> leg = leg_it->second;
-    if (use_joint_effort)
-    {
-      leg->calculateTipForce();
-    }
-
     Vector3d admittance_delta = Vector3d::Zero();
     for (int i = 0; i < 3; ++i)
     {
       double force_input = max(leg->getTipForce()[i], 0.0); // Use vertical component of tip force vector //TODO
-      double damping = leg->getVirtualDampingRatio();
-      double stiffness = leg->getVirtualStiffness();
-      double mass = leg->getVirtualMass();
+      double damping = params_.virtual_damping_ratio.current_value;
+      double stiffness = params_.virtual_stiffness.current_value;
+      double mass = params_.virtual_mass.current_value;
       double step_time = params_.integrator_step_time.data;
       state_type* admittance_state = leg->getAdmittanceState();
       double virtual_damping = damping * 2 * sqrt(mass * stiffness);

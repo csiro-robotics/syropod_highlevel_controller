@@ -117,9 +117,8 @@ public:
   void runningState(void);
   
   /**
-   * Handles parameter adjustment. Forces robot velocity input to zero until it is in a STOPPED walk state and then
-   * reinitialises the walk/pose/admittance controllers with the new parameter value to be applied. The pose controller
-   * is then called to step to new stance if required.
+   * Updates adjustment of parameters
+   * @todo Implement smooth "whilst walking" adjustment of step_frequency and body_clearance
    */
   void adjustParameter(void);
   
@@ -422,7 +421,6 @@ private:
   bool toggle_primary_leg_state_ = false;     ///< Flags that the primary selected leg state is toggling
   bool toggle_secondary_leg_state_ = false;   ///< Flags that the secondary selected leg state is toggling
   bool parameter_adjust_flag_ = false;        ///< Flags that the selected parameter is being adjusted
-  bool apply_new_parameter_ = true;           ///< Flags that the new parameter value is to be applied to the controller
   bool joint_positions_initialised_ = false;  ///< Flags if all joint objects have been initialised with a position
   bool transition_state_flag_ = false;        ///< Flags that the system state is transitioning
   
