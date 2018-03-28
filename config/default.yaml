@@ -8,7 +8,7 @@ syropod:
     # Control parameters
     time_delta:         0.02
     manual_posing:      true
-    auto_posing:        true
+    auto_posing:        false
     rough_terrain_mode: false
     admittance_control: false
     inclination_posing: false #requires imu
@@ -47,8 +47,7 @@ syropod:
     CL_femur_joint_parameters: {min: -1.500, max:  1.500, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
     CL_tibia_joint_parameters: {min: -2.355, max: -0.100, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
     
-    # Link DH parameters: en.wikipedia.org/wiki/Denavit–Hartenberg_parameters 
-    # Ensure theta values are within joint limits
+    # Link DH parameters: en.wikipedia.org/wiki/Denavit–Hartenberg_parameters
     AR_base_link_parameters:  {d:  0.000, theta: -0.523, r:  0.050, alpha:  0.000}
     AR_coxa_link_parameters:  {d:  0.000, theta:  0.000, r:  0.050, alpha:  1.571}
     AR_femur_link_parameters: {d:  0.000, theta:  0.000, r:  0.050, alpha:  0.000}
@@ -81,15 +80,16 @@ syropod:
 ########################################################################################################################
     # Walker parameters
     gait_type: tripod_gait
-    step_frequency: {default: 1.000, min: 0.001, max: 2.000, step: 0.100} #Reconfigurable
-    step_clearance: {default: 0.010, min: 0.010, max: 0.050, step: 0.005} #Reconfigurable
-    body_clearance: {default: 0.100, min: 0.010, max: 0.150, step: 0.010} #Reconfigurable
+    step_frequency:       {default:  1.000, min:  0.001, max:  2.000, step:  0.100} #Reconfigurable
+    step_clearance:       {default:  0.020, min:  0.010, max:  0.050, step:  0.005} #Reconfigurable
+    body_clearance:       {default:  0.100, min:  0.010, max:  0.150, step:  0.010} #Reconfigurable
+    stance_span_modifier: {default:  0.000, min: -1.000, max:  1.000, step:  0.100} #Reconfigurable
 
     velocity_input_mode:       throttle #real
     body_velocity_scaler:      1.000
     force_cruise_velocity:     true
-    linear_cruise_velocity:    {x: 0.001, y: 0.000}
-    angular_cruise_velocity:   0.000
+    linear_cruise_velocity:    {x: 1.000, y: 0.000}
+    angular_cruise_velocity:   0.500
     cruise_control_time_limit: 0.000
 
     AR_stance_position: {x:  0.130, y: -0.075}
@@ -100,6 +100,8 @@ syropod:
     AL_stance_position: {x:  0.130, y:  0.075}
 
     gravity_aligned_tips: false
+    touchdown_threshold:  0.9
+    liftoff_threshold:    0.1
 
 ########################################################################################################################
     # Poser parameters
@@ -118,7 +120,7 @@ syropod:
     dynamic_stiffness:      true
     use_joint_effort:       false
     integrator_step_time:   0.500
-    virtual_mass:           {default:  10.00, min:  1.000, max:  100.0,  step: 5.000} #Reconfigurable    
+    virtual_mass:           {default:  10.00, min:  1.000, max:  100.0,  step: 5.000} #Reconfigurable
     virtual_stiffness:      {default:  12.00, min:  1.000, max:  50.00,  step: 5.000} #Reconfigurable
     virtual_damping_ratio:  {default:  0.800, min:  0.100, max:  10.00,  step: 0.050} #Reconfigurable
     force_gain:             {default:  0.100, min:  0.001, max:  100.0,  step: 1.000} #Reconfigurable
@@ -135,8 +137,8 @@ syropod:
     debug_execute_sequence:       false
     debug_workspace_calculations: false
     debug_ik:                     false
-    debug_rviz:                   false
-    
+    debug_rviz:                   true
+
 ########################################################################################################################
 ########################################################################################################################
 

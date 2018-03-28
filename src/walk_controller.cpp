@@ -728,32 +728,39 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
 }
 
 /*******************************************************************************************************************//**
- * Calculates a estimated walk plane which best fits the tip positions of legs in Stance.
+ * Calculates a estimated walk plane which best fits the default tip positions of legs in model.
  * Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
 ***********************************************************************************************************************/
 void WalkController::updateWalkPlane(void)
 {
   vector<double> raw_A;
   vector<double> raw_B;
-
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  if (model_->getLegCount() >= 3) // Minimum for plane estimation
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    raw_A.push_back(leg_stepper->getDefaultTipPose().position_[0]);
-    raw_A.push_back(leg_stepper->getDefaultTipPose().position_[1]);
-    raw_A.push_back(1.0);
-    raw_B.push_back(leg_stepper->getDefaultTipPose().position_[2]);
-  }
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+    {
+      shared_ptr<Leg> leg = leg_it_->second;
+      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      raw_A.push_back(leg_stepper->getDefaultTipPose().position_[0]);
+      raw_A.push_back(leg_stepper->getDefaultTipPose().position_[1]);
+      raw_A.push_back(1.0);
+      raw_B.push_back(leg_stepper->getDefaultTipPose().position_[2]);
+    }
 
-  // Estimate walk plane
-  Map<Matrix<double, Dynamic, Dynamic, RowMajor>> A(raw_A.data(), model_->getLegCount(), 3);
-  Map<VectorXd> B(raw_B.data(), model_->getLegCount());
-  MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
-  walk_plane_ = (pseudo_inverse_A*B);
-  walk_plane_normal_ = Vector3d(-walk_plane_[0], -walk_plane_[1], 1.0).normalized();
-  ROS_ASSERT(walk_plane_.norm() < UNASSIGNED_VALUE);
-  ROS_ASSERT(walk_plane_normal_.norm() < UNASSIGNED_VALUE);
+    // Estimate walk plane
+    Map<Matrix<double, Dynamic, Dynamic, RowMajor>> A(raw_A.data(), model_->getLegCount(), 3);
+    Map<VectorXd> B(raw_B.data(), model_->getLegCount());
+    MatrixXd pseudo_inverse_A = (A.transpose()*A).inverse()*A.transpose();
+    walk_plane_ = (pseudo_inverse_A*B);
+    walk_plane_normal_ = Vector3d(-walk_plane_[0], -walk_plane_[1], 1.0).normalized();
+    ROS_ASSERT(walk_plane_.norm() < UNASSIGNED_VALUE);
+    ROS_ASSERT(walk_plane_normal_.norm() < UNASSIGNED_VALUE);
+  }
+  else
+  {
+    walk_plane_ = Vector3d::Zero();
+    walk_plane_normal_ = Vector3d::UnitZ();
+  }
 }
 
 /*******************************************************************************************************************//**

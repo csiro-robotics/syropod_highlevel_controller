@@ -17,69 +17,73 @@ syropod:
       pose_negation_phase_starts: {AR: 1, BR: 11, CR: 9, CL: 3, BL: 5, AL: 7}
       pose_negation_phase_ends:   {AR: 3, BR: 1, CR: 11, CL: 5, BL: 7, AL: 9}
 
-      x_amplitudes:     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      y_amplitudes:     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      z_amplitudes:     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      roll_amplitudes:  [-0.015, 0.015, 0.015, 0.015, -0.015, -0.015]
-      pitch_amplitudes: [-0.02, 0.02, 0.00, -0.02, 0.02, 0.00]
-      yaw_amplitudes:   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      roll_amplitudes:    [-0.015,  0.015,  0.015,  0.015, -0.015, -0.015]
+      pitch_amplitudes:   [ 0.020, -0.020,  0.000,  0.020, -0.020,  0.000]
+      yaw_amplitudes:     [ 0.000,  0.000,  0.000,  0.000,  0.000,  0.000]
+      x_amplitudes:       [ 0.000,  0.000,  0.000,  0.000,  0.000,  0.000]
+      y_amplitudes:       [ 0.000,  0.000,  0.000,  0.000,  0.000,  0.000]
+      z_amplitudes:       [ 0.000,  0.000,  0.000,  0.000,  0.000,  0.000]
+      gravity_amplitudes: [ 0.000,  0.000,  0.000,  0.000,  0.000,  0.000]
 
 ########################################################################################################################
 
     tripod_gait_pose:
 
-      pose_frequency: -1.0 # sync with step cycle
+      pose_frequency:    -1.0 # sync with step cycle
       pose_phase_length: 4
       pose_phase_starts: [1, 3] #Per phase (step order: AR/BL/CR,AL/BR/CL)
-      pose_phase_ends: [3, 1]
+      pose_phase_ends:   [3, 1]
 
       pose_negation_phase_starts: {AR: 1, BR: 3, CR: 1, CL: 3, BL: 1, AL: 3}
-      pose_negation_phase_ends: {AR: 3, BR: 1, CR: 3, CL: 1, BL: 3, AL: 1}
+      pose_negation_phase_ends:   {AR: 3, BR: 1, CR: 3, CL: 1, BL: 3, AL: 1}
 
-      x_amplitudes: [0.0, 0.0]
-      y_amplitudes: [0.0, 0.0]
-      z_amplitudes: [0.02, 0.02]
-      roll_amplitudes: [-0.015, 0.015]
-      pitch_amplitudes: [0.0, 0.0]
-      yaw_amplitudes: [0.0, 0.0]
+      roll_amplitudes:    [-0.015, 0.015]
+      pitch_amplitudes:   [0.000,  0.000]
+      yaw_amplitudes:     [0.000,  0.000]
+      x_amplitudes:       [0.000,  0.000]
+      y_amplitudes:       [0.000,  0.000]
+      z_amplitudes:       [0.020,  0.020]
+      gravity_amplitudes: [0.000,  0.000]
 
 ########################################################################################################################
 
     ripple_gait_pose:
 
-      pose_frequency: -1.0 # sync with step cycle
+      pose_frequency:    -1.0 # sync with step cycle
       pose_phase_length: 6
       pose_phase_starts: [0, 1, 2, 3, 4, 5] #Per phase (step order: AR,CL,BR,AL,CR,BL)
-      pose_phase_ends: [2, 3, 4, 5, 0, 1]
+      pose_phase_ends:   [2, 3, 4, 5, 0, 1]
 
       pose_negation_phase_starts: {AR: 0, BR: 2, CR: 4, CL: 1, BL: 5, AL: 3}
-      pose_negation_phase_ends: {AR: 2, BR: 4, CR: 0, CL: 3, BL: 1, AL: 5}
+      pose_negation_phase_ends:   {AR: 2, BR: 4, CR: 0, CL: 3, BL: 1, AL: 5}
 
-      x_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      y_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      z_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      roll_amplitudes: [-0.015, 0.015, -0.015, 0.015, -0.015, 0.015]
-      pitch_amplitudes: [-0.02, 0.02, 0.00, -0.02, 0.02, 0.0]
-      yaw_amplitudes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      roll_amplitudes:    [-0.015,  0.015, -0.015,  0.015, -0.015, 0.015]
+      pitch_amplitudes:   [-0.020,  0.020,  0.000, -0.020,  0.020, 0.000]
+      yaw_amplitudes:     [ 0.000,  0.000,  0.000,  0.000,  0.000, 0.000]
+      x_amplitudes:       [ 0.000,  0.000,  0.000,  0.000,  0.000, 0.000]
+      y_amplitudes:       [ 0.000,  0.000,  0.000,  0.000,  0.000, 0.000]
+      z_amplitudes:       [ 0.000,  0.000,  0.000,  0.000,  0.000, 0.000]
+      gravity_amplitudes: [ 0.000,  0.000,  0.000,  0.000,  0.000, 0.000]
 
 ########################################################################################################################
 
     amble_gait_pose:
 
-      pose_frequency: -1.0 # sync with step cycle
+      pose_frequency:    -1.0 # sync with step cycle
       pose_phase_length: 3
       pose_phase_starts: [0, 1, 2] #Per phase (step order: AR/CL,AL/CR,BR/BL)
-      pose_phase_ends: [1, 2, 0]
+      pose_phase_ends:   [1, 2, 0]
 
       pose_negation_phase_starts: {AR: 0, BR: 2, CR: 1, CL: 0, BL: 2, AL: 1}
-      pose_negation_phase_ends: {AR: 1, BR: 0, CR: 2, CL: 1, BL: 0, AL: 2}
+      pose_negation_phase_ends:   {AR: 1, BR: 0, CR: 2, CL: 1, BL: 0, AL: 2}
 
-      x_amplitudes: [0.0, 0.0, 0.0]
-      y_amplitudes: [0.0, 0.0, 0.0]
-      z_amplitudes: [0.0, 0.0, 0.0]
-      roll_amplitudes: [0.0, 0.0, 0.0]
-      pitch_amplitudes: [0.0, 0.0, 0.0]
-      yaw_amplitudes: [0.0, 0.0, 0.0]
+      roll_amplitudes:    [0.000, 0.000, 0.000]
+      pitch_amplitudes:   [0.000, 0.000, 0.000]
+      yaw_amplitudes:     [0.000, 0.000, 0.000]
+      x_amplitudes:       [0.000, 0.000, 0.000]
+      y_amplitudes:       [0.000, 0.000, 0.000]
+      z_amplitudes:       [0.000, 0.000, 0.000]
+      gravity_amplitudes: [0.000, 0.000, 0.000]
 
 ########################################################################################################################
 ########################################################################################################################

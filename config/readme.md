@@ -22,7 +22,7 @@
       (default: false)
       
 ### /syropod/parameters/rough_terrain_mode: 
-    Sets whether rough terrain mode is on/off. Rough terrain mode uses tip range sensor data to proactively adjust tip 
+    Sets whether rough terrain mode is on/off. Rough terrain mode uses various tip sensing data and/or external planners to actively adjust tip 
     trajectory whilst approaching touchdown and estimates a walk plane for legs on uneven ground. Allows for traversal 
     of rough terrain, stair climbing and transitioning to/from inclined/declined terrain.
       (type: bool)
@@ -173,6 +173,19 @@
       (type: {string: double, string: double, string: double, string: double})
       (default: {default: 0.3, min: 0.1, max: 0.5, step: 0.05})
       (unit: metres)
+      
+### /syropod/parameters/stance_span_modifier:
+    Defines the percentage of the lateral workspace to use to modify the default walking stance.
+    A value of -1.0/1.0 will move the default stance laterally to the minimum/maximum stance span as limited by the workspace.
+    Note: This is an dynamically adjustable parameter and thus consists of a map of values which describe the 
+    possible values of this parameter:
+      default: The default parameter value.
+      min: The minimum allowed parameter value.
+      max: The maximum allowed parameter value.
+      step: The increment/decrement step of this value when adjusted.
+      (type: {string: double, string: double, string: double, string: double})
+      (default: {default: 0.0, min: -1.0, max: 1.0, step: 0.100})
+      (unit: percentage)
 
 ### /syropod/parameters/velocity_input_mode:
     String which defines the type of velocity input required:
@@ -229,7 +242,17 @@
     direction (downward). Gravity aligned tips uses redundancy in the leg define a target orientation and thus is 
     automatically turned off for legs with 3 or less degrees of freedom (joints).
       (type: bool)
-      (default: true)
+      (default: false)
+      
+### /syropod/parameters/touchdown_threshold:
+    A value used as a threshold to determine if a leg has 'touched down' onto the step surface. This threshold is compared against any data coming through the 'tip_states' topic and is not limited to any specific unit, eg: force in N, pressure in Pa, current in A or normalised.
+      (type: double)
+      (default: 0.9)
+      
+### /syropod/parameters/liftoff_threshold:
+    A value used as a threshold to determine if a leg has 'lifted off' of the step surface. This threshold is compared against any data coming through the 'tip_states' topic and is not limited to any specific unit, eg: force in N, pressure in Pa, current in A or normalised.
+      (type: double)
+      (default: 0.1)
 
 ## Pose Controller Parameters:
 ### /syropod/parameters/auto_pose_type:
@@ -495,6 +518,21 @@
     A map of phases which signify the end for each leg to negate any auto posing applied to it by auto-pose cycles.
       (type: {string: int, string: int, string: int, ... string: int})
 
+### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/roll_amplitudes:
+    An array of values which define the amplitude of rotational angular body posing about the x-axis (roll) for each 
+    of any number of auto pose cycles.
+      (type: [double, double, double ... double])
+
+### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/pitch_amplitudes:
+    An array of values which define the amplitude of rotational angular body posing about the y-axis (pitch) for each 
+    of any number of auto pose cycles.
+      (type: [double, double, double ... double])
+
+### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/yaw_amplitudes:
+    An array of values which define the amplitude of rotational angular body posing about the z-axis (yaw) for each 
+    of any number of auto pose cycles.
+      (type: [double, double, double ... double])
+      
 ### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/x_amplitudes:
     An array of values which define the amplitude of translational linear body posing in the x-axis for each of any 
     number of auto pose cycles.
@@ -509,18 +547,7 @@
     An array of values which define the amplitude of translational linear body posing in the z-axis for each of any 
     number of auto pose cycles.
       (type: [double, double, double ... double])
-
-### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/roll_amplitudes:
-    An array of values which define the amplitude of rotational angular body posing about the x-axis (roll) for each 
-    of any number of auto pose cycles.
-      (type: [double, double, double ... double])
-
-### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/pitch_amplitudes:
-    An array of values which define the amplitude of rotational angular body posing about the y-axis (pitch) for each 
-    of any number of auto pose cycles.
-      (type: [double, double, double ... double])
-
-### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/yaw_amplitudes:
-    An array of values which define the amplitude of rotational angular body posing about the z-axis (yaw) for each 
-    of any number of auto pose cycles.
+      
+### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/gravity_amplitudes:
+    An array of values which define the amplitude of translational linear body posing in the direction of gravity estimated from an IMU.
       (type: [double, double, double ... double])

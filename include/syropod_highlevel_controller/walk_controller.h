@@ -176,8 +176,7 @@ public:
                     const int& secondary_leg_selection_ID, const Vector3d& secondary_tip_velocity_input);
   
   /**
-   * Calculates a estimated walk plane which best fits the tip positions of all legs using least squares method.
-   * Transitions to updated walk plane estimates using the swing progress of a swinging leg as control input.
+   * Calculates a estimated walk plane which best fits the default tip positions of legs in model.
    * Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
    */
   void updateWalkPlane(void);
