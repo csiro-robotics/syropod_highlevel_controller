@@ -57,7 +57,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model, const bool& re
   leg_line_list.header.stamp = ros::Time::now();
   leg_line_list.ns = "robot_model";
   leg_line_list.action = visualization_msgs::Marker::ADD;
-  leg_line_list.id = ROBOT_MODEL_ID;
+  leg_line_list.id = 0;
   leg_line_list.type = visualization_msgs::Marker::LINE_LIST;
   leg_line_list.scale.x = 0.01 * sqrt(marker_scale_);
   leg_line_list.color.r = 1; //WHITE
@@ -159,8 +159,8 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector
   visualization_msgs::Marker walk_plane_marker;
   walk_plane_marker.header.frame_id = "/walk_plane";
   walk_plane_marker.header.stamp = ros::Time::now();
-  walk_plane_marker.ns = "walk_plane_markers";
-  walk_plane_marker.id = WALK_PLANE_ID;
+  walk_plane_marker.ns = "walk_plane_marker";
+  walk_plane_marker.id = 0;
   walk_plane_marker.type = visualization_msgs::Marker::CUBE;
   walk_plane_marker.action = visualization_msgs::Marker::ADD;
   walk_plane_marker.scale.x = 2.0 * sqrt(marker_scale_);
@@ -187,8 +187,9 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector
 /*******************************************************************************************************************//**
  * Publishes visualisation markers which represent the trajectory of the tip of the input leg.
  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+ * @param[in] limit The maximum number of trajectory markers to show.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
+void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const int& limit)
 {
   visualization_msgs::Marker tip_position_marker;
   tip_position_marker.header.frame_id = "/base_link";
@@ -200,7 +201,6 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
   tip_position_marker.scale.x = 0.005 * sqrt(marker_scale_);
   tip_position_marker.color.r = 1; //RED
   tip_position_marker.color.a = 1;
-  tip_position_marker.lifetime = ros::Duration(TRAJECTORY_DURATION);
   tip_position_marker.pose = Pose::Identity().convertToPoseMessage();
 
   Vector3d tip_position = leg->getCurrentTipPose().position_;
@@ -212,7 +212,7 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
   tip_position_marker.points.push_back(point);
 
   tip_trajectory_publisher_.publish(tip_position_marker);
-  tip_position_id_ = (tip_position_id_ + 1) % ID_LIMIT; // Ensures the trajectory marker id does not exceed overflow
+  tip_position_id_ = (tip_position_id_ + 1) % limit; // Ensures the trajectory marker id does not exceed overflow
 }
 
 /*******************************************************************************************************************//**
@@ -266,7 +266,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_1_nodes.header.frame_id = "/walk_plane";
   swing_1_nodes.header.stamp = ros::Time::now();
   swing_1_nodes.ns = "primary_swing_control_nodes";
-  swing_1_nodes.id = SWING_BEZIER_CURVE_1_MARKER_ID + leg->getIDNumber();
+  swing_1_nodes.id = leg->getIDNumber();
   swing_1_nodes.action = visualization_msgs::Marker::ADD;
   swing_1_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
   swing_1_nodes.scale.x = 0.02 * sqrt(marker_scale_);
@@ -279,7 +279,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_2_nodes.header.frame_id = "/walk_plane";
   swing_2_nodes.header.stamp = ros::Time::now();
   swing_2_nodes.ns = "secondary_swing_control_nodes";
-  swing_2_nodes.id = SWING_BEZIER_CURVE_2_MARKER_ID + leg->getIDNumber();
+  swing_2_nodes.id = leg->getIDNumber();
   swing_2_nodes.action = visualization_msgs::Marker::ADD;
   swing_2_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
   swing_2_nodes.scale.x = 0.02 * sqrt(marker_scale_);
@@ -294,7 +294,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   stance_nodes.header.frame_id = "/walk_plane";
   stance_nodes.header.stamp = ros::Time::now();
   stance_nodes.ns = "stance_control_nodes";
-  stance_nodes.id = STANCE_BEZIER_CURVE_MARKER_ID + leg->getIDNumber();
+  stance_nodes.id = leg->getIDNumber();
   stance_nodes.action = visualization_msgs::Marker::ADD;
   stance_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
   stance_nodes.scale.x = 0.02 * sqrt(marker_scale_);
@@ -352,8 +352,8 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   visualization_msgs::Marker default_tip_position;
   default_tip_position.header.frame_id = ref_odom ? "/odom" : "/walk_plane";
   default_tip_position.header.stamp = ros::Time::now();
-  default_tip_position.ns = "workspace_markers";
-  default_tip_position.id = DEFAULT_TIP_POSITION_ID + leg->getIDNumber();
+  default_tip_position.ns = "default_tip_position_markers";
+  default_tip_position.id = leg->getIDNumber();
   default_tip_position.type = visualization_msgs::Marker::SPHERE;
   default_tip_position.action = visualization_msgs::Marker::ADD;
   default_tip_position.scale.x = 0.02 * sqrt(marker_scale_);
@@ -374,7 +374,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace.header.frame_id = ref_odom ? "/odom" : "/walk_plane";
   workspace.header.stamp = ros::Time::now();
   workspace.ns = "workspace_markers";
-  workspace.id = WORKSPACE_ID + leg->getIDNumber();
+  workspace.id = leg->getIDNumber();
   workspace.type = visualization_msgs::Marker::LINE_STRIP;
   workspace.action = visualization_msgs::Marker::ADD;
   workspace.scale.x = 0.002 * sqrt(marker_scale_);
@@ -422,7 +422,7 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   stride.header.frame_id = "/walk_plane";
   stride.header.stamp = ros::Time::now();
   stride.ns = "stride_markers";
-  stride.id = STRIDE_MARKER_ID + leg->getIDNumber();
+  stride.id = leg->getIDNumber();
   stride.type = visualization_msgs::Marker::ARROW;
   stride.action = visualization_msgs::Marker::ADD;
   geometry_msgs::Point origin;
@@ -447,7 +447,7 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
 }
 
 /*******************************************************************************************************************//**
-  * Publishes visualisation markers which represent the estimated tip force vector for input leg.
+  * Publishes visualisation markers which represent the calculated & measured estimated tip force vector for input leg.
   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
 ***********************************************************************************************************************/
 void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
@@ -455,33 +455,46 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
   visualization_msgs::Marker tip_force;
   tip_force.header.frame_id = "/base_link";
   tip_force.header.stamp = ros::Time::now();
-  tip_force.ns = "tip_force_markers";
-  tip_force.id = TIP_FORCE_MARKER_ID + leg->getIDNumber();
+  tip_force.id = leg->getIDNumber();
   tip_force.type = visualization_msgs::Marker::ARROW;
   tip_force.action = visualization_msgs::Marker::ADD;
   Vector3d tip_position = leg->getCurrentTipPose().position_;
-  Vector3d tip_direction = leg->getCurrentTipPose().rotation_._transformVector(Vector3d::UnitX());
-  Vector3d aligned_tip_force = getProjection(leg->getTipForce(), tip_direction);
   geometry_msgs::Point origin;
   geometry_msgs::Point target;
   origin.x = tip_position[0];
   origin.y = tip_position[1];
   origin.z = tip_position[2];
-  target = origin;
-  target.x += aligned_tip_force[0];
-  target.y += aligned_tip_force[1];
-  target.z += aligned_tip_force[2];
-  tip_force.points.push_back(origin);
-  tip_force.points.push_back(target);
   tip_force.scale.x = 0.01 * sqrt(marker_scale_);
   tip_force.scale.y = 0.015 * sqrt(marker_scale_);
   tip_force.scale.z = 0.02 * sqrt(marker_scale_);
-  tip_force.color.b = 1; // MAGENTA
-  tip_force.color.r = 1;
   tip_force.color.a = 1;
   tip_force.pose = Pose::Identity().convertToPoseMessage();
-
-  tip_force_publisher_.publish(tip_force);
+  
+  // Tip Force Calculated
+  visualization_msgs::Marker tip_force_calculated = tip_force;
+  tip_force_calculated.ns = "tip_force_calculated_markers";
+  target = origin;
+  target.x += leg->getTipForceCalculated()[0];
+  target.y += leg->getTipForceCalculated()[1];
+  target.z += leg->getTipForceCalculated()[2];
+  tip_force_calculated.points.push_back(origin);
+  tip_force_calculated.points.push_back(target);
+  tip_force_calculated.color.b = 1; // MAGENTA
+  tip_force_calculated.color.r = 1;
+  tip_force_publisher_.publish(tip_force_calculated);
+  
+  // Tip Force Measured
+  visualization_msgs::Marker tip_force_measured = tip_force;
+  tip_force_measured.ns = "tip_force_measured_markers";
+  target = origin;
+  target.x += leg->getTipForceMeasured()[0];
+  target.y += leg->getTipForceMeasured()[1];
+  target.z += leg->getTipForceMeasured()[2];
+  tip_force_measured.points.push_back(origin);
+  tip_force_measured.points.push_back(target);
+  tip_force_measured.color.b = 1; // CYAN
+  tip_force_measured.color.g = 1;
+  tip_force_publisher_.publish(tip_force_measured);
 }
 
 /*******************************************************************************************************************//**
@@ -491,7 +504,7 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
 void DebugVisualiser::generateJointTorques(shared_ptr<Leg> leg)
 {
   JointContainer::iterator joint_it;
-  int marker_id = JOINT_TORQUE_MARKER_ID + leg->getIDNumber() * leg->getJointCount();
+  int marker_id = leg->getIDNumber() * leg->getJointCount();
   for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
   {
     shared_ptr<Joint> joint = joint_it->second;
@@ -520,62 +533,6 @@ void DebugVisualiser::generateJointTorques(shared_ptr<Leg> leg)
 }
 
 /*******************************************************************************************************************//**
-  * Publishes visualisation markers which represent the orientation of the tip for input leg.
-  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-***********************************************************************************************************************/
-void DebugVisualiser::generateTipRotation(shared_ptr<Leg> leg)
-{
-  visualization_msgs::Marker tip_rotation_axis;
-  tip_rotation_axis.header.frame_id = "/base_link";
-  tip_rotation_axis.header.stamp = ros::Time::now();
-  tip_rotation_axis.ns = "tip_rotation_markers";
-  tip_rotation_axis.type = visualization_msgs::Marker::ARROW;
-  tip_rotation_axis.action = visualization_msgs::Marker::ADD;
-  tip_rotation_axis.scale.x = 0.01 * sqrt(marker_scale_);
-  tip_rotation_axis.scale.y = 0.015 * sqrt(marker_scale_);
-  tip_rotation_axis.scale.z = 0.02 * sqrt(marker_scale_);
-  tip_rotation_axis.pose = Pose::Identity().convertToPoseMessage();
-  
-  Vector3d tip_position = leg->getCurrentTipPose().position_;
-  geometry_msgs::Point origin;
-  origin.x = tip_position[0];
-  origin.y = tip_position[1];
-  origin.z = tip_position[2];
-  geometry_msgs::Point target;
-  int id = TIP_ROTATION_MARKER_ID + 2*leg->getIDNumber();
-  
-  Vector3d base_direction_vector(0.0, 0.0, 0.0);
-  Vector3d direction_vector = base_direction_vector;
-  base_direction_vector[0] = 0.1 * sqrt(marker_scale_); //Arrow Length
-  tip_rotation_axis.color.r = 1.0;
-
-  // Add desired tip rotation axis (x/y/z) (if defined)
-  bool desired_rotation_defined = !leg->getDesiredTipPose().rotation_.isApprox(UNDEFINED_ROTATION);
-  tip_rotation_axis.id = ++id;
-  direction_vector = leg->getDesiredTipPose().rotation_._transformVector(base_direction_vector);
-  target.x = origin.x + direction_vector[0];
-  target.y = origin.y + direction_vector[1];
-  target.z = origin.z + direction_vector[2];
-  tip_rotation_axis.points.push_back(origin);
-  tip_rotation_axis.points.push_back(target);
-  tip_rotation_axis.color.a = desired_rotation_defined ? 0.25 : 0.0; //Do not display undefined desired rotation
-  tip_rotation_publisher_.publish(tip_rotation_axis);
-  tip_rotation_axis.points.clear();
-  
-  // Add current tip rotation axis (x/y/z)
-  tip_rotation_axis.id = ++id;
-  direction_vector = leg->getCurrentTipPose().rotation_._transformVector(base_direction_vector);
-  target.x = origin.x + direction_vector[0];
-  target.y = origin.y + direction_vector[1];
-  target.z = origin.z + direction_vector[2];
-  tip_rotation_axis.points.push_back(origin);
-  tip_rotation_axis.points.push_back(target);
-  tip_rotation_axis.color.a = 1;
-  tip_rotation_publisher_.publish(tip_rotation_axis);
-  tip_rotation_axis.points.clear();
-}
-
-/*******************************************************************************************************************//**
   * Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
   * @param[in] gravity_estimate An estimate of the gravitational acceleration vector
 ***********************************************************************************************************************/
@@ -585,7 +542,7 @@ void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate)
   gravity.header.frame_id = "/base_link";
   gravity.header.stamp = ros::Time::now();
   gravity.ns = "gravity_marker";
-  gravity.id = GRAVITY_MARKER_ID;
+  gravity.id = 0;
   gravity.type = visualization_msgs::Marker::ARROW;
   gravity.action = visualization_msgs::Marker::ADD;
   

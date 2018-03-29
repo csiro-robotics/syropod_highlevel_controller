@@ -622,21 +622,25 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     else if (walk_state_ == STOPPING)
     {
-      // All legs must be at default tip positions after ending a swing before called 'at correct phase'
+      // All legs must attempt at least one step to achieve default tip position after ending a swing before called 'at correct phase'
       bool zero_body_velocity = leg_stepper->getStrideVector().norm() == 0;
-      Vector3d walk_plane = leg_stepper->getWalkPlane();
-      Vector3d b(-walk_plane[0], -walk_plane[1], 1.0); //Walk plane normal
-      Vector3d a = (leg_stepper->getCurrentTipPose().position_ - leg_stepper->getTargetTipPose().position_);
-      Vector3d rejection = a - (a.dot(b) / b.dot(b))*b;
-      double distance_to_normal = rejection.norm();
-      bool at_target_tip_position = (distance_to_normal < TIP_TOLERANCE);
-
-      if (zero_body_velocity && !leg_stepper->isAtCorrectPhase() &&
-          leg_stepper->getPhase() == swing_end_ && at_target_tip_position)
+      Vector3d walk_plane_normal = leg_stepper->getWalkPlaneNormal();
+      Vector3d error = (leg_stepper->getCurrentTipPose().position_ - leg_stepper->getTargetTipPose().position_);
+      error = getRejection(error, walk_plane_normal);
+      bool at_target_tip_position = (error.norm() < TIP_TOLERANCE);
+      if (zero_body_velocity && !leg_stepper->isAtCorrectPhase() && leg_stepper->getPhase() == swing_end_)
       {
-        leg_stepper->setStepState(FORCE_STOP);
-        leg_stepper->setAtCorrectPhase(true);
-        legs_at_correct_phase_++;
+        if (at_target_tip_position || return_to_default_attempted_)
+        {
+          return_to_default_attempted_ = false;
+          leg_stepper->setStepState(FORCE_STOP);
+          leg_stepper->setAtCorrectPhase(true);
+          legs_at_correct_phase_++;
+        }
+        else
+        {
+          return_to_default_attempted_ = true;
+        }
       }
     }
     else if (walk_state_ == STOPPED)
@@ -945,8 +949,7 @@ void LegStepper::updateStride(void)
   stride_vector_ *= (walker_->getOnGroundRatio() / walker_->getStepFrequency());
 
   // Swing clearance
-  double step_clearance = walker_->getStepClearance();
-  swing_clearance_ = step_clearance * Vector3d::UnitZ();//walk_plane_normal_.normalized();
+  swing_clearance_ = walker_->getStepClearance() * Vector3d::UnitZ();//walk_plane_normal_.normalized();
 }
 
 /*******************************************************************************************************************//**
@@ -1021,7 +1024,7 @@ void LegStepper::updateTipPosition(void)
           // Shift target toward step surface by defined distance and rely on step surface contact detection (REACTIVE)
           else
           {
-            target_tip_pose_.position_ -= swing_clearance_;
+            target_tip_pose_.position_ -= walker_->getStepDepth() * Vector3d::UnitZ();
           }
         }
         else

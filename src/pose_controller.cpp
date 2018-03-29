@@ -51,7 +51,7 @@ void PoseController::init(void)
     leg->setLegPoser(allocate_shared<LegPoser>(aligned_allocator<LegPoser>(), shared_from_this(), leg));
   }
   setAutoPoseParams();
-  walk_plane_pose_.position_ = Vector3d(0.0, 0.0, params_.body_clearance.current_value);
+  walk_plane_pose_.position_ = Vector3d(0.0, 0.0, params_.body_clearance.data);
   origin_walk_plane_pose_ = walk_plane_pose_;
 }
 
@@ -1151,7 +1151,7 @@ void PoseController::updateWalkPlanePose(void)
   new_walk_plane_pose.rotation_ = correctRotation(new_walk_plane_pose.rotation_, Quaterniond::Identity());
   
   // Pose robot body along normal of walk plane, offset according to the requested body clearance
-  Vector3d body_clearance = Vector3d(0, 0, params_.body_clearance.current_value);
+  Vector3d body_clearance = Vector3d(0, 0, params_.body_clearance.data);
   new_walk_plane_pose.position_ = new_walk_plane_pose.rotation_._transformVector(body_clearance);
   new_walk_plane_pose.position_[2] += walk_plane[2];
   
@@ -1287,7 +1287,7 @@ void PoseController::updateInclinationPose(void)
   
   Vector3d euler = quaternionToEulerAngles(compensation_removed);
 
-  double body_height = params_.body_clearance.current_value;
+  double body_height = params_.body_clearance.data;
   double longitudinal_correction = -body_height * tan(euler[1]);
   double lateral_correction = body_height * tan(euler[0]);
 

@@ -172,7 +172,7 @@ enum ParameterSelection
   NO_PARAMETER_SELECTION, ///< Designation for no parameter.
   STEP_FREQUENCY,         ///< Designation for the adjustable parameter 'step_frequency'.
   STEP_CLEARANCE,         ///< Designation for the adjustable parameter 'step_clearance'.
-  BODY_CLEARANCE,         ///< Designation for the adjustable parameter 'body_clearance'.
+  STEP_DEPTH,             ///< Designation for the adjustable parameter 'step_depth'.
   STANCE_SPAN_MODIFIER,   ///< Designation for the adjustable parameter 'stance_span_modifier'.
   VIRTUAL_MASS,           ///< Designation for the adjustable parameter 'virtual_mass'.
   VIRTUAL_STIFFNESS,      ///< Designation for the adjustable parameter 'virtual_stiffness'.
@@ -307,9 +307,10 @@ struct Parameters
 
   // Walk controller parameters
   Parameter<string> gait_type;                           ///< The default selected gait type
+  Parameter<double> body_clearance;                      ///< The requested height of the robot body above ground.
   AdjustableParameter step_frequency;                    ///< The frequency of complete step cycles (Hz).
   AdjustableParameter step_clearance;                    ///< The stepping clearance of the tip position above default.
-  AdjustableParameter body_clearance;                    ///< The requested height of the robot body above ground.
+  AdjustableParameter step_depth;                        ///< The stepping depth used to find ground contact.
   AdjustableParameter stance_span_modifier;              ///< The modifier for stance width (-1.0 = min, 1.0 = max)
   Parameter<string> velocity_input_mode;                 ///< Determines velocity input as 'real' or 'throttle' based.
   Parameter<double> body_velocity_scaler;                ///< Scales all body velocity inputs

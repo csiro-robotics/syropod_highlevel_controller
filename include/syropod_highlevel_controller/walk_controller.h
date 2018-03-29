@@ -80,11 +80,14 @@ public:
   /** Accessor for step clearance. */
   inline double getStepClearance(void) { return params_.step_clearance.current_value; };
   
+  /** Accessor for step depth. */
+  inline double getStepDepth(void) { return params_.step_depth.current_value; };
+  
   /** Calculates ratio of walk cycle that occurs on the walk plane. */
   inline double getOnGroundRatio(void) { return double(stance_length_) / double(phase_length_); };
 
   /** Accessor for default body clearance above ground. */
-  inline double getBodyClearance(void) { return params_.body_clearance.current_value; };
+  inline double getBodyClearance(void) { return params_.body_clearance.data; };
 
   /** Accessor for desired linear body velocity. */
   inline Vector2d getDesiredLinearVelocity(void) { return desired_linear_velocity_; };
@@ -239,8 +242,9 @@ private:
   map<int, double> max_angular_acceleration_; ///< A map of max allowable angular accelerations for potential bearings.
 
   // Leg coordination variables
-  int legs_at_correct_phase_ = 0;     ///< A count of legs currently at the correct phase per the walk cycle state.
-  int legs_completed_first_step_ = 0; ///< A count of legs whcih have currently completed their first step.
+  int legs_at_correct_phase_ = 0;            ///< A count of legs currently at the correct phase per walk cycle state.
+  int legs_completed_first_step_ = 0;        ///< A count of legs whcih have currently completed their first step.
+  bool return_to_default_attempted_ = false; ///< Flags whether a leg has already attempted to return to default.
 
   // Iteration variables
   LegContainer::iterator leg_it_;     ///< Leg iteration member variable used to minimise code

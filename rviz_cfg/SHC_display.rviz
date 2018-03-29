@@ -8,6 +8,9 @@ Panels:
         - /TF1
         - /TF1/Frames1
         - /TF1/Tree1
+        - /Marker3
+        - /Marker4
+        - /Marker9
       Splitter Ratio: 0.5
     Tree Height: 1309
   - Class: rviz/Selection
@@ -67,46 +70,19 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
-        AL_tip:
-          Value: true
-        AR_tip:
-          Value: true
         All Enabled: false
-        BL_tip:
-          Value: true
-        BR_tip:
-          Value: true
-        base_link:
-          Value: true
-        imu:
-          Value: false
-        odom:
-          Value: true
-        walk_plane:
-          Value: true
       Marker Scale: 0.5
       Name: TF
       Show Arrows: false
       Show Axes: true
       Show Names: false
       Tree:
-        imu:
-          odom:
-            walk_plane:
-              base_link:
-                AL_tip:
-                  {}
-                AR_tip:
-                  {}
-                BL_tip:
-                  {}
-                BR_tip:
-                  {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /shc/debug/gravity
@@ -128,7 +104,9 @@ Visualization Manager:
       Marker Topic: /shc/debug/bezier_curves
       Name: Marker
       Namespaces:
-        {}
+        primary_swing_control_nodes: true
+        secondary_swing_control_nodes: true
+        stance_control_nodes: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -136,7 +114,8 @@ Visualization Manager:
       Marker Topic: /shc/debug/workspaces
       Name: Marker
       Namespaces:
-        {}
+        default_tip_position_markers: true
+        workspace_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -144,7 +123,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/stride
       Name: Marker
       Namespaces:
-        {}
+        stride_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -152,25 +131,17 @@ Visualization Manager:
       Marker Topic: /shc/debug/walk_plane
       Name: Marker
       Namespaces:
-        walk_plane_markers: true
+        walk_plane_marker: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
-      Enabled: false
-      Marker Topic: /shc/debug/tip_rotation
-      Name: Marker
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: false
-    - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /shc/debug/tip_force
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /shc/debug/terrain
@@ -180,13 +151,13 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /syropod_stair_climb/stair_model
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /syropod_stair_climb/debug
@@ -207,7 +178,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -224,7 +195,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -237,7 +208,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 0; 0
       Max Intensity: 4096
@@ -254,17 +225,17 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/PointStamped
       Color: 204; 41; 204
-      Enabled: true
+      Enabled: false
       History Length: 1
       Name: PointStamped
       Radius: 0.0500000007
       Topic: /ground_estimate/next_step_center
       Unreliable: false
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /ground_estimate/plane_normal_marker
@@ -354,5 +325,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1276
-  X: 1276
+  X: 1272
   Y: 0

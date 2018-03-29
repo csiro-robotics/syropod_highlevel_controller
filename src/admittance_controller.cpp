@@ -45,9 +45,11 @@ void AdmittanceController::updateAdmittance(void)
   {
     shared_ptr<Leg> leg = leg_it->second;
     Vector3d admittance_delta = Vector3d::Zero();
+    Vector3d tip_force = params_.use_joint_effort.data ? leg->getTipForceCalculated() : leg->getTipForceMeasured();
+    tip_force *= params_.force_gain.current_value;
     for (int i = 0; i < 3; ++i)
     {
-      double force_input = max(leg->getTipForce()[i], 0.0); // Use vertical component of tip force vector //TODO
+      double force_input = max(tip_force[i], 0.0); // Use vertical component of tip force vector //TODO
       double damping = params_.virtual_damping_ratio.current_value;
       double stiffness = params_.virtual_stiffness.current_value;
       double mass = params_.virtual_mass.current_value;

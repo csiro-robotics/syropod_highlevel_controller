@@ -38,7 +38,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
 
   // Hexapod Remote topic subscriptions
   system_state_subscriber_            = n_.subscribe("syropod_remote/system_state", 1,
-                                                         &StateController::systemStateCallback, this);
+                                                     &StateController::systemStateCallback, this);
   robot_state_subscriber_             = n_.subscribe("syropod_remote/robot_state", 1,
                                                      &StateController::robotStateCallback, this);
   desired_velocity_subscriber_        = n_.subscribe("syropod_remote/desired_velocity", 1,
@@ -777,9 +777,9 @@ void StateController::publishLegState(void)
     msg.auto_pose = Pose(position, rotation).convertToPoseMessage();
 
     // Admittance controller
-    msg.tip_force.x = leg->getTipForce()[0];
-    msg.tip_force.y = leg->getTipForce()[1];
-    msg.tip_force.z = leg->getTipForce()[2];
+    msg.tip_force.x = leg->getTipForceCalculated()[0] * params_.force_gain.current_value;
+    msg.tip_force.y = leg->getTipForceCalculated()[1] * params_.force_gain.current_value;
+    msg.tip_force.z = leg->getTipForceCalculated()[2] * params_.force_gain.current_value;
     msg.admittance_delta.x = leg->getAdmittanceDelta()[0];
     msg.admittance_delta.y = leg->getAdmittanceDelta()[1];
     msg.admittance_delta.z = leg->getAdmittanceDelta()[2];
@@ -928,12 +928,12 @@ void StateController::RVIZDebugging(void)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
-    debug_visualiser_.generateTipTrajectory(leg);
+    int limit = walker_->getPhaseLength() * model_->getLegCount() * 3;
+    debug_visualiser_.generateTipTrajectory(leg, limit);
     debug_visualiser_.generateJointTorques(leg);
     
     if (robot_state_ == RUNNING)
     {
-      debug_visualiser_.generateTipRotation(leg);
       debug_visualiser_.generateWorkspace(leg, walker_->getWorkspaceMap());
       debug_visualiser_.generateBezierCurves(leg);
       debug_visualiser_.generateStride(leg);
@@ -1394,13 +1394,13 @@ void StateController::dynamicParameterCallback(syropod_highlevel_controller::Dyn
                                      dynamic_parameter_->max_value);
       config.step_clearance = new_parameter_value_;
     }
-    else if (config.body_clearance != params_.body_clearance.current_value)
+    else if (config.step_depth != params_.step_depth.current_value)
     {
-      dynamic_parameter_ = &params_.body_clearance;
-      new_parameter_value_ = clamped(config.body_clearance,
+      dynamic_parameter_ = &params_.step_depth;
+      new_parameter_value_ = clamped(config.step_depth,
                                      dynamic_parameter_->min_value,
                                      dynamic_parameter_->max_value);
-      config.body_clearance = new_parameter_value_;
+      config.step_depth = new_parameter_value_;
     }
     else if (config.stance_span_modifier != params_.stance_span_modifier.current_value)
     {
@@ -1539,17 +1539,20 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     {
       Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
       Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
-      if (!params_.use_joint_effort.data)
+      if (leg_stepper != NULL)
       {
         leg_stepper->setTouchdownDetection(true);
-        leg->setTipForce(tip_force);
-        leg->setTipTorque(tip_torque);
-        leg->touchdownDetection();
       }
+      leg->setTipForceMeasured(tip_force);
+      leg->setTipTorqueMeasured(tip_torque);
+      leg->touchdownDetection();
     }
     if (get_step_plane_values)
     {
-      leg_stepper->setTouchdownDetection(true);
+      if (leg_stepper != NULL)
+      {
+        leg_stepper->setTouchdownDetection(true);
+      }
       if (tip_states.step_plane[i].z != UNASSIGNED_VALUE)
       {
         // From step plane representation calculate position and orientation of plane relative to tip frame
@@ -1674,9 +1677,10 @@ void StateController::initParameters(void)
   params_.ignore_IK_warnings.init(n_, "ignore_IK_warnings");
   // Walk controller parameters
   params_.gait_type.init(n_, "gait_type");
+  params_.body_clearance.init(n_, "body_clearance");
   params_.step_frequency.init(n_, "step_frequency");
   params_.step_clearance.init(n_, "step_clearance");
-  params_.body_clearance.init(n_, "body_clearance");
+  params_.step_depth.init(n_, "step_depth");
   params_.stance_span_modifier.init(n_, "stance_span_modifier");
   params_.velocity_input_mode.init(n_, "velocity_input_mode");
   params_.body_velocity_scaler.init(n_, "body_velocity_scaler");
@@ -1755,7 +1759,7 @@ void StateController::initParameters(void)
   // Generate adjustable parameter map for parameter adjustment selection
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_FREQUENCY, &params_.step_frequency));
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_CLEARANCE, &params_.step_clearance));
-  params_.adjustable_map.insert(AdjustableMapType::value_type(BODY_CLEARANCE, &params_.body_clearance));
+  params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_DEPTH, &params_.step_depth));
   params_.adjustable_map.insert(AdjustableMapType::value_type(STANCE_SPAN_MODIFIER, &params_.stance_span_modifier));
   params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_MASS, &params_.virtual_mass));
   params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_STIFFNESS, &params_.virtual_stiffness));
@@ -1776,9 +1780,9 @@ void StateController::initParameters(void)
   config_max.step_clearance = params_.step_clearance.max_value;
   config_min.step_clearance = params_.step_clearance.min_value;
   config_default.step_clearance = params_.step_clearance.default_value;
-  config_max.body_clearance = params_.body_clearance.max_value;
-  config_min.body_clearance = params_.body_clearance.min_value;
-  config_default.body_clearance = params_.body_clearance.default_value;
+  config_max.step_depth = params_.step_depth.max_value;
+  config_min.step_depth = params_.step_depth.min_value;
+  config_default.step_depth = params_.step_depth.default_value;
   config_max.stance_span_modifier = params_.stance_span_modifier.max_value;
   config_min.stance_span_modifier = params_.stance_span_modifier.min_value;
   config_default.stance_span_modifier = params_.stance_span_modifier.default_value;

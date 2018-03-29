@@ -220,10 +220,16 @@ public:
   inline LegState getLegState(void) { return leg_state_; };
 
   /** Accessor for the current estimated force vector on the tip of this leg. */
-  inline Vector3d getTipForce(void) { return tip_force_; };
+  inline Vector3d getTipForceCalculated(void) { return tip_force_calculated_; };
   
-  /** Accessor for the current estimated torque vector on the tip of this leg */
-  inline Vector3d getTipTorque(void) { return tip_torque_; };
+  /** Accessor for the current estimated force vector on the tip of this leg. */
+  inline Vector3d getTipForceMeasured(void) { return tip_force_measured_; };
+  
+  /** Accessor for the current estimated torque vector on the tip of this leg. */
+  inline Vector3d getTipTorqueCalculated(void) { return tip_torque_calculated_; };
+  
+  /** Accessor for the current estimated torque vector on the tip of this leg. */
+  inline Vector3d getTipTorqueMeasured(void) { return tip_torque_measured_; };
   
   /** Accessor for the current estimated pose of the stepping surface plane. */
   inline Pose getStepPlanePose(void) { return step_plane_pose_; };
@@ -307,16 +313,28 @@ public:
   inline void setLegPoser(shared_ptr<LegPoser> leg_poser) { leg_poser_ = leg_poser; };
 
   /**
-    * Modifier for the current estimated force vector on the tip of this leg.
+    * Modifier for the current estimated force vector on the tip of this leg (from calculation of joint torques)
     * @param[in] tip_force The new tip force estimate for this leg.
     */
-  inline void setTipForce(const Vector3d& tip_force) { tip_force_ = tip_force; };
+  inline void setTipForceCalculated(const Vector3d& tip_force) { tip_force_calculated_ = tip_force; };
   
   /**
-    * Modifier for the current estimated torque vector on the tip of this leg.
+    * Modifier for the current estimated torque vector on the tip of this leg (from calculation of joint torques)
     * @param[in] tip_torque The new tip torque estimate for this leg.
     */
-  inline void setTipTorque(const Vector3d& tip_torque) { tip_torque_ = tip_torque; };
+  inline void setTipTorqueCalculated(const Vector3d& tip_torque) { tip_torque_calculated_ = tip_torque; };
+  
+  /**
+    * Modifier for the current estimated force vector on the tip of this leg (from direct measurement)
+    * @param[in] tip_force The new tip force estimate for this leg.
+    */
+  inline void setTipForceMeasured(const Vector3d& tip_force) { tip_force_measured_ = tip_force; };
+  
+  /**
+    * Modifier for the current estimated torque vector on the tip of this leg (from direct measurement)
+    * @param[in] tip_torque The new tip torque estimate for this leg.
+    */
+  inline void setTipTorqueMeasured(const Vector3d& tip_torque) { tip_torque_measured_ = tip_torque; };
   
   /**
     * Modifier for the current estimated pose of the stepping surface plane.
@@ -507,9 +525,11 @@ private:
 
   int group_; ///< Leg stepping coordination group (Either 0 or 1).
 
-  Vector3d tip_force_;        ///< Force estimation on the tip.
-  Vector3d tip_torque_;       ///< Torque estimation on the tip.
-  Pose step_plane_pose_;      ///< Estimation of the pose of the stepping surface plane.
+  Vector3d tip_force_calculated_;  ///< Calculated force estimation on the tip.
+  Vector3d tip_torque_calculated_; ///< Calculated torque estimation on the tip.
+  Vector3d tip_force_measured_;    ///< Measured force estimation on the tip.
+  Vector3d tip_torque_measured_;   ///< Measured torque estimation on the tip.
+  Pose step_plane_pose_;           ///< Estimation of the pose of the stepping surface plane.
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

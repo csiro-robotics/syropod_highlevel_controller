@@ -24,22 +24,6 @@
 #include "pose.h"
 #include "model.h"
 
-#define ROBOT_MODEL_ID 0                  ///< Id for robot model visualisation
-#define WALK_PLANE_ID 10                  ///< Id for walk plane visualisation
-#define WORKSPACE_ID 20                   ///< Base id for workspace visualisations
-#define DEFAULT_TIP_POSITION_ID 30        ///< Base id for default tip positions
-#define STRIDE_MARKER_ID 40               ///< Base id for stride visualisations
-#define SWING_BEZIER_CURVE_1_MARKER_ID 50 ///< Base id for bezier curve visualisations
-#define SWING_BEZIER_CURVE_2_MARKER_ID 60 ///< Base id for bezier curve visualisations
-#define STANCE_BEZIER_CURVE_MARKER_ID 70  ///< Base id for bezier curve visualisations
-#define TIP_FORCE_MARKER_ID 80            ///< Base id for tip force vector visualisations
-#define TIP_ROTATION_MARKER_ID 90         ///< Base id for tip rotation visualisations
-#define GRAVITY_MARKER_ID 100             ///< Base id for gravity visualisation
-#define JOINT_TORQUE_MARKER_ID 110        ///< Base id for joint torque markers
-
-#define ID_LIMIT 10000                    ///< Id value limit to prevent overflow
-#define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
-
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
 class DebugVisualiser
@@ -69,8 +53,9 @@ public:
   /**
    * Publishes visualisation markers which represent the trajectory of the tip of the input leg.
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
+   * @param[in] limit The maximum number of trajectory markers to show.
    */
-  void generateTipTrajectory(shared_ptr<Leg> leg);
+  void generateTipTrajectory(shared_ptr<Leg> leg, const int& limit);
   
   /**
    * Publishes visualisation markers which represent an estimate of the terrain being traversed
@@ -110,12 +95,6 @@ public:
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
    */
   void generateJointTorques(shared_ptr<Leg> leg);
-  
-  /**
-   * Publishes visualisation markers which represent the orientation of the tip for input leg.
-   * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-   */
-  void generateTipRotation(shared_ptr<Leg> leg);
   
   /**
    * Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
