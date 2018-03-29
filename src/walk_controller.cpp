@@ -421,6 +421,30 @@ void WalkController::setGaitParams(void)
   // Ensure stance and swing phase lengths are divisible by two
   ROS_ASSERT(stance_length_ % 2 == 0);
   ROS_ASSERT(swing_length_ % 2 == 0);
+  
+  if (walk_state_ == MOVING)
+  {
+    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+    {
+      shared_ptr<Leg> leg = leg_it_->second;
+      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      leg_stepper->setNewStepFrequency();
+    }
+  }
+  
+  // Debug gait cycle
+  string stance1(stance_length_/2 - 2, '-');
+  string stance2(stance_length_/2 + 1, '-');
+  string swing(swing_length_ - 2, '-');
+  string stance_empty(stance_length_/2 - 1, ' ');
+  string swing_empty(swing_length_ - 2, ' ');
+  ROS_INFO_COND(true,
+                "\n%s%d\n%sS%sE%s\n%s|%s|%s\n%s|%s|%s\n%s|%s|%s\n0%sE%sS%s%d\n%s %s%d\n",
+                stance_empty.c_str(), swing_start_, stance_empty.c_str(), swing.c_str(), stance_empty.c_str(),
+                stance_empty.c_str(), swing_empty.c_str(), stance_empty.c_str(), stance_empty.c_str(), 
+                swing_empty.c_str(), stance_empty.c_str(), stance_empty.c_str(), swing_empty.c_str(), 
+                stance_empty.c_str(), stance1.c_str(), swing_empty.c_str(), stance2.c_str(), phase_length_,
+                stance_empty.c_str(), swing_empty.c_str(), swing_end_);
 }
 
 /*******************************************************************************************************************//**
@@ -652,10 +676,10 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     // Update tip positions
     if (leg->getLegState() == WALKING/* && walk_state_ != STOPPED*/)
     {
-      leg_stepper->updateTipPosition();  // updates current tip position through step cycle
-      leg_stepper->updateTipRotation();
       leg_stepper->iteratePhase();
       leg_stepper->updateStepState();
+      leg_stepper->updateTipPosition();  // updates current tip position through step cycle
+      leg_stepper->updateTipRotation();
     }
   }
   updateWalkPlane();
@@ -860,6 +884,8 @@ LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
   use_default_target_ = leg_stepper->use_default_target_;
   phase_ = leg_stepper->phase_;
   phase_offset_ = leg_stepper->phase_offset_;
+  new_step_frequency_ = leg_stepper->new_step_frequency_;
+  stance_progress_ = leg_stepper->stance_progress_;
   swing_progress_ = leg_stepper->swing_progress_;
   stance_progress_ = leg_stepper->stance_progress_;
   step_state_ = leg_stepper->step_state_;
@@ -887,8 +913,15 @@ void LegStepper::iteratePhase(void)
   int stance_end = walker_->getStanceEnd();
 
   phase_ = (phase_ + 1) % (phase_length);
+  if (new_step_frequency_)
+  {
+    phase_ = step_progress_ * phase_length;
+    updateStepState();
+    new_step_frequency_ = false;
+  }
 
   // Calculate progress of stance/swing periods (0.0->1.0 or -1.0 if not in specific state)
+  step_progress_ = double(phase_) / phase_length;
   if (step_state_ == SWING)
   {
     swing_progress_ = double(phase_ - swing_start + 1) / double(swing_end - swing_start);

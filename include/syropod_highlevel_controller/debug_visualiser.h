@@ -24,6 +24,9 @@
 #include "pose.h"
 #include "model.h"
 
+#define ID_LIMIT 10000                    ///< Id value limit to prevent overflow
+#define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
+
 /***********************************************************************************************************************
 ***********************************************************************************************************************/
 class DebugVisualiser
@@ -53,9 +56,8 @@ public:
   /**
    * Publishes visualisation markers which represent the trajectory of the tip of the input leg.
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-   * @param[in] limit The maximum number of trajectory markers to show.
    */
-  void generateTipTrajectory(shared_ptr<Leg> leg, const int& limit);
+  void generateTipTrajectory(shared_ptr<Leg> leg);
   
   /**
    * Publishes visualisation markers which represent an estimate of the terrain being traversed

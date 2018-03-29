@@ -187,9 +187,8 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector
 /*******************************************************************************************************************//**
  * Publishes visualisation markers which represent the trajectory of the tip of the input leg.
  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
- * @param[in] limit The maximum number of trajectory markers to show.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const int& limit)
+void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker tip_position_marker;
   tip_position_marker.header.frame_id = "/base_link";
@@ -201,6 +200,7 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const int& limi
   tip_position_marker.scale.x = 0.005 * sqrt(marker_scale_);
   tip_position_marker.color.r = 1; //RED
   tip_position_marker.color.a = 1;
+  tip_position_marker.lifetime = ros::Duration(TRAJECTORY_DURATION);
   tip_position_marker.pose = Pose::Identity().convertToPoseMessage();
 
   Vector3d tip_position = leg->getCurrentTipPose().position_;
@@ -212,7 +212,7 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg, const int& limi
   tip_position_marker.points.push_back(point);
 
   tip_trajectory_publisher_.publish(tip_position_marker);
-  tip_position_id_ = (tip_position_id_ + 1) % limit; // Ensures the trajectory marker id does not exceed overflow
+  tip_position_id_ = (tip_position_id_ + 1) % ID_LIMIT; // Ensures the trajectory marker id does not exceed overflow
 }
 
 /*******************************************************************************************************************//**

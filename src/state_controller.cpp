@@ -453,25 +453,17 @@ void StateController::runningState(void)
 
 /*******************************************************************************************************************//**
  * Updates adjustment of parameters
- * @todo Implement smooth "whilst walking" adjustment of step_frequency and body_clearance
+ * @todo Implement smooth "whilst walking" adjustment of step_frequency
 ***********************************************************************************************************************/
 void StateController::adjustParameter(void)
 {
   AdjustableParameter* p = dynamic_parameter_;
-  
-  if (p->name == "step_frequency" ||
-      p->name == "body_clearance")
-  {
-    ROS_INFO("\n[SHC] Dynamic adjustment of parameter '%s' has been temporarily disabled for this"
-             " version of SHC but will be re-implemented soon.\n", p->name.c_str());
-  }
-  else
-  {
-    // Set new parameter value and apply by reinitialising individual controllers.
-    p->current_value = new_parameter_value_;
-    ROS_INFO("\n[SHC] Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
-                p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
-  }
+  // Set new parameter value and apply by reinitialising individual controllers.
+  p->current_value = new_parameter_value_;
+  walker_->setGaitParams();
+  walker_->calculateMaxSpeed();
+  ROS_INFO("\n[SHC] Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
+              p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
   parameter_adjust_flag_ = false;
 }
 
@@ -928,8 +920,7 @@ void StateController::RVIZDebugging(void)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
-    int limit = walker_->getPhaseLength() * model_->getLegCount() * 3; // Each iteration of last 3 steps for each leg
-    debug_visualiser_.generateTipTrajectory(leg, limit);
+    debug_visualiser_.generateTipTrajectory(leg);
     debug_visualiser_.generateJointTorques(leg);
     
     if (robot_state_ == RUNNING)
