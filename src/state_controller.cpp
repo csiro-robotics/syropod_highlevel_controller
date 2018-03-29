@@ -928,7 +928,7 @@ void StateController::RVIZDebugging(void)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
-    int limit = walker_->getPhaseLength() * model_->getLegCount() * 3;
+    int limit = walker_->getPhaseLength() * model_->getLegCount() * 3; // Each iteration of last 3 steps for each leg
     debug_visualiser_.generateTipTrajectory(leg, limit);
     debug_visualiser_.generateJointTorques(leg);
     

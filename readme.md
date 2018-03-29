@@ -253,4 +253,13 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Added callback and msg for externally setting target tip poses at end of swing period (Adaptive Gait)
     - Added feature for multi-configuration-step pack/unpacking
 - v0.5.9
-    - Complete merge of v0.5.5 with v0.5.8
+    - Implemented real-time default tip position modification via topic
+    - Implemented estimation of gravity vector from IMU 
+    - Added transform publisher between frames: odom, walk_plane, base_link and tip frames
+    - Added joint torque visualisations
+    - Added touchdown detection feature using data on tip state topic and tuned using new parameters: touchdown_threshold & liftoff_threshold
+    - Added feature to find ground contact by extending 2nd half of swing below walk plane (distance defined by parameter step_depth)
+    - Added feature to align tips with gravity using redundancy of leg or body posing.
+    - Refactored dynamic parameter tuning such that stopping Syropod is no longer required.
+- v0.5.10
+    - 
