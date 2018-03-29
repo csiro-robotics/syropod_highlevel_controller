@@ -3,8 +3,8 @@
  *  @brief   Handles control of Syropod body posing.
  *
  *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    January 2018
- *  @version 0.5.9
+ *  @date    April 2018
+ *  @version 0.5.10
  *
  *  CSIRO Autonomous Systems Laboratory
  *  Queensland Centre for Advanced Technologies
