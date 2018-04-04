@@ -381,6 +381,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, map<int, double> wo
   workspace.color.g = 1;
   workspace.color.b = 1;
   workspace.color.a = 1;
+  
   Pose pose(Vector3d::Zero(), Quaterniond::FromTwoVectors(Vector3d::UnitZ(), leg_stepper->getWalkPlaneNormal()));
   workspace.pose = pose.convertToPoseMessage();
 

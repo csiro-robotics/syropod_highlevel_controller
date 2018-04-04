@@ -29,6 +29,22 @@
 #define MAX_WORKSPACE_RADIUS 2.0 ///< Maximum radius allowed in workspace polygon (m)
 
 class DebugVisualiser;
+typedef map<int, double> LimitMap;
+
+/*******************************************************************************************************************//**
+ * Object containing parameters which define the timing of the step cycle
+***********************************************************************************************************************/
+struct StepCycle
+{
+  double frequency_;  ///< The frequency of the step cycle in Hz
+  int period_;        ///< The length of the entire step cycle in iterations.
+  int swing_period_;  ///< The length of the swing period of the step cycle in iterations.
+  int stance_period_; ///< The length of the stance period of the step cycle in iterations.
+  int stance_end_;    ///< The iteration at which the stance period ends.
+  int swing_start_;   ///< The iteration at which the swing period starts.
+  int swing_end_;     ///< The iteration at which the swing period ends.
+  int stance_start_;  ///< The iteration at which the stance period starts.
+};
 
 /*******************************************************************************************************************//**
  * This class handles top level management of the walk cycle state machine and calls each leg's LegStepper object to
@@ -50,41 +66,17 @@ public:
   /** Accessor for pointer to parameter data structure. */
   inline const Parameters& getParameters(void) { return params_; };
 
-  /** Accessor for step cycle phase length. */
-  inline int getPhaseLength(void) { return phase_length_; };
-  
-  /** Accessor for step cycle swing period phase length. */
-  inline int getSwingLength(void) { return swing_length_; };
-  
-  /** Accessor for step cycle stance period phase length. */
-  inline int getStanceLength(void) { return stance_length_; };
-
-  /** Accessor for phase for start of swing period of step cycle. */
-  inline int getSwingStart(void) { return swing_start_; };
-
-  /** Accessor for phase for end of swing period of step cycle. */
-  inline int getSwingEnd(void) { return swing_end_; };
-
-  /** Accessor for phase for start of stance period of step cycle. */
-  inline int getStanceStart(void) { return stance_start_; };
-
-  /** Accessor for phase for end of stance period of step cycle. */
-  inline int getStanceEnd(void) { return stance_end_; };
+  /** Accessor for step timing object. */
+  inline StepCycle getStepCycle(void) { return step_; };
 
   /** Accessor for ros cycle time period. */
   inline double getTimeDelta(void) { return time_delta_; };
-
-  /** Accessor for step cycle frequency. */
-  inline double getStepFrequency(void) { return step_frequency_; };
 
   /** Accessor for step clearance. */
   inline double getStepClearance(void) { return params_.step_clearance.current_value; };
   
   /** Accessor for step depth. */
   inline double getStepDepth(void) { return params_.step_depth.current_value; };
-  
-  /** Calculates ratio of walk cycle that occurs on the walk plane. */
-  inline double getOnGroundRatio(void) { return double(stance_length_) / double(phase_length_); };
 
   /** Accessor for default body clearance above ground. */
   inline double getBodyClearance(void) { return params_.body_clearance.data; };
@@ -119,6 +111,19 @@ public:
     */
   inline void setPoseState(const PosingState& state) { pose_state_ = state; };
   
+    
+  /** Modifier for linear velocity limit map. */
+  inline void setLinearSpeedLimitMap(const LimitMap& limit_map) { max_linear_speed_ = limit_map; };
+  
+  /** Modifier for angular velocity limit map. */
+  inline void setAngularSpeedLimitMap(const LimitMap& limit_map) { max_angular_speed_ = limit_map; };
+  
+  /** Modifier for linear velocity limit map. */
+  inline void setLinearAccelerationLimitMap(const LimitMap& limit_map) { max_linear_acceleration_ = limit_map; };
+  
+  /** Modifier for angular velocity limit map. */
+  inline void setAngularAccelerationLimitMap(const LimitMap& limit_map) { max_angular_acceleration_ = limit_map; };
+  
   /** Modifier for the scaler for lateral stance positions. */
   inline void regenerateWorkspace(void) { generate_workspace_ = true; };
   
@@ -144,17 +149,60 @@ public:
    */
   int generateWorkspace(const bool& self_loop = true);
 
-  /*
-   * Calculate maximum linear and angular speed/acceleration for each workspace radius in workspace map. These
-   * calculated values will accomodate overshoot of tip outside defined workspace whilst body accelerates, effectively
-   * scaling usable
+  /**
+   * Generate maximum linear and angular speed/acceleration for each workspace radius in workspace map from a given 
+   * step cycle. These calculated values will accomodate overshoot of tip outside defined workspace whilst body 
+   * accelerates, effectively scaling usable workspace. The calculated values are either set as walk controller limits
+   * OR output to given pointer arguments.
+   * @params[in] step Step cycle timing object
+   * @params[out] max_linear_speed_ptr Pointer to output object to store new maximum linear speed values
+   * @params[out] max_angular_speed_ptr Pointer to output object to store new maximum angular speed values
+   * @params[out] max_linear_acceleration_ptr Pointer to output object to store new maximum linear acceleration values
+   * @params[out] max_angular_acceleration_ptr Pointer to output object to store new maximum angular acceleration values
    */
-  void calculateMaxSpeed(void);
+  void generateLimits(StepCycle step,
+                      LimitMap* max_linear_speed_ptr = NULL,
+                      LimitMap* max_angular_speed_ptr = NULL, 
+                      LimitMap* max_linear_acceleration_ptr = NULL,
+                      LimitMap* max_angular_acceleration_ptr = NULL);
+  
+  /**
+   * Generate maximum linear and angular speed/acceleration for each workspace radius in workspace map from pre-set 
+   * step cycle. These calculated values will accomodate overshoot of tip outside defined workspace whilst body 
+   * accelerates, effectively scaling usable workspace. The calculated values are either set as walk controller limits
+   * OR output to given pointer arguments.
+   * @params[out] max_linear_speed_ptr Pointer to output object to store new maximum linear speed values
+   * @params[out] max_angular_speed_ptr Pointer to output object to store new maximum angular speed values
+   * @params[out] max_linear_acceleration_ptr Pointer to output object to store new maximum linear acceleration values
+   * @params[out] max_angular_acceleration_ptr Pointer to output object to store new maximum angular acceleration values
+   */
+  void inline generateLimits(LimitMap* max_linear_speed_ptr = NULL,
+                             LimitMap* max_angular_speed_ptr = NULL, 
+                             LimitMap* max_linear_acceleration_ptr = NULL,
+                             LimitMap* max_angular_acceleration_ptr = NULL)
+  {
+    generateLimits(step_, max_linear_speed_ptr, max_angular_speed_ptr,
+                   max_linear_acceleration_ptr, max_angular_acceleration_ptr);
+  };
 
   /**
-    * Calculates walk controller walk cycle parameters, normalising base parameters according to step frequency.
-    */
-  void setGaitParams(void);
+   * Generates step timing object from walk cycle parameters, normalising base parameters according to step frequency.
+   * Returns step timing object and optionally sets step timing in Walk Controller
+   * @params[in] set_step_cycle Flag denoting if generated step cycle object is to be set in Walk Controller
+   * @return Generated step cycle object
+   */
+  StepCycle generateStepCycle(const bool set_step_cycle = true);
+  
+  /**
+   * Given an input linear velocity vector and angular velocity, this function calculates a stride bearing then 
+   * an interpolation of the two limits at the bearings (defined by the input limit map) bounding the stride bearing.
+   * This is calculated for each leg and the minimum value returned.
+   * @params[in] linear_velocity_input The velocity input given to the Syropod defining desired linear body motion
+   * @params[in] angular_velocity_input The velocity input given to the Syropod defining desired angular body motion
+   * @params[in] limit The LimitMap object which contains limit data for a range of bearings from 0-360 degrees.
+   * @return The smallest interpolated limit for a given bearing from each of the Syropod legs.
+   */
+  double getLimit(const Vector2d& linear_velocity_input, const double& angular_velocity_input, const LimitMap& limit);
 
   /**
     * Updates all legs in the walk cycle. Calculates stride vectors for all legs from robot body velocity inputs and
@@ -206,40 +254,30 @@ private:
   WalkState walk_state_ = STOPPED;           ///< The current walk cycle state.
   PosingState pose_state_ = POSING_COMPLETE; ///< The current state of auto posing.
 
-  // Walk parameters
-  double step_frequency_;      ///< The frequency of the step cycle.
-
-  // Gait cycle parameters
-  int phase_length_;  ///< The phase length of the step cycle.
-  int swing_length_;  ///< The phase length of the swing period of the step cycle.
-  int stance_length_; ///< The phase length of the stance period of the step cycle.
-  int stance_end_;    ///< The phase at which the stance period ends.
-  int swing_start_;   ///< The phase at which the swing period starts.
-  int swing_end_;     ///< The phase at which the swing period ends.
-  int stance_start_;  ///< The phase at which the stance period starts.
+  // Step cycle timing object
+  StepCycle step_;
 
   // Workspace generation variables
-  map<int, double> workspace_map_;                ///< A map of workspace radii for given bearing in degrees
-  shared_ptr<Model> search_model_;                ///< A copy of the robot model used to search for kinematic limits
-  bool workspace_generated_ = false;              ///< Flag denoting if workspace map has been generated.
-  bool generate_workspace_ = true;                ///< Flag denoting if workspace is currently being generated
-  double stance_radius_;                          ///< The radius of the turning circle used for angular body velocity.
-  Vector3d walk_plane_;                           ///< The co-efficients of an estimated planar walk surface
-  Vector3d walk_plane_normal_;                    ///< The normal of the estimated planar walk surface
-  int iteration_ = 1;                             ///< The iteration of the workspace limit search along current bearing 
-  int search_bearing_ = 0;                        ///< The current bearing being searched for kinematic limits
-  double search_height_ = 0.0;                    ///< The current height being searched for kinematic limits
-  vector<Vector3d> origin_tip_position_;          ///< The origin tip position of the kinematic search along a bearing.
-  vector<Vector3d> target_tip_position_;          ///< The target tip position of the kinematic search along a bearing.
+  LimitMap workspace_map_;       ///< A map of workspace radii for given bearing in degrees
+  shared_ptr<Model> search_model_;       ///< A copy of the robot model used to search for kinematic limits
+  bool workspace_generated_ = false;     ///< Flag denoting if workspace map has been generated.
+  bool generate_workspace_ = true;       ///< Flag denoting if workspace is currently being generated
+  Vector3d walk_plane_;                  ///< The co-efficients of an estimated planar walk surface
+  Vector3d walk_plane_normal_;           ///< The normal of the estimated planar walk surface
+  int iteration_ = 1;                    ///< The iteration of the workspace limit search along current bearing 
+  int search_bearing_ = 0;               ///< The current bearing being searched for kinematic limits
+  double search_height_ = 0.0;           ///< The current height being searched for kinematic limits
+  vector<Vector3d> origin_tip_position_; ///< The origin tip position of the kinematic search along a bearing.
+  vector<Vector3d> target_tip_position_; ///< The target tip position of the kinematic search along a bearing.
 
   // Velocity/acceleration variables
   Vector2d desired_linear_velocity_;          ///< The desired linear velocity of the robot body.
   double desired_angular_velocity_;           ///< The desired angular velocity of the robot body.
   Pose odometry_ideal_;                       ///< The ideal odometry from the world frame
-  map<int, double> max_linear_speed_;         ///< A map of max allowable linear body speeds for potential bearings.
-  map<int, double> max_angular_speed_;        ///< A map of max allowable angular speeds for potential bearings.
-  map<int, double> max_linear_acceleration_;  ///< A map of max allowable linear accelerations for potential bearings.
-  map<int, double> max_angular_acceleration_; ///< A map of max allowable angular accelerations for potential bearings.
+  LimitMap max_linear_speed_;         ///< A map of max allowable linear body speeds for potential bearings.
+  LimitMap max_angular_speed_;        ///< A map of max allowable angular speeds for potential bearings.
+  LimitMap max_linear_acceleration_;  ///< A map of max allowable linear accelerations for potential bearings.
+  LimitMap max_angular_acceleration_; ///< A map of max allowable angular accelerations for potential bearings.
 
   // Leg coordination variables
   int legs_at_correct_phase_ = 0;            ///< A count of legs currently at the correct phase per walk cycle state.
@@ -443,6 +481,9 @@ public:
    * @param[in] transform The new transform
    */
   inline void setTargetTipPoseTransform(const Pose& transform) { target_tip_pose_transform_ = transform; };
+  
+  /** Updates phase for new step cycle parameters */
+  void updatePhase(void);
 
   /** Iterates the step phase and updates the progress variables */
   void iteratePhase(void);

@@ -90,6 +90,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   tip_state_subscriber_ = n_.subscribe("/tip_states", 1, &StateController::tipStatesCallback, this);
 
   //Set up debugging publishers
+  velocity_publisher_ = n_.advertise<geometry_msgs::Twist>("/shc/velocity", 1000);
   pose_publisher_ = n_.advertise<geometry_msgs::Twist>("/shc/pose", 1000);
   workspace_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/workspace", 1000);
   rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/rotation_pose_error", 1000);
@@ -392,12 +393,6 @@ void StateController::runningState(void)
 {
   bool update_tip_position = true;
   
-  // Dynamically adjust parameters and change stance if required
-  if (parameter_adjust_flag_)
-  {
-    adjustParameter();
-  }
-  
   // Force Syropod to stop walking
   if (transition_state_flag_)
   {
@@ -429,6 +424,12 @@ void StateController::runningState(void)
     angular_velocity_input_ = angular_cruise_velocity_;
   }
   
+  // Dynamically adjust parameters and change stance if required
+  if (parameter_adjust_flag_)
+  {
+    adjustParameter();
+  }
+  
   // Set true if already true or if walk state not STOPPED
   update_tip_position = update_tip_position || walker_->getWalkState() != STOPPED; 
 
@@ -458,13 +459,63 @@ void StateController::runningState(void)
 void StateController::adjustParameter(void)
 {
   AdjustableParameter* p = dynamic_parameter_;
-  // Set new parameter value and apply by reinitialising individual controllers.
   p->current_value = new_parameter_value_;
-  walker_->setGaitParams();
-  walker_->calculateMaxSpeed();
-  ROS_INFO("\n[SHC] Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
-              p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
-  parameter_adjust_flag_ = false;
+  bool set_new_parameter = true;
+  if (p->name == "step_frequency")
+  {
+    // Calculate new speed/acceleration limits due to changing parameter
+    StepCycle new_step_cycle = walker_->generateStepCycle(false);
+    LimitMap max_linear_speed_map;
+    LimitMap max_angular_speed_map;
+    walker_->generateLimits(new_step_cycle, &max_linear_speed_map, &max_angular_speed_map);
+    walker_->setLinearSpeedLimitMap(max_linear_speed_map);
+    walker_->setAngularSpeedLimitMap(max_angular_speed_map);
+    double max_linear_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
+    double max_angular_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
+    
+    // Generate target velocities to achieve before changing step frequency
+    Vector2d target_linear_velocity;
+    double target_angular_velocity;
+    if (params_.velocity_input_mode.data == "throttle")
+    {
+      target_linear_velocity = clamped(linear_velocity_input_, 1.0) * max_linear_speed;  // Forces input between -1.0/1.0
+      target_angular_velocity = clamped(angular_velocity_input_, -1.0, 1.0) * max_angular_speed;
+
+      // Scale linear velocity according to angular velocity (% of max) to keep stride velocities within limits
+      target_linear_velocity *= (1.0 - abs(angular_velocity_input_));
+    }
+    else if (params_.velocity_input_mode.data == "real")
+    {
+      target_linear_velocity = clamped(linear_velocity_input_, max_linear_speed);
+      target_angular_velocity = clamped(angular_velocity_input_, -max_angular_speed, max_angular_speed);
+    }
+    
+    // Set new parameter once within new limits
+    if (walker_->getDesiredLinearVelocity()[0] <= target_linear_velocity[0] && 
+        walker_->getDesiredLinearVelocity()[1] <= target_linear_velocity[1] &&
+        abs(walker_->getDesiredAngularVelocity()) <= abs(target_angular_velocity))
+    {
+      walker_->generateStepCycle();
+      walker_->generateLimits();
+    }
+    else
+    {
+      set_new_parameter = false;
+      ROS_INFO_THROTTLE(THROTTLE_PERIOD,
+                        "\n[SHC] Slowing to safe speed before setting new parameter '%s'\n", p->name.c_str());
+    }
+  }
+  else if (p->name == "stance_span_modifier" || p->name == "step_clearance")
+  {
+    walker_->regenerateWorkspace(); //TODO Implement workspace regeneration for these parameters
+  }
+  
+  if (set_new_parameter)
+  {
+    parameter_adjust_flag_ = false;
+    ROS_INFO("\n[SHC] Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
+                p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
+  }
 }
 
 /*******************************************************************************************************************//**
@@ -477,8 +528,8 @@ void StateController::changeGait(void)
   if (walker_->getWalkState() == STOPPED)
   {
     initGaitParameters(gait_selection_);
-    walker_->setGaitParams();
-    walker_->calculateMaxSpeed();
+    walker_->generateStepCycle();
+    walker_->generateLimits();
 
     // For auto compensation find associated auto posing parameters for new gait
     if (params_.auto_posing.data && params_.auto_pose_type.data == "auto")
@@ -749,8 +800,9 @@ void StateController::publishLegState(void)
     // Step progress
     msg.swing_progress = leg_stepper->getSwingProgress();
     msg.stance_progress = leg_stepper->getStanceProgress();
-    double swing_time = (double(walker_->getSwingLength()) / walker_->getPhaseLength()) / walker_->getStepFrequency();
-    double stance_time = (double(walker_->getStanceLength()) / walker_->getPhaseLength()) / walker_->getStepFrequency();
+    StepCycle step = walker_->getStepCycle();
+    double swing_time = (double(step.swing_period_) / step.period_) / step.frequency_;
+    double stance_time = (double(step.stance_period_) / step.period_) / step.frequency_;
     double time_to_swing_end;
     if (leg_stepper->getStanceProgress() >= 0.0)
     {
@@ -779,6 +831,21 @@ void StateController::publishLegState(void)
 
     leg->publishState(msg);
   }
+}
+
+/*******************************************************************************************************************//**
+ * Publishes current desired linear and angular body velocity for debugging
+***********************************************************************************************************************/
+void StateController::publishVelocity(void)
+{
+  geometry_msgs::Twist msg;
+  msg.linear.x = walker_->getDesiredLinearVelocity()[0];
+  msg.linear.y = walker_->getDesiredLinearVelocity()[1];
+  msg.linear.z = 0.0;
+  msg.angular.x = 0.0;
+  msg.angular.y = 0.0;
+  msg.angular.z = walker_->getDesiredAngularVelocity();
+  velocity_publisher_.publish(msg);
 }
 
 /*******************************************************************************************************************//**
@@ -995,6 +1062,10 @@ void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& inpu
 {
   linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y) * params_.body_velocity_scaler.data;
   angular_velocity_input_ = input.angular.z * params_.body_velocity_scaler.data;
+  if (params_.velocity_input_mode.data == "throttle" && linear_velocity_input_.norm() > 1.0)
+  {
+    linear_velocity_input_ = min(1.0, linear_velocity_input_.norm()) * linear_velocity_input_.normalized();
+  }
 }
 
 /*******************************************************************************************************************//**

@@ -154,6 +154,9 @@ public:
    * @todo Remove ASC state messages in line with requested hardware changes to use legState message variable/s
    */
   void publishLegState(void);
+  
+  /** Publishes current desired linear and angular body velocity for debugging */
+  void publishVelocity(void);
 
   /** Publishes current pose (roll, pitch, yaw, x, y, z) for debugging */
   void publishPose(void);
@@ -370,6 +373,7 @@ private:
   ros::Subscriber tip_state_subscriber_;              ///< Subscriber for topic "/tip_states"
 
   ros::Publisher desired_joint_state_publisher_;      ///< Publisher for topic "/desired_joint_state"
+  ros::Publisher velocity_publisher_;                 ///< Publisher for topic "/shc/velocity"
   ros::Publisher pose_publisher_;                     ///< Publisher for topic "/shc/pose"
   ros::Publisher workspace_publisher_;                ///< Publisher for topic "/shc/workspace"
   ros::Publisher rotation_pose_error_publisher_;      ///< Publisher for topic "/shc/rotation_pose_error"

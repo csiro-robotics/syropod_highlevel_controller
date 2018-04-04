@@ -43,7 +43,6 @@ WalkController::WalkController(shared_ptr<Model> model, const Parameters& params
 void WalkController::init(void)
 {
   time_delta_ = params_.time_delta.data;
-  step_frequency_ = params_.step_frequency.current_value;
   walk_state_ = STOPPED;
   walk_plane_ = Vector3d::Zero();
   walk_plane_normal_ = Vector3d::UnitZ();
@@ -66,19 +65,12 @@ void WalkController::init(void)
                                                    shared_from_this(), leg, identity_tip_pose));
   }
 
-  // Stance radius based around front right leg to ensure positive values
-  shared_ptr<Leg> reference_leg = model_->getLegByIDNumber(0);
-  shared_ptr<LegStepper> reference_leg_stepper = reference_leg->getLegStepper();
-  double x_position = reference_leg_stepper->getDefaultTipPose().position_[0];
-  double y_position = reference_leg_stepper->getDefaultTipPose().position_[1];
-  stance_radius_ = Vector2d(x_position, y_position).norm();
-
   // Init velocity input variables
   desired_linear_velocity_ = Vector2d(0, 0);
   desired_angular_velocity_ = 0;
 
-  // Init gait parameters
-  setGaitParams();
+  // Generate step timing
+  generateStepCycle();
 }
 
 /*******************************************************************************************************************//**
@@ -87,6 +79,9 @@ void WalkController::init(void)
  * (all opposite bearing pairs having equal distance) or circular (all search bearings having equal distance).
  * @params[in] self_loop Flag that determines if workspace generation occurs iteratively through multiple calls of this
  * function or in while loop via a single call of this function.
+ * @return The progress of generating a workspace from 0 to 100
+ * @todo Develop 'quick_mode' which creates a circle segment from the original workspace and is used to quickly generate
+ * 'circular' workspaces which fit within segment for new default tip posiiton
 ***********************************************************************************************************************/
 int WalkController::generateWorkspace(const bool& self_loop)
 {
@@ -175,7 +170,7 @@ int WalkController::generateWorkspace(const bool& self_loop)
 
     bool within_limits = true;
     double min_distance_from_default = UNASSIGNED_VALUE;
-    int number_iterations = WORKSPACE_GENERATION_MAX_ITERATIONS * (debug ? 10 : 1);
+    int number_iterations = WORKSPACE_GENERATION_MAX_ITERATIONS * (debug && self_loop ? 10 : 1);
     
     // Find opposite search bearing and modify current minimum search distance to be smaller or equal.
     double current_min = workspace_map_.at(search_bearing_);
@@ -189,8 +184,8 @@ int WalkController::generateWorkspace(const bool& self_loop)
       shared_ptr<Leg> leg = leg_it_->second;
       shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       Pose current_pose = search_model_->getCurrentPose();
-      Vector3d identity_tip_position = current_pose.inverseTransformVector(leg_stepper->getIdentityTipPose().position_);
-      identity_tip_position[2] += search_height_;
+      Vector3d default_tip_position = current_pose.inverseTransformVector(leg_stepper->getDefaultTipPose().position_);
+      default_tip_position[2] += search_height_;
       leg_it_++;
       
       // Set origin and target for linear interpolation
@@ -201,11 +196,11 @@ int WalkController::generateWorkspace(const bool& self_loop)
         {
           Vector3d origin_tip_position = leg->getCurrentTipPose().position_;
           origin_tip_position_.push_back(origin_tip_position);
-          target_tip_position_.push_back(identity_tip_position);
+          target_tip_position_.push_back(default_tip_position);
         }
         else
         {
-          Vector3d origin_tip_position = identity_tip_position;
+          Vector3d origin_tip_position = default_tip_position;
           origin_tip_position_.push_back(origin_tip_position);
           Vector3d target_tip_position = origin_tip_position;
           target_tip_position[0] += current_min * cos(degreesToRadians(search_bearing_));
@@ -225,7 +220,7 @@ int WalkController::generateWorkspace(const bool& self_loop)
       // Check if leg is still within limits
       if (search_bearing_ != 0)
       {
-        double distance_from_default = Vector3d(leg->getCurrentTipPose().position_ - identity_tip_position).norm();
+        double distance_from_default = Vector3d(leg->getCurrentTipPose().position_ - default_tip_position).norm();
         min_distance_from_default = min(distance_from_default, min_distance_from_default);
         within_limits = within_limits && distance_from_default < current_min && ik_result != 0.0;
         // Display debugging messages
@@ -303,25 +298,50 @@ int WalkController::generateWorkspace(const bool& self_loop)
   // Calculate max speeds using generated workspace
   if (progress == PROGRESS_COMPLETE)
   {
-    calculateMaxSpeed();
+    generateLimits();
   }
   
   return progress;
 }
 
 /*******************************************************************************************************************//**
- * Calculate maximum linear and angular speed/acceleration for each workspace radius in workspace map. These calculated
- * values will accomodate overshoot of tip outside defined workspace whilst body accelerates, effectively scaling usable
- * workspace.
+ * Generate maximum linear and angular speed/acceleration for each workspace radius in workspace map from a given step
+ * cycle. These calculated values will accomodate overshoot of tip outside defined workspace whilst body accelerates,
+ * effectively scaling usable workspace. The calculated values are either set as walk controller limits OR output to
+ * given pointer arguments.
+ * @params[in] step Step cycle timing object
+ * @params[out] max_linear_speed_ptr Pointer to output object to store new maximum linear speed values
+ * @params[out] max_angular_speed_ptr Pointer to output object to store new maximum angular speed values
+ * @params[out] max_linear_acceleration_ptr Pointer to output object to store new maximum linear acceleration values
+ * @params[out] max_angular_acceleration_ptr Pointer to output object to store new maximum angular acceleration values
 ***********************************************************************************************************************/
-void WalkController::calculateMaxSpeed(void)
+void WalkController::generateLimits(StepCycle step,
+                                    LimitMap* max_linear_speed_ptr,
+                                    LimitMap* max_angular_speed_ptr, 
+                                    LimitMap* max_linear_acceleration_ptr,
+                                    LimitMap* max_angular_acceleration_ptr)
 {
-  int base_phase_length = params_.stance_phase.data + params_.swing_phase.data;
-  int normaliser = phase_length_ / base_phase_length;
-  int base_phase_offset = int(params_.phase_offset.data * normaliser);
+  int base_step_period = params_.stance_phase.data + params_.swing_phase.data;
+  int normaliser = step.period_ / base_step_period;
+  int base_step_offset = int(params_.phase_offset.data * normaliser);
+  
+  bool set_limits = (!max_linear_speed_ptr && !max_linear_acceleration_ptr && 
+                     !max_angular_speed_ptr && !max_angular_acceleration_ptr);
+  if (set_limits)
+  {
+    max_linear_speed_ptr = &max_linear_speed_;
+    max_angular_speed_ptr = &max_angular_speed_;
+    max_linear_acceleration_ptr = &max_linear_acceleration_;
+    max_angular_acceleration_ptr = &max_angular_acceleration_;
+  }
 
-  // Set phase offset and check if leg starts in swing phase (i.e. forced to stance for the 1st step cycle)
-  // If so find this max 'stance extension' phase length which is used in acceleration calculations
+  if (max_linear_speed_ptr) { max_linear_speed_ptr->clear(); };
+  if (max_linear_acceleration_ptr) { max_linear_acceleration_ptr->clear(); };
+  if (max_angular_speed_ptr) { max_angular_speed_ptr->clear(); };
+  if (max_angular_acceleration_ptr) { max_angular_acceleration_ptr->clear(); };
+
+  // Set step offset and check if leg starts in swing period (i.e. forced to stance for the 1st step cycle)
+  // If so find this max 'stance extension' period which is used in acceleration calculations
   int max_stance_extension = 0;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -329,122 +349,167 @@ void WalkController::calculateMaxSpeed(void)
     ROS_ASSERT(params_.offset_multiplier.data.count(leg->getIDName()));
     int multiplier = params_.offset_multiplier.data.at(leg->getIDName());
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    int phase_offset = (base_phase_offset * multiplier) % phase_length_;
-    leg_stepper->setPhaseOffset(phase_offset);
-    if (phase_offset > swing_start_ && phase_offset < swing_end_)  // SWING STATE
+    int step_offset = (base_step_offset * multiplier) % step.period_;
+    leg_stepper->setPhaseOffset(step_offset);
+    if (step_offset > step.swing_start_ && step_offset < step.swing_end_)  // SWING STATE
     {
-      max_stance_extension = max(max_stance_extension, swing_end_ - phase_offset);
+      max_stance_extension = max(max_stance_extension, step.swing_end_ - step_offset);
     }
   }
 
-  // Set max stride (i.e. max body velocity) to occur at end of 1st swing of leg with maximum stance length extension
-  double time_to_max_stride = (max_stance_extension + stance_length_ + swing_length_) * time_delta_;
-
-  max_linear_speed_.clear();
-  max_linear_acceleration_.clear();
-  max_angular_speed_.clear();
-  max_angular_acceleration_.clear();
+  // Set max stride (i.e. max body velocity) to occur at end of 1st swing of leg with maximum stance period extension
+  double time_to_max_stride = (max_stance_extension + step.stance_period_ + step.swing_period_) * time_delta_;
 
   // Calculate initial max speed and acceleration of body
   map<int, double>::iterator it;
   for (it = workspace_map_.begin(); it != workspace_map_.end(); ++it)
   {
     double workspace_radius = it->second;
-    double on_ground_ratio = double(stance_length_) / double(phase_length_);
-    double max_speed = (workspace_radius * 2.0) / (on_ground_ratio / step_frequency_);
+    double on_ground_ratio = double(step.stance_period_) / step.period_;
+    double max_speed = (workspace_radius * 2.0) / (on_ground_ratio / step.frequency_);
     double max_acceleration = max_speed / time_to_max_stride;
 
-    // Calculates max overshoot of tip (in stance phase) outside workspace
+    // Calculates max overshoot of tip (in stance period) outside workspace
     double stance_overshoot = 0;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
       shared_ptr<Leg> leg = leg_it_->second;
       shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-      // All referenced swings are the LAST swing phase BEFORE the max velocity (stride length) is reached
-      double phase_offset = leg_stepper->getPhaseOffset();
-      double t = phase_offset * time_delta_; // Time between swing end and max velocity being reached
+      // All referenced swings are the LAST swing period BEFORE the max velocity (stride length) is reached
+      double step_offset = leg_stepper->getPhaseOffset();
+      double t = step_offset * time_delta_; // Time between swing end and max velocity being reached
       double time_to_swing_end = time_to_max_stride - t;
       double v0 = max_acceleration * time_to_swing_end; // Tip velocity at time of swing end
-      double stride_length = v0 * (on_ground_ratio / step_frequency_);
+      double stride_length = v0 * (on_ground_ratio / step.frequency_);
       double d0 = -stride_length / 2.0; // Distance to default tip position at time of swing end
       double d1 = d0 + v0 * t + 0.5 * max_acceleration * sqr(t); // Distance from default tip position at max velocity
-      double d2 = max_speed * (stance_length_ * time_delta_ - t); // Distance from default tip position at end of stance
+      double d2 = max_speed * (step.stance_period_ * time_delta_ - t); // Distance from default tip position at end of stance
       stance_overshoot = max(stance_overshoot, d1 + d2 - workspace_radius); // Max overshoot past workspace limitations
     }
 
     // Scale workspace to accomodate stance overshoot and normal swing overshoot
-    double swing_overshoot = 0.5 * max_speed * swing_length_ / (2.0 * phase_length_ * step_frequency_); // From swing node 1
+    double swing_overshoot = 0.5 * max_speed * step.swing_period_ / (2.0 * step.period_ * step.frequency_); // From swing node 1
     double scaled_workspace_radius = (workspace_radius / (workspace_radius + stance_overshoot + swing_overshoot)) * workspace_radius;
+    
+    // Stance radius based around front right leg to ensure positive values
+    shared_ptr<Leg> reference_leg = model_->getLegByIDNumber(0);
+    shared_ptr<LegStepper> reference_leg_stepper = reference_leg->getLegStepper();
+    double x_position = reference_leg_stepper->getDefaultTipPose().position_[0];
+    double y_position = reference_leg_stepper->getDefaultTipPose().position_[1];
+    double stance_radius = Vector2d(x_position, y_position).norm();
 
     // Distance: scaled_workspace_radius*2.0 (i.e. max stride length)
     // Time: on_ground_ratio*(1/step_frequency_) where step frequency is FULL step cycles/s)
-    double max_linear_speed = (scaled_workspace_radius * 2.0) / (on_ground_ratio / step_frequency_);
+    double max_linear_speed = (scaled_workspace_radius * 2.0) / (on_ground_ratio / step.frequency_);
     double max_linear_acceleration = max_linear_speed / time_to_max_stride;
-    double max_angular_speed = max_linear_speed / stance_radius_;
+    double max_angular_speed = max_linear_speed / stance_radius;
     double max_angular_acceleration = max_angular_speed / time_to_max_stride;
 
-    max_linear_speed_.insert(map<int, double>::value_type(it->first, max_linear_speed));
-    max_linear_acceleration_.insert(map<int, double>::value_type(it->first, max_linear_acceleration));
-    max_angular_speed_.insert(map<int, double>::value_type(it->first, max_angular_speed));
-    max_angular_acceleration_.insert(map<int, double>::value_type(it->first, max_angular_acceleration));
+    if (max_linear_speed_ptr)
+    {
+      max_linear_speed_ptr->insert(LimitMap::value_type(it->first, max_linear_speed));
+    }
+    if (max_linear_acceleration_ptr)
+    {
+      max_linear_acceleration_ptr->insert(LimitMap::value_type(it->first, max_linear_acceleration));
+    }
+    if (max_angular_speed_ptr)
+    {
+      max_angular_speed_ptr->insert(LimitMap::value_type(it->first, max_angular_speed));
+    }
+    if (max_angular_acceleration_ptr)
+    {
+      max_angular_acceleration_ptr->insert(LimitMap::value_type(it->first, max_angular_acceleration));
+    }
   }
 }
 
 /*******************************************************************************************************************//**
- * Calculates walk controller walk cycle parameters, normalising base parameters according to step frequency.
+ * Generates step timing object from walk cycle parameters, normalising base parameters according to step frequency.
+ * Returns step timing object and optionally sets step timing in Walk Controller
+ * @params[in] set_step_cycle Flag denoting if generated step cycle object is to be set in Walk Controller
+ * @return Generated step cycle object
 ***********************************************************************************************************************/
-void WalkController::setGaitParams(void)
+StepCycle WalkController::generateStepCycle(const bool set_step_cycle)
 {
-  stance_end_ = params_.stance_phase.data * 0.5;
-  swing_start_ = stance_end_;
-  swing_end_ = swing_start_ + params_.swing_phase.data;
-  stance_start_ = swing_end_;
+  StepCycle step;
+  step.stance_end_ = params_.stance_phase.data * 0.5;
+  step.swing_start_ = step.stance_end_;
+  step.swing_end_ = step.swing_start_ + params_.swing_phase.data;
+  step.stance_start_ = step.swing_end_;
 
-  // Normalises the step phase length to match the total number of iterations over a full step
-  int base_phase_length = params_.stance_phase.data + params_.swing_phase.data;
-  double swing_ratio = double(params_.swing_phase.data) / double(base_phase_length); // Modifies step frequency
+  // Normalises the step period to match the total number of iterations over a full step
+  int base_step_period = params_.stance_phase.data + params_.swing_phase.data;
+  double swing_ratio = double(params_.swing_phase.data) / double(base_step_period); // Modifies step frequency
 
-  // Ensure phase length is even and divisible by base phase length and therefore gives whole even normaliser value
-  double raw_phase_length = ((1.0 / params_.step_frequency.current_value) / time_delta_) / swing_ratio;
-  phase_length_ = roundToEvenInt(raw_phase_length / base_phase_length) * base_phase_length;
+  // Ensure step period is even and divisible by base step period and therefore gives whole even normaliser value
+  double raw_step_period = ((1.0 / params_.step_frequency.current_value) / time_delta_) / swing_ratio;
+  step.period_ = roundToEvenInt(raw_step_period / base_step_period) * base_step_period;
 
-  step_frequency_ = 1.0 / (phase_length_ * time_delta_);  // adjust step frequency to match corrected phase length
-  int normaliser = phase_length_ / base_phase_length;
-  stance_end_ *= normaliser;
-  swing_start_ *= normaliser;
-  swing_end_ *= normaliser;
-  stance_start_ *= normaliser;
+  step.frequency_ = 1.0 / (step.period_ * time_delta_);  // adjust step frequency to match corrected step period
+  int normaliser = step.period_ / base_step_period;
+  step.stance_end_ *= normaliser;
+  step.swing_start_ *= normaliser;
+  step.swing_end_ *= normaliser;
+  step.stance_start_ *= normaliser;
 
-  stance_length_ = mod(stance_end_ - stance_start_, phase_length_);
-  swing_length_ = swing_end_ - swing_start_;
+  step.stance_period_ = mod(step.stance_end_ - step.stance_start_, step.period_);
+  step.swing_period_ = step.swing_end_ - step.swing_start_;
 
-  // Ensure stance and swing phase lengths are divisible by two
-  ROS_ASSERT(stance_length_ % 2 == 0);
-  ROS_ASSERT(swing_length_ % 2 == 0);
+  // Ensure stance and swing periods are divisible by two
+  ROS_ASSERT(step.stance_period_ % 2 == 0);
+  ROS_ASSERT(step.swing_period_ % 2 == 0);
   
-  if (walk_state_ == MOVING)
+  // Set step cycle in walk controller and update phase in leg steppers for new parameters if required
+  if (set_step_cycle)
   {
-    for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+    step_ = step;
+    if (walk_state_ == MOVING)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-      leg_stepper->setNewStepFrequency();
+      for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+      {
+        shared_ptr<Leg> leg = leg_it_->second;
+        shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+        leg_stepper->updatePhase();
+      }
     }
   }
-  
-  // Debug gait cycle
-  string stance1(stance_length_/2 - 2, '-');
-  string stance2(stance_length_/2 + 1, '-');
-  string swing(swing_length_ - 2, '-');
-  string stance_empty(stance_length_/2 - 1, ' ');
-  string swing_empty(swing_length_ - 2, ' ');
-  ROS_INFO_COND(true,
-                "\n%s%d\n%sS%sE%s\n%s|%s|%s\n%s|%s|%s\n%s|%s|%s\n0%sE%sS%s%d\n%s %s%d\n",
-                stance_empty.c_str(), swing_start_, stance_empty.c_str(), swing.c_str(), stance_empty.c_str(),
-                stance_empty.c_str(), swing_empty.c_str(), stance_empty.c_str(), stance_empty.c_str(), 
-                swing_empty.c_str(), stance_empty.c_str(), stance_empty.c_str(), swing_empty.c_str(), 
-                stance_empty.c_str(), stance1.c_str(), swing_empty.c_str(), stance2.c_str(), phase_length_,
-                stance_empty.c_str(), swing_empty.c_str(), swing_end_);
+  return step;
+}
+
+/*******************************************************************************************************************//**
+ * Given an input linear velocity vector and angular velocity, this function calculates a stride bearing then calculates
+ * an interpolation of the two limits at the bearings (defined by the input limit map) bounding the stride bearing.
+ * This is calculated for each leg and the minimum value returned.
+ * @params[in] linear_velocity_input The velocity input given to the Syropod defining desired linear body motion
+ * @params[in] angular_velocity_input The velocity input given to the Syropod defining desired angular body motion
+ * @params[in] limit The LimitMap object which contains limit data for a range of bearings from 0-360 degrees.
+ * @return The smallest interpolated limit for a given bearing from each of the Syropod legs.
+***********************************************************************************************************************/
+double WalkController::getLimit(const Vector2d& linear_velocity_input,
+                                const double& angular_velocity_input,
+                                const LimitMap& limit)
+{
+  double min_limit = UNASSIGNED_VALUE;
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    Vector3d tip_position = leg_stepper->getCurrentTipPose().position_;
+    Vector2d rotation_normal = Vector2d(-tip_position[1], tip_position[0]);
+    Vector2d stride_vector = linear_velocity_input + angular_velocity_input * rotation_normal;
+    int bearing = mod(roundToInt(radiansToDegrees(atan2(stride_vector[1], stride_vector[0]))), 360);
+    int upper_bound = limit.lower_bound(bearing)->first;
+    int lower_bound = mod(upper_bound - BEARING_STEP, 360);
+    bearing += (bearing < lower_bound) ? 360 : 0;
+    upper_bound += (upper_bound < lower_bound) ? 360 : 0;
+    double interpolation_progress = (bearing - lower_bound) / (upper_bound - lower_bound);
+    double limit_interpolation = interpolate(limit.at(lower_bound),
+                                             limit.at(mod(upper_bound, 360)),
+                                             interpolation_progress);
+    min_limit = min(min_limit, limit_interpolation);
+  }
+  return min_limit;
 }
 
 /*******************************************************************************************************************//**
@@ -460,36 +525,10 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
   Vector2d new_linear_velocity;
   double new_angular_velocity;
 
-  double max_linear_speed = UNASSIGNED_VALUE;
-  double max_angular_speed = UNASSIGNED_VALUE;
-  double max_linear_acceleration = UNASSIGNED_VALUE;
-  double max_angular_acceleration = UNASSIGNED_VALUE;
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    Vector3d tip_position = leg_stepper->getCurrentTipPose().position_;
-    Vector2d rotation_normal = Vector2d(-tip_position[1], tip_position[0]);
-    Vector2d stride_vector = linear_velocity_input + angular_velocity_input * rotation_normal;
-    int bearing = mod(roundToInt(radiansToDegrees(atan2(stride_vector[1], stride_vector[0]))), 360);
-    int upper_bound = workspace_map_.lower_bound(bearing)->first;
-    int lower_bound = mod(upper_bound - BEARING_STEP, 360);
-    bearing += (bearing < lower_bound) ? 360 : 0;
-    upper_bound += (upper_bound < lower_bound) ? 360 : 0;
-    double interpolation_progress = (bearing - lower_bound) / (upper_bound - lower_bound);
-    max_linear_speed = interpolate(max_linear_speed_.at(lower_bound),
-                                           max_linear_speed_.at(mod(upper_bound, 360)),
-                                           interpolation_progress);
-    max_angular_speed = interpolate(max_angular_speed_.at(lower_bound),
-                                            max_angular_speed_.at(mod(upper_bound, 360)),
-                                            interpolation_progress);
-    max_linear_acceleration = interpolate(max_linear_acceleration_.at(lower_bound),
-                                                  max_linear_acceleration_.at(mod(upper_bound, 360)),
-                                                  interpolation_progress);
-    max_angular_acceleration = interpolate(max_angular_acceleration_.at(lower_bound),
-                                                   max_angular_acceleration_.at(mod(upper_bound, 360)),
-                                                   interpolation_progress);
-  }
+  double max_linear_speed = getLimit(linear_velocity_input, angular_velocity_input, max_linear_speed_);
+  double max_angular_speed = getLimit(linear_velocity_input, angular_velocity_input, max_angular_speed_);
+  double max_linear_acceleration = getLimit(linear_velocity_input, angular_velocity_input, max_linear_acceleration_);
+  double max_angular_acceleration = getLimit(linear_velocity_input, angular_velocity_input, max_angular_acceleration_);
 
   // Calculate desired angular/linear velocities according to input mode and max limits
   if (walk_state_ != STOPPING)
@@ -619,7 +658,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
       // Check if all legs have completed one step
       if (legs_at_correct_phase_ == leg_count)
       {
-        if (leg_stepper->getPhase() == swing_end_ && !leg_stepper->hasCompletedFirstStep())
+        if (leg_stepper->getPhase() == step_.swing_end_ && !leg_stepper->hasCompletedFirstStep())
         {
           leg_stepper->setCompletedFirstStep(true);
           legs_completed_first_step_++;
@@ -628,8 +667,9 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
       // Force any leg state into STANCE if it starts offset in a mid-swing state but has not finished swing end
       if (!leg_stepper->isAtCorrectPhase())
       {
-        if (leg_stepper->getPhaseOffset() > swing_start_ && leg_stepper->getPhaseOffset() < swing_end_ && // SWING STATE
-            leg_stepper->getPhase() != swing_end_)
+        if (leg_stepper->getPhaseOffset() > step_.swing_start_ && 
+            leg_stepper->getPhaseOffset() < step_.swing_end_ && // SWING STATE
+            leg_stepper->getPhase() != step_.swing_end_)
         {
           leg_stepper->setStepState(FORCE_STANCE);
         }
@@ -646,13 +686,13 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     else if (walk_state_ == STOPPING)
     {
-      // All legs must attempt at least one step to achieve default tip position after ending a swing before called 'at correct phase'
+      // All legs must attempt at least one step to achieve default tip position after ending a swing.
       bool zero_body_velocity = leg_stepper->getStrideVector().norm() == 0;
       Vector3d walk_plane_normal = leg_stepper->getWalkPlaneNormal();
       Vector3d error = (leg_stepper->getCurrentTipPose().position_ - leg_stepper->getTargetTipPose().position_);
       error = getRejection(error, walk_plane_normal);
       bool at_target_tip_position = (error.norm() < TIP_TOLERANCE);
-      if (zero_body_velocity && !leg_stepper->isAtCorrectPhase() && leg_stepper->getPhase() == swing_end_)
+      if (zero_body_velocity && !leg_stepper->isAtCorrectPhase() && leg_stepper->getPhase() == step_.swing_end_)
       {
         if (at_target_tip_position || return_to_default_attempted_)
         {
@@ -670,16 +710,16 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     else if (walk_state_ == STOPPED)
     {
       leg_stepper->setStepState(FORCE_STOP);
-      leg_stepper->setPhase(0.0);//leg_stepper->getPhaseOffset());
+      leg_stepper->setPhase(0.0);
     }
     
     // Update tip positions
     if (leg->getLegState() == WALKING/* && walk_state_ != STOPPED*/)
     {
-      leg_stepper->iteratePhase();
-      leg_stepper->updateStepState();
       leg_stepper->updateTipPosition();  // updates current tip position through step cycle
       leg_stepper->updateTipRotation();
+      leg_stepper->iteratePhase();
+      leg_stepper->updateStepState();
     }
   }
   updateWalkPlane();
@@ -873,6 +913,7 @@ LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
   
 {
   walk_plane_ = leg_stepper->walk_plane_;
+  walk_plane_normal_ = leg_stepper->walk_plane_normal_;
   stride_vector_ = leg_stepper->stride_vector_;
   current_tip_velocity_ = leg_stepper->current_tip_velocity_;
   swing_origin_tip_position_ = leg_stepper->swing_origin_tip_position_;
@@ -902,36 +943,35 @@ LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
 };
 
 /*******************************************************************************************************************//**
+ * Updates phase for new step cycle parameters
+***********************************************************************************************************************/
+void LegStepper::updatePhase(void)
+{
+  StepCycle step = walker_->getStepCycle();
+  phase_ = step_progress_ * step.period_;
+  updateStepState();
+}
+
+/*******************************************************************************************************************//**
  * Iterates the step phase and updates the progress variables
 ***********************************************************************************************************************/
 void LegStepper::iteratePhase(void)
 {
-  int phase_length = walker_->getPhaseLength();
-  int swing_start = walker_->getSwingStart();
-  int swing_end = walker_->getSwingEnd();
-  int stance_start = walker_->getStanceStart();
-  int stance_end = walker_->getStanceEnd();
-
-  phase_ = (phase_ + 1) % (phase_length);
-  if (new_step_frequency_)
-  {
-    phase_ = step_progress_ * phase_length;
-    updateStepState();
-    new_step_frequency_ = false;
-  }
+  StepCycle step = walker_->getStepCycle();
+  phase_ = (phase_ + 1) % (step.period_);
 
   // Calculate progress of stance/swing periods (0.0->1.0 or -1.0 if not in specific state)
-  step_progress_ = double(phase_) / phase_length;
+  step_progress_ = double(phase_) / step.period_;
   if (step_state_ == SWING)
   {
-    swing_progress_ = double(phase_ - swing_start + 1) / double(swing_end - swing_start);
+    swing_progress_ = double(phase_ - step.swing_start_ + 1) / double(step.swing_end_ - step.swing_start_);
     swing_progress_ = clamped(swing_progress_, 0.0, 1.0);
     stance_progress_ = -1.0;
   }
   else if (step_state_ == STANCE || step_state_ == FORCE_STOP)
   {
-    stance_progress_ = double(mod(phase_ + (phase_length - stance_start), phase_length) + 1) /
-                      double(mod(stance_end - stance_start, phase_length));
+    stance_progress_ = double(mod(phase_ + (step.period_ - step.stance_start_), step.period_) + 1) /
+                      double(mod(step.stance_end_ - step.stance_start_, step.period_));
     stance_progress_ = clamped(stance_progress_, 0.0, 1.0);
     swing_progress_ = -1.0;
   }
@@ -943,15 +983,16 @@ void LegStepper::iteratePhase(void)
 void LegStepper::updateStepState(void)
 {
   // Update step state from phase unless force stopped
+  StepCycle step = walker_->getStepCycle();
   if (step_state_ == FORCE_STOP)
   {
     return;
   }
-  else if (phase_ >= walker_->getSwingStart() && phase_ < walker_->getSwingEnd())
+  else if (phase_ >= step.swing_start_ && phase_ < step.swing_end_)
   {
     step_state_ = SWING;
   }
-  else if (phase_ < walker_->getStanceEnd() || phase_ >= walker_->getStanceStart())
+  else if (phase_ < step.stance_end_ || phase_ >= step.stance_start_)
   {
     step_state_ = STANCE;
   }
@@ -979,7 +1020,9 @@ void LegStepper::updateStride(void)
 
   // Combination and scaling
   stride_vector_ = stride_vector_linear + stride_vector_angular;
-  stride_vector_ *= (walker_->getOnGroundRatio() / walker_->getStepFrequency());
+  StepCycle step = walker_->getStepCycle();
+  double on_ground_ratio = double(step.stance_period_) / step.period_;
+  stride_vector_ *= (on_ground_ratio / step.frequency_);
 
   // Swing clearance
   swing_clearance_ = walker_->getStepClearance() * Vector3d::UnitZ();//walk_plane_normal_.normalized();
@@ -987,42 +1030,42 @@ void LegStepper::updateStride(void)
 
 /*******************************************************************************************************************//**
  * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in tip
- * position using two bezier curves for swing phase and one for stance phase. Each Bezier curve uses 5 control nodes
+ * position using two bezier curves for swing period and one for stance period. Each Bezier curve uses 5 control nodes
  * designed specifically to give a C2 smooth trajectory for the entire step cycle.
  * @todo Move proactive target shifting to seperate node and use external target API
 ***********************************************************************************************************************/
 void LegStepper::updateTipPosition(void)
 {
   bool rough_terrain_mode = walker_->getParameters().rough_terrain_mode.data;
-  double step_frequency = walker_->getStepFrequency();
   double time_delta = walker_->getTimeDelta();
-  int phase_length = walker_->getPhaseLength();
-  int swing_start = walker_->getSwingStart();
-  int swing_end = walker_->getSwingEnd();
-  int swing_length = swing_end - swing_start;
+  StepCycle step = walker_->getStepCycle();
 
-  bool standard_stance_length = (step_state_ == SWING || completed_first_step_);
-  int stance_start = standard_stance_length ? walker_->getStanceStart() : phase_offset_;
-  int stance_end = walker_->getStanceEnd();
-  int stance_length = mod(stance_end - stance_start, phase_length);
+  bool standard_stance_period = (step_state_ == SWING || completed_first_step_);
+  int modified_stance_start = standard_stance_period ? step.stance_start_ : phase_offset_;
+  int modified_stance_period = mod(step.stance_end_ - modified_stance_start, step.period_);
+  if (step.stance_end_ == modified_stance_start)
+  {
+    modified_stance_period = step.period_;
+  }
+  ROS_ASSERT(modified_stance_period != 0);
 
-  // Calculates number of iterations for ENTIRE swing phase and time delta used for EACH bezier curve time input
-  int swing_iterations = (double(swing_length) / phase_length) / (step_frequency * time_delta);
+  // Calculates number of iterations for ENTIRE swing period and time delta used for EACH bezier curve time input
+  int swing_iterations = (double(step.swing_period_) / step.period_) / (step.frequency_ * time_delta);
   swing_iterations = roundToEvenInt(swing_iterations); // Must be even
   swing_delta_t_ = 1.0 / (swing_iterations / 2.0); // 1 sec divided by number of iterations for each bezier curve
 
-  // Calculates number of iterations for stance phase and time delta used for bezier curve time input
-  int stance_iterations = (double(stance_length) / phase_length) / (step_frequency * time_delta);
+  // Calculates number of iterations for stance period and time delta used for bezier curve time input
+  int stance_iterations = (double(modified_stance_period) / step.period_) / (step.frequency_ * time_delta);
   stance_delta_t_ = 1.0 / stance_iterations; // 1 second divided by number of iterations
   
   // Generate default target
   target_tip_pose_.position_ = default_tip_pose_.position_ + 0.5 * stride_vector_;
 
-  // Swing Phase
+  // Swing Period
   if (step_state_ == SWING)
   {
     updateStride();
-    int iteration = phase_ - swing_start + 1;
+    int iteration = phase_ - step.swing_start_ + 1;
     bool first_half = iteration <= swing_iterations / 2;
 
     // Save initial tip position/velocity
@@ -1119,12 +1162,12 @@ void LegStepper::updateTipPosition(void)
                    current_tip_pose_.position_[0], current_tip_pose_.position_[1], current_tip_pose_.position_[2],
                    target_tip_pose_.position_[0], target_tip_pose_.position_[1], target_tip_pose_.position_[2]);
   }
-  // Stance phase
+  // Stance period
   else if (step_state_ == STANCE || step_state_ == FORCE_STANCE)
   {
     updateStride();
     
-    int iteration = mod(phase_ + (phase_length - stance_start), phase_length) + 1;
+    int iteration = mod(phase_ + (step.period_ - modified_stance_start), step.period_) + 1;
 
     // Save initial tip position at beginning of stance
     if (iteration == 1)
@@ -1146,8 +1189,8 @@ void LegStepper::updateTipPosition(void)
       ROS_ASSERT(default_tip_pose_.isValid());
     }
 
-    // Scales stride vector according to stance length specifically for STARTING state of walker
-    double stride_scaler = double(stance_length) / (mod(stance_end - walker_->getStanceStart(), phase_length));
+    // Scales stride vector according to stance period specifically for STARTING state of walker
+    double stride_scaler = double(modified_stance_period) / (mod(step.stance_end_ - step.stance_start_, step.period_));
     generateStanceControlNodes(stride_scaler);
 
     // Uses derivative of bezier curve to ensure correct velocity along ground, this means the position may not
@@ -1271,7 +1314,7 @@ void LegStepper::generateSecondarySwingControlNodes(const bool& ground_contact)
 
 /*******************************************************************************************************************//**
  * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.
- * @param[in] stride_scaler A scaling variable which modifies stride vector according to stance length specifically 
+ * @param[in] stride_scaler A scaling variable which modifies stride vector according to stance period specifically 
  * for STARTING state of walker
 ***********************************************************************************************************************/
 void LegStepper::generateStanceControlNodes(const double& stride_scaler)
@@ -1281,11 +1324,11 @@ void LegStepper::generateStanceControlNodes(const double& stride_scaler)
   // Control nodes for stance quartic bezier curve
   // Set as initial tip position
   stance_nodes_[0] = stance_origin_tip_position_ + 0.0 * stance_node_seperation;
-  // Set for constant velocity in stance phase
+  // Set for constant velocity in stance period
   stance_nodes_[1] = stance_origin_tip_position_ + 1.0 * stance_node_seperation;
-  // Set for constant velocity in stance phase
+  // Set for constant velocity in stance period
   stance_nodes_[2] = stance_origin_tip_position_ + 2.0 * stance_node_seperation;
-  // Set for constant velocity in stance phase;
+  // Set for constant velocity in stance period
   stance_nodes_[3] = stance_origin_tip_position_ + 3.0 * stance_node_seperation;
   // Set as target tip position
   stance_nodes_[4] = stance_origin_tip_position_ + 4.0 * stance_node_seperation;
