@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
       state.publishLegState();
       state.publishVelocity();
       state.publishPose();
-      state.publishWorkspace();
+      state.publishWalkspace();
       state.publishRotationPoseError();
       state.publishFrameTransforms();
 

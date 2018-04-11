@@ -30,7 +30,9 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   initParameters();
 
   // Create robot model
-  model_ = allocate_shared<Model>(aligned_allocator<Model>(), params_);
+  shared_ptr<DebugVisualiser> debug_visualiser_ptr = 
+    allocate_shared<DebugVisualiser>(aligned_allocator<DebugVisualiser>(), debug_visualiser_);
+  model_ = allocate_shared<Model>(aligned_allocator<Model>(), params_, debug_visualiser_ptr);
   model_->generate();
 
   debug_visualiser_.setTimeDelta(params_.time_delta.data);
@@ -92,7 +94,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   //Set up debugging publishers
   velocity_publisher_ = n_.advertise<geometry_msgs::Twist>("/shc/velocity", 1000);
   pose_publisher_ = n_.advertise<geometry_msgs::Twist>("/shc/pose", 1000);
-  workspace_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/workspace", 1000);
+  walkspace_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/walkspace", 1000);
   rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/rotation_pose_error", 1000);
 
   //Set up combined desired joint state publisher
@@ -153,9 +155,7 @@ void StateController::init(void)
   }
 
   // Create controller objects and smart pointers
-  shared_ptr<DebugVisualiser> debug_visualiser_ptr = 
-    allocate_shared<DebugVisualiser>(aligned_allocator<DebugVisualiser>(), debug_visualiser_);
-  walker_ = allocate_shared<WalkController>(aligned_allocator<WalkController>(), model_, params_, debug_visualiser_ptr);
+  walker_ = allocate_shared<WalkController>(aligned_allocator<WalkController>(), model_, params_);
   walker_->init();
   poser_ = allocate_shared<PoseController>(aligned_allocator<PoseController>(), model_, params_);
   poser_->init();
@@ -280,7 +280,8 @@ void StateController::transitionRobotState(void)
     {
       robot_state_ = READY;
       model_->updateDefaultConfiguration();
-      walker_->generateWorkspace();
+      model_->generateWorkspaces();
+      walker_->generateWalkspace();
       ROS_INFO("\nDirect startup sequence complete. Place Syropod on walking surface and press START to proceed.\n");
     }
   }
@@ -329,7 +330,8 @@ void StateController::transitionRobotState(void)
     {
       walker_->init();
       model_->updateDefaultConfiguration();
-      walker_->generateWorkspace();
+      model_->generateWorkspaces();
+      walker_->generateWalkspace();
       robot_state_ = RUNNING;
       ROS_INFO("\nState transition complete. Syropod is in RUNNING state. Ready to walk.\n");
     }
@@ -504,10 +506,6 @@ void StateController::adjustParameter(void)
       ROS_INFO_THROTTLE(THROTTLE_PERIOD,
                         "\n[SHC] Slowing to safe speed before setting new parameter '%s'\n", p->name.c_str());
     }
-  }
-  else if (p->name == "stance_span_modifier" || p->name == "step_clearance")
-  {
-    walker_->regenerateWorkspace(); //TODO Implement workspace regeneration for these parameters
   }
   
   if (set_new_parameter)
@@ -866,18 +864,22 @@ void StateController::publishPose(void)
 }
 
 /*******************************************************************************************************************//**
- * Publishes details about current workspace (average/min/max radius) for debugging
+ * Publishes details about current walkspace for debugging
 ***********************************************************************************************************************/
-void StateController::publishWorkspace(void)
+void StateController::publishWalkspace(void)
 {
-  std_msgs::Float32MultiArray msg;
-  map<int, double> workspace_map = walker_->getWorkspaceMap();
-  map<int, double>::iterator workspace_it;
-  for (workspace_it = workspace_map.begin(); workspace_it != workspace_map.end(); ++workspace_it)
+  if (robot_state_ == RUNNING)
   {
-    msg.data.push_back(workspace_it->second);
+    std_msgs::Float32MultiArray msg;
+    LimitMap walkspace_map = walker_->getWalkspace();
+    LimitMap::iterator walkspace_it;
+    for (walkspace_it = walkspace_map.begin(); walkspace_it != walkspace_map.end(); ++walkspace_it)
+    {
+      msg.data.push_back(walkspace_it->second);
+    }
+    
+    walkspace_publisher_.publish(msg);
   }
-  workspace_publisher_.publish(msg);
 }
 
 /*******************************************************************************************************************//**
@@ -992,7 +994,9 @@ void StateController::RVIZDebugging(void)
     
     if (robot_state_ == RUNNING)
     {
-      debug_visualiser_.generateWorkspace(leg, walker_->getWorkspaceMap());
+      debug_visualiser_.generateDefaultTipPositions(leg);
+      debug_visualiser_.generateWorkspace(leg);
+      debug_visualiser_.generateWalkspace(leg, walker_->getWalkspace());
       debug_visualiser_.generateBezierCurves(leg);
       debug_visualiser_.generateStride(leg);
       if (params_.admittance_control.data)
@@ -1692,7 +1696,6 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
           if (Pose(msg.stance[i].pose) != Pose::Undefined())
           {
             leg_stepper->setDefaultTipPose(Pose(msg.stance[i].pose));
-            walker_->regenerateWorkspace();
           }
         }
         else

@@ -43,6 +43,7 @@
 #include <geometry_msgs/TransformStamped.h>
 
 #include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>

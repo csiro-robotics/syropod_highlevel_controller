@@ -10,7 +10,9 @@ Panels:
         - /TF1/Tree1
         - /Marker3
         - /Marker4
+        - /Marker5
         - /Marker9
+        - /Marker10
       Splitter Ratio: 0.5
     Tree Height: 1309
   - Class: rviz/Selection
@@ -111,11 +113,37 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /shc/debug/workspaces
+      Marker Topic: /shc/debug/walkspace
+      Name: Marker
+      Namespaces:
+        walkspace_markers: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /shc/debug/workspace
+      Name: MarkerArray
+      Namespaces:
+        AL_workspace_cage_markers: true
+        AL_workspace_markers: true
+        AR_workspace_cage_markers: true
+        AR_workspace_markers: true
+        BL_workspace_cage_markers: true
+        BL_workspace_markers: true
+        BR_workspace_cage_markers: true
+        BR_workspace_markers: true
+        CL_workspace_cage_markers: true
+        CL_workspace_markers: true
+        CR_workspace_cage_markers: true
+        CR_workspace_markers: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /shc/debug/default_tip_positions
       Name: Marker
       Namespaces:
         default_tip_position_markers: true
-        workspace_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -269,7 +297,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.05568087
+      Distance: 0.622282624
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -284,10 +312,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.290398121
+      Pitch: 0.309796393
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 3.25539947
+      Yaw: 5.37539625
     Saved:
       - Class: rviz/Orbit
         Distance: 2
@@ -325,5 +353,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1276
-  X: 1272
+  X: 1268
   Y: 0

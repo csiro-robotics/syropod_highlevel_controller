@@ -25,13 +25,10 @@
  * Constructor for the walk controller.
  * @param[in] model A pointer to the robot model.
  * @param[in] params A copy of the parameter data structure
- * @param[in] debug_visualiser A pointer to the debug visualisation object
 ***********************************************************************************************************************/
-WalkController::WalkController(shared_ptr<Model> model, const Parameters& params,
-                               shared_ptr<DebugVisualiser> debug_visualiser)
+WalkController::WalkController(shared_ptr<Model> model, const Parameters& params)
   : model_(model)
   , params_(params)
-  , debug_visualiser_(debug_visualiser)
 {
 }
 
@@ -74,234 +71,284 @@ void WalkController::init(void)
 }
 
 /*******************************************************************************************************************//**
- * Generates universal workspace (map of radii for range of search bearings) for all legs by having each leg search
- * for joint limitations through bearings ranging from zero to 360 degrees. Workspace may be asymetrical, symetrical
- * (all opposite bearing pairs having equal distance) or circular (all search bearings having equal distance).
- * @params[in] self_loop Flag that determines if workspace generation occurs iteratively through multiple calls of this
- * function or in while loop via a single call of this function.
- * @return The progress of generating a workspace from 0 to 100
- * @todo Develop 'quick_mode' which creates a circle segment from the original workspace and is used to quickly generate
- * 'circular' workspaces which fit within segment for new default tip posiiton
+ * Generates a 2D polygon from leg workspace, representing the acceptable space to walk within.
+ * @todo Remove debugging visualisations
 ***********************************************************************************************************************/
-int WalkController::generateWorkspace(const bool& self_loop)
+void WalkController::generateWalkspace(void)
 {
-  bool debug = params_.debug_workspace_calc.data;
-  bool display_debug_visualisation = debug && params_.debug_rviz.data;
-  bool loop = true;
-  int progress = 0;
-
-  while (loop)
+  // Debug visualisation publisher TODO REMOVE
+  ros::NodeHandle n;
+  walkspace_debug_publisher_ = n.advertise<visualization_msgs::Marker>("/shc/visualisation/walkspace_debug", 1000);
+  
+  // Init walkspace to maximums
+  walkspace_.clear();
+  Workspace reference_workspace = model_->getLegByIDNumber(0)->getWorkspace();
+  LimitMap reference_workplane = reference_workspace.begin()->second;
+  LimitMap::iterator workplane_it;
+  for (workplane_it = reference_workplane.begin(); workplane_it != reference_workplane.end(); ++workplane_it)
   {
-    loop = self_loop;
-    if (generate_workspace_)
-    {
-      workspace_map_.clear();
-      generate_workspace_ = false;
-      workspace_generated_ = false;
-      
-      search_model_ = allocate_shared<Model>(aligned_allocator<Model>(), model_);
-      search_model_->generate(model_);
-      search_model_->initLegs(true);
-      
-      // Initially populate workspace map using leg tip position overlaps
-      for (leg_it_ = search_model_->getLegContainer()->begin();
-           leg_it_ != search_model_->getLegContainer()->end(); ++leg_it_)
-      {
-        int leg_count = search_model_->getLegCount();
-        shared_ptr<Leg> leg = leg_it_->second;
-        shared_ptr<Leg> adjacent_leg_1 = search_model_->getLegByIDNumber(mod(leg->getIDNumber() + 1, leg_count));
-        shared_ptr<Leg> adjacent_leg_2 = search_model_->getLegByIDNumber(mod(leg->getIDNumber() - 1, leg_count));
-
-        Vector3d identity_tip_position = leg->getLegStepper()->getIdentityTipPose().position_;
-        Vector3d adjacent_1_tip_position = adjacent_leg_1->getLegStepper()->getIdentityTipPose().position_;
-        Vector3d adjacent_2_tip_position = adjacent_leg_2->getLegStepper()->getIdentityTipPose().position_;
-
-        double distance_to_adjacent_leg_1 = Vector3d(identity_tip_position - adjacent_1_tip_position).norm() / 2.0;
-        double distance_to_adjacent_leg_2 = Vector3d(identity_tip_position - adjacent_2_tip_position).norm() / 2.0;
-
-        int bearing_to_adjacent_leg_1 = radiansToDegrees(atan2(adjacent_1_tip_position[1] - identity_tip_position[1],
-                                        adjacent_1_tip_position[0] - identity_tip_position[0]));
-        int bearing_to_adjacent_leg_2 = radiansToDegrees(atan2(adjacent_2_tip_position[1] - identity_tip_position[1],
-                                        adjacent_2_tip_position[0] - identity_tip_position[0]));
-
-        ROS_DEBUG_COND(debug, "\nLeg %s has adjacent legs:\n"
-                      "\tLeg %s at %d bearing & %f distance.\n"
-                      "\tLeg %s at %d bearing & %f distance.\n",
-                      leg->getIDName().c_str(),
-                      adjacent_leg_1->getIDName().c_str(), bearing_to_adjacent_leg_1, distance_to_adjacent_leg_1,
-                      adjacent_leg_2->getIDName().c_str(), bearing_to_adjacent_leg_2, distance_to_adjacent_leg_2);
-
-        //Populate workspace map if empty
-        for (int bearing = 0; bearing <= 360; bearing += BEARING_STEP)
-        {
-          int bearing_diff_1 = abs(mod(bearing_to_adjacent_leg_1, 360) - bearing);
-          int bearing_diff_2 = abs(mod(bearing_to_adjacent_leg_2, 360) - bearing);
-
-          double distance_to_overlap_1 = UNASSIGNED_VALUE;
-          double distance_to_overlap_2 = UNASSIGNED_VALUE;
-          if ((bearing_diff_1 < 90 || bearing_diff_1 > 270) && distance_to_adjacent_leg_1 > 0.0)
-          {
-            distance_to_overlap_1 = distance_to_adjacent_leg_1 / cos(degreesToRadians(bearing_diff_1));
-          }
-          if ((bearing_diff_2 < 90 || bearing_diff_2 > 270) && distance_to_adjacent_leg_2 > 0.0)
-          {
-            distance_to_overlap_2 = distance_to_adjacent_leg_2 / cos(degreesToRadians(bearing_diff_2));
-          }
-
-          double min_distance = min(distance_to_overlap_1, distance_to_overlap_2);
-          min_distance = min(min_distance, MAX_WORKSPACE_RADIUS);
-          if (workspace_map_.find(bearing) != workspace_map_.end() && min_distance < workspace_map_[bearing])
-          {
-            workspace_map_[bearing] = min_distance;
-            ROS_DEBUG_COND(debug, "Workspace: Bearing %d has modified min distance %f.", bearing, min_distance);
-          }
-          else
-          {
-            workspace_map_.insert(map<int, double>::value_type(bearing, min_distance));
-            ROS_DEBUG_COND(debug, "Workspace: Bearing %d has new min distance of %f.", bearing, min_distance);
-          }
-        }
-      }
-    }
-    else if (workspace_generated_)
-    {
-      return PROGRESS_COMPLETE;
-    }
-
-    bool within_limits = true;
-    double min_distance_from_default = UNASSIGNED_VALUE;
-    int number_iterations = WORKSPACE_GENERATION_MAX_ITERATIONS * (debug && self_loop ? 10 : 1);
-    
-    // Find opposite search bearing and modify current minimum search distance to be smaller or equal.
-    double current_min = workspace_map_.at(search_bearing_);
-    int opposite_bearing = mod(search_bearing_ + 180, 360);
-    current_min = min(current_min, workspace_map_.at(opposite_bearing));
-    
-    // Iterate through all legs and move legs along search bearings to kinematic limits.
-    leg_it_ = search_model_->getLegContainer()->begin();
-    while (leg_it_ != search_model_->getLegContainer()->end() && within_limits)
-    {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-      Pose current_pose = search_model_->getCurrentPose();
-      Vector3d default_tip_position = current_pose.inverseTransformVector(leg_stepper->getDefaultTipPose().position_);
-      default_tip_position[2] += search_height_;
-      leg_it_++;
-      
-      // Set origin and target for linear interpolation
-      if (iteration_ == 1)
-      {
-        leg->init(true); // Reset leg to default stance
-        if (search_bearing_ == 0)
-        {
-          Vector3d origin_tip_position = leg->getCurrentTipPose().position_;
-          origin_tip_position_.push_back(origin_tip_position);
-          target_tip_position_.push_back(default_tip_position);
-        }
-        else
-        {
-          Vector3d origin_tip_position = default_tip_position;
-          origin_tip_position_.push_back(origin_tip_position);
-          Vector3d target_tip_position = origin_tip_position;
-          target_tip_position[0] += current_min * cos(degreesToRadians(search_bearing_));
-          target_tip_position[1] += current_min * sin(degreesToRadians(search_bearing_));
-          target_tip_position_.push_back(target_tip_position);
-        }
-      }
-      
-      // Move tip position linearly along search bearing in search of kinematic workspace limit.
-      double i = double(iteration_) / number_iterations; // Interpolation control variable
-      int l = leg->getIDNumber();
-      Vector3d desired_tip_position = origin_tip_position_[l] * (1.0 - i) + target_tip_position_[l] * i; // Interpolate
-      //Quaterniond desired_tip_rotation = leg_stepper->getIdentityTipPose().rotation_;
-      leg->setDesiredTipPose(Pose(desired_tip_position, /*search_height_ == 0 ? desired_tip_rotation :*/ UNDEFINED_ROTATION));
-      double ik_result = leg->applyIK(true);
-      
-      // Check if leg is still within limits
-      if (search_bearing_ != 0)
-      {
-        double distance_from_default = Vector3d(leg->getCurrentTipPose().position_ - default_tip_position).norm();
-        min_distance_from_default = min(distance_from_default, min_distance_from_default);
-        within_limits = within_limits && distance_from_default < current_min && ik_result != 0.0;
-        // Display debugging messages
-        ROS_DEBUG_COND(debug,"LEG: %s\tSEARCH: %f:%d:%d\tDISTANCE: %f\tIK_RESULT: %f\tWITHIN LIMITS: %s",
-                      leg->getIDName().c_str(), search_height_, search_bearing_,
-                      iteration_, distance_from_default, ik_result, within_limits ? "TRUE" : "FALSE");
-      }
-    }
-    
-    // Calculate workspace generation progress
-    progress = 0;
-    progress += (100.0 * ((search_height_ == 0.0) ? 0 : 0.5));
-    progress += ((100.0 * search_bearing_) / (360 + BEARING_STEP)) / 2.0;
-    progress += (((100.0 * iteration_) / number_iterations) / 2.0) / (360 / BEARING_STEP + 1);
-
-    // Search not complete -> iterate along current search bearing
-    if (within_limits && iteration_ <= number_iterations)
-    {
-      iteration_++;
-    }
-    // Current search along bearing complete -> save min distance and iterate search bearing
-    else 
-    {
-      if (search_bearing_ == 0)
-      {
-        search_model_->updateDefaultConfiguration();
-      }
-      else
-      {
-        workspace_map_[search_bearing_] = min(current_min, min_distance_from_default) ;
-        workspace_map_[opposite_bearing] = min(current_min, min_distance_from_default);
-      }
-      min_distance_from_default = UNASSIGNED_VALUE;
-      origin_tip_position_.clear();
-      target_tip_position_.clear();
-      iteration_ = 1;
-      if (search_bearing_ + BEARING_STEP <= 360)
-      {
-        search_bearing_ += BEARING_STEP;
-      }
-      // All search bearings at search height completed -> iterate search height
-      else
-      {
-        search_bearing_ = 0;
-        if (search_height_ == 0.0)
-        {
-          search_height_ += params_.step_clearance.current_value;
-        }
-        // All searches complete -> set workspace generation complete and reset.
-        else
-        {
-          workspace_map_[0] = workspace_map_[360];
-          search_height_ = 0.0;
-          workspace_generated_ = true;
-          progress = PROGRESS_COMPLETE;
-          loop = false;
-        }
-      }
-    }
-    
-    // Display robot model and workspace for debugging purposes
-    if (display_debug_visualisation && self_loop)
-    {
-      debug_visualiser_->generateRobotModel(search_model_, true);
-      for (leg_it_ = search_model_->getLegContainer()->begin();
-           leg_it_ != search_model_->getLegContainer()->end(); ++leg_it_)
-      {
-        shared_ptr<Leg> leg = leg_it_->second;
-        debug_visualiser_->generateWorkspace(leg, workspace_map_, true);
-      }
-      ros::spinOnce();
-    }
+    walkspace_.insert(LimitMap::value_type(workplane_it->first, MAX_WORKSPACE_RADIUS));
   }
   
-  // Calculate max speeds using generated workspace
-  if (progress == PROGRESS_COMPLETE)
+  // Generate walkspace for each leg whilst ensuring symmetry and minimum values
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    generateLimits();
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    
+    // Calculate target height of plane within workspace
+    Pose current_pose = model_->getCurrentPose();
+    Vector3d identity_tip_position = current_pose.inverseTransformVector(leg_stepper->getIdentityTipPose().position_);
+    Vector3d default_tip_position = current_pose.inverseTransformVector(leg_stepper->getDefaultTipPose().position_);
+    Vector3d default_shift = default_tip_position - identity_tip_position;
+    double target_workplane_height = default_shift[2];
+    
+    // Get bounding existing workplanes within workspace
+    Workspace workspace = leg->getWorkspace();
+    Workspace::iterator upper_bound_it = workspace.upper_bound(target_workplane_height);
+    Workspace::iterator lower_bound_it = prev(upper_bound_it);
+    double upper_workplane_height = setPrecision(upper_bound_it->first, 3);
+    double lower_workplane_height = setPrecision(lower_bound_it->first, 3);
+    LimitMap upper_workplane = upper_bound_it->second;
+    LimitMap lower_workplane = lower_bound_it->second;
+    
+    // Calculate interpolation value of target workplane height between existing workspace planes
+    double i = (target_workplane_height - lower_workplane_height) / (upper_workplane_height - lower_workplane_height);
+    
+    // Generate walkspace radii
+    LimitMap::iterator walkspace_it;
+    for (walkspace_it = walkspace_.begin(); walkspace_it != walkspace_.end(); ++walkspace_it)
+    {
+      int bearing = walkspace_it->first;
+      double radius = walkspace_it->second;
+      
+      // If default tip position is equal to identity tip position skip default shift radius generation
+      if (default_shift.norm() == 0.0)
+      {
+        radius = lower_workplane.at(bearing) * (1.0 - i) + upper_workplane.at(bearing) * i;
+      }
+      // Generate radius from interpolated workplane for shifted default tip position within plane.
+      else
+      {
+        // Generate new point in walkspace
+        Vector3d new_point = Vector3d::UnitX() * MAX_WORKSPACE_RADIUS;
+        new_point = AngleAxisd(degreesToRadians(bearing), Vector3d::UnitZ())._transformVector(new_point);
+        
+        // DEBUG TODO Remove
+        visualization_msgs::Marker new_point_marker;
+        new_point_marker.header.frame_id = "/odom";
+        new_point_marker.header.stamp = ros::Time::now();
+        new_point_marker.ns = "walkspace_debug";
+        new_point_marker.type = visualization_msgs::Marker::ARROW;
+        new_point_marker.action = visualization_msgs::Marker::ADD;
+        new_point_marker.id = 0;
+        new_point_marker.scale.x = 0.005;
+        new_point_marker.scale.y = 0.0075;
+        new_point_marker.scale.z = 0.01;
+        new_point_marker.color.g = 1;
+        new_point_marker.color.a = 1;
+        new_point_marker.pose.orientation.w = 1.0;
+        geometry_msgs::Point origin;
+        Vector3d default_tip_position_odom = current_pose.transformVector(default_tip_position);
+        origin.x = default_tip_position_odom[0];
+        origin.y = default_tip_position_odom[1];
+        origin.z = default_tip_position_odom[2];
+        new_point_marker.points.push_back(origin);
+        geometry_msgs::Point target;
+        Vector3d new_point_odom = current_pose.transformVector(new_point + default_tip_position);
+        target.x = new_point_odom[0];
+        target.y = new_point_odom[1];
+        target.z = new_point_odom[2];
+        new_point_marker.points.push_back(target);
+        // DEBUG TODO Remove
+        
+        // Check if new point is between existing points in workspace shifted to new default tip position
+        LimitMap::iterator workplane_it;
+        for (workplane_it = upper_workplane.begin(); workplane_it != upper_workplane.end(); ++workplane_it)
+        {
+          // Generate reference point 1
+          int bearing_1 = workplane_it->first;
+          double radius_1 = lower_workplane.at(bearing_1) * (1.0 - i) + upper_workplane.at(bearing_1) * i;
+          Vector3d point_1 =  Vector3d::UnitX() * radius_1;
+          point_1 = AngleAxisd(degreesToRadians(bearing_1), Vector3d::UnitZ())._transformVector(point_1);
+          point_1 -= default_shift;
+          
+          // Unable to find reference points which bound new walkspace point direction vector therefore set zero radius
+          if (bearing_1 == upper_workplane.rbegin()->first)
+          {
+            radius = 0.0;
+            break;
+          }
+          
+          // DEBUG TODO Remove
+          visualization_msgs::Marker point_1_marker;
+          point_1_marker.header.frame_id = "/odom";
+          point_1_marker.header.stamp = ros::Time::now();
+          point_1_marker.ns = "walkspace_debug";
+          point_1_marker.type = visualization_msgs::Marker::ARROW;
+          point_1_marker.action = visualization_msgs::Marker::ADD;
+          point_1_marker.id = 1;
+          point_1_marker.scale.x = 0.005;
+          point_1_marker.scale.y = 0.0075;
+          point_1_marker.scale.z = 0.01;
+          point_1_marker.color.b = 1;
+          point_1_marker.color.a = 1;
+          point_1_marker.pose.orientation.w = 1.0;
+          origin.x = default_tip_position_odom[0];
+          origin.y = default_tip_position_odom[1];
+          origin.z = default_tip_position_odom[2];
+          point_1_marker.points.push_back(origin);
+          Vector3d point_1_odom = current_pose.transformVector(point_1 + default_tip_position);
+          target.x = point_1_odom[0];
+          target.y = point_1_odom[1];
+          target.z = point_1_odom[2];
+          point_1_marker.points.push_back(target);
+          // DEBUG TODO Remove
+          
+          // Generate reference point 2
+          int bearing_2 = next(workplane_it)->first;
+          double radius_2 = lower_workplane.at(bearing_2) * (1.0 - i) + upper_workplane.at(bearing_2) * i;
+          Vector3d point_2 =  Vector3d::UnitX() * radius_2;
+          point_2 = AngleAxisd(degreesToRadians(bearing_2), Vector3d::UnitZ())._transformVector(point_2);
+          point_2 -= default_shift;
+          
+          // DEBUG TODO Remove
+          visualization_msgs::Marker point_2_marker;
+          point_2_marker.header.frame_id = "/odom";
+          point_2_marker.header.stamp = ros::Time::now();
+          point_2_marker.ns = "walkspace_debug";
+          point_2_marker.type = visualization_msgs::Marker::ARROW;
+          point_2_marker.action = visualization_msgs::Marker::ADD;
+          point_2_marker.id = 2;
+          point_2_marker.scale.x = 0.005;
+          point_2_marker.scale.y = 0.0075;
+          point_2_marker.scale.z = 0.01;
+          point_2_marker.color.r = 1;
+          point_2_marker.color.a = 1;
+          point_2_marker.pose.orientation.w = 1.0;
+          origin.x = default_tip_position_odom[0];
+          origin.y = default_tip_position_odom[1];
+          origin.z = default_tip_position_odom[2];
+          point_2_marker.points.push_back(origin);
+          Vector3d point_2_odom = current_pose.transformVector(point_2 + default_tip_position);
+          target.x = point_2_odom[0];
+          target.y = point_2_odom[1];
+          target.z = point_2_odom[2];
+          point_2_marker.points.push_back(target);
+          // DEBUG TODO Remove
+          
+          // Reference point 1 in same direction as new point
+          if (point_1.cross(new_point).norm() == 0.0)
+          {
+            radius = point_1.norm();
+          }
+          // Reference point 2 in same direction as new point
+          else if (point_2.cross(new_point).norm() == 0.0)
+          {
+            radius = point_2.norm();
+          }
+          // New point direction is between reference points - calculate distance to line connecting reference points
+          // Ref: stackoverflow.com/questions/13640931/how-to-determine-if-a-vector-is-between-two-other-vectors
+          else if ((point_1.cross(new_point)).dot(point_1.cross(point_2)) >= 0 &&
+                  (point_2.cross(new_point)).dot(point_2.cross(point_1)) >= 0)
+          {
+            // Calculate vector (with same direction as new point) normal to line connecting p1 & p2 on horizontal plane
+            double dx = point_2[0] - point_1[0];
+            double dy = point_2[1] - point_1[1];
+            Vector3d normal_1 = Vector3d(dy, -dx, 0.0).normalized();
+            Vector3d normal_2 = Vector3d(-dy, dx, 0.0).normalized();
+            bool same_direction_as_new_point = getProjection(new_point, normal_1).dot(normal_1) >= 0.0;
+            Vector3d normal = (same_direction_as_new_point ? normal_1 : normal_2);
+            
+            // Use normal to calculate intersection distance of new point vector on line connecting p1 & p2
+            // Ref: math.stackexchange.com/questions/2683341/distance-to-point-of-intersection-between-two-segments-in-2d-space
+            Vector3d new_point_projection = getProjection(new_point, normal);
+            Vector3d point_1_projection = getProjection(point_1, normal);
+            double ratio = point_1_projection.norm() / new_point_projection.norm();
+            radius = ratio * MAX_WORKSPACE_RADIUS;
+            
+            // DEBUG TODO Remove
+            visualization_msgs::Marker normal_marker;
+            normal_marker.header.frame_id = "/odom";
+            normal_marker.header.stamp = ros::Time::now();
+            normal_marker.ns = "walkspace_debug";
+            normal_marker.type = visualization_msgs::Marker::ARROW;
+            normal_marker.action = visualization_msgs::Marker::ADD;
+            normal_marker.id = 3;
+            normal_marker.scale.x = 0.005;
+            normal_marker.scale.y = 0.0075;
+            normal_marker.scale.z = 0.01;
+            normal_marker.color.r = 1;
+            normal_marker.color.g = 1;
+            normal_marker.color.a = 1;
+            normal_marker.pose.orientation.w = 1.0;
+            origin.x = default_tip_position_odom[0];
+            origin.y = default_tip_position_odom[1];
+            origin.z = default_tip_position_odom[2];
+            normal_marker.points.push_back(origin);
+            Vector3d normal_odom = current_pose.transformVector(normal + default_tip_position);
+            target.x = normal_odom[0];
+            target.y = normal_odom[1];
+            target.z = normal_odom[2];
+            normal_marker.points.push_back(target);
+            // DEBUG TODO Remove
+            
+            // DEBUG TODO Remove
+            visualization_msgs::Marker radius_marker;
+            radius_marker.header.frame_id = "/odom";
+            radius_marker.header.stamp = ros::Time::now();
+            radius_marker.ns = "walkspace_debug";
+            radius_marker.type = visualization_msgs::Marker::ARROW;
+            radius_marker.action = visualization_msgs::Marker::ADD;
+            radius_marker.id = 4;
+            radius_marker.scale.x = 0.005;
+            radius_marker.scale.y = 0.0075;
+            radius_marker.scale.z = 0.01;
+            radius_marker.color.r = 1;
+            radius_marker.color.b = 1;
+            radius_marker.color.a = 1;
+            radius_marker.pose.orientation.w = 1.0;
+            origin.x = default_tip_position_odom[0];
+            origin.y = default_tip_position_odom[1];
+            origin.z = default_tip_position_odom[2];
+            radius_marker.points.push_back(origin);
+            Vector3d radius_point = new_point.normalized() * radius;
+            Vector3d radius_odom = current_pose.transformVector(radius_point + default_tip_position);
+            target.x = radius_odom[0];
+            target.y = radius_odom[1];
+            target.z = radius_odom[2];
+            radius_marker.points.push_back(target);
+            // DEBUG TODO Remove
+            
+            // DEBUG TODO Remove
+            int s = 0;
+            while (s < 100)
+            {
+              s++;
+              walkspace_debug_publisher_.publish(new_point_marker);
+              walkspace_debug_publisher_.publish(point_1_marker);
+              walkspace_debug_publisher_.publish(point_2_marker);
+              walkspace_debug_publisher_.publish(normal_marker);
+              walkspace_debug_publisher_.publish(radius_marker);
+              ros::spinOnce();
+            }
+            // DEBUG TODO Remove
+            break;
+          }
+        }
+      }
+      
+      // Add calculated radius to walkspace whilst ensuring symmetry and min values.
+      int opposite_bearing = mod(bearing + 180, 360);
+      if (radius < walkspace_.at(bearing))
+      {
+        walkspace_[bearing] = radius;
+        walkspace_[opposite_bearing] = radius;
+      }
+    }
   }
-  
-  return progress;
+  regenerate_walkspace_ = false;
+  generateLimits();
 }
 
 /*******************************************************************************************************************//**
@@ -361,15 +408,15 @@ void WalkController::generateLimits(StepCycle step,
   double time_to_max_stride = (max_stance_extension + step.stance_period_ + step.swing_period_) * time_delta_;
 
   // Calculate initial max speed and acceleration of body
-  map<int, double>::iterator it;
-  for (it = workspace_map_.begin(); it != workspace_map_.end(); ++it)
+  LimitMap::iterator it;
+  for (it = walkspace_.begin(); it != walkspace_.end(); ++it)
   {
-    double workspace_radius = it->second;
+    double walkspace_radius = it->second;
     double on_ground_ratio = double(step.stance_period_) / step.period_;
-    double max_speed = (workspace_radius * 2.0) / (on_ground_ratio / step.frequency_);
+    double max_speed = (walkspace_radius * 2.0) / (on_ground_ratio / step.frequency_);
     double max_acceleration = max_speed / time_to_max_stride;
 
-    // Calculates max overshoot of tip (in stance period) outside workspace
+    // Calculates max overshoot of tip (in stance period) outside walkspace
     double stance_overshoot = 0;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
@@ -384,12 +431,12 @@ void WalkController::generateLimits(StepCycle step,
       double d0 = -stride_length / 2.0; // Distance to default tip position at time of swing end
       double d1 = d0 + v0 * t + 0.5 * max_acceleration * sqr(t); // Distance from default tip position at max velocity
       double d2 = max_speed * (step.stance_period_ * time_delta_ - t); // Distance from default tip position at end of stance
-      stance_overshoot = max(stance_overshoot, d1 + d2 - workspace_radius); // Max overshoot past workspace limitations
+      stance_overshoot = max(stance_overshoot, d1 + d2 - walkspace_radius); // Max overshoot past walkspace limitations
     }
 
-    // Scale workspace to accomodate stance overshoot and normal swing overshoot
+    // Scale walkspace to accomodate stance overshoot and normal swing overshoot
     double swing_overshoot = 0.5 * max_speed * step.swing_period_ / (2.0 * step.period_ * step.frequency_); // From swing node 1
-    double scaled_workspace_radius = (workspace_radius / (workspace_radius + stance_overshoot + swing_overshoot)) * workspace_radius;
+    double scaled_walkspace_radius = (walkspace_radius / (walkspace_radius + stance_overshoot + swing_overshoot)) * walkspace_radius;
     
     // Stance radius based around front right leg to ensure positive values
     shared_ptr<Leg> reference_leg = model_->getLegByIDNumber(0);
@@ -398,13 +445,23 @@ void WalkController::generateLimits(StepCycle step,
     double y_position = reference_leg_stepper->getDefaultTipPose().position_[1];
     double stance_radius = Vector2d(x_position, y_position).norm();
 
-    // Distance: scaled_workspace_radius*2.0 (i.e. max stride length)
+    // Distance: scaled_walkspace_radius*2.0 (i.e. max stride length)
     // Time: on_ground_ratio*(1/step_frequency_) where step frequency is FULL step cycles/s)
-    double max_linear_speed = (scaled_workspace_radius * 2.0) / (on_ground_ratio / step.frequency_);
+    double max_linear_speed = (scaled_walkspace_radius * 2.0) / (on_ground_ratio / step.frequency_);
     double max_linear_acceleration = max_linear_speed / time_to_max_stride;
     double max_angular_speed = max_linear_speed / stance_radius;
     double max_angular_acceleration = max_angular_speed / time_to_max_stride;
+    
+    // Handle zero walkspace
+    if (walkspace_radius == 0.0)
+    {
+      max_linear_speed = 0.0;
+      max_linear_acceleration = UNASSIGNED_VALUE;
+      max_angular_speed = 0.0;
+      max_angular_acceleration = UNASSIGNED_VALUE;
+    }
 
+    // Populate limit maps
     if (max_linear_speed_ptr)
     {
       max_linear_speed_ptr->insert(LimitMap::value_type(it->first, max_linear_speed));
@@ -724,9 +781,9 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
   }
   updateWalkPlane();
   odometry_ideal_ = odometry_ideal_.addPose(calculateOdometry(time_delta_));
-  if (generate_workspace_ || !workspace_generated_)
+  if (regenerate_walkspace_)
   {
-    generateWorkspace(false);
+    generateWalkspace();
   }
 }
 
@@ -1029,6 +1086,35 @@ void LegStepper::updateStride(void)
 }
 
 /*******************************************************************************************************************//**
+ * Calculates the lateral change in distance from identity tip position to new default tip position for a leg.
+ * @return The change from identity tip position to the new default tip position.
+***********************************************************************************************************************/
+Vector3d LegStepper::calculateStanceSpanChange(void)
+{
+  // Calculate target height of plane within workspace
+  Vector3d default_shift = default_tip_pose_.position_ - identity_tip_pose_.position_;
+  double target_workplane_height = default_shift[2];
+  
+  // Get bounding existing workplanes within workspace
+  Workspace workspace = leg_->getWorkspace();
+  Workspace::iterator upper_bound_it = workspace.upper_bound(target_workplane_height);
+  Workspace::iterator lower_bound_it = prev(upper_bound_it);
+  double upper_workplane_height = setPrecision(upper_bound_it->first, 3);
+  double lower_workplane_height = setPrecision(lower_bound_it->first, 3);
+  LimitMap upper_workplane = upper_bound_it->second;
+  LimitMap lower_workplane = lower_bound_it->second;
+  
+  // Calculate interpolation of raddii for target workplane height between existing workspace planes
+  double i = (target_workplane_height - lower_workplane_height) / (upper_workplane_height - lower_workplane_height);
+  double stance_span_modifier = walker_->getParameters().stance_span_modifier.current_value;
+  bool positive_y_axis = (Vector3d::UnitY().dot(identity_tip_pose_.position_) > 0.0);
+  int bearing  = (positive_y_axis ^ (stance_span_modifier > 0.0)) ? 270 : 90;
+  stance_span_modifier *= (positive_y_axis ? 1.0 : -1.0);
+  double radius = lower_workplane.at(bearing) * (1.0 - i) + upper_workplane.at(bearing) * i;
+  return Vector3d(0.0, radius * stance_span_modifier, 0.0);
+}
+
+/*******************************************************************************************************************//**
  * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in tip
  * position using two bezier curves for swing period and one for stance period. Each Bezier curve uses 5 control nodes
  * designed specifically to give a C2 smooth trajectory for the entire step cycle.
@@ -1177,16 +1263,20 @@ void LegStepper::updateTipPosition(void)
       
       // Modify identity tip positions according to desired stance span modifier parameter
       Vector3d identity_tip_position = identity_tip_pose_.position_;
-      Vector3d stance_span_change = walker_->getStanceSpanChange();
-      bool positive_y_axis = Vector3d::UnitY().dot(identity_tip_position) > 0.0;
-      identity_tip_position += positive_y_axis ? stance_span_change : -stance_span_change;
+      identity_tip_position += calculateStanceSpanChange();
       
       // Update default tip position as projection of tip position at beginning of STANCE period onto walk plane
       identity_tip_position = leg_->getDefaultBodyPose().transformVector(identity_tip_position);
       Vector3d identity_to_stance_origin = stance_origin_tip_position_ - identity_tip_position;
       Vector3d projection_to_walk_plane = getProjection(identity_to_stance_origin, walk_plane_normal_);
-      default_tip_pose_.position_ = identity_tip_position + projection_to_walk_plane;
+      Vector3d new_default_tip_position = identity_tip_position + projection_to_walk_plane;
+      double default_tip_position_delta = (default_tip_pose_.position_ - new_default_tip_position).norm();
+      default_tip_pose_.position_ = new_default_tip_position;
       ROS_ASSERT(default_tip_pose_.isValid());
+      if (default_tip_position_delta > IK_TOLERANCE)
+      {
+        walker_->setRegenerateWalkspace();
+      }
     }
 
     // Scales stride vector according to stance period specifically for STARTING state of walker

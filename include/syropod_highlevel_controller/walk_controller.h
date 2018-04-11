@@ -24,10 +24,6 @@
 #include "pose.h"
 #include "model.h"
 
-#define BEARING_STEP 45 ///< Step to increment bearing in workspace generation algorithm (deg)
-#define WORKSPACE_GENERATION_MAX_ITERATIONS 100 ///< Maximum number of iterations to find limits of workspace
-#define MAX_WORKSPACE_RADIUS 2.0 ///< Maximum radius allowed in workspace polygon (m)
-
 class DebugVisualiser;
 typedef map<int, double> LimitMap;
 
@@ -59,9 +55,8 @@ public:
     * Constructor for the walk controller.
     * @param[in] model A pointer to the robot model.
     * @param[in] params A copy of the parameter data structure
-    * @param[in] visualiser A pointer to the visualisation object
     */
-  WalkController(shared_ptr<Model> model, const Parameters& params, shared_ptr<DebugVisualiser> visualiser);
+  WalkController(shared_ptr<Model> model, const Parameters& params);
 
   /** Accessor for pointer to parameter data structure. */
   inline const Parameters& getParameters(void) { return params_; };
@@ -90,8 +85,8 @@ public:
   /** Accessor for walk cycle state. */
   inline WalkState getWalkState(void) { return walk_state_; };
   
-  /** Accessor for workspace map. */
-  inline map<int, double> getWorkspaceMap(void) { return workspace_map_; };
+  /** Accessor for walkspace. */
+  inline LimitMap getWalkspace(void) { return walkspace_; };
   
   /** Accessor for walk plane estimate. */
   inline Vector3d getWalkPlane(void) { return walk_plane_; };
@@ -124,14 +119,8 @@ public:
   /** Modifier for angular velocity limit map. */
   inline void setAngularAccelerationLimitMap(const LimitMap& limit_map) { max_angular_acceleration_ = limit_map; };
   
-  /** Modifier for the scaler for lateral stance positions. */
-  inline void regenerateWorkspace(void) { generate_workspace_ = true; };
-  
-  /** Returns the lateral workspace radius scaled by stance width scaler */
-  inline Vector3d getStanceSpanChange(void) 
-  { 
-    return Vector3d(0.0, params_.stance_span_modifier.current_value*workspace_map_.at(90), 0.0);
-  };
+  /** Sets flag to regenerate walkspace */
+  inline void setRegenerateWalkspace(void) { regenerate_walkspace_ = true; };
 
   /**
    * Initialises walk controller by setting desired default walking stance tip positions from parameters and creating
@@ -141,13 +130,10 @@ public:
   void init(void);
 
   /**
-   * Generates universal workspace (map of radii for range of search bearings) for all legs by having each leg search
-   * for joint limitations through bearings ranging from zero to 360 degrees. Workspace may be asymetrical, symetrical
-   * (all opposite bearing pairs having equal distance) or circular (all search bearings having equal distance).
-   * @params[in] self_loop Flag that determines if workspace generation occurs iteratively through multiple calls of 
-   * this function or in while loop via a single call of this function.
+   * Generates a 2D polygon from leg workspace, representing the acceptable space to walk within.
+   * @todo Remove debugging visualisations
    */
-  int generateWorkspace(const bool& self_loop = true);
+  void generateWalkspace(void);
 
   /**
    * Generate maximum linear and angular speed/acceleration for each workspace radius in workspace map from a given 
@@ -248,8 +234,9 @@ public:
 private:
   shared_ptr<Model> model_;            ///< Pointer to robot model object.
   const Parameters& params_;           ///< Pointer to parameter data structure for storing parameter variables.
-  shared_ptr<DebugVisualiser> debug_visualiser_; ///< Pointer to debug visualiser object
   double time_delta_;                  ///< The time period of the ros cycle.
+  
+  ros::Publisher walkspace_debug_publisher_; // TODO DEBUG REMOVE
 
   WalkState walk_state_ = STOPPED;           ///< The current walk cycle state.
   PosingState pose_state_ = POSING_COMPLETE; ///< The current state of auto posing.
@@ -258,17 +245,10 @@ private:
   StepCycle step_;
 
   // Workspace generation variables
-  LimitMap workspace_map_;       ///< A map of workspace radii for given bearing in degrees
-  shared_ptr<Model> search_model_;       ///< A copy of the robot model used to search for kinematic limits
-  bool workspace_generated_ = false;     ///< Flag denoting if workspace map has been generated.
-  bool generate_workspace_ = true;       ///< Flag denoting if workspace is currently being generated
-  Vector3d walk_plane_;                  ///< The co-efficients of an estimated planar walk surface
-  Vector3d walk_plane_normal_;           ///< The normal of the estimated planar walk surface
-  int iteration_ = 1;                    ///< The iteration of the workspace limit search along current bearing 
-  int search_bearing_ = 0;               ///< The current bearing being searched for kinematic limits
-  double search_height_ = 0.0;           ///< The current height being searched for kinematic limits
-  vector<Vector3d> origin_tip_position_; ///< The origin tip position of the kinematic search along a bearing.
-  vector<Vector3d> target_tip_position_; ///< The target tip position of the kinematic search along a bearing.
+  LimitMap walkspace_;                ///< A map of interpolated radii for given bearings in degrees at default stance
+  Vector3d walk_plane_;               ///< The co-efficients of an estimated planar walk surface
+  Vector3d walk_plane_normal_;        ///< The normal of the estimated planar walk surface
+  bool regenerate_walkspace_ = false; ///< Flag denoting whether walkspace needs to be regenerated
 
   // Velocity/acceleration variables
   Vector2d desired_linear_velocity_;          ///< The desired linear velocity of the robot body.
@@ -496,6 +476,12 @@ public:
    * estimated walk plane. Also updates the swing clearance vector with reference to the estimated walk plane.
    */
   void updateStride(void);
+  
+  /**
+   * Calculates the lateral change in distance from identity tip position to new default tip position for a leg.
+   * @return The change from identity tip position to the new default tip position.
+   */
+  Vector3d calculateStanceSpanChange(void);
 
   /**
     * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in

@@ -20,9 +20,9 @@
 ***********************************************************************************************************************/
 
 #include "standard_includes.h"
-#include <visualization_msgs/Marker.h>
 #include "pose.h"
 #include "model.h"
+#include "walk_controller.h"
 
 #define ID_LIMIT 10000                    ///< Id value limit to prevent overflow
 #define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
@@ -71,14 +71,26 @@ public:
    * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
    */
   void generateBezierCurves(shared_ptr<Leg> leg);
+  
+  /**
+   * Publishes visualisation markers which represent the default tip position of the leg
+  * @param[in] leg A pointer to a leg of the robot model object
+  */
+  void generateDefaultTipPositions(shared_ptr<Leg> leg);
+  
+  /**
+   * Publishes visualisation markers which represent the 2D walkspace for each leg.
+   * @param[in] leg A pointer to a leg of the robot model object
+   * @param[in] walkspace  A map of walkspace radii for a range of bearings to be visualised
+   */
+  void generateWalkspace(shared_ptr<Leg> leg, const LimitMap& walkspace);
 
   /**
-   * Publises visualisation markers which represent the workspace for each leg.
+   * Publishes visualisation markers which represent the 3D workspace for each leg.
    * @param[in] leg A pointer to a leg of the robot model object
-   * @param[in] workspace_map A map of worksapce radii for a range of bearings
-   * @param[in] ref_world A bool denoting if the generated markers should reference the world frame or default frame.
+   * @param[in] ref_odom A bool denoting if the generated markers should reference the odom frame or default frame.
    */
-  void generateWorkspace(shared_ptr<Leg> leg, map<int, double> workspace_map, const bool& ref_world = false);
+  void generateWorkspace(shared_ptr<Leg> leg, const bool& ref_odom = false);
 
   /**
    * Publishes visualisation markers which represent requested stride vector for each leg.
@@ -105,18 +117,19 @@ public:
   void generateGravity(const Vector3d& gravity_estimate);
 
 private:
-  ros::NodeHandle n_;                        ///< Ros node handle
-  ros::Publisher robot_model_publisher_;     ///< Publisher for topic "/shc/visualisation/robot_model"
-  ros::Publisher tip_trajectory_publisher_;  ///< Publisher for topic "/shc/visualisation/tip_trajectories"
-  ros::Publisher bezier_curve_publisher_;    ///< Publisher for topic "/shc/visualisation/bezier_curves"
-  ros::Publisher workspace_publisher_;       ///< Publisher for topic "/shc/visualisation/workspaces"
-  ros::Publisher walk_plane_publisher_;      ///< Publisher for topic "/shc/visualisation/walk_plane"
-  ros::Publisher stride_publisher_;          ///< Publisher for topic "/shc/visualisation/stride"
-  ros::Publisher tip_force_publisher_;       ///< Publisher for topic "/shc/visualisation/tip_force"
-  ros::Publisher joint_torque_publisher_;    ///< Publisher for topic "/shc/visualisation/joint_torque"
-  ros::Publisher tip_rotation_publisher_;    ///< Publisher for topic "/shc/visualisation/tip_rotation"
-  ros::Publisher gravity_publisher_;         ///< Publisher for topic "/shc/visualisation/gravity"
-  ros::Publisher terrain_publisher_;         ///< Publisher for topic "/shc/visualisation/terrain"
+  ros::Publisher robot_model_publisher_;          ///< Publisher for topic "/shc/visualisation/robot_model"
+  ros::Publisher tip_trajectory_publisher_;       ///< Publisher for topic "/shc/visualisation/tip_trajectories"
+  ros::Publisher bezier_curve_publisher_;         ///< Publisher for topic "/shc/visualisation/bezier_curves"
+  ros::Publisher default_tip_position_publisher_; ///< Publisher for topic "/shc/visualisation/default_tip_positions"
+  ros::Publisher walkspace_publisher_;            ///< Publisher for topic "/shc/visualisation/walkspace"
+  ros::Publisher workspace_publisher_;            ///< Publisher for topic "/shc/visualisation/workspace"
+  ros::Publisher walk_plane_publisher_;           ///< Publisher for topic "/shc/visualisation/walk_plane"
+  ros::Publisher stride_publisher_;               ///< Publisher for topic "/shc/visualisation/stride"
+  ros::Publisher tip_force_publisher_;            ///< Publisher for topic "/shc/visualisation/tip_force"
+  ros::Publisher joint_torque_publisher_;         ///< Publisher for topic "/shc/visualisation/joint_torque"
+  ros::Publisher tip_rotation_publisher_;         ///< Publisher for topic "/shc/visualisation/tip_rotation"
+  ros::Publisher gravity_publisher_;              ///< Publisher for topic "/shc/visualisation/gravity"
+  ros::Publisher terrain_publisher_;              ///< Publisher for topic "/shc/visualisation/terrain"
 
   double time_delta_ = 0.0;   ///< Time period of main loop cycle used for marker duration
   int tip_position_id_ = 0;   ///< Id for tip trajectory markers

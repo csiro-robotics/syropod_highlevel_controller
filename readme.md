@@ -262,4 +262,6 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Added feature to align tips with gravity using redundancy of leg or body posing.
     - Refactored dynamic parameter tuning such that stopping Syropod is no longer required.
 - v0.5.10
-    - 
+    - Added dynamic tuning of step frequency parameter
+    - Added each leg workspace generation
+    - Added correct generation of 'walkspace', fit within leg workspace

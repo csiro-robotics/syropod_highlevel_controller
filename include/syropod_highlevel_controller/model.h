@@ -29,6 +29,11 @@
 #define DLS_COEFFICIENT 0.02 ///< Coefficient used in Damped Least Squares method for inverse kinematics.
 #define JOINT_LIMIT_COST_WEIGHT 0.1 ///< Gain used in determining cost weight for joints approaching limits
 
+#define BEARING_STEP 45 ///< Step to increment bearing in workspace generation algorithm (deg)
+#define MAX_POSITION_DELTA 0.002 ///< Position delta to increment search position in workspace generation algorithm (m)
+#define MAX_WORKSPACE_RADIUS 1.0 ///< Maximum radius allowed in workspace polygedron plane (m)
+#define WORKSPACE_LAYERS 10 ///< Number of planes in workspace polyhedron
+
 class Leg;
 class Joint;
 class Link;
@@ -38,6 +43,8 @@ class WalkController;
 class LegStepper;
 class PoseController;
 class LegPoser;
+
+class DebugVisualiser;
 
 /*******************************************************************************************************************//**
  * This struct contains data from IMU hardware.
@@ -64,7 +71,7 @@ public:
     * Contructor for robot model object - initialises member variables from parameters.
     * @param[in] params A pointer to the parameter data structure.
     */
-  Model(const Parameters& params);
+  Model(const Parameters& params, shared_ptr<DebugVisualiser> debug_visualiser);
   
   /**
    * Copy Constructor for a robot model object. Initialises member variables from existing Model object.
@@ -74,6 +81,9 @@ public:
 
   /** Accessor for leg object container.*/
   inline LegContainer* getLegContainer(void) { return &leg_container_; };
+  
+  /** Accessor for debug visualiser pointer */
+  inline shared_ptr<DebugVisualiser> getDebugVisualiser(void) { return debug_visualiser_; };
 
   /** Accessor for leg count (number of legs in robot model).*/
   inline int getLegCount(void) { return leg_count_; };
@@ -161,14 +171,21 @@ public:
   void updateDefaultConfiguration(void);
   
   /**
+   * Generates workspace polyhedron for each leg in model.
+   */
+  void generateWorkspaces(void);
+  
+  /**
    * Updates model configuration by applying inverse kinematics to solve desired tip poses generated from walk/pose
    * controllers.
    */
   void updateModel(void);
 
 private:
-  const Parameters& params_;     ///< Pointer to parameter data structure for storing parameter variables.
-  LegContainer leg_container_;   ///< The container map for all robot model leg objects.
+  const Parameters& params_;                     ///< Pointer to parameter structure for storing parameter variables.
+  shared_ptr<DebugVisualiser> debug_visualiser_; ///< Pointer to debug visualiser object
+  LegContainer leg_container_;                   ///< The container map for all robot model leg objects.
+  
   int leg_count_;                ///< The number of leg objects within the robot model.
   double time_delta_;            ///< The time period of the ros cycle.
   Pose current_pose_;            ///< Current pose of robot model body (i.e. walk_plane -> base_link)
@@ -185,6 +202,7 @@ public:
  * associated with the leg.
 ***********************************************************************************************************************/
 typedef vector<double> state_type; //Impedance state used in admittance controller
+typedef map<double, map<int, double>> Workspace;
 typedef map<int, shared_ptr<Joint>, less<int>, aligned_allocator<pair<const int, shared_ptr<Joint>>>> JointContainer;
 typedef map<int, shared_ptr<Link>, less<int>, aligned_allocator<pair<const int, shared_ptr<Link>>>> LinkContainer;
 class Leg : public enable_shared_from_this<Leg>
@@ -215,6 +233,9 @@ public:
 
   /** Accessor for the step coordination group of this leg. */
   inline int getGroup(void) { return group_; };
+  
+  /** Accessor for the workspace polyhedron */
+  inline Workspace getWorkspace(void) { return workspace_; };
 
   /** Accessor for the cuurent state of this leg. */
   inline LegState getLegState(void) { return leg_state_; };
@@ -281,6 +302,12 @@ public:
   
   /** Accessor for the current pose of the robot body. */
   inline Pose getDefaultBodyPose(void) { return model_->getDefaultPose(); };
+  
+  /**
+   * Modifier for the workspace of the leg.
+   * @param[in] workspace The new leg workspace
+   */
+  inline void setWorkspace(const Workspace& workspace) { workspace_ = workspace; };
 
   /**
     * Modifier for the curent state of this leg.
@@ -398,6 +425,12 @@ public:
   void init(const bool& use_default_joint_positions);
   
   /**
+   * Generates workspace polyhedron for this leg by searching for kinematic limitations.
+   * @todo Find min/max workplane height through kinematic limitation search rather than using step clearance/depth
+   */
+  Workspace generateWorkspace(void);
+  
+  /**
    * Updates joint default positions according to current joint positions.
    */
   void updateDefaultConfiguration(void);
@@ -507,6 +540,8 @@ private:
   const std::string id_name_;   ///< The identification name for this leg.
   const int joint_count_;       ///< The number of child Joint objects associated with this leg.
   LegState leg_state_;          ///< The current state of this leg.
+  
+  Workspace workspace_;         ///< Polyhedron (planes of radii) representing workspace of this leg
 
   ros::Publisher leg_state_publisher_;     ///< The ros publisher object that publishes state messages for this leg.
   ros::Publisher asc_leg_state_publisher_; ///< The ros publisher object that publishes ASC state messages for this leg.

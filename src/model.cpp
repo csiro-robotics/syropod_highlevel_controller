@@ -20,13 +20,15 @@
 #include "../include/syropod_highlevel_controller/model.h"
 #include "../include/syropod_highlevel_controller/walk_controller.h"
 #include "../include/syropod_highlevel_controller/pose_controller.h"
+#include "../include/syropod_highlevel_controller/debug_visualiser.h"
 
 /*******************************************************************************************************************//**
  * Contructor for robot model object - initialises member variables from parameters.
  * @param[in] params A pointer to the parameter data structure.
 ***********************************************************************************************************************/
-Model::Model(const Parameters& params)
+Model::Model(const Parameters& params, shared_ptr<DebugVisualiser> debug_visualiser)
   : params_(params)
+  , debug_visualiser_(debug_visualiser)
   , leg_count_(params_.leg_id.data.size())
   , time_delta_(params_.time_delta.data)
   , current_pose_(Pose::Identity())
@@ -139,6 +141,27 @@ void Model::updateDefaultConfiguration(void)
   {
     shared_ptr<Leg> leg = leg_it->second;
     leg->updateDefaultConfiguration();
+  }
+}
+
+/*******************************************************************************************************************//**
+ * Generates workspace polyhedron for each leg in model.
+***********************************************************************************************************************/
+void Model::generateWorkspaces(void)
+{
+  // Create copy of model for searching for kinematic limitations
+  shared_ptr<Model> search_model = allocate_shared<Model>(aligned_allocator<Model>(), shared_from_this());
+  search_model->generate(shared_from_this());
+  search_model->initLegs(true);
+  
+  // Run workspace generation for each leg in model
+  LegContainer::iterator leg_it;
+  for (leg_it = search_model->getLegContainer()->begin(); leg_it != search_model->getLegContainer()->end(); ++leg_it)
+  {
+    shared_ptr<Leg> search_leg = leg_it->second;
+    ROS_INFO("\n[SHC] Generating workspace (%d%%) . . .\n", roundToInt(100.0 * search_leg->getIDNumber() / leg_count_));
+    shared_ptr<Leg> leg = leg_container_.at(search_leg->getIDNumber());
+    leg->setWorkspace(search_leg->generateWorkspace());
   }
 }
 
@@ -310,6 +333,139 @@ void Leg::init(const bool& use_default_joint_positions)
   }
   applyFK();
   desired_tip_pose_ = current_tip_pose_;
+}
+
+/*******************************************************************************************************************//**
+ * Generates workspace polyhedron for this leg by searching for kinematic limitations.
+ * @todo Find min/max workplane height through kinematic limitation search rather than using step clearance/depth
+***********************************************************************************************************************/
+Workspace Leg::generateWorkspace(void)
+{
+  bool debug = params_.debug_workspace_calc.data;
+  bool display_debug_visualisation = debug && params_.debug_rviz.data;
+  bool workspace_generation_complete = false;
+  
+  // Init maximal workspace
+  LimitMap max_workplane;
+  for (int bearing = 0; bearing <= 360; bearing += BEARING_STEP)
+  {
+    max_workplane.insert(LimitMap::value_type(bearing, MAX_WORKSPACE_RADIUS));
+  }
+
+  LimitMap lower_workplane = max_workplane;
+  double max_plane_height = params_.step_clearance.current_value;
+  double min_plane_height = -params_.step_depth.current_value;
+  double search_height_delta = (max_plane_height - min_plane_height) / WORKSPACE_LAYERS;
+  int lower_levels = int(abs(min_plane_height) / search_height_delta);
+  double search_height = -lower_levels * search_height_delta;
+  int search_bearing = 0;
+  workspace_.clear();
+  workspace_.insert(Workspace::value_type(search_height, lower_workplane));
+  
+  bool within_limits = true;
+  int iteration = 1;  
+  Vector3d origin_tip_position, target_tip_position;
+  double workplane_radius;
+  int number_iterations;
+  
+  // Iterate through all legs and move legs along search bearings to kinematic limits.
+  while(true)
+  {
+    Pose current_pose = model_->getCurrentPose();
+    Vector3d default_tip_position = current_pose.inverseTransformVector(leg_stepper_->getDefaultTipPose().position_);
+    default_tip_position[2] += search_height;
+    
+    // Set origin and target for linear interpolation
+    if (iteration == 1)
+    {
+      within_limits = true;
+      init(true); // Reset leg to default stance
+      if (search_bearing == 0)
+      {
+        number_iterations = roundToInt(search_height_delta / MAX_POSITION_DELTA);
+        origin_tip_position = current_tip_pose_.position_;
+        target_tip_position = default_tip_position;
+      }
+      else
+      {
+        number_iterations = roundToInt(MAX_WORKSPACE_RADIUS / MAX_POSITION_DELTA);
+        origin_tip_position = default_tip_position;
+        target_tip_position = origin_tip_position;
+        target_tip_position[0] += MAX_WORKSPACE_RADIUS * cos(degreesToRadians(search_bearing));
+        target_tip_position[1] += MAX_WORKSPACE_RADIUS * sin(degreesToRadians(search_bearing));
+      }
+    }
+  
+    // Move tip position linearly along search bearing in search of kinematic workspace limit.
+    double i = double(iteration) / (number_iterations * (debug ? 10 : 1)); // Interpolation control variable
+    Vector3d desired_tip_position = origin_tip_position * (1.0 - i) + target_tip_position * i; // Interpolate
+    //Quaterniond desired_tip_rotation = leg_stepper->getIdentityTipPose().rotation_;
+    setDesiredTipPose(Pose(desired_tip_position, UNDEFINED_ROTATION));
+    double ik_result = applyIK(true);
+    
+    // Check if leg is still within limits
+    if (search_bearing != 0)
+    {
+      workplane_radius = Vector3d(current_tip_pose_.position_ - default_tip_position).norm();
+      within_limits = within_limits && ik_result != 0.0;
+      
+      // Display debugging messages
+      ROS_DEBUG_COND(debug,"LEG: %s\tSEARCH: %f:%d:%d\tDISTANCE: %f\tIK_RESULT: %f\tWITHIN LIMITS: %s",
+                     id_name_.c_str(), search_height, search_bearing,
+                     iteration, workplane_radius, ik_result, within_limits ? "TRUE" : "FALSE");
+    }
+
+    // Search not complete -> iterate along current search bearing
+    if (within_limits && iteration < number_iterations)
+    {
+      iteration++;
+    }
+    // Current search along bearing complete -> save min distance and iterate search bearing
+    else 
+    {
+      if (search_bearing == 0)
+      {
+        updateDefaultConfiguration();
+      }
+      else
+      {
+        workspace_.at(search_height)[search_bearing] = workplane_radius;
+      }
+      iteration = 1;
+      if (search_bearing + BEARING_STEP <= 360)
+      {
+        search_bearing += BEARING_STEP;
+      }
+      // All search bearings at search height completed -> iterate search height
+      else
+      {
+        search_bearing = 0;
+        workspace_.at(search_height)[0] = workspace_.at(search_height).at(360);
+        search_height += search_height_delta;
+        if (search_height <= params_.step_clearance.current_value)
+        {
+          workspace_.insert(Workspace::value_type(search_height, max_workplane));
+        }
+        // All searches complete -> set workspace generation complete and reset.
+        else
+        {
+          workspace_generation_complete = true;;
+        }
+      }
+    }
+    // Display robot model and workspace for debugging purposes
+    if (display_debug_visualisation)
+    {
+      shared_ptr<DebugVisualiser> debug = model_->getDebugVisualiser();
+      debug->generateRobotModel(model_, true);
+      debug->generateWorkspace(shared_from_this(), true);
+      ros::spinOnce();
+    }
+    if (workspace_generation_complete)
+    {
+      return workspace_;
+    }
+  }
 }
 
 /*******************************************************************************************************************//**
@@ -556,7 +712,7 @@ double Leg::updateJointPositions(const VectorXd& delta, const bool& simulation)
     joint->desired_position_ = joint->prev_desired_position_ + joint->desired_velocity_ * model_->getTimeDelta();
 
     // Clamp joint position within limits
-    if (params_.clamp_joint_positions.data && !simulation)
+    if (params_.clamp_joint_positions.data)
     {
       if (joint->desired_position_ < joint->min_position_)
       {
@@ -604,24 +760,6 @@ double Leg::applyIK(const bool& simulation)
   Pose leg_frame_current_tip_pose = base_joint->getPoseJointFrame(current_tip_pose_);
   Vector3d position_delta = leg_frame_desired_tip_pose.position_ - leg_frame_current_tip_pose.position_;
   ROS_ASSERT(position_delta.norm() < UNASSIGNED_VALUE);
-  
-  // EXPERIMENTAL
-  /*
-  Vector3d limit = 0.05*Vector3d(IK_TOLERANCE, IK_TOLERANCE, IK_TOLERANCE);
-  position_delta = clamped(position_delta, limit);
-  
-  // Check for force constaints
-  Vector3d tip_direction = current_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
-  Vector3d aligned_tip_force = getProjection(tip_force_, tip_direction);
-  if (aligned_tip_force.norm() > 0.75)
-  {
-    Vector3d position_delta_projection = getProjection(position_delta, tip_direction);
-    if (position_delta_projection.dot(tip_direction) > 0.0) // Same direction
-    {
-      position_delta = Vector3d::Zero();
-    }
-  }
-  */
   
   MatrixXd delta = Matrix<double, 6, 1>::Zero();
   delta(0) = position_delta[0];

@@ -162,7 +162,7 @@ public:
   void publishPose(void);
 
   /** Publishes details about current workspace (average/min/max radius) for debugging */
-  void publishWorkspace(void);
+  void publishWalkspace(void);
 
   /** Publishes imu pose rotation absement, position and velocity errors used in the PID controller, for debugging */
   void publishRotationPoseError(void);
@@ -375,7 +375,7 @@ private:
   ros::Publisher desired_joint_state_publisher_;      ///< Publisher for topic "/desired_joint_state"
   ros::Publisher velocity_publisher_;                 ///< Publisher for topic "/shc/velocity"
   ros::Publisher pose_publisher_;                     ///< Publisher for topic "/shc/pose"
-  ros::Publisher workspace_publisher_;                ///< Publisher for topic "/shc/workspace"
+  ros::Publisher walkspace_publisher_;                ///< Publisher for topic "/shc/walkspace"
   ros::Publisher rotation_pose_error_publisher_;      ///< Publisher for topic "/shc/rotation_pose_error"
   ros::Publisher plan_step_request_publisher_;        ///< Publisher for topic "/shc/plan_step_request"
   
