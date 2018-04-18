@@ -169,6 +169,9 @@ public:
   
   /** Publishes transforms linking world, base_link and walk_plane frames. */
   void publishFrameTransforms(void);
+  
+  /** Generates transforms for leg stepper targets based on frame id */
+  void generateExternalTargetTransforms(void);
 
   /** Sets up velocities for and calls debug output object to publish various debugging visualations via rviz */
   void RVIZDebugging(void);
@@ -419,7 +422,7 @@ private:
   shared_ptr<Leg> secondary_leg_;                             ///< Pointer to leg object of secondary leg selection
 
   int manual_leg_count_ = 0;                  ///< Count of legs that are currently in manual manipulation mode
-  double elapsed_time_ = 0.0;                 ///< Track of elapsed time of state controller loop
+  double cruise_control_end_time_ = 0.0;      ///< End time of cruise control mode used for limiting purposes
 
   bool gait_change_flag_ = false;             ///< Flags that the gait is changing
   bool toggle_primary_leg_state_ = false;     ///< Flags that the primary selected leg state is toggling

@@ -72,14 +72,9 @@ void WalkController::init(void)
 
 /*******************************************************************************************************************//**
  * Generates a 2D polygon from leg workspace, representing the acceptable space to walk within.
- * @todo Remove debugging visualisations
 ***********************************************************************************************************************/
 void WalkController::generateWalkspace(void)
 {
-  // Debug visualisation publisher TODO REMOVE
-  ros::NodeHandle n;
-  walkspace_debug_publisher_ = n.advertise<visualization_msgs::Marker>("/shc/visualisation/walkspace_debug", 1000);
-  
   // Init walkspace to maximums
   walkspace_.clear();
   Workspace reference_workspace = model_->getLegByIDNumber(0)->getWorkspace();
@@ -134,35 +129,7 @@ void WalkController::generateWalkspace(void)
         Vector3d new_point = Vector3d::UnitX() * MAX_WORKSPACE_RADIUS;
         new_point = AngleAxisd(degreesToRadians(bearing), Vector3d::UnitZ())._transformVector(new_point);
         
-        // DEBUG TODO Remove
-        visualization_msgs::Marker new_point_marker;
-        new_point_marker.header.frame_id = "/odom";
-        new_point_marker.header.stamp = ros::Time::now();
-        new_point_marker.ns = "walkspace_debug";
-        new_point_marker.type = visualization_msgs::Marker::ARROW;
-        new_point_marker.action = visualization_msgs::Marker::ADD;
-        new_point_marker.id = 0;
-        new_point_marker.scale.x = 0.005;
-        new_point_marker.scale.y = 0.0075;
-        new_point_marker.scale.z = 0.01;
-        new_point_marker.color.g = 1;
-        new_point_marker.color.a = 1;
-        new_point_marker.pose.orientation.w = 1.0;
-        geometry_msgs::Point origin;
-        Vector3d default_tip_position_odom = current_pose.transformVector(default_tip_position);
-        origin.x = default_tip_position_odom[0];
-        origin.y = default_tip_position_odom[1];
-        origin.z = default_tip_position_odom[2];
-        new_point_marker.points.push_back(origin);
-        geometry_msgs::Point target;
-        Vector3d new_point_odom = current_pose.transformVector(new_point + default_tip_position);
-        target.x = new_point_odom[0];
-        target.y = new_point_odom[1];
-        target.z = new_point_odom[2];
-        new_point_marker.points.push_back(target);
-        // DEBUG TODO Remove
-        
-        // Check if new point is between existing points in workspace shifted to new default tip position
+        // Generate radius from finding intersection of new point direction vector and existing workplane limits
         LimitMap::iterator workplane_it;
         for (workplane_it = upper_workplane.begin(); workplane_it != upper_workplane.end(); ++workplane_it)
         {
@@ -180,62 +147,12 @@ void WalkController::generateWalkspace(void)
             break;
           }
           
-          // DEBUG TODO Remove
-          visualization_msgs::Marker point_1_marker;
-          point_1_marker.header.frame_id = "/odom";
-          point_1_marker.header.stamp = ros::Time::now();
-          point_1_marker.ns = "walkspace_debug";
-          point_1_marker.type = visualization_msgs::Marker::ARROW;
-          point_1_marker.action = visualization_msgs::Marker::ADD;
-          point_1_marker.id = 1;
-          point_1_marker.scale.x = 0.005;
-          point_1_marker.scale.y = 0.0075;
-          point_1_marker.scale.z = 0.01;
-          point_1_marker.color.b = 1;
-          point_1_marker.color.a = 1;
-          point_1_marker.pose.orientation.w = 1.0;
-          origin.x = default_tip_position_odom[0];
-          origin.y = default_tip_position_odom[1];
-          origin.z = default_tip_position_odom[2];
-          point_1_marker.points.push_back(origin);
-          Vector3d point_1_odom = current_pose.transformVector(point_1 + default_tip_position);
-          target.x = point_1_odom[0];
-          target.y = point_1_odom[1];
-          target.z = point_1_odom[2];
-          point_1_marker.points.push_back(target);
-          // DEBUG TODO Remove
-          
           // Generate reference point 2
           int bearing_2 = next(workplane_it)->first;
           double radius_2 = lower_workplane.at(bearing_2) * (1.0 - i) + upper_workplane.at(bearing_2) * i;
           Vector3d point_2 =  Vector3d::UnitX() * radius_2;
           point_2 = AngleAxisd(degreesToRadians(bearing_2), Vector3d::UnitZ())._transformVector(point_2);
           point_2 -= default_shift;
-          
-          // DEBUG TODO Remove
-          visualization_msgs::Marker point_2_marker;
-          point_2_marker.header.frame_id = "/odom";
-          point_2_marker.header.stamp = ros::Time::now();
-          point_2_marker.ns = "walkspace_debug";
-          point_2_marker.type = visualization_msgs::Marker::ARROW;
-          point_2_marker.action = visualization_msgs::Marker::ADD;
-          point_2_marker.id = 2;
-          point_2_marker.scale.x = 0.005;
-          point_2_marker.scale.y = 0.0075;
-          point_2_marker.scale.z = 0.01;
-          point_2_marker.color.r = 1;
-          point_2_marker.color.a = 1;
-          point_2_marker.pose.orientation.w = 1.0;
-          origin.x = default_tip_position_odom[0];
-          origin.y = default_tip_position_odom[1];
-          origin.z = default_tip_position_odom[2];
-          point_2_marker.points.push_back(origin);
-          Vector3d point_2_odom = current_pose.transformVector(point_2 + default_tip_position);
-          target.x = point_2_odom[0];
-          target.y = point_2_odom[1];
-          target.z = point_2_odom[2];
-          point_2_marker.points.push_back(target);
-          // DEBUG TODO Remove
           
           // Reference point 1 in same direction as new point
           if (point_1.cross(new_point).norm() == 0.0)
@@ -250,7 +167,7 @@ void WalkController::generateWalkspace(void)
           // New point direction is between reference points - calculate distance to line connecting reference points
           // Ref: stackoverflow.com/questions/13640931/how-to-determine-if-a-vector-is-between-two-other-vectors
           else if ((point_1.cross(new_point)).dot(point_1.cross(point_2)) >= 0 &&
-                  (point_2.cross(new_point)).dot(point_2.cross(point_1)) >= 0)
+                   (point_2.cross(new_point)).dot(point_2.cross(point_1)) >= 0)
           {
             // Calculate vector (with same direction as new point) normal to line connecting p1 & p2 on horizontal plane
             double dx = point_2[0] - point_1[0];
@@ -266,73 +183,6 @@ void WalkController::generateWalkspace(void)
             Vector3d point_1_projection = getProjection(point_1, normal);
             double ratio = point_1_projection.norm() / new_point_projection.norm();
             radius = ratio * MAX_WORKSPACE_RADIUS;
-            
-            // DEBUG TODO Remove
-            visualization_msgs::Marker normal_marker;
-            normal_marker.header.frame_id = "/odom";
-            normal_marker.header.stamp = ros::Time::now();
-            normal_marker.ns = "walkspace_debug";
-            normal_marker.type = visualization_msgs::Marker::ARROW;
-            normal_marker.action = visualization_msgs::Marker::ADD;
-            normal_marker.id = 3;
-            normal_marker.scale.x = 0.005;
-            normal_marker.scale.y = 0.0075;
-            normal_marker.scale.z = 0.01;
-            normal_marker.color.r = 1;
-            normal_marker.color.g = 1;
-            normal_marker.color.a = 1;
-            normal_marker.pose.orientation.w = 1.0;
-            origin.x = default_tip_position_odom[0];
-            origin.y = default_tip_position_odom[1];
-            origin.z = default_tip_position_odom[2];
-            normal_marker.points.push_back(origin);
-            Vector3d normal_odom = current_pose.transformVector(normal + default_tip_position);
-            target.x = normal_odom[0];
-            target.y = normal_odom[1];
-            target.z = normal_odom[2];
-            normal_marker.points.push_back(target);
-            // DEBUG TODO Remove
-            
-            // DEBUG TODO Remove
-            visualization_msgs::Marker radius_marker;
-            radius_marker.header.frame_id = "/odom";
-            radius_marker.header.stamp = ros::Time::now();
-            radius_marker.ns = "walkspace_debug";
-            radius_marker.type = visualization_msgs::Marker::ARROW;
-            radius_marker.action = visualization_msgs::Marker::ADD;
-            radius_marker.id = 4;
-            radius_marker.scale.x = 0.005;
-            radius_marker.scale.y = 0.0075;
-            radius_marker.scale.z = 0.01;
-            radius_marker.color.r = 1;
-            radius_marker.color.b = 1;
-            radius_marker.color.a = 1;
-            radius_marker.pose.orientation.w = 1.0;
-            origin.x = default_tip_position_odom[0];
-            origin.y = default_tip_position_odom[1];
-            origin.z = default_tip_position_odom[2];
-            radius_marker.points.push_back(origin);
-            Vector3d radius_point = new_point.normalized() * radius;
-            Vector3d radius_odom = current_pose.transformVector(radius_point + default_tip_position);
-            target.x = radius_odom[0];
-            target.y = radius_odom[1];
-            target.z = radius_odom[2];
-            radius_marker.points.push_back(target);
-            // DEBUG TODO Remove
-            
-            // DEBUG TODO Remove
-            int s = 0;
-            while (s < 100)
-            {
-              s++;
-              walkspace_debug_publisher_.publish(new_point_marker);
-              walkspace_debug_publisher_.publish(point_1_marker);
-              walkspace_debug_publisher_.publish(point_2_marker);
-              walkspace_debug_publisher_.publish(normal_marker);
-              walkspace_debug_publisher_.publish(radius_marker);
-              ros::spinOnce();
-            }
-            // DEBUG TODO Remove
             break;
           }
         }
@@ -931,9 +781,6 @@ LegStepper::LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, c
   , current_tip_pose_(default_tip_pose_)
   , origin_tip_pose_(current_tip_pose_)
   , target_tip_pose_(default_tip_pose_)
-  , external_target_tip_pose_(Pose::Undefined())
-  , target_request_time_(ros::Time(0))
-  , target_tip_pose_transform_(Pose::Identity())
 {
   walk_plane_ = Vector3d::Zero();
   walk_plane_normal_ = Vector3d::UnitZ();
@@ -964,9 +811,6 @@ LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
   , current_tip_pose_(leg_stepper->current_tip_pose_)
   , origin_tip_pose_(leg_stepper->origin_tip_pose_)
   , target_tip_pose_(leg_stepper->target_tip_pose_)
-  , external_target_tip_pose_(leg_stepper->external_target_tip_pose_)
-  , target_request_time_(leg_stepper->target_request_time_)
-  , target_tip_pose_transform_(leg_stepper->target_tip_pose_transform_)
   
 {
   walk_plane_ = leg_stepper->walk_plane_;
@@ -979,7 +823,6 @@ LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
   swing_clearance_ = leg_stepper->swing_clearance_;  
   at_correct_phase_ = leg_stepper->at_correct_phase_;
   completed_first_step_ = leg_stepper->completed_first_step_;
-  use_default_target_ = leg_stepper->use_default_target_;
   phase_ = leg_stepper->phase_;
   phase_offset_ = leg_stepper->phase_offset_;
   new_step_frequency_ = leg_stepper->new_step_frequency_;
@@ -1093,7 +936,7 @@ Vector3d LegStepper::calculateStanceSpanChange(void)
 {
   // Calculate target height of plane within workspace
   Vector3d default_shift = default_tip_pose_.position_ - identity_tip_pose_.position_;
-  double target_workplane_height = default_shift[2];
+  double target_workplane_height = setPrecision(default_shift[2], 3);
   
   // Get bounding existing workplanes within workspace
   Workspace workspace = leg_->getWorkspace();
@@ -1166,7 +1009,8 @@ void LegStepper::updateTipPosition(void)
     if (rough_terrain_mode)
     {
       // Update default target to meet step surface either proactively or reactively
-      if (use_default_target_)
+      bool use_default_target = (external_target_tip_pose_ == Pose::Undefined());
+      if (use_default_target)
       {
         if (touchdown_detection_)
         {
@@ -1198,7 +1042,7 @@ void LegStepper::updateTipPosition(void)
       // Update target tip pose to externally requested target tip pose transformed based on robot movement since request
       else
       {
-        target_tip_pose_ = external_target_tip_pose_;//.removePose(target_tip_pose_transform_);
+        target_tip_pose_ = external_target_tip_pose_.removePose(target_tip_pose_transform_);
       }
     }
 
@@ -1214,7 +1058,7 @@ void LegStepper::updateTipPosition(void)
       generateSecondarySwingControlNodes(ground_contact);
     }
     // Force touchdown normal to walk plane in rough terrain mode (with reactive/proactive touchdown detection)
-    if (rough_terrain_mode && use_default_target_ && touchdown_detection_ && !ground_contact)
+    if (rough_terrain_mode && !ground_contact)
     {
       forceNormalTouchdown();
     }
@@ -1259,7 +1103,7 @@ void LegStepper::updateTipPosition(void)
     if (iteration == 1)
     {
       stance_origin_tip_position_ = current_tip_pose_.position_;
-      use_default_target_ = true;
+      external_target_tip_pose_ = Pose::Undefined();
       
       // Modify identity tip positions according to desired stance span modifier parameter
       Vector3d identity_tip_position = identity_tip_pose_.position_;

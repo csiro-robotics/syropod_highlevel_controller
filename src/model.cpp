@@ -737,7 +737,7 @@ double Leg::updateJointPositions(const VectorXd& delta, const bool& simulation)
     min_limit_proximity = min(limit_proximity, min_limit_proximity);
     
     // Report clamping events
-    ROS_WARN_COND(!clamping_events.empty() && !params_.ignore_IK_warnings.data,
+    ROS_WARN_COND(!clamping_events.empty() && !params_.ignore_IK_warnings.data && !simulation,
                   "\nIK Clamping Event/s:%s\n", clamping_events.c_str());
   }
   

@@ -172,13 +172,12 @@ void StateController::init(void)
 ***********************************************************************************************************************/
 void StateController::loop(void)
 {
-  elapsed_time_ = min(elapsed_time_ + params_.time_delta.data, UNASSIGNED_VALUE); //HACK
-  
   // Posing - updates currentPose for body compensation
   if (robot_state_ != UNKNOWN)
   {
     poser_->updateCurrentPose(robot_state_);
     walker_->setPoseState(poser_->getAutoPoseState()); // Sends pose state from poser to walker
+    generateExternalTargetTransforms();
 
     // Admittance control - updates deltaZ values
     if (params_.admittance_control.data)
@@ -419,8 +418,9 @@ void StateController::runningState(void)
     update_tip_position = false;
   }
   // Cruise control (constant velocity input)
-  else if (cruise_control_mode_ == CRUISE_CONTROL_ON && auto_navigation_mode_ == AUTO_NAVIGATION_OFF &&
-          (params_.cruise_control_time_limit.data == 0.0 || elapsed_time_ < params_.cruise_control_time_limit.data))
+  else if (cruise_control_mode_ == CRUISE_CONTROL_ON && 
+           auto_navigation_mode_ == AUTO_NAVIGATION_OFF &&
+           ros::Time::now().toSec() < cruise_control_end_time_)
   {
     linear_velocity_input_ = linear_cruise_velocity_;
     angular_velocity_input_ = angular_cruise_velocity_;
@@ -713,6 +713,34 @@ void StateController::executePlan(void)
 }
 
 /*******************************************************************************************************************//**
+ * Generates transforms for leg stepper targets based on frame id
+***********************************************************************************************************************/
+void StateController::generateExternalTargetTransforms(void)
+{
+  // Lookup transform between current walk plane frame and walk plane frame at time of tip target request
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+  {
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    if (leg_stepper->getExternalTargetTipPose() != Pose::Undefined())
+    {
+      ros::Time past = leg_stepper->getTargetRequestTime();
+      string frame_id = leg_stepper->getTargetRequestFrameId();
+      try
+      {
+        geometry_msgs::TransformStamped target_transform;
+        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", Time(0), "odom");
+        leg_stepper->setTargetTipPoseTransform(Pose(target_transform.transform));
+      }
+      catch (tf2::TransformException &ex) 
+      {
+        ROS_DEBUG_COND(false, "\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
+      }
+    }
+  }
+}
+
+/*******************************************************************************************************************//**
  * Iterates through leg objects and either collates joint state information for combined publishing and/or publishes the
  * desired joint position on the leg member publisher object.
 ***********************************************************************************************************************/
@@ -955,25 +983,6 @@ void StateController::publishFrameTransforms(void)
     base_link_to_tip.transform.rotation.z = tip_robot_frame.rotation_.z();
     transform_broadcaster_.sendTransform(base_link_to_tip);
   }
-  
-  // Lookup transform between current walk plane frame and walk plane frame at time of tip target request
-  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
-  {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    ros::Time past = leg_stepper->getTargetRequestTime();
-    geometry_msgs::TransformStamped walk_plane_time_shift;
-    try
-    {
-      geometry_msgs::TransformStamped walk_plane_time_shift;
-      walk_plane_time_shift = transform_buffer_.lookupTransform("walk_plane", past, "walk_plane", Time(0), "odom");
-      leg_stepper->setTargetTipPoseTransform(Pose(walk_plane_time_shift.transform));
-    }
-    catch (tf2::TransformException &ex) 
-    {
-      ROS_DEBUG_COND(false, "\nUnable to look up transform to past walk plane frame -- (%s)\n",ex.what());
-    }
-  }
 }
 
 /*******************************************************************************************************************//**
@@ -1171,7 +1180,7 @@ void StateController::cruiseControlCallback(const std_msgs::Int8& input)
       cruise_control_mode_ = new_cruise_control_mode;
       if (new_cruise_control_mode == CRUISE_CONTROL_ON)
       {
-        elapsed_time_ = 0.0;
+        cruise_control_end_time_ = ros::Time::now().toSec() + params_.cruise_control_time_limit.data;
         if (params_.force_cruise_velocity.data)
         {
           // Set cruise velocity according to parameters
@@ -1688,12 +1697,14 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
       {
         if (walker_->getWalkState() != STOPPED)
         {
-          if (Pose(msg.target[i].pose) != Pose::Undefined())
+          if (!msg.target.empty() && Pose(msg.target[i].pose) != Pose::Undefined())
           {
-            leg_stepper->setExternalTargetTipPose(Pose(msg.target[i].pose));
+            Pose target_pose = Pose(msg.target[i].pose);
+            leg_stepper->setExternalTargetTipPose(target_pose);
             leg_stepper->setTargetRequestTime(msg.target[i].header.stamp);
+            leg_stepper->setTargetRequestFrameId(msg.target[i].header.frame_id);
           }
-          if (Pose(msg.stance[i].pose) != Pose::Undefined())
+          if (!msg.stance.empty() && Pose(msg.stance[i].pose) != Pose::Undefined())
           {
             leg_stepper->setDefaultTipPose(Pose(msg.stance[i].pose));
           }

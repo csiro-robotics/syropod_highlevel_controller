@@ -43,6 +43,18 @@ struct StepCycle
 };
 
 /*******************************************************************************************************************//**
+ * Object containing parameters which define an externally set target tip pose
+***********************************************************************************************************************/
+struct ExternalTarget
+{
+  Pose pose_;             ///< The target tip pose
+  string frame_id_;       ///< The target tip pose reference frame id
+  ros::Time time_;        ///< The ros time of the request for the target tip pose
+  Pose transform_;        ///< The transform between reference frames at time of request and current time.
+  bool defined_ = false;  ///< Flag denoting if external target object has been defined
+};
+
+/*******************************************************************************************************************//**
  * This class handles top level management of the walk cycle state machine and calls each leg's LegStepper object to
  * update tip trajectories. This class also handles generation of default walk stance tip positions, calculation of
  * maximum body velocities and accelerations and transformation of input desired body velocities to individual tip
@@ -366,8 +378,11 @@ public:
     */
   inline Vector3d getStanceControlNode(const int& i) { return stance_nodes_[i]; };
   
-  /** Accessor for the externally set target tip pose request time */
-  inline ros::Time getTargetRequestTime(void) { return target_request_time_; };
+  /** Accessor for the externally set target tip pose object */
+  inline ExternalTarget getExternalTarget(void) { return external_target_; };
+  
+  /** Accessor for the externally set default tip pose object */
+  inline ExternalTarget getExternalDefault(void) { return external_default_; };
   
   /**
     * Modifier for the pointer to the parent leg object
@@ -442,25 +457,15 @@ public:
   
   /**
    * Modifier for the externally set target tip pose
-   * @param[in] pose The new externally set target tip pose
+   * @param[in] external_target The new externally set target tip pose object
    */
-  inline void setExternalTargetTipPose(const Pose& pose) 
-  { 
-    external_target_tip_pose_ = pose;
-    use_default_target_ = false;
-  };
+  inline void setExternalTarget(const ExternalTarget& external_target) { external_target_ = external_target; };
   
   /**
-   * Modifier for the externally set target tip pose request time
-   * @param[in] time The new externally set target tip pose request time
+   * Modifier for the externally set default tip pose object
+   * @param[in] external_default The new externally set default tip pose object
    */
-  inline void setTargetRequestTime(const ros::Time& time) { target_request_time_ = time; };
-  
-  /**
-   * Modifier for the transform between target tip pose reference frames at the time of request and current time.
-   * @param[in] transform The new transform
-   */
-  inline void setTargetTipPoseTransform(const Pose& transform) { target_tip_pose_transform_ = transform; };
+  inline void setExternalDefault(const ExternalTarget& external_default) { external_default_ = external_default; };
   
   /** Updates phase for new step cycle parameters */
   void updatePhase(void);
@@ -527,7 +532,6 @@ private:
 
   bool at_correct_phase_ = false;     ///< Flag denoting if the leg is at the correct phase per the walk state.
   bool completed_first_step_ = false; ///< Flag denoting if the leg has completed its first step.
-  bool use_default_target_ = true;    ///< Flag denoting if target tip pose is to be generated internally
   
   bool touchdown_detection_ = false;  ///< Flag denoting whether touchdown detection is enabled
 
@@ -562,9 +566,8 @@ private:
   Pose origin_tip_pose_;          ///< The origin tip pose used in interpolation to target rotation.
   Pose target_tip_pose_;          ///< The target tip pose to achieve at the end of a swing period.
 
-  Pose external_target_tip_pose_;  ///< The target tip pose to achieve at the end of a swing period (externally set)
-  ros::Time target_request_time_;  ///< The ros time at which the external target tip pose request was made.
-  Pose target_tip_pose_transform_; ///< The transform between reference frames at time of request and current time.
+  ExternalTarget external_target_;  ///< The externally set target tip pose to achieve at the end of a swing period
+  ExternalTarget external_default_; ///< The externally set default tip pose which defines default stance while at rest
   
   Vector3d current_tip_velocity_;   ///< The default tip velocity per the walk controller.
   

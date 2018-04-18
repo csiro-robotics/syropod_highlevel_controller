@@ -841,6 +841,7 @@ void PoseController::updateCurrentPose(const RobotState& robot_state)
   // Pose body at clearance offset normal to walk plane and rotate to align parallel
   updateWalkPlanePose();
   new_pose = new_pose.addPose(walk_plane_pose_);
+  ROS_ASSERT(walk_plane_pose_.isValid());
   model_->setDefaultPose(walk_plane_pose_);
 
   // Manually set (joystick controlled) body pose

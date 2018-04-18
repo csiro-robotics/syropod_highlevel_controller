@@ -253,7 +253,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       point.z = tip_position[2];
       terrain_marker.points.push_back(point);
       terrain_publisher_.publish(terrain_marker);
-      terrain_marker_id_ = (terrain_marker_id_ + 1) % (model->getLegCount() * 5);
+      terrain_marker_id_ = (terrain_marker_id_ + 1) % (model->getLegCount() * 10);
     }
   }
 }

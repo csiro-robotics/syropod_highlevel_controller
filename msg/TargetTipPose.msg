@@ -1,4 +1,4 @@
 Header header
-string[] name
+string[] name 
 geometry_msgs/PoseStamped[] target
 geometry_msgs/PoseStamped[] stance
