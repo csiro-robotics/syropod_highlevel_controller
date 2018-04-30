@@ -7,12 +7,8 @@ Panels:
         - /Global Options1
         - /TF1
         - /TF1/Frames1
-        - /TF1/Tree1
-        - /Marker3
-        - /Marker4
-        - /Marker5
-        - /Marker9
-        - /Marker10
+        - /MarkerArray1
+        - /MarkerArray1/Namespaces1
       Splitter Ratio: 0.5
     Tree Height: 1309
   - Class: rviz/Selection
@@ -72,19 +68,108 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/TF
-      Enabled: false
+      Enabled: true
       Frame Timeout: 15
       Frames:
+        AL_coxa_joint:
+          Value: false
+        AL_femur_joint:
+          Value: false
+        AL_tarsus_joint:
+          Value: false
+        AL_tibia_joint:
+          Value: false
+        AL_tip:
+          Value: false
+        AR_coxa_joint:
+          Value: false
+        AR_femur_joint:
+          Value: false
+        AR_tarsus_joint:
+          Value: false
+        AR_tibia_joint:
+          Value: false
+        AR_tip:
+          Value: false
         All Enabled: false
+        BL_coxa_joint:
+          Value: false
+        BL_femur_joint:
+          Value: false
+        BL_tarsus_joint:
+          Value: false
+        BL_tibia_joint:
+          Value: false
+        BL_tip:
+          Value: false
+        BR_coxa_joint:
+          Value: false
+        BR_femur_joint:
+          Value: false
+        BR_tarsus_joint:
+          Value: false
+        BR_tibia_joint:
+          Value: false
+        BR_tip:
+          Value: false
+        base_link:
+          Value: true
+        odom_ideal:
+          Value: true
+        walk_plane:
+          Value: true
       Marker Scale: 0.5
       Name: TF
       Show Arrows: false
       Show Axes: true
       Show Names: false
       Tree:
-        {}
+        odom_ideal:
+          base_link:
+            AL_coxa_joint:
+              {}
+            AL_femur_joint:
+              {}
+            AL_tarsus_joint:
+              {}
+            AL_tibia_joint:
+              {}
+            AL_tip:
+              {}
+            AR_coxa_joint:
+              {}
+            AR_femur_joint:
+              {}
+            AR_tarsus_joint:
+              {}
+            AR_tibia_joint:
+              {}
+            AR_tip:
+              {}
+            BL_coxa_joint:
+              {}
+            BL_femur_joint:
+              {}
+            BL_tarsus_joint:
+              {}
+            BL_tibia_joint:
+              {}
+            BL_tip:
+              {}
+            BR_coxa_joint:
+              {}
+            BR_femur_joint:
+              {}
+            BR_tarsus_joint:
+              {}
+            BR_tibia_joint:
+              {}
+            BR_tip:
+              {}
+            walk_plane:
+              {}
       Update Interval: 0
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /shc/debug/gravity
@@ -120,19 +205,34 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: false
+      Enabled: true
       Marker Topic: /shc/debug/workspace
       Name: MarkerArray
       Namespaces:
-        {}
+        AL_workspace_cage_markers: true
+        AL_workspace_markers: true
+        AR_workspace_cage_markers: true
+        AR_workspace_markers: true
+        BL_workspace_cage_markers: true
+        BL_workspace_markers: true
+        BR_workspace_cage_markers: true
+        BR_workspace_markers: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /shc/debug/default_tip_positions
       Name: Marker
       Namespaces:
         default_tip_position_markers: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /shc/debug/target_tip_positions
+      Name: Marker
+      Namespaces:
+        target_tip_position_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -164,7 +264,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/terrain
       Name: Marker
       Namespaces:
-        terrain_markers: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -273,7 +373,7 @@ Visualization Manager:
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: odom
+    Fixed Frame: odom_ideal
     Frame Rate: 30
   Name: root
   Tools:
@@ -294,7 +394,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.66724229
+      Distance: 1.44743538
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -309,10 +409,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.364796728
+      Pitch: 0.274796396
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 5.38538408
+      Yaw: 0.850856721
     Saved:
       - Class: rviz/Orbit
         Distance: 2
@@ -350,5 +450,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1276
-  X: 1260
+  X: 1268
   Y: 0

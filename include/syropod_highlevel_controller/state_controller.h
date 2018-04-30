@@ -170,7 +170,7 @@ public:
   /** Publishes transforms linking world, base_link and walk_plane frames. */
   void publishFrameTransforms(void);
   
-  /** Generates transforms for leg stepper targets based on frame id */
+  /** Generates transforms for external leg stepper targets based on frame id and time */
   void generateExternalTargetTransforms(void);
 
   /** Sets up velocities for and calls debug output object to publish various debugging visualations via rviz */
@@ -435,6 +435,7 @@ private:
   bool target_tip_pose_acquired_ = false;       ///< Flag denoting if tip pose has been acquired from planner interface
   bool target_body_pose_acquired_ = false;      ///< Flag denoting if body pose has been acquiredfrom planner interface
   int plan_step_ = 0;                           ///< The plan step currently being requested/executed
+  string fixed_frame_id_;                       ///< The id of the fixed frame
 
   Vector2d linear_velocity_input_;            ///< Input for the desired linear velocity of the robot body
   double angular_velocity_input_ = 0;         ///< Input for the desired angular velocity of the robot body

@@ -47,11 +47,12 @@ struct StepCycle
 ***********************************************************************************************************************/
 struct ExternalTarget
 {
-  Pose pose_;             ///< The target tip pose
-  string frame_id_;       ///< The target tip pose reference frame id
-  ros::Time time_;        ///< The ros time of the request for the target tip pose
-  Pose transform_;        ///< The transform between reference frames at time of request and current time.
-  bool defined_ = false;  ///< Flag denoting if external target object has been defined
+  Pose pose_;              ///< The target tip pose
+  double swing_clearance_; ///< The height of the swing trajectory clearance normal to walk plane
+  string frame_id_;        ///< The target tip pose reference frame id
+  ros::Time time_;         ///< The ros time of the request for the target tip pose
+  Pose transform_;         ///< The transform between reference frames at time of request and current time.
+  bool defined_ = false;   ///< Flag denoting if external target object has been defined
 };
 
 /*******************************************************************************************************************//**
@@ -247,8 +248,6 @@ private:
   shared_ptr<Model> model_;            ///< Pointer to robot model object.
   const Parameters& params_;           ///< Pointer to parameter data structure for storing parameter variables.
   double time_delta_;                  ///< The time period of the ros cycle.
-  
-  ros::Publisher walkspace_debug_publisher_; // TODO DEBUG REMOVE
 
   WalkState walk_state_ = STOPPED;           ///< The current walk cycle state.
   PosingState pose_state_ = POSING_COMPLETE; ///< The current state of auto posing.
@@ -531,8 +530,7 @@ private:
   shared_ptr<Leg> leg_;                ///< Pointer to the parent leg object.
 
   bool at_correct_phase_ = false;     ///< Flag denoting if the leg is at the correct phase per the walk state.
-  bool completed_first_step_ = false; ///< Flag denoting if the leg has completed its first step.
-  
+  bool completed_first_step_ = false; ///< Flag denoting if the leg has completed its first step.  
   bool touchdown_detection_ = false;  ///< Flag denoting whether touchdown detection is enabled
 
   int phase_ = 0;    ///< Step cycle phase.
@@ -542,9 +540,6 @@ private:
   double step_progress_ = 0.0;
   double swing_progress_ = -1.0;  ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
   double stance_progress_ = 0.0;  ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
-  
-  double average_tip_force_ = 0.0;
-  double min_tip_force_ = UNASSIGNED_VALUE;
 
   StepState step_state_ = STANCE; ///< The state of the step cycle.
 

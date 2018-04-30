@@ -274,9 +274,11 @@ void StateController::transitionRobotState(void)
   else if (robot_state_ == PACKED && new_robot_state_ == READY && !params_.start_up_sequence.data)
   {
     int progress = poser_->directStartup();
-    ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning DIRECTLY to RUNNING state (%d%%). . .\n", progress);
+    double throttle = params_.time_to_start.data / 5.0;
+    ROS_INFO_THROTTLE(throttle, "\n[SHC] Syropod transitioning DIRECTLY to RUNNING state (%d%%). . .\n", progress);
     if (progress == PROGRESS_COMPLETE)
     {
+      ROS_INFO_THROTTLE(throttle, "\n[SHC] Syropod transitioning DIRECTLY to RUNNING state (%d%%). . .\n", progress);
       robot_state_ = READY;
       model_->updateDefaultConfiguration();
       model_->generateWorkspaces();
@@ -418,9 +420,8 @@ void StateController::runningState(void)
     update_tip_position = false;
   }
   // Cruise control (constant velocity input)
-  else if (cruise_control_mode_ == CRUISE_CONTROL_ON && 
-           auto_navigation_mode_ == AUTO_NAVIGATION_OFF &&
-           ros::Time::now().toSec() < cruise_control_end_time_)
+  else if (cruise_control_mode_ == CRUISE_CONTROL_ON && auto_navigation_mode_ == AUTO_NAVIGATION_OFF &&
+          (params_.cruise_control_time_limit.data == 0.0 || ros::Time::now().toSec() < cruise_control_end_time_))
   {
     linear_velocity_input_ = linear_cruise_velocity_;
     angular_velocity_input_ = angular_cruise_velocity_;
@@ -713,7 +714,7 @@ void StateController::executePlan(void)
 }
 
 /*******************************************************************************************************************//**
- * Generates transforms for leg stepper targets based on frame id
+ * Generates transforms for external leg stepper targets based on frame id and time
 ***********************************************************************************************************************/
 void StateController::generateExternalTargetTransforms(void)
 {
@@ -722,19 +723,42 @@ void StateController::generateExternalTargetTransforms(void)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    if (leg_stepper->getExternalTargetTipPose() != Pose::Undefined())
+    
+    // External target transform
+    ExternalTarget external_target = leg_stepper->getExternalTarget();
+    if (external_target.defined_)
     {
-      ros::Time past = leg_stepper->getTargetRequestTime();
-      string frame_id = leg_stepper->getTargetRequestFrameId();
+      ros::Time past = external_target.time_;
+      string frame_id = external_target.frame_id_;
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", Time(0), "odom");
-        leg_stepper->setTargetTipPoseTransform(Pose(target_transform.transform));
+        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", Time(0), fixed_frame_id_);
+        external_target.transform_ = Pose(target_transform.transform);
+        leg_stepper->setExternalTarget(external_target);
       }
       catch (tf2::TransformException &ex) 
       {
-        ROS_DEBUG_COND(false, "\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
+        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
+      }
+    }
+    
+    // External default transform
+    ExternalTarget external_default = leg_stepper->getExternalDefault();
+    if (external_default.defined_)
+    {
+      ros::Time past = external_default.time_;
+      string frame_id = external_default.frame_id_;
+      try
+      {
+        geometry_msgs::TransformStamped default_transform;
+        default_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", Time(0), fixed_frame_id_);
+        external_default.transform_ = Pose(default_transform.transform);
+        leg_stepper->setExternalDefault(external_default);
+      }
+      catch (tf2::TransformException &ex) 
+      {
+        ROS_DEBUG("\n[SHC] Unable to look up external default transform -- (%s)\n",ex.what());
       }
     }
   }
@@ -793,19 +817,19 @@ void StateController::publishLegState(void)
     // Tip poses
     msg.walker_tip_pose.header.stamp = ros::Time::now();
     msg.walker_tip_pose.header.frame_id = "walk_plane";
-    msg.walker_tip_pose.pose = leg_stepper->getCurrentTipPose().convertToPoseMessage();
+    msg.walker_tip_pose.pose = leg_stepper->getCurrentTipPose().toPoseMessage();
     
     msg.target_tip_pose.header.stamp = ros::Time::now();
     msg.target_tip_pose.header.frame_id = "walk_plane";
-    msg.target_tip_pose.pose = leg_stepper->getTargetTipPose().convertToPoseMessage();
+    msg.target_tip_pose.pose = leg_stepper->getTargetTipPose().toPoseMessage();
     
     msg.poser_tip_pose.header.stamp = ros::Time::now();
     msg.poser_tip_pose.header.frame_id = "base_link";
-    msg.poser_tip_pose.pose = leg_poser->getCurrentTipPose().convertToPoseMessage();
+    msg.poser_tip_pose.pose = leg_poser->getCurrentTipPose().toPoseMessage();
     
     msg.model_tip_pose.header.stamp = ros::Time::now();
     msg.model_tip_pose.header.frame_id = "base_link";
-    msg.model_tip_pose.pose = leg->getCurrentTipPose().convertToPoseMessage();
+    msg.model_tip_pose.pose = leg->getCurrentTipPose().toPoseMessage();
 
     // Tip velocities
     msg.model_tip_velocity.header.stamp = ros::Time::now();
@@ -839,12 +863,12 @@ void StateController::publishLegState(void)
       time_to_swing_end = swing_time * (1.0 - leg_stepper->getSwingProgress());
     }
     msg.time_to_swing_end = time_to_swing_end;
-    msg.pose_delta = walker_->calculateOdometry(time_to_swing_end).convertToPoseMessage();
+    msg.pose_delta = walker_->calculateOdometry(time_to_swing_end).toPoseMessage();
 
     // Leg specific auto pose
     Vector3d position = leg_poser->getAutoPose().position_;
     Quaterniond rotation = leg_poser->getAutoPose().rotation_;
-    msg.auto_pose = Pose(position, rotation).convertToPoseMessage();
+    msg.auto_pose = Pose(position, rotation).toPoseMessage();
 
     // Admittance controller
     msg.tip_force.x = leg->getTipForceCalculated()[0] * params_.force_gain.current_value;
@@ -934,46 +958,77 @@ void StateController::publishRotationPoseError(void)
 ***********************************************************************************************************************/
 void StateController::publishFrameTransforms(void)
 {
-  // Odom frame to Walk Plane frame transform
-  geometry_msgs::TransformStamped odom_to_walk_plane;
-  odom_to_walk_plane.header.stamp = ros::Time::now();
-  odom_to_walk_plane.header.frame_id = "odom";
-  odom_to_walk_plane.child_frame_id = "walk_plane";
-  Pose odometry_estimate = walker_->getOdometryIdeal();
-  odom_to_walk_plane.transform.translation.x = odometry_estimate.position_[0];
-  odom_to_walk_plane.transform.translation.y = odometry_estimate.position_[1];
-  odom_to_walk_plane.transform.translation.z = odometry_estimate.position_[2];
-  odom_to_walk_plane.transform.rotation.w = odometry_estimate.rotation_.w();
-  odom_to_walk_plane.transform.rotation.x = odometry_estimate.rotation_.x();
-  odom_to_walk_plane.transform.rotation.y = odometry_estimate.rotation_.y();
-  odom_to_walk_plane.transform.rotation.z = odometry_estimate.rotation_.z();
-  transform_broadcaster_.sendTransform(odom_to_walk_plane);
+  Pose odom_ideal_to_walk_plane = walker_->getOdometryIdeal();
+  Pose walk_plane_to_base_link = model_->getCurrentPose();
+  Pose odom_ideal_to_base_link = odom_ideal_to_walk_plane.addPose(walk_plane_to_base_link);
   
-  // Walk Plane frame to Base Link frame transform
-  geometry_msgs::TransformStamped walk_plane_to_base_link;
-  walk_plane_to_base_link.header.stamp = ros::Time::now();
-  walk_plane_to_base_link.header.frame_id = "walk_plane";
-  walk_plane_to_base_link.child_frame_id = "base_link";
-  Pose current_pose = model_->getCurrentPose();
-  walk_plane_to_base_link.transform.translation.x = current_pose.position_[0];
-  walk_plane_to_base_link.transform.translation.y = current_pose.position_[1];
-  walk_plane_to_base_link.transform.translation.z = current_pose.position_[2];
-  walk_plane_to_base_link.transform.rotation.w = current_pose.rotation_.w();
-  walk_plane_to_base_link.transform.rotation.x = current_pose.rotation_.x();
-  walk_plane_to_base_link.transform.rotation.y = current_pose.rotation_.y();
-  walk_plane_to_base_link.transform.rotation.z = current_pose.rotation_.z();
-  transform_broadcaster_.sendTransform(walk_plane_to_base_link);
+  // Broadcast ideal odom tf, if odom tf from perception does not exist on tf tree
+  try
+  {
+    fixed_frame_id_ = "odom";
+    transform_buffer_.lookupTransform("base_link", "odom", Time(0));
+  }
+  catch (tf2::TransformException &ex) 
+  {
+    ROS_WARN_ONCE("\n[SHC] No odom transform exists in tf tree - using ideal odometry\n");
+    
+    fixed_frame_id_ = "odom_ideal";
+    geometry_msgs::TransformStamped odom_to_base_link;
+    odom_to_base_link.header.stamp = ros::Time::now();
+    odom_to_base_link.header.frame_id = "odom_ideal";
+    odom_to_base_link.child_frame_id = "base_link";
+    odom_to_base_link.transform.translation.x = odom_ideal_to_base_link.position_[0];
+    odom_to_base_link.transform.translation.y = odom_ideal_to_base_link.position_[1];
+    odom_to_base_link.transform.translation.z = odom_ideal_to_base_link.position_[2];
+    odom_to_base_link.transform.rotation.w = odom_ideal_to_base_link.rotation_.w();
+    odom_to_base_link.transform.rotation.x = odom_ideal_to_base_link.rotation_.x();
+    odom_to_base_link.transform.rotation.y = odom_ideal_to_base_link.rotation_.y();
+    odom_to_base_link.transform.rotation.z = odom_ideal_to_base_link.rotation_.z();
+    transform_broadcaster_.sendTransform(odom_to_base_link);
+  }
   
-  // Base Link frame to Tip frames
+  // Base Link frame to Walk Plane frame transform
+  geometry_msgs::TransformStamped base_link_to_walk_plane;
+  base_link_to_walk_plane.header.stamp = ros::Time::now();
+  base_link_to_walk_plane.header.frame_id = "base_link";
+  base_link_to_walk_plane.child_frame_id = "walk_plane";
+  base_link_to_walk_plane.transform.translation.x = (~walk_plane_to_base_link).position_[0];
+  base_link_to_walk_plane.transform.translation.y = (~walk_plane_to_base_link).position_[1];
+  base_link_to_walk_plane.transform.translation.z = (~walk_plane_to_base_link).position_[2];
+  base_link_to_walk_plane.transform.rotation.w = (~walk_plane_to_base_link).rotation_.w();
+  base_link_to_walk_plane.transform.rotation.x = (~walk_plane_to_base_link).rotation_.x();
+  base_link_to_walk_plane.transform.rotation.y = (~walk_plane_to_base_link).rotation_.y();
+  base_link_to_walk_plane.transform.rotation.z = (~walk_plane_to_base_link).rotation_.z();
+  transform_broadcaster_.sendTransform(base_link_to_walk_plane);
+  
+  // Base Link frame to Joint/Tip frames
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     shared_ptr<Leg> leg = leg_it_->second;
+    for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
+    {
+      shared_ptr<Joint> joint = joint_it_->second;
+      Pose joint_robot_frame = joint->getPoseRobotFrame();
+      geometry_msgs::TransformStamped base_link_to_joint;
+      base_link_to_joint.header.stamp = ros::Time::now();
+      base_link_to_joint.header.frame_id = "base_link";
+      base_link_to_joint.child_frame_id = joint->id_name_;
+      base_link_to_joint.transform.translation.x = joint_robot_frame.position_[0];
+      base_link_to_joint.transform.translation.y = joint_robot_frame.position_[1];
+      base_link_to_joint.transform.translation.z = joint_robot_frame.position_[2];
+      base_link_to_joint.transform.rotation.w = joint_robot_frame.rotation_.w();
+      base_link_to_joint.transform.rotation.x = joint_robot_frame.rotation_.x();
+      base_link_to_joint.transform.rotation.y = joint_robot_frame.rotation_.y();
+      base_link_to_joint.transform.rotation.z = joint_robot_frame.rotation_.z();
+      transform_broadcaster_.sendTransform(base_link_to_joint);
+    }
+
     geometry_msgs::TransformStamped base_link_to_tip;
+    shared_ptr<Tip> tip = leg->getTip();
+    Pose tip_robot_frame = tip->getPoseRobotFrame();
     base_link_to_tip.header.stamp = ros::Time::now();
     base_link_to_tip.header.frame_id = "base_link";
-    base_link_to_tip.child_frame_id = leg->getIDName() + "_tip";
-
-    Pose tip_robot_frame = leg->getTip()->getPoseRobotFrame();
+    base_link_to_tip.child_frame_id = tip->id_name_;
     base_link_to_tip.transform.translation.x = tip_robot_frame.position_[0];
     base_link_to_tip.transform.translation.y = tip_robot_frame.position_[1];
     base_link_to_tip.transform.translation.z = tip_robot_frame.position_[2];
@@ -1000,11 +1055,12 @@ void StateController::RVIZDebugging(void)
     shared_ptr<Leg> leg = leg_it_->second;
     debug_visualiser_.generateTipTrajectory(leg);
     debug_visualiser_.generateJointTorques(leg);
-    
+
     if (robot_state_ == RUNNING)
     {
       debug_visualiser_.generateDefaultTipPositions(leg);
-      debug_visualiser_.generateWorkspace(leg);
+      debug_visualiser_.generateTargetTipPositions(leg);
+      debug_visualiser_.generateWorkspace(leg, walker_->getBodyClearance());
       debug_visualiser_.generateWalkspace(leg, walker_->getWalkspace());
       debug_visualiser_.generateBezierCurves(leg);
       debug_visualiser_.generateStride(leg);
@@ -1699,14 +1755,25 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
         {
           if (!msg.target.empty() && Pose(msg.target[i].pose) != Pose::Undefined())
           {
-            Pose target_pose = Pose(msg.target[i].pose);
-            leg_stepper->setExternalTargetTipPose(target_pose);
-            leg_stepper->setTargetRequestTime(msg.target[i].header.stamp);
-            leg_stepper->setTargetRequestFrameId(msg.target[i].header.frame_id);
+            ExternalTarget external_target;
+            external_target.pose_ = Pose(msg.target[i].pose);
+            external_target.swing_clearance_ = msg.swing_clearance[i];
+            external_target.time_ = msg.target[i].header.stamp;
+            external_target.frame_id_ = msg.target[i].header.frame_id;
+            external_target.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
+            external_target.defined_ = true;
+            leg_stepper->setExternalTarget(external_target);
           }
           if (!msg.stance.empty() && Pose(msg.stance[i].pose) != Pose::Undefined())
           {
-            leg_stepper->setDefaultTipPose(Pose(msg.stance[i].pose));
+            ExternalTarget external_default;
+            external_default.pose_ = Pose(msg.stance[i].pose);
+            external_default.swing_clearance_ = 0.0;
+            external_default.time_ = msg.stance[i].header.stamp;
+            external_default.frame_id_ = msg.stance[i].header.frame_id;
+            external_default.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
+            external_default.defined_ = true;
+            leg_stepper->setExternalDefault(external_default);
           }
         }
         else

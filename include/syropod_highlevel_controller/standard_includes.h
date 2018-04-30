@@ -47,6 +47,7 @@
 
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>
@@ -167,6 +168,18 @@ inline T clamped(const T& value, const T& limit)
 inline double setPrecision(const double& value, const int& precision)
 {
   return roundToInt(value * pow(10, precision)) / pow(10, precision);
+}
+
+/**
+ * Returns the input vector with a precision defined by the precision input. (Eg: 1.00001 @ precision = 3 -> 1.000)
+ * @param[in] vector The input vector.
+ * @param[in] precision The required precision.
+ */
+inline Vector3d setPrecision(const Vector3d& vector, const int& precision)
+{
+  return Vector3d(roundToInt(vector[0] * pow(10, precision)) / pow(10, precision),
+                  roundToInt(vector[1] * pow(10, precision)) / pow(10, precision),
+                  roundToInt(vector[2] * pow(10, precision)) / pow(10, precision));
 }
 
 /**

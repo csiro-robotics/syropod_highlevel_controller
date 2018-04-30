@@ -76,10 +76,10 @@ public:
   };
   
   /**
-   * Returns a conversion of this pose object into a geometry_msgs::Pose convertToPoseMessage
+   * Returns a conversion of this pose object into a geometry_msgs::Pose
    * @return The converted geometry_msgs::Pose message
    */
-  inline geometry_msgs::Pose convertToPoseMessage(void)
+  inline geometry_msgs::Pose toPoseMessage(void)
   {
     geometry_msgs::Pose pose;
     pose.position.x = position_[0];
@@ -90,6 +90,23 @@ public:
     pose.orientation.y = rotation_.y();
     pose.orientation.z = rotation_.z();
     return pose;
+  }
+  
+  /**
+   * Returns a conversion of this pose object into a geometry_msgs::Transform
+   * @return The converted geometry_msgs::Transform message
+   */
+  inline geometry_msgs::Transform toTransformMessage(void)
+  {
+    geometry_msgs::Transform transform;
+    transform.translation.x = position_[0];
+    transform.translation.y = position_[1];
+    transform.translation.z = position_[2];
+    transform.rotation.w = rotation_.w();
+    transform.rotation.x = rotation_.x();
+    transform.rotation.y = rotation_.y();
+    transform.rotation.z = rotation_.z();
+    return transform;
   }
   
   /**

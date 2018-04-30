@@ -42,9 +42,8 @@ public:
    * Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
    * linking the origin points of each joint and tip of each leg.
    * @param[in] model A pointer to the robot model object
-   * @param[in] ref_world A bool denoting if the generated markers should reference the world frame or default frame.
    */
-  void generateRobotModel(shared_ptr<Model> model, const bool& ref_world = false);
+  void generateRobotModel(shared_ptr<Model> model);
   
   /**
    * Publishes visualisation markers which represent the estimated walking plane.
@@ -79,6 +78,12 @@ public:
   void generateDefaultTipPositions(shared_ptr<Leg> leg);
   
   /**
+   * Publises visualisation markers which represent the target tip position of the leg
+   * @param[in] leg A pointer to a leg of the robot model object
+   */
+  void generateTargetTipPositions(shared_ptr<Leg> leg);
+  
+  /**
    * Publishes visualisation markers which represent the 2D walkspace for each leg.
    * @param[in] leg A pointer to a leg of the robot model object
    * @param[in] walkspace  A map of walkspace radii for a range of bearings to be visualised
@@ -88,9 +93,9 @@ public:
   /**
    * Publishes visualisation markers which represent the 3D workspace for each leg.
    * @param[in] leg A pointer to a leg of the robot model object
-   * @param[in] ref_odom A bool denoting if the generated markers should reference the odom frame or default frame.
+   * @param[in] body_clearance The vertical offset of the body above the walk plane
    */
-  void generateWorkspace(shared_ptr<Leg> leg, const bool& ref_odom = false);
+  void generateWorkspace(shared_ptr<Leg> leg, const double& body_clearance);
 
   /**
    * Publishes visualisation markers which represent requested stride vector for each leg.
@@ -121,6 +126,7 @@ private:
   ros::Publisher tip_trajectory_publisher_;       ///< Publisher for topic "/shc/visualisation/tip_trajectories"
   ros::Publisher bezier_curve_publisher_;         ///< Publisher for topic "/shc/visualisation/bezier_curves"
   ros::Publisher default_tip_position_publisher_; ///< Publisher for topic "/shc/visualisation/default_tip_positions"
+  ros::Publisher target_tip_position_publisher_;  ///< Publisher for topic "/shc/visualisation/target_tip_positions"
   ros::Publisher walkspace_publisher_;            ///< Publisher for topic "/shc/visualisation/walkspace"
   ros::Publisher workspace_publisher_;            ///< Publisher for topic "/shc/visualisation/workspace"
   ros::Publisher walk_plane_publisher_;           ///< Publisher for topic "/shc/visualisation/walk_plane"

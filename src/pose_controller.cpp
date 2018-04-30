@@ -144,7 +144,7 @@ void PoseController::updateStance(void)
 
       // Apply pose to current walking tip position to calculate new 'posed' tip position
       Vector3d new_tip_position = current_pose.inverseTransformVector(leg_stepper->getCurrentTipPose().position_);
-      Quaterniond new_tip_rotation = leg_stepper->getCurrentTipPose().rotation_;
+      Quaterniond new_tip_rotation = current_pose.rotation_.inverse() * leg_stepper->getCurrentTipPose().rotation_;
       Pose new_pose(new_tip_position, new_tip_rotation);
       ROS_ASSERT(new_pose.isValid());
       leg_poser->setCurrentTipPose(new_pose);
@@ -1135,7 +1135,7 @@ void PoseController::updateWalkPlanePose(void)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    double swing_progress_scaler = double(params_.swing_phase.data) / params_.phase_offset.data;
+    double swing_progress_scaler = max(1.0, double(params_.swing_phase.data) / params_.phase_offset.data);
     double swing_progress = leg_stepper->getSwingProgress() * swing_progress_scaler; //Handles overlapping swing periods
     
     if (swing_progress >= 0 && swing_progress <= 1.0)

@@ -30,6 +30,7 @@ DebugVisualiser::DebugVisualiser(void)
   tip_trajectory_publisher_ = n.advertise<visualization_msgs::Marker>("/shc/debug/tip_trajectories", 1000);
   bezier_curve_publisher_ = n.advertise<visualization_msgs::Marker>("/shc/debug/bezier_curves", 1000);
   default_tip_position_publisher_ = n.advertise<visualization_msgs::Marker>("/shc/debug/default_tip_positions", 1000);
+  target_tip_position_publisher_ = n.advertise<visualization_msgs::Marker>("/shc/debug/target_tip_positions", 1000);
   walkspace_publisher_ = n.advertise<visualization_msgs::Marker>("/shc/debug/walkspace", 1000);
   workspace_publisher_ = n.advertise<visualization_msgs::MarkerArray>("/shc/debug/workspace", 1000);
   walk_plane_publisher_ = n.advertise<visualization_msgs::Marker>("/shc/debug/walk_plane", 1000);
@@ -45,9 +46,8 @@ DebugVisualiser::DebugVisualiser(void)
  * Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
  * linking the origin points of each joint and tip of each leg.
  * @param[in] model A pointer to the robot model object
- * @param[in] ref_odom A bool denoting if the generated markers should reference the odom frame or default frame.
 ***********************************************************************************************************************/
-void DebugVisualiser::generateRobotModel(shared_ptr<Model> model, const bool& ref_odom)
+void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 {
   // Estimate of robot body length used in scaling markers
   if (marker_scale_ == 0)
@@ -56,18 +56,19 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model, const bool& re
   }
   
   visualization_msgs::Marker leg_line_list;
-  leg_line_list.header.frame_id = ref_odom ? "/odom" : "/base_link";
-  leg_line_list.header.stamp = ros::Time::now();
+  leg_line_list.header.frame_id = "/base_link";
+  leg_line_list.header.stamp = ros::Time(0);
   leg_line_list.ns = "robot_model";
   leg_line_list.action = visualization_msgs::Marker::ADD;
   leg_line_list.id = 0;
   leg_line_list.type = visualization_msgs::Marker::LINE_LIST;
+  leg_line_list.frame_locked = true;
   leg_line_list.scale.x = 0.01 * sqrt(marker_scale_);
   leg_line_list.color.r = 1; //WHITE
   leg_line_list.color.g = 1;
   leg_line_list.color.b = 1;
   leg_line_list.color.a = 1;
-  leg_line_list.pose = Pose::Identity().convertToPoseMessage();
+  leg_line_list.pose = Pose::Identity().toPoseMessage();
 
   geometry_msgs::Point point;
   Vector3d previous_body_position = Vector3d::Zero();
@@ -141,14 +142,6 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model, const bool& re
   point.y = initial_body_position[1];
   point.z = initial_body_position[2];
   leg_line_list.points.push_back(point);
-  
-  if (ref_odom)
-  {
-    for (uint i = 0; i < leg_line_list.points.size(); ++i)
-    {
-      leg_line_list.points[i].z += model->getCurrentPose().position_[2];
-    }
-  }
 
   robot_model_publisher_.publish(leg_line_list);
 }
@@ -172,7 +165,7 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector
   walk_plane_marker.color.g = 1;
   walk_plane_marker.color.b = 1;
   walk_plane_marker.color.a = 0.5;
-  walk_plane_marker.pose = Pose::Identity().convertToPoseMessage();
+  walk_plane_marker.pose = Pose::Identity().toPoseMessage();
   
   walk_plane_marker.pose.position.x = 0.0;
   walk_plane_marker.pose.position.y = 0.0;
@@ -204,7 +197,7 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
   tip_position_marker.color.r = 1; //RED
   tip_position_marker.color.a = 1;
   tip_position_marker.lifetime = ros::Duration(TRAJECTORY_DURATION);
-  tip_position_marker.pose = Pose::Identity().convertToPoseMessage();
+  tip_position_marker.pose = Pose::Identity().toPoseMessage();
 
   Vector3d tip_position = leg->getCurrentTipPose().position_;
   geometry_msgs::Point point;
@@ -245,7 +238,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       terrain_marker.color.r = 1; //RED
       terrain_marker.color.a = 0.5;
       Pose pose(Vector3d(0, 0, -terrain_marker.scale.z / 2.0), model->getCurrentPose().rotation_.inverse());
-      terrain_marker.pose = pose.convertToPoseMessage();
+      terrain_marker.pose = pose.toPoseMessage();
       
       geometry_msgs::Point point;
       point.x = tip_position[0];
@@ -276,7 +269,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_1_nodes.color.g = 1; //YELLOW
   swing_1_nodes.color.r = 1;
   swing_1_nodes.color.a = 1;
-  swing_1_nodes.pose = Pose::Identity().convertToPoseMessage();
+  swing_1_nodes.pose = Pose::Identity().toPoseMessage();
 
   visualization_msgs::Marker swing_2_nodes;
   swing_2_nodes.header.frame_id = "/walk_plane";
@@ -291,7 +284,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_2_nodes.color.r = 1; //YELLOW
   swing_2_nodes.color.g = 1;
   swing_2_nodes.color.a = 1;
-  swing_2_nodes.pose = Pose::Identity().convertToPoseMessage();
+  swing_2_nodes.pose = Pose::Identity().toPoseMessage();
 
   visualization_msgs::Marker stance_nodes;
   stance_nodes.header.frame_id = "/walk_plane";
@@ -304,7 +297,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   stance_nodes.color.r = 1; //YELLOW
   stance_nodes.color.g = 1;
   stance_nodes.color.a = 1;
-  stance_nodes.pose = Pose::Identity().convertToPoseMessage();
+  stance_nodes.pose = Pose::Identity().toPoseMessage();
 
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
@@ -364,12 +357,41 @@ void DebugVisualiser::generateDefaultTipPositions(shared_ptr<Leg> leg)
   default_tip_position.color.b = leg_stepper->isAtCorrectPhase() ? 0.0 : 1.0;
   default_tip_position.color.a = 1;
   
-  default_tip_position.pose = Pose::Identity().convertToPoseMessage();
+  default_tip_position.pose = Pose::Identity().toPoseMessage();
   default_tip_position.pose.position.x = leg_stepper->getDefaultTipPose().position_[0];
   default_tip_position.pose.position.y = leg_stepper->getDefaultTipPose().position_[1];
   default_tip_position.pose.position.z = leg_stepper->getDefaultTipPose().position_[2];
   
   default_tip_position_publisher_.publish(default_tip_position);
+}
+
+/*******************************************************************************************************************//**
+  * Publises visualisation markers which represent the target tip position of the leg
+  * @param[in] leg A pointer to a leg of the robot model object
+***********************************************************************************************************************/
+void DebugVisualiser::generateTargetTipPositions(shared_ptr<Leg> leg)
+{
+  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+
+  visualization_msgs::Marker target_tip_position;
+  target_tip_position.header.frame_id = "/walk_plane";
+  target_tip_position.header.stamp = ros::Time::now();
+  target_tip_position.ns = "target_tip_position_markers";
+  target_tip_position.id = leg->getIDNumber();
+  target_tip_position.type = visualization_msgs::Marker::SPHERE;
+  target_tip_position.action = visualization_msgs::Marker::ADD;
+  target_tip_position.scale.x = 0.02 * sqrt(marker_scale_);
+  target_tip_position.scale.y = 0.02 * sqrt(marker_scale_);
+  target_tip_position.scale.z = 0.02 * sqrt(marker_scale_);
+  target_tip_position.color.r = 1;
+  target_tip_position.color.a = 1;
+  
+  target_tip_position.pose = Pose::Identity().toPoseMessage();
+  target_tip_position.pose.position.x = leg_stepper->getTargetTipPose().position_[0];
+  target_tip_position.pose.position.y = leg_stepper->getTargetTipPose().position_[1];
+  target_tip_position.pose.position.z = leg_stepper->getTargetTipPose().position_[2];
+  
+  target_tip_position_publisher_.publish(target_tip_position);
 }
 
 /*******************************************************************************************************************//**
@@ -390,10 +412,10 @@ void DebugVisualiser::generateWalkspace(shared_ptr<Leg> leg, const LimitMap& wal
   walkspace_marker.action = visualization_msgs::Marker::ADD;
   walkspace_marker.scale.x = 0.002 * sqrt(marker_scale_);
   walkspace_marker.color.g = 1;
-  walkspace_marker.color.r = 1;
+  walkspace_marker.color.b = 1;
   walkspace_marker.color.a = 1;
   Pose pose(Vector3d::Zero(), Quaterniond::FromTwoVectors(Vector3d::UnitZ(), leg_stepper->getWalkPlaneNormal()));
-  walkspace_marker.pose = pose.convertToPoseMessage();
+  walkspace_marker.pose = pose.toPoseMessage();
   
   geometry_msgs::Point origin_point;
   Vector3d walkspace_origin = leg_stepper->getDefaultTipPose().position_;
@@ -425,9 +447,9 @@ void DebugVisualiser::generateWalkspace(shared_ptr<Leg> leg, const LimitMap& wal
 /*******************************************************************************************************************//**
   * Publishes visualisation markers which represent the 3D workspace for each leg.
   * @param[in] leg A pointer to a leg of the robot model object
-  * @param[in] ref_odom A bool denoting if the generated markers should reference the odom frame or default frame.
+  * @param[in] body_clearance The vertical offset of the body above the walk plane
 ***********************************************************************************************************************/
-void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const bool& ref_odom)
+void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const double& body_clearance)
 {
   Workspace workspace = leg->getWorkspace();
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
@@ -437,43 +459,44 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const bool& ref_odo
   
   visualization_msgs::MarkerArray workspace_marker_array;
   visualization_msgs::Marker workspace_marker;
-  workspace_marker.header.frame_id = ref_odom ? "/odom" : "/walk_plane";
-  workspace_marker.header.stamp = ros::Time::now();
+  workspace_marker.header.frame_id = "/base_link";
+  workspace_marker.header.stamp = ros::Time(0);
   workspace_marker.ns = leg->getIDName() + "_workspace_markers";
   workspace_marker.type = visualization_msgs::Marker::LINE_STRIP;
   workspace_marker.action = visualization_msgs::Marker::ADD;
   workspace_marker.scale.x = 0.002 * sqrt(marker_scale_);
-  workspace_marker.color.g = 1;
   workspace_marker.color.b = 1;
   workspace_marker.color.a = 1;
-  Pose pose(Vector3d::Zero(), Quaterniond::FromTwoVectors(Vector3d::UnitZ(), leg_stepper->getWalkPlaneNormal()));
-  workspace_marker.pose = pose.convertToPoseMessage();
+  workspace_marker.pose = Pose::Identity().toPoseMessage();
 
-  map<double, LimitMap>::const_iterator workspace_it;
-  int workspace_id = 0;
+  Workspace::const_iterator workspace_it;
+  int workspace_id = 1;
   for (workspace_it = workspace.begin(); workspace_it != workspace.end(); ++workspace_it, ++workspace_id)
   {
     double plane_height = workspace_it->first;
-    LimitMap workspace = workspace_it->second;
+    Workplane workplane = workspace_it->second;
     workspace_marker.id = workspace_id;
     geometry_msgs::Point origin_point;
-    Vector3d workspace_origin = leg_stepper->getIdentityTipPose().position_ + Vector3d::UnitZ() * plane_height;
-    workspace_origin = pose.inverseTransformVector(workspace_origin);
-    origin_point.x = workspace_origin[0];
-    origin_point.y = workspace_origin[1];
-    origin_point.z = workspace_origin[2];
+    Vector3d identity_tip_position = leg_stepper->getIdentityTipPose().position_ - Vector3d::UnitZ() * body_clearance;
+    Vector3d workplane_origin = identity_tip_position + Vector3d::UnitZ() * plane_height;
+    //workspace_origin = pose.inverseTransformVector(workspace_origin);
+    origin_point.x = workplane_origin[0];
+    origin_point.y = workplane_origin[1];
+    origin_point.z = workplane_origin[2];
     
     geometry_msgs::Point first_point;
-    LimitMap::const_iterator it;
-    for (it = workspace.begin(); it != workspace.end(); ++it)
+    Workplane::const_iterator workplane_it;
+    for (workplane_it = workplane.begin(); workplane_it != workplane.end(); ++workplane_it)
     {
-      if (it->second != UNASSIGNED_VALUE)
+      int bearing = workplane_it->first;
+      double radius = workplane_it->second;
+      if (radius != UNASSIGNED_VALUE)
       {
         geometry_msgs::Point point;
-        point.x = origin_point.x + it->second * cos(degreesToRadians(it->first));
-        point.y = origin_point.y + it->second * sin(degreesToRadians(it->first));
+        point.x = origin_point.x + radius * cos(degreesToRadians(bearing));
+        point.y = origin_point.y + radius * sin(degreesToRadians(bearing));
         point.z = origin_point.z;
-        if (it->first == 0)
+        if (bearing == 0)
         {
           first_point = point;
         }
@@ -481,14 +504,14 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const bool& ref_odo
         workspace_marker.points.push_back(point);
         
         // Generate workspace cage markers (vertical connection between same bearings of different workspaces)
-        if (workspace_cage_markers.find(it->first) == workspace_cage_markers.end())
+        if (workspace_cage_markers.find(bearing) == workspace_cage_markers.end())
         {
           visualization_msgs::Marker workspace_cage_marker = workspace_marker;
-          workspace_cage_marker.ns = leg->getIDName() + "_workspace_cage_markers";
-          workspace_cage_marker.id = it->first;
-          workspace_cage_markers.insert(map<int, visualization_msgs::Marker>::value_type(it->first, workspace_cage_marker));
+          workspace_cage_marker.ns = leg->getIDName() + "_workspace_markers";
+          workspace_cage_marker.id = bearing;
+          workspace_cage_markers.insert(map<int, visualization_msgs::Marker>::value_type(bearing, workspace_cage_marker));
         }
-        workspace_cage_markers[it->first].points.push_back(point);
+        workspace_cage_markers[bearing].points.push_back(point);
       }
     }
     
@@ -540,7 +563,7 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   stride.scale.z = 0.02 * sqrt(marker_scale_);
   stride.color.g = 1; //GREEN
   stride.color.a = 1;
-  stride.pose = Pose::Identity().convertToPoseMessage();
+  stride.pose = Pose::Identity().toPoseMessage();
 
   stride_publisher_.publish(stride);
 }
@@ -567,7 +590,7 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
   tip_force.scale.y = 0.015 * sqrt(marker_scale_);
   tip_force.scale.z = 0.02 * sqrt(marker_scale_);
   tip_force.color.a = 1;
-  tip_force.pose = Pose::Identity().convertToPoseMessage();
+  tip_force.pose = Pose::Identity().toPoseMessage();
   
   // Tip Force Calculated
   visualization_msgs::Marker tip_force_calculated = tip_force;
@@ -614,7 +637,7 @@ void DebugVisualiser::generateJointTorques(shared_ptr<Leg> leg)
     joint_torque.type = visualization_msgs::Marker::SPHERE;
     joint_torque.action = visualization_msgs::Marker::ADD;
     Vector3d joint_position = joint->getPoseRobotFrame().position_;
-    joint_torque.pose = Pose(joint_position, Quaterniond::Identity()).convertToPoseMessage();
+    joint_torque.pose = Pose(joint_position, Quaterniond::Identity()).toPoseMessage();
     double torque_maximum_ratio = clamped(abs(joint->current_effort_) * 5.0, 0.1, 1.0);
     double sphere_radius = 0.1 * sqrt(marker_scale_) * torque_maximum_ratio;
     
@@ -665,7 +688,7 @@ void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate)
   gravity.color.r = 1; // YELLOW
   gravity.color.g = 1;
   gravity.color.a = 1;
-  gravity.pose = Pose::Identity().convertToPoseMessage();
+  gravity.pose = Pose::Identity().toPoseMessage();
 
   gravity_publisher_.publish(gravity);
 }

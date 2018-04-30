@@ -75,14 +75,53 @@ void WalkController::init(void)
 ***********************************************************************************************************************/
 void WalkController::generateWalkspace(void)
 {
-  // Init walkspace to maximums
+  // Initially populate walkspace with maximum values (without overlapping between adjacent legs)
   walkspace_.clear();
-  Workspace reference_workspace = model_->getLegByIDNumber(0)->getWorkspace();
-  LimitMap reference_workplane = reference_workspace.begin()->second;
-  LimitMap::iterator workplane_it;
-  for (workplane_it = reference_workplane.begin(); workplane_it != reference_workplane.end(); ++workplane_it)
+  for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    walkspace_.insert(LimitMap::value_type(workplane_it->first, MAX_WORKSPACE_RADIUS));
+    // Get positions of adjacent legs
+    int leg_count = model_->getLegCount();
+    shared_ptr<Leg> leg = leg_it_->second;
+    shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(mod(leg->getIDNumber() + 1, leg_count));
+    shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(mod(leg->getIDNumber() - 1, leg_count));
+    Vector3d default_tip_position = leg->getLegStepper()->getDefaultTipPose().position_;
+    Vector3d adjacent_1_tip_position = adjacent_leg_1->getLegStepper()->getDefaultTipPose().position_;
+    Vector3d adjacent_2_tip_position = adjacent_leg_2->getLegStepper()->getDefaultTipPose().position_;
+
+    // Get distance and bearing to adjacent legs from this leg
+    double distance_to_adjacent_leg_1 = Vector3d(default_tip_position - adjacent_1_tip_position).norm() / 2.0;
+    double distance_to_adjacent_leg_2 = Vector3d(default_tip_position - adjacent_2_tip_position).norm() / 2.0;
+    int bearing_to_adjacent_leg_1 = radiansToDegrees(atan2(adjacent_1_tip_position[1] - default_tip_position[1],
+                                    adjacent_1_tip_position[0] - default_tip_position[0]));
+    int bearing_to_adjacent_leg_2 = radiansToDegrees(atan2(adjacent_2_tip_position[1] - default_tip_position[1],
+                                    adjacent_2_tip_position[0] - default_tip_position[0]));
+
+    // Populate walkspace
+    for (int bearing = 0; bearing <= 360; bearing += BEARING_STEP)
+    {
+      int bearing_diff_1 = abs(mod(bearing_to_adjacent_leg_1, 360) - bearing);
+      int bearing_diff_2 = abs(mod(bearing_to_adjacent_leg_2, 360) - bearing);
+      double distance_to_overlap_1 = UNASSIGNED_VALUE;
+      double distance_to_overlap_2 = UNASSIGNED_VALUE;
+      if ((bearing_diff_1 < 90 || bearing_diff_1 > 270) && distance_to_adjacent_leg_1 > 0.0)
+      {
+        distance_to_overlap_1 = distance_to_adjacent_leg_1 / cos(degreesToRadians(bearing_diff_1));
+      }
+      if ((bearing_diff_2 < 90 || bearing_diff_2 > 270) && distance_to_adjacent_leg_2 > 0.0)
+      {
+        distance_to_overlap_2 = distance_to_adjacent_leg_2 / cos(degreesToRadians(bearing_diff_2));
+      }
+      double min_distance = min(distance_to_overlap_1, distance_to_overlap_2);
+      min_distance = min(min_distance, MAX_WORKSPACE_RADIUS);
+      if (walkspace_.find(bearing) != walkspace_.end() && min_distance < walkspace_[bearing])
+      {
+        walkspace_[bearing] = min_distance;
+      }
+      else
+      {
+        walkspace_.insert(LimitMap::value_type(bearing, min_distance));
+      }
+    }
   }
   
   // Generate walkspace for each leg whilst ensuring symmetry and minimum values
@@ -97,18 +136,11 @@ void WalkController::generateWalkspace(void)
     Vector3d default_tip_position = current_pose.inverseTransformVector(leg_stepper->getDefaultTipPose().position_);
     Vector3d default_shift = default_tip_position - identity_tip_position;
     double target_workplane_height = default_shift[2];
-    
-    // Get bounding existing workplanes within workspace
-    Workspace workspace = leg->getWorkspace();
-    Workspace::iterator upper_bound_it = workspace.upper_bound(target_workplane_height);
-    Workspace::iterator lower_bound_it = prev(upper_bound_it);
-    double upper_workplane_height = setPrecision(upper_bound_it->first, 3);
-    double lower_workplane_height = setPrecision(lower_bound_it->first, 3);
-    LimitMap upper_workplane = upper_bound_it->second;
-    LimitMap lower_workplane = lower_bound_it->second;
-    
-    // Calculate interpolation value of target workplane height between existing workspace planes
-    double i = (target_workplane_height - lower_workplane_height) / (upper_workplane_height - lower_workplane_height);
+    LimitMap workplane = leg->getWorkplane(target_workplane_height); // Interpolated workplane
+    if (workplane.empty())
+    {
+      continue;
+    }
     
     // Generate walkspace radii
     LimitMap::iterator walkspace_it;
@@ -120,7 +152,7 @@ void WalkController::generateWalkspace(void)
       // If default tip position is equal to identity tip position skip default shift radius generation
       if (default_shift.norm() == 0.0)
       {
-        radius = lower_workplane.at(bearing) * (1.0 - i) + upper_workplane.at(bearing) * i;
+        radius = workplane.at(bearing);
       }
       // Generate radius from interpolated workplane for shifted default tip position within plane.
       else
@@ -128,46 +160,55 @@ void WalkController::generateWalkspace(void)
         // Generate new point in walkspace
         Vector3d new_point = Vector3d::UnitX() * MAX_WORKSPACE_RADIUS;
         new_point = AngleAxisd(degreesToRadians(bearing), Vector3d::UnitZ())._transformVector(new_point);
+        new_point = setPrecision(new_point, 3);
         
         // Generate radius from finding intersection of new point direction vector and existing workplane limits
         LimitMap::iterator workplane_it;
-        for (workplane_it = upper_workplane.begin(); workplane_it != upper_workplane.end(); ++workplane_it)
+        for (workplane_it = workplane.begin(); workplane_it != workplane.end(); ++workplane_it)
         {
           // Generate reference point 1
           int bearing_1 = workplane_it->first;
-          double radius_1 = lower_workplane.at(bearing_1) * (1.0 - i) + upper_workplane.at(bearing_1) * i;
+          double radius_1 = workplane_it->second;
           Vector3d point_1 =  Vector3d::UnitX() * radius_1;
           point_1 = AngleAxisd(degreesToRadians(bearing_1), Vector3d::UnitZ())._transformVector(point_1);
           point_1 -= default_shift;
+          point_1[2] = 0.0;
+          point_1 = setPrecision(point_1, 3);
           
           // Unable to find reference points which bound new walkspace point direction vector therefore set zero radius
-          if (bearing_1 == upper_workplane.rbegin()->first)
+          if (bearing_1 == workplane.rbegin()->first)
           {
+            ROS_WARN("\n[SHC] Unable to generate radius at bearing %d for leg %s and workplane at height %f.\n",
+                     bearing, leg->getIDName().c_str(), target_workplane_height);
             radius = 0.0;
             break;
           }
           
           // Generate reference point 2
           int bearing_2 = next(workplane_it)->first;
-          double radius_2 = lower_workplane.at(bearing_2) * (1.0 - i) + upper_workplane.at(bearing_2) * i;
+          double radius_2 = next(workplane_it)->second;
           Vector3d point_2 =  Vector3d::UnitX() * radius_2;
           point_2 = AngleAxisd(degreesToRadians(bearing_2), Vector3d::UnitZ())._transformVector(point_2);
           point_2 -= default_shift;
+          point_2[2] = 0.0;
+          point_2 = setPrecision(point_2, 3);
           
           // Reference point 1 in same direction as new point
           if (point_1.cross(new_point).norm() == 0.0)
           {
             radius = point_1.norm();
+            break;
           }
           // Reference point 2 in same direction as new point
           else if (point_2.cross(new_point).norm() == 0.0)
           {
             radius = point_2.norm();
+            break;
           }
           // New point direction is between reference points - calculate distance to line connecting reference points
           // Ref: stackoverflow.com/questions/13640931/how-to-determine-if-a-vector-is-between-two-other-vectors
-          else if ((point_1.cross(new_point)).dot(point_1.cross(point_2)) >= 0 &&
-                   (point_2.cross(new_point)).dot(point_2.cross(point_1)) >= 0)
+          else if (point_1.cross(new_point).dot(point_1.cross(point_2)) >= 0.0 &&
+                   point_2.cross(new_point).dot(point_2.cross(point_1)) >= 0.0)
           {
             // Calculate vector (with same direction as new point) normal to line connecting p1 & p2 on horizontal plane
             double dx = point_2[0] - point_1[0];
@@ -197,6 +238,7 @@ void WalkController::generateWalkspace(void)
       }
     }
   }
+  walkspace_[360] = walkspace_[0];
   regenerate_walkspace_ = false;
   generateLimits();
 }
@@ -626,7 +668,6 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
       leg_stepper->updateTipPosition();  // updates current tip position through step cycle
       leg_stepper->updateTipRotation();
       leg_stepper->iteratePhase();
-      leg_stepper->updateStepState();
     }
   }
   updateWalkPlane();
@@ -694,7 +735,6 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
           ROS_WARN_THROTTLE(THROTTLE_PERIOD, "\nCannot move leg %s any further due to IK or joint limits.\n",
                             leg->getIDName().c_str());
         }
-        
         Vector3d new_tip_position = leg_stepper->getCurrentTipPose().position_ + tip_position_change;
         leg_stepper->setCurrentTipPose(Pose(new_tip_position, UNDEFINED_ROTATION));
       }
@@ -811,7 +851,6 @@ LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
   , current_tip_pose_(leg_stepper->current_tip_pose_)
   , origin_tip_pose_(leg_stepper->origin_tip_pose_)
   , target_tip_pose_(leg_stepper->target_tip_pose_)
-  
 {
   walk_plane_ = leg_stepper->walk_plane_;
   walk_plane_normal_ = leg_stepper->walk_plane_normal_;
@@ -859,6 +898,7 @@ void LegStepper::iteratePhase(void)
 {
   StepCycle step = walker_->getStepCycle();
   phase_ = (phase_ + 1) % (step.period_);
+  updateStepState();
 
   // Calculate progress of stance/swing periods (0.0->1.0 or -1.0 if not in specific state)
   step_progress_ = double(phase_) / step.period_;
@@ -925,7 +965,7 @@ void LegStepper::updateStride(void)
   stride_vector_ *= (on_ground_ratio / step.frequency_);
 
   // Swing clearance
-  swing_clearance_ = walker_->getStepClearance() * Vector3d::UnitZ();//walk_plane_normal_.normalized();
+  swing_clearance_ = walker_->getStepClearance() * walk_plane_normal_.normalized();
 }
 
 /*******************************************************************************************************************//**
@@ -1002,52 +1042,56 @@ void LegStepper::updateTipPosition(void)
     {
       swing_origin_tip_position_ = current_tip_pose_.position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
-      min_tip_force_ = UNASSIGNED_VALUE;
     }
     
     // Update target to externally defined position OR update default to meet step surface
     if (rough_terrain_mode)
     {
-      // Update default target to meet step surface either proactively or reactively
-      bool use_default_target = (external_target_tip_pose_ == Pose::Undefined());
-      if (use_default_target)
+      // Update target tip pose to externally requested target tip pose transformed based on robot movement since request
+      if (external_target_.defined_)
       {
-        if (touchdown_detection_)
+        target_tip_pose_ = external_target_.pose_.removePose(external_target_.transform_);
+        swing_clearance_ = swing_clearance_.normalized() * external_target_.swing_clearance_;
+        // Add lead to compensate for moving target
+        if (external_target_.frame_id_ == "odom_ideal")
         {
-          // Shift target to step surface according to data from tip state (PROACTIVE)
-          // TODO Move proactive target shifting to seperate node and use external target API
-          Pose step_plane_pose = leg_->getStepPlanePose();
-          if (step_plane_pose != Pose::Undefined())
-          {
-            // Calculate target tip position based on step plane estimate
-            Vector3d step_plane_position = step_plane_pose.position_ - leg_->getCurrentTipPose().position_;
-            Vector3d target_tip_position = current_tip_pose_.position_ + step_plane_position;
-            
-            // Correct target by projecting vector along walk plane normal at default target tip position
-            Vector3d difference = target_tip_position - target_tip_pose_.position_;
-            target_tip_pose_.position_ += getProjection(difference, walk_plane_normal_);
-          }
-          // Shift target toward step surface by defined distance and rely on step surface contact detection (REACTIVE)
-          else
-          {
-            target_tip_pose_.position_ -= walker_->getStepDepth() * Vector3d::UnitZ();
-          }
-        }
-        else
-        {
-          ROS_WARN_THROTTLE(THROTTLE_PERIOD, "\n[SHC] Rough terrain mode is enabled but SHC is not receiving"
-                                             "any tip state messages used for touchdown detection.\n");
+          double time_to_swing_end = (swing_iterations - iteration) * (swing_delta_t_ * 2.0);
+          Vector3d target_lead = walker_->calculateOdometry(time_to_swing_end).position_;
+          target_tip_pose_.position_ -= target_lead;
         }
       }
-      // Update target tip pose to externally requested target tip pose transformed based on robot movement since request
+      // Update default target to meet step surface either proactively or reactively
+      else if (touchdown_detection_)
+      {
+        // Shift target to step surface according to data from tip state (PROACTIVE)
+        // TODO Move proactive target shifting to seperate node and use external target API
+        Pose step_plane_pose = leg_->getStepPlanePose();
+        if (step_plane_pose != Pose::Undefined())
+        {
+          // Calculate target tip position based on step plane estimate
+          Vector3d step_plane_position = step_plane_pose.position_ - leg_->getCurrentTipPose().position_;
+          Vector3d target_tip_position = current_tip_pose_.position_ + step_plane_position;
+          
+          // Correct target by projecting vector along walk plane normal at default target tip position
+          Vector3d difference = target_tip_position - target_tip_pose_.position_;
+          target_tip_pose_.position_ += getProjection(difference, walk_plane_normal_);
+        }
+        // Shift target toward step surface by defined distance and rely on step surface contact detection (REACTIVE)
+        else
+        {
+          target_tip_pose_.position_ -= walker_->getStepDepth() * Vector3d::UnitZ();
+        }
+      }
       else
       {
-        target_tip_pose_ = external_target_tip_pose_.removePose(target_tip_pose_transform_);
+        ROS_WARN_THROTTLE(THROTTLE_PERIOD, "\n[SHC] Rough terrain mode is enabled but SHC is not receiving"
+                                            "any tip state messages used for touchdown detection.\n");
       }
     }
 
     // Generate swing control nodes (once at beginning of 1st half and continuously for 2nd half)
     bool ground_contact = (leg_->getStepPlanePose() != Pose::Undefined() && rough_terrain_mode);
+    /*
     if (iteration == 1)
     {
       generatePrimarySwingControlNodes();
@@ -1057,6 +1101,12 @@ void LegStepper::updateTipPosition(void)
     {
       generateSecondarySwingControlNodes(ground_contact);
     }
+    */
+    
+    generatePrimarySwingControlNodes();
+    generateSecondarySwingControlNodes(!first_half && ground_contact);
+    
+    
     // Force touchdown normal to walk plane in rough terrain mode (with reactive/proactive touchdown detection)
     if (rough_terrain_mode && !ground_contact)
     {
@@ -1103,20 +1153,32 @@ void LegStepper::updateTipPosition(void)
     if (iteration == 1)
     {
       stance_origin_tip_position_ = current_tip_pose_.position_;
-      external_target_tip_pose_ = Pose::Undefined();
+      external_target_.defined_ = false; // Reset external target after every swing period
       
-      // Modify identity tip positions according to desired stance span modifier parameter
-      Vector3d identity_tip_position = identity_tip_pose_.position_;
-      identity_tip_position += calculateStanceSpanChange();
+      // Generate new default tip pose from external request transformed based on robot movement since request
+      Pose new_default_tip_pose;
+      if (external_default_.defined_)
+      {
+        new_default_tip_pose = external_default_.pose_.removePose(external_default_.transform_);
+      }
+      // Generate new default tip pose based on tip position at end of swing period
+      else
+      {
+        // Modify identity tip positions according to desired stance span modifier parameter
+        Vector3d identity_tip_position = identity_tip_pose_.position_;
+        identity_tip_position += calculateStanceSpanChange();
+        
+        // Update default tip position as projection of tip position at beginning of STANCE period onto walk plane
+        identity_tip_position = leg_->getDefaultBodyPose().transformVector(identity_tip_position);
+        Vector3d identity_to_stance_origin = stance_origin_tip_position_ - identity_tip_position;
+        Vector3d projection_to_walk_plane = getProjection(identity_to_stance_origin, walk_plane_normal_);
+        new_default_tip_pose = Pose(identity_tip_position + projection_to_walk_plane, UNDEFINED_ROTATION);
+      }
       
-      // Update default tip position as projection of tip position at beginning of STANCE period onto walk plane
-      identity_tip_position = leg_->getDefaultBodyPose().transformVector(identity_tip_position);
-      Vector3d identity_to_stance_origin = stance_origin_tip_position_ - identity_tip_position;
-      Vector3d projection_to_walk_plane = getProjection(identity_to_stance_origin, walk_plane_normal_);
-      Vector3d new_default_tip_position = identity_tip_position + projection_to_walk_plane;
-      double default_tip_position_delta = (default_tip_pose_.position_ - new_default_tip_position).norm();
-      default_tip_pose_.position_ = new_default_tip_position;
-      ROS_ASSERT(default_tip_pose_.isValid());
+      // Update default tip pose and regenerate walkspace if required
+      double default_tip_position_delta = (default_tip_pose_.position_ - new_default_tip_pose.position_).norm();
+      ROS_ASSERT(new_default_tip_pose.isValid());
+      default_tip_pose_ = new_default_tip_pose;
       if (default_tip_position_delta > IK_TOLERANCE)
       {
         walker_->setRegenerateWalkspace();
@@ -1154,30 +1216,23 @@ void LegStepper::updateTipPosition(void)
 ***********************************************************************************************************************/
 void LegStepper::updateTipRotation(void)
 {
-  if (walker_->getParameters().gravity_aligned_tips.data && leg_->getJointCount() > 3 &&
-      (stance_progress_ >= 0.0 || swing_progress_ >= 0.5))
+  if (leg_->getJointCount() > 3 && (stance_progress_ >= 0.0 || swing_progress_ >= 0.5))
   {
-    /* 
-    // WALK PLANE NORMAL ALIGNMENT
-    Vector3d walk_plane_normal = leg_->getBodyPose().rotation_.inverse()._transformVector(walk_plane_normal_);
-    Quaterniond target_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), walk_plane_normal);
-    target_tip_rotation = correctRotation(target_tip_rotation, origin_tip_pose_.rotation_);
-    */
+    if (walker_->getParameters().gravity_aligned_tips.data && target_tip_pose_.rotation_.isApprox(UNDEFINED_ROTATION))
+    {
+      // WALK PLANE NORMAL ALIGNMENT
+      //target_tip_pose_.rotation_ = correctRotation(target_tip_rotation, origin_tip_pose_.rotation_);
 
-    /*
-    double c = smoothStep(min(1.0, 2.0 * swing_progress_)); // Control input (0.0 -> 1.0)
-    current_tip_pose_.rotation_ = origin_tip_pose_.rotation_.slerp(c, target_tip_rotation);
-    current_tip_pose_.rotation_ = correctRotation(current_tip_pose_.rotation_, target_tip_rotation);
-    */
+      // GRAVITY ALIGNMENT
+      target_tip_pose_.rotation_ = Quaterniond::FromTwoVectors(Vector3d::UnitX(), walker_->estimateGravity());
+    }
     
-    // GRAVITY ALIGNMENT
-    Quaterniond target_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), walker_->estimateGravity());
-    current_tip_pose_.rotation_ = correctRotation(target_tip_rotation, origin_tip_pose_.rotation_);
+    current_tip_pose_.rotation_ = correctRotation(target_tip_pose_.rotation_, origin_tip_pose_.rotation_);
     if (swing_progress_ >= 0.5)
     {
       double c = smoothStep(min(1.0, 2.0 * (swing_progress_ - 0.5))); // Control input (0.0 -> 1.0)
       Vector3d origin_tip_direction = origin_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
-      Vector3d target_tip_direction = target_tip_rotation._transformVector(Vector3d::UnitX());
+      Vector3d target_tip_direction = target_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
       Vector3d new_tip_direction = interpolate(origin_tip_direction, target_tip_direction, c);
       Quaterniond new_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), new_tip_direction.normalized());
       current_tip_pose_.rotation_ = correctRotation(new_tip_rotation, current_tip_pose_.rotation_);
@@ -1209,7 +1264,8 @@ void LegStepper::generatePrimarySwingControlNodes(void)
   // Set for acceleration continuity at transition between stance and primary swing curves (C2 Smoothness)
   swing_1_nodes_[2] = swing_origin_tip_position_ + 2.0 * stance_node_seperation;
   // Set for acceleration continuity at transition between swing curves (C2 Smoothness for symetric curves)
-  swing_1_nodes_[3] = (mid_tip_position + (swing_1_nodes_[2] + swing_clearance_)) / 2.0;
+  swing_1_nodes_[3] = (mid_tip_position + swing_1_nodes_[2]) / 2.0;
+  swing_1_nodes_[3][2] = mid_tip_position[2];
   // Set to default tip position so max swing height and transition to 2nd swing curve occurs at default tip position
   swing_1_nodes_[4] = mid_tip_position;
 }

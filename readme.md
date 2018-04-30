@@ -265,3 +265,5 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Added dynamic tuning of step frequency parameter
     - Added each leg workspace generation
     - Added correct generation of 'walkspace', fit within leg workspace
+    - Fixed issues with externally set target/default tip poses
+    - Refactored published tf tree order for use with perception based odometry

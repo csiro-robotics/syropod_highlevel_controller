@@ -150,7 +150,7 @@ public:
     ImuData imu_data(imu_data_);
     if (imu_data_.orientation.isApprox(UNDEFINED_ROTATION))
     {
-      imu_data.orientation = current_pose_.rotation_.normalized();
+      imu_data.orientation = Quaterniond::Identity();
     }
     return imu_data;
   };
@@ -202,7 +202,8 @@ public:
  * associated with the leg.
 ***********************************************************************************************************************/
 typedef vector<double> state_type; //Impedance state used in admittance controller
-typedef map<double, map<int, double>> Workspace;
+typedef map<int, double> Workplane;
+typedef map<double, Workplane> Workspace;
 typedef map<int, shared_ptr<Joint>, less<int>, aligned_allocator<pair<const int, shared_ptr<Joint>>>> JointContainer;
 typedef map<int, shared_ptr<Link>, less<int>, aligned_allocator<pair<const int, shared_ptr<Link>>>> LinkContainer;
 class Leg : public enable_shared_from_this<Leg>
@@ -219,8 +220,9 @@ public:
   /**
    * Copy Constructor for a robot model leg object. Initialises member variables from existing Leg object.
    * @param[in] leg A pointer to the parent robot model.
+   * @param[in] model A pointer to the parent model of the leg.
    */
-  Leg(shared_ptr<Leg> leg);
+  Leg(shared_ptr<Leg> leg, shared_ptr<Model> model = NULL);
 
   /** Accessor for identification name of this leg object. */
   inline string getIDName(void) { return id_name_; };
@@ -412,7 +414,7 @@ public:
   /**
    * Generates child joint/link/tip objects and copies state from reference leg if provided.
    * Separated from constructor due to shared_from_this() constraints.
-   * @param[in] leg A pointer to a existing reference robot model leg object
+   * @param[in] leg A pointer to an existing reference robot model leg object
    */
   void generate(shared_ptr<Leg> leg = NULL);
 
@@ -426,9 +428,23 @@ public:
   
   /**
    * Generates workspace polyhedron for this leg by searching for kinematic limitations.
-   * @todo Find min/max workplane height through kinematic limitation search rather than using step clearance/depth
+   * @return The generated workspace object
    */
   Workspace generateWorkspace(void);
+  
+  /**
+   * Generates interpolated workplane within workspace from given height above workspace origin
+   * @params[in] height The desired workplane height from workspace origin
+   * @return The interpolated workplane at input height
+   */
+  Workplane getWorkplane(const double& height);
+  
+  /**
+   * Generates a reachable tip position from an input test tip position within the workspace of this leg.
+   * @params[in] reference_tip_position The tip position to use as reference to generate a reachable tip position
+   * @return A reachable tip position which lies within the leg workspace based on the input reference tip position
+   */
+  Vector3d makeReachable(const Vector3d& reference_tip_position);
   
   /**
    * Updates joint default positions according to current joint positions.
