@@ -53,10 +53,8 @@ public:
   /**
    * StateController class constructor. Initialises parameters, creates robot model object, sets up ros topic
    * subscriptions and advertisments.
-   * @param[in] n The ros node handle, used to subscribe/publish topics and assign callbacks
-   * @todo Remove ASC publisher object
    */
-  StateController(const ros::NodeHandle& n);
+  StateController(void);
 
   /** StateController object destructor */
   ~StateController(void);
@@ -346,8 +344,6 @@ public:
   void targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& msg);
 
 private:
-  ros::NodeHandle n_;                                 ///< Ros node handle
-
   ros::Subscriber system_state_subscriber_;           ///< Subscriber for topic "/syropod_remote/system_state"
   ros::Subscriber robot_state_subscriber_;            ///< Subscriber for topic "/syropod_remote/robot_state"
   ros::Subscriber desired_velocity_subscriber_;       ///< Subscriber for topic "/syropod_remote/desired_velocity"

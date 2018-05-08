@@ -199,15 +199,15 @@ struct Parameter
 public:
   /**
    * Initialisation function which self populates parameter data from ros parameter server.
-   * @param[in] n Ros node handle to use to acquire data from ros parameter server
    * @param[in] name_input The unique name of the parameter to look for on ros parameter server
    * @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
    * @param[in] required_input Bool denoting if this parameter is required to be initialised.
    */
-  inline void init(const ros::NodeHandle& n, const string& name_input,
+  inline void init(const string& name_input,
                    const string& base_parameter_name = "/syropod/parameters/",
                    const bool& required_input = true)
   {
+    ros::NodeHandle n;
     name = name_input;
     required = required_input;
     initialised = n.getParam(base_parameter_name + name_input, data);
@@ -233,15 +233,15 @@ struct AdjustableParameter : public Parameter<map<string, double>>
 public:
   /**
     * Initialisation function which self populates parameter data from ros parameter server.
-    * @param[in] n Ros node handle to use to acquire data from ros parameter server
     * @param[in] name_input The unique name of the parameter to look for on ros parameter server
     * @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
     * @param[in] required_input Bool denoting if this parameter is required to be initialised.
     */
-  inline void init(const ros::NodeHandle& n, const string& name_input,
+  inline void init(const string& name_input,
                    const string& base_parameter_name = "/syropod/parameters/",
                    const bool& required_input = true)
   {
+    ros::NodeHandle n;
     name = name_input;
     required = required_input;
     initialised = n.getParam(base_parameter_name + name_input, data);
@@ -352,19 +352,20 @@ struct Parameters
   Parameter<map<string, int>> offset_multiplier; ///< The leg dependent multiplier used to set the step cycle offset.
 
   //Auto pose parameters
-  Parameter<double> pose_frequency;                       ///< The frequency at which all auto posing cycles run.
-  Parameter<int> pose_phase_length;                       ///< The length of all auto posing cycles.
-  Parameter<vector<int>> pose_phase_starts;               ///< The phase at which each auto pose cycle starts.
-  Parameter<vector<int>> pose_phase_ends;                 ///< The phase at which each auto pose cycle ends.
-  Parameter<map<string, int>> pose_negation_phase_starts; ///< The phase where leg starts to negate applied auto posing.
-  Parameter<map<string, int>> pose_negation_phase_ends;   ///< The phase where leg stops negating applied auto posing.
-  Parameter<vector<double>> x_amplitudes;                 ///< The max amplitudes of x posing in each auto pose cycle.
-  Parameter<vector<double>> y_amplitudes;                 ///< The max amplitudes of y posing in each auto pose cycle.
-  Parameter<vector<double>> z_amplitudes;                 ///< The max amplitudes of z posing in each auto pose cycle.
-  Parameter<vector<double>> gravity_amplitudes;           ///< The max amplitudes of posing in each auto pose cycle.
-  Parameter<vector<double>> roll_amplitudes;              ///< The max amplitudes of roll in each auto pose cycle.
-  Parameter<vector<double>> pitch_amplitudes;             ///< The max amplitudes of pitch in each auto pose cycle.
-  Parameter<vector<double>> yaw_amplitudes;               ///< The max amplitudes of yaw in each auto pose cycle.
+  Parameter<double> pose_frequency;                         ///< The frequency at which all auto posing cycles run.
+  Parameter<int> pose_phase_length;                         ///< The length of all auto posing cycles.
+  Parameter<vector<int>> pose_phase_starts;                 ///< The phase at which each auto pose cycle starts.
+  Parameter<vector<int>> pose_phase_ends;                   ///< The phase at which each auto pose cycle ends.
+  Parameter<map<string, int>> pose_negation_phase_starts;   ///< The phase for start of auto posing negation.
+  Parameter<map<string, int>> pose_negation_phase_ends;     ///< The phase for end of auto posing negation.
+  Parameter<map<string, double>> negation_transition_ratio; ///< The ratio of the negation period used to transition
+  Parameter<vector<double>> x_amplitudes;                   ///< The max amplitudes of x posing in each auto pose cycle.
+  Parameter<vector<double>> y_amplitudes;                   ///< The max amplitudes of y posing in each auto pose cycle.
+  Parameter<vector<double>> z_amplitudes;                   ///< The max amplitudes of z posing in each auto pose cycle.
+  Parameter<vector<double>> gravity_amplitudes;             ///< The max amplitudes of posing in each auto pose cycle.
+  Parameter<vector<double>> roll_amplitudes;                ///< The max amplitudes of roll in each auto pose cycle.
+  Parameter<vector<double>> pitch_amplitudes;               ///< The max amplitudes of pitch in each auto pose cycle.
+  Parameter<vector<double>> yaw_amplitudes;                 ///< The max amplitudes of yaw in each auto pose cycle.
 
   // Debug Parameters
   Parameter<string> console_verbosity;       ///< The level of verbosity required from the rosconsole output.

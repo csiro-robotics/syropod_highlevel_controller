@@ -350,9 +350,9 @@ void DebugVisualiser::generateDefaultTipPositions(shared_ptr<Leg> leg)
   default_tip_position.id = leg->getIDNumber();
   default_tip_position.type = visualization_msgs::Marker::SPHERE;
   default_tip_position.action = visualization_msgs::Marker::ADD;
-  default_tip_position.scale.x = 0.02 * sqrt(marker_scale_);
-  default_tip_position.scale.y = 0.02 * sqrt(marker_scale_);
-  default_tip_position.scale.z = 0.02 * sqrt(marker_scale_);
+  default_tip_position.scale.x = 0.04 * sqrt(marker_scale_);
+  default_tip_position.scale.y = 0.04 * sqrt(marker_scale_);
+  default_tip_position.scale.z = 0.04 * sqrt(marker_scale_);
   default_tip_position.color.g = 1;
   default_tip_position.color.b = leg_stepper->isAtCorrectPhase() ? 0.0 : 1.0;
   default_tip_position.color.a = 1;
@@ -479,7 +479,6 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const double& body_
     geometry_msgs::Point origin_point;
     Vector3d identity_tip_position = leg_stepper->getIdentityTipPose().position_ - Vector3d::UnitZ() * body_clearance;
     Vector3d workplane_origin = identity_tip_position + Vector3d::UnitZ() * plane_height;
-    //workspace_origin = pose.inverseTransformVector(workspace_origin);
     origin_point.x = workplane_origin[0];
     origin_point.y = workplane_origin[1];
     origin_point.z = workplane_origin[2];

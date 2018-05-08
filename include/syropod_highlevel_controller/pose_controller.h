@@ -501,6 +501,9 @@ public:
   /** Modifier for phase end of auto pose negation cycle. */
   inline void setPoseNegationPhaseEnd(const int& end) { pose_negation_phase_end_ = end; };
 
+  /** Modifier for ratio of negation cycle for transition. */
+  inline void setNegationTransitionRatio(const double& ratio) { negation_transition_ratio_ = ratio; };
+
   /** Modifier for the flag which denotes if leg has completed its required step in a sequence. */
   inline void setLegCompletedStep(const bool& complete) { leg_completed_step_ = complete; };
   
@@ -552,13 +555,12 @@ public:
                      const double& lift_height, const double& time_to_step, const bool& apply_delta = true);
 
   /**
-   * Sets a pose for this Leg Poser which negates the default auto pose applied to the robot body. The negation pose is
-   * defined by a 4th order bezier curve for both linear position and angular rotation and iterated along using the
-   * phase input argument. The characteristics of each bezier curve are defined by the user parameters in the
-   * auto_pose.yaml config file.
+   * Sets the leg specific auto pose from the default auto pose defined by auto pose parameters. The leg specific auto 
+   * pose may be negated according to user defined parameters. The negated pose is defined by interpolating from
+   * the default auto pose to identity pose (zero pose) and back again over the negation period. The ratio of the
+   * period which is used to interpolate to/from is defined by the negation transition ratio parameter.
    * @param[in] phase The phase is the input value which is used to determine the progression along the bezier curves
    * which define the output pose.
-   * @see config/auto_pose.yaml
    */
   void updateAutoPose(const int& phase);
 
@@ -566,10 +568,11 @@ private:
   shared_ptr<PoseController> poser_; ///< Pointer to pose controller object.
   shared_ptr<Leg> leg_;              ///< Pointer to the parent leg object.
 
-  Pose auto_pose_;                    ///< Leg specific auto pose (based off body auto pose negated where required).
-  int pose_negation_phase_start_ = 0; ///< Phase start of auto pose negation cycle.
-  int pose_negation_phase_end_ = 0;   ///< Phase end of auto pose negation cycle.
-  bool stop_negation_ = false;        ///< Flag denoting if negation of auto pose is to stop.
+  Pose auto_pose_;                          ///< Leg specific auto pose (from default auto pose - negated if required).
+  bool negate_auto_pose_ = false;           ///< Flag denoting if negation of auto pose is to occur.
+  int pose_negation_phase_start_ = 0;       ///< Phase start of auto pose negation cycle.
+  int pose_negation_phase_end_ = 0;         ///< Phase end of auto pose negation cycle.
+  double negation_transition_ratio_ = 0.0;  ///< The ratio of the negation period used to transition to total negation
 
   bool first_iteration_ = true;       ///< Flag denoting if an iterating function is on it's first iteration.
   int master_iteration_count_ = 0;    ///< Master iteration count used in generating time input for bezier curves.

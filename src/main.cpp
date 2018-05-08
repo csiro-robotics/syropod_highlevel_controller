@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
   ros::init(argc, argv, "shc");
   ros::NodeHandle n;
 
-  StateController state(n);
+  StateController state;
   const Parameters& params = state.getParameters();
 
   bool set_logger_level_result = false;
@@ -109,7 +109,6 @@ int main(int argc, char* argv[])
 
   state.init(); // Must be initialised before initialising model with current joint state
   state.initModel(use_default_joint_positions);
-  //state.publishFrameTransforms();
   
   tf2_ros::Buffer transform_buffer_;
   tf2_ros::TransformListener transform_listener(transform_buffer_);

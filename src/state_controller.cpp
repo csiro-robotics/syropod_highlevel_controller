@@ -22,10 +22,11 @@
 /*******************************************************************************************************************//**
  * StateController class constructor. Initialises parameters, creates robot model object, sets up ros topic
  * subscriptions and advertisments.
- * @param[in] n The ros node handle, used to subscribe/publish topics and assign callbacks
 ***********************************************************************************************************************/
-StateController::StateController(const ros::NodeHandle& n) : n_(n)
+StateController::StateController(void)
 {
+  ros::NodeHandle n;
+  
   // Get parameters from parameter server and initialises parameter map
   initParameters();
 
@@ -39,68 +40,68 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   transform_listener_ = allocate_shared<TransformListener>(aligned_allocator<TransformListener>(), transform_buffer_);
 
   // Hexapod Remote topic subscriptions
-  system_state_subscriber_            = n_.subscribe("syropod_remote/system_state", 1,
+  system_state_subscriber_            = n.subscribe("syropod_remote/system_state", 1,
                                                      &StateController::systemStateCallback, this);
-  robot_state_subscriber_             = n_.subscribe("syropod_remote/robot_state", 1,
+  robot_state_subscriber_             = n.subscribe("syropod_remote/robot_state", 1,
                                                      &StateController::robotStateCallback, this);
-  desired_velocity_subscriber_        = n_.subscribe("syropod_remote/desired_velocity", 1,
+  desired_velocity_subscriber_        = n.subscribe("syropod_remote/desired_velocity", 1,
                                                      &StateController::bodyVelocityInputCallback, this);
-  desired_pose_subscriber_            = n_.subscribe("syropod_remote/desired_pose", 1,
+  desired_pose_subscriber_            = n.subscribe("syropod_remote/desired_pose", 1,
                                                      &StateController::bodyPoseInputCallback, this);
-  posing_mode_subscriber_             = n_.subscribe("syropod_remote/posing_mode", 1,
+  posing_mode_subscriber_             = n.subscribe("syropod_remote/posing_mode", 1,
                                                      &StateController::posingModeCallback, this);
-  pose_reset_mode_subscriber_         = n_.subscribe("syropod_remote/pose_reset_mode", 1,
+  pose_reset_mode_subscriber_         = n.subscribe("syropod_remote/pose_reset_mode", 1,
                                                      &StateController::poseResetCallback, this);
-  gait_selection_subscriber_          = n_.subscribe("syropod_remote/gait_selection", 1,
+  gait_selection_subscriber_          = n.subscribe("syropod_remote/gait_selection", 1,
                                                      &StateController::gaitSelectionCallback, this);
-  cruise_control_mode_subscriber_     = n_.subscribe("syropod_remote/cruise_control_mode", 1,
+  cruise_control_mode_subscriber_     = n.subscribe("syropod_remote/cruise_control_mode", 1,
                                                      &StateController::cruiseControlCallback, this);
-  auto_navigation_mode_subscriber_    = n_.subscribe("syropod_remote/auto_navigation_mode", 1,
+  auto_navigation_mode_subscriber_    = n.subscribe("syropod_remote/auto_navigation_mode", 1,
                                                      &StateController::autoNavigationCallback, this);
-  planner_mode_subscriber_            = n_.subscribe("syropod_remote/planner_mode", 1,
+  planner_mode_subscriber_            = n.subscribe("syropod_remote/planner_mode", 1,
                                                      &StateController::plannerModeCallback, this);
-  primary_leg_selection_subscriber_   = n_.subscribe("syropod_remote/primary_leg_selection", 1,
+  primary_leg_selection_subscriber_   = n.subscribe("syropod_remote/primary_leg_selection", 1,
                                                      &StateController::primaryLegSelectionCallback, this);
-  primary_leg_state_subscriber_       = n_.subscribe("syropod_remote/primary_leg_state", 1,
+  primary_leg_state_subscriber_       = n.subscribe("syropod_remote/primary_leg_state", 1,
                                                      &StateController::primaryLegStateCallback, this);
-  primary_tip_velocity_subscriber_    = n_.subscribe("syropod_remote/primary_tip_velocity", 1,
+  primary_tip_velocity_subscriber_    = n.subscribe("syropod_remote/primary_tip_velocity", 1,
                                                      &StateController::primaryTipVelocityInputCallback, this);
-  secondary_leg_selection_subscriber_ = n_.subscribe("syropod_remote/secondary_leg_selection", 1,
+  secondary_leg_selection_subscriber_ = n.subscribe("syropod_remote/secondary_leg_selection", 1,
                                                      &StateController::secondaryLegSelectionCallback, this);
-  secondary_leg_state_subscriber_     = n_.subscribe("syropod_remote/secondary_leg_state", 1,
+  secondary_leg_state_subscriber_     = n.subscribe("syropod_remote/secondary_leg_state", 1,
                                                      &StateController::secondaryLegStateCallback, this);
-  secondary_tip_velocity_subscriber_  = n_.subscribe("syropod_remote/secondary_tip_velocity", 1,
+  secondary_tip_velocity_subscriber_  = n.subscribe("syropod_remote/secondary_tip_velocity", 1,
                                                      &StateController::secondaryTipVelocityInputCallback, this);
-  parameter_selection_subscriber_     = n_.subscribe("syropod_remote/parameter_selection", 1,
+  parameter_selection_subscriber_     = n.subscribe("syropod_remote/parameter_selection", 1,
                                                      &StateController::parameterSelectionCallback, this);
-  parameter_adjustment_subscriber_    = n_.subscribe("syropod_remote/parameter_adjustment", 1,
+  parameter_adjustment_subscriber_    = n.subscribe("syropod_remote/parameter_adjustment", 1,
                                                      &StateController::parameterAdjustCallback, this);
   
   // Planner subscription/publisher
-  target_configuration_subscriber_ = n_.subscribe("/target_configuration", 1,
+  target_configuration_subscriber_ = n.subscribe("/target_configuration", 1,
                                                   &StateController::targetConfigurationCallback, this);
-  target_body_pose_subscriber_ = n_.subscribe("/target_body_pose", 1,
+  target_body_pose_subscriber_ = n.subscribe("/target_body_pose", 1,
                                               &StateController::targetBodyPoseCallback, this);
-  target_tip_pose_subscriber_ = n_.subscribe("/target_tip_poses", 100,
+  target_tip_pose_subscriber_ = n.subscribe("/target_tip_poses", 100,
                                              &StateController::targetTipPoseCallback, this);
-  plan_step_request_publisher_ = n_.advertise<std_msgs::Int8>("/shc/plan_step_request", 1000);
+  plan_step_request_publisher_ = n.advertise<std_msgs::Int8>("/shc/plan_step_request", 1000);
 
 
   // Motor and other sensor topic subscriptions
-  imu_data_subscriber_ = n_.subscribe(params_.syropod_type.data + "/imu/data", 1, &StateController::imuCallback, this);
-  joint_state_subscriber_ = n_.subscribe("/joint_states", 1, &StateController::jointStatesCallback, this);
-  tip_state_subscriber_ = n_.subscribe("/tip_states", 1, &StateController::tipStatesCallback, this);
+  imu_data_subscriber_ = n.subscribe(params_.syropod_type.data + "/imu/data", 1, &StateController::imuCallback, this);
+  joint_state_subscriber_ = n.subscribe("/joint_states", 1, &StateController::jointStatesCallback, this);
+  tip_state_subscriber_ = n.subscribe("/tip_states", 1, &StateController::tipStatesCallback, this);
 
   //Set up debugging publishers
-  velocity_publisher_ = n_.advertise<geometry_msgs::Twist>("/shc/velocity", 1000);
-  pose_publisher_ = n_.advertise<geometry_msgs::Twist>("/shc/pose", 1000);
-  walkspace_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/walkspace", 1000);
-  rotation_pose_error_publisher_ = n_.advertise<std_msgs::Float32MultiArray>("/shc/rotation_pose_error", 1000);
+  velocity_publisher_ = n.advertise<geometry_msgs::Twist>("/shc/velocity", 1000);
+  pose_publisher_ = n.advertise<geometry_msgs::Twist>("/shc/pose", 1000);
+  walkspace_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/shc/walkspace", 1000);
+  rotation_pose_error_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/shc/rotation_pose_error", 1000);
 
   //Set up combined desired joint state publisher
   if (params_.combined_control_interface.data)
   {
-    desired_joint_state_publisher_ = n_.advertise<sensor_msgs::JointState>("/desired_joint_states", 1);
+    desired_joint_state_publisher_ = n.advertise<sensor_msgs::JointState>("/desired_joint_states", 1);
   }
 
   // Set up individual leg state and desired joint state publishers within leg objects
@@ -108,8 +109,8 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     string topic_name = "/shc/" + leg->getIDName() + "/state";
-    leg->setStatePublisher(n_.advertise<syropod_highlevel_controller::LegState>(topic_name, 1000));
-    leg->setASCStatePublisher(n_.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); //TODO
+    leg->setStatePublisher(n.advertise<syropod_highlevel_controller::LegState>(topic_name, 1000));
+    leg->setASCStatePublisher(n.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); //TODO
     // If debugging in gazebo, setup joint command publishers
     if (params_.individual_control_interface.data)
     {
@@ -117,7 +118,7 @@ StateController::StateController(const ros::NodeHandle& n) : n_(n)
       {
         shared_ptr<Joint> joint = joint_it_->second;
         joint->desired_position_publisher_ =
-          n_.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
+          n.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
       }
     }
   }
@@ -1741,53 +1742,56 @@ void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_b
 ***********************************************************************************************************************/
 void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& msg)
 {
-  for (uint i = 0; i < msg.name.size(); ++i)
+  if (robot_state_ == RUNNING)
   {
-    shared_ptr<Leg> leg = model_->getLegByIDName(msg.name[i]);
-    if (leg != NULL)
+    for (uint i = 0; i < msg.name.size(); ++i)
     {
-      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-
-      if (leg->getIDName() == msg.name[i])
+      shared_ptr<Leg> leg = model_->getLegByIDName(msg.name[i]);
+      if (leg != NULL)
       {
-        if (walker_->getWalkState() != STOPPED)
+        shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+        shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+
+        if (leg->getIDName() == msg.name[i])
         {
-          if (!msg.target.empty() && Pose(msg.target[i].pose) != Pose::Undefined())
+          if (walker_->getWalkState() != STOPPED)
           {
-            ExternalTarget external_target;
-            external_target.pose_ = Pose(msg.target[i].pose);
-            external_target.swing_clearance_ = msg.swing_clearance[i];
-            external_target.time_ = msg.target[i].header.stamp;
-            external_target.frame_id_ = msg.target[i].header.frame_id;
-            external_target.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
-            external_target.defined_ = true;
-            leg_stepper->setExternalTarget(external_target);
+            if (!msg.target.empty() && Pose(msg.target[i].pose) != Pose::Undefined())
+            {
+              ExternalTarget external_target;
+              external_target.pose_ = Pose(msg.target[i].pose);
+              external_target.swing_clearance_ = msg.swing_clearance[i];
+              external_target.time_ = msg.target[i].header.stamp;
+              external_target.frame_id_ = msg.target[i].header.frame_id;
+              external_target.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
+              external_target.defined_ = true;
+              leg_stepper->setExternalTarget(external_target);
+            }
+            if (!msg.stance.empty() && Pose(msg.stance[i].pose) != Pose::Undefined())
+            {
+              ExternalTarget external_default;
+              external_default.pose_ = Pose(msg.stance[i].pose);
+              external_default.swing_clearance_ = 0.0;
+              external_default.time_ = msg.stance[i].header.stamp;
+              external_default.frame_id_ = msg.stance[i].header.frame_id;
+              external_default.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
+              external_default.defined_ = true;
+              leg_stepper->setExternalDefault(external_default);
+            }
           }
-          if (!msg.stance.empty() && Pose(msg.stance[i].pose) != Pose::Undefined())
+          else
           {
-            ExternalTarget external_default;
-            external_default.pose_ = Pose(msg.stance[i].pose);
-            external_default.swing_clearance_ = 0.0;
-            external_default.time_ = msg.stance[i].header.stamp;
-            external_default.frame_id_ = msg.stance[i].header.frame_id;
-            external_default.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
-            external_default.defined_ = true;
-            leg_stepper->setExternalDefault(external_default);
+            leg_poser->setTargetTipPose(Pose(msg.target[i].pose));
+            target_tip_pose_acquired_ = true;
           }
-        }
-        else
-        {
-          leg_poser->setTargetTipPose(Pose(msg.target[i].pose));
-          target_tip_pose_acquired_ = true;
         }
       }
-    }
-    else
-    {
-      ROS_ERROR("\nRequested target tip pose for leg '%s' failed. Leg '%s' does not exist in model.\n",
-                msg.name[i].c_str(), msg.name[i].c_str());
-      return;
+      else
+      {
+        ROS_ERROR("\nRequested target tip pose for leg '%s' failed. Leg '%s' does not exist in model.\n",
+                  msg.name[i].c_str(), msg.name[i].c_str());
+        return;
+      }
     }
   }
 }
@@ -1799,71 +1803,71 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
 void StateController::initParameters(void)
 {
   // Control parameters
-  params_.time_delta.init(n_, "time_delta");
-  params_.imu_posing.init(n_, "imu_posing");
-  params_.auto_posing.init(n_, "auto_posing");
-  params_.rough_terrain_mode.init(n_, "rough_terrain_mode");
-  params_.manual_posing.init(n_, "manual_posing");
-  params_.inclination_posing.init(n_, "inclination_posing");
-  params_.admittance_control.init(n_, "admittance_control");
+  params_.time_delta.init("time_delta");
+  params_.imu_posing.init("imu_posing");
+  params_.auto_posing.init("auto_posing");
+  params_.rough_terrain_mode.init("rough_terrain_mode");
+  params_.manual_posing.init("manual_posing");
+  params_.inclination_posing.init("inclination_posing");
+  params_.admittance_control.init("admittance_control");
   // Hardware interface parameters
-  params_.individual_control_interface.init(n_, "individual_control_interface");
-  params_.combined_control_interface.init(n_, "combined_control_interface");
+  params_.individual_control_interface.init("individual_control_interface");
+  params_.combined_control_interface.init("combined_control_interface");
   // Model parameters
-  params_.syropod_type.init(n_, "syropod_type");
-  params_.leg_id.init(n_, "leg_id");
-  params_.joint_id.init(n_, "joint_id");
-  params_.link_id.init(n_, "link_id");
-  params_.leg_DOF.init(n_, "leg_DOF");
-  params_.clamp_joint_positions.init(n_, "clamp_joint_positions");
-  params_.clamp_joint_velocities.init(n_, "clamp_joint_velocities");
-  params_.ignore_IK_warnings.init(n_, "ignore_IK_warnings");
+  params_.syropod_type.init("syropod_type");
+  params_.leg_id.init("leg_id");
+  params_.joint_id.init("joint_id");
+  params_.link_id.init("link_id");
+  params_.leg_DOF.init("leg_DOF");
+  params_.clamp_joint_positions.init("clamp_joint_positions");
+  params_.clamp_joint_velocities.init("clamp_joint_velocities");
+  params_.ignore_IK_warnings.init("ignore_IK_warnings");
   // Walk controller parameters
-  params_.gait_type.init(n_, "gait_type");
-  params_.body_clearance.init(n_, "body_clearance");
-  params_.step_frequency.init(n_, "step_frequency");
-  params_.step_clearance.init(n_, "step_clearance");
-  params_.step_depth.init(n_, "step_depth");
-  params_.stance_span_modifier.init(n_, "stance_span_modifier");
-  params_.velocity_input_mode.init(n_, "velocity_input_mode");
-  params_.body_velocity_scaler.init(n_, "body_velocity_scaler");
-  params_.force_cruise_velocity.init(n_, "force_cruise_velocity");
-  params_.linear_cruise_velocity.init(n_, "linear_cruise_velocity");
-  params_.angular_cruise_velocity.init(n_, "angular_cruise_velocity");
-  params_.cruise_control_time_limit.init(n_, "cruise_control_time_limit");
-  params_.gravity_aligned_tips.init(n_, "gravity_aligned_tips");
-  params_.liftoff_threshold.init(n_, "liftoff_threshold");
-  params_.touchdown_threshold.init(n_, "touchdown_threshold");
+  params_.gait_type.init("gait_type");
+  params_.body_clearance.init("body_clearance");
+  params_.step_frequency.init("step_frequency");
+  params_.step_clearance.init("step_clearance");
+  params_.step_depth.init("step_depth");
+  params_.stance_span_modifier.init("stance_span_modifier");
+  params_.velocity_input_mode.init("velocity_input_mode");
+  params_.body_velocity_scaler.init("body_velocity_scaler");
+  params_.force_cruise_velocity.init("force_cruise_velocity");
+  params_.linear_cruise_velocity.init("linear_cruise_velocity");
+  params_.angular_cruise_velocity.init("angular_cruise_velocity");
+  params_.cruise_control_time_limit.init("cruise_control_time_limit");
+  params_.gravity_aligned_tips.init("gravity_aligned_tips");
+  params_.liftoff_threshold.init("liftoff_threshold");
+  params_.touchdown_threshold.init("touchdown_threshold");
   // Pose controller parameters
-  params_.auto_pose_type.init(n_, "auto_pose_type");
-  params_.start_up_sequence.init(n_, "start_up_sequence");
-  params_.time_to_start.init(n_, "time_to_start");
-  params_.rotation_pid_gains.init(n_, "rotation_pid_gains");
-  params_.max_translation.init(n_, "max_translation");
-  params_.max_translation_velocity.init(n_, "max_translation_velocity");
-  params_.max_rotation.init(n_, "max_rotation");
-  params_.max_rotation_velocity.init(n_, "max_rotation_velocity");
-  params_.leg_manipulation_mode.init(n_, "leg_manipulation_mode");
+  params_.auto_pose_type.init("auto_pose_type");
+  params_.start_up_sequence.init("start_up_sequence");
+  params_.time_to_start.init("time_to_start");
+  params_.rotation_pid_gains.init("rotation_pid_gains");
+  params_.max_translation.init("max_translation");
+  params_.max_translation_velocity.init("max_translation_velocity");
+  params_.max_rotation.init("max_rotation");
+  params_.max_rotation_velocity.init("max_rotation_velocity");
+  params_.leg_manipulation_mode.init("leg_manipulation_mode");
   // Admittance controller parameters
-  params_.dynamic_stiffness.init(n_, "dynamic_stiffness");
-  params_.use_joint_effort.init(n_, "use_joint_effort");
-  params_.integrator_step_time.init(n_, "integrator_step_time");
-  params_.virtual_mass.init(n_, "virtual_mass");
-  params_.virtual_stiffness.init(n_, "virtual_stiffness");
-  params_.load_stiffness_scaler.init(n_, "load_stiffness_scaler");
-  params_.swing_stiffness_scaler.init(n_, "swing_stiffness_scaler");
-  params_.virtual_damping_ratio.init(n_, "virtual_damping_ratio");
-  params_.force_gain.init(n_, "force_gain");
+  params_.dynamic_stiffness.init("dynamic_stiffness");
+  params_.use_joint_effort.init("use_joint_effort");
+  params_.integrator_step_time.init("integrator_step_time");
+  params_.virtual_mass.init("virtual_mass");
+  params_.virtual_stiffness.init("virtual_stiffness");
+  params_.load_stiffness_scaler.init("load_stiffness_scaler");
+  params_.swing_stiffness_scaler.init("swing_stiffness_scaler");
+  params_.virtual_damping_ratio.init("virtual_damping_ratio");
+  params_.force_gain.init("force_gain");
   // Debug Parameters
-  params_.debug_rviz.init(n_, "debug_rviz");
-  params_.console_verbosity.init(n_, "console_verbosity");
-  params_.debug_moveToJointPosition.init(n_, "debug_move_to_joint_position");
-  params_.debug_stepToPosition.init(n_, "debug_step_to_position");
-  params_.debug_swing_trajectory.init(n_, "debug_swing_trajectory");
-  params_.debug_stance_trajectory.init(n_, "debug_stance_trajectory");
-  params_.debug_execute_sequence.init(n_, "debug_execute_sequence");
-  params_.debug_workspace_calc.init(n_, "debug_workspace_calculations");
-  params_.debug_IK.init(n_, "debug_ik");
+  params_.debug_rviz.init("debug_rviz");
+  params_.console_verbosity.init("console_verbosity");
+  params_.debug_moveToJointPosition.init("debug_move_to_joint_position");
+  params_.debug_stepToPosition.init("debug_step_to_position");
+  params_.debug_swing_trajectory.init("debug_swing_trajectory");
+  params_.debug_stance_trajectory.init("debug_stance_trajectory");
+  params_.debug_execute_sequence.init("debug_execute_sequence");
+  params_.debug_workspace_calc.init("debug_workspace_calculations");
+  params_.debug_IK.init("debug_ik");
 
   // Init all joint and link parameters per leg
   if (params_.leg_id.initialised && params_.joint_id.initialised && params_.link_id.initialised)
@@ -1874,8 +1878,8 @@ void StateController::initParameters(void)
     for (leg_name_it = leg_ids.begin(); leg_name_it != leg_ids.end(); ++leg_name_it, ++leg_id_num)
     {
       string leg_id_name = *leg_name_it;
-      params_.leg_stance_positions[leg_id_num].init(n_, leg_id_name + "_stance_position");
-      params_.link_parameters[leg_id_num][0].init(n_, leg_id_name + "_base_link_parameters");
+      params_.leg_stance_positions[leg_id_num].init(leg_id_name + "_stance_position");
+      params_.link_parameters[leg_id_num][0].init(leg_id_name + "_base_link_parameters");
       uint joint_count = params_.leg_DOF.data[leg_id_name];
 
       if (joint_count > params_.joint_id.data.size() || joint_count > params_.link_id.data.size() + 1)
@@ -1892,8 +1896,8 @@ void StateController::initParameters(void)
           string joint_name = params_.joint_id.data[i - 1];
           string link_parameter_name = leg_id_name + "_" + link_name + "_link_parameters";
           string joint_parameter_name = leg_id_name + "_" + joint_name + "_joint_parameters";
-          params_.link_parameters[leg_id_num][i].init(n_, link_parameter_name);
-          params_.joint_parameters[leg_id_num][i - 1].init(n_, joint_parameter_name);
+          params_.link_parameters[leg_id_num][i].init(link_parameter_name);
+          params_.joint_parameters[leg_id_num][i - 1].init(joint_parameter_name);
         }
       }
     }
@@ -1972,15 +1976,15 @@ void StateController::initGaitParameters(const GaitDesignation& gait_selection)
       params_.gait_type.data = "amble_gait";
       break;
     case (GAIT_UNDESIGNATED):
-      params_.gait_type.init(n_, "gait_type");
+      params_.gait_type.init("gait_type");
       break;
   }
 
   string base_gait_parameters_name = "/syropod/gait_parameters/";
-  params_.stance_phase.init(n_, "stance_phase", base_gait_parameters_name + params_.gait_type.data + "/");
-  params_.swing_phase.init(n_, "swing_phase", base_gait_parameters_name + params_.gait_type.data + "/");
-  params_.phase_offset.init(n_, "phase_offset", base_gait_parameters_name + params_.gait_type.data + "/");
-  params_.offset_multiplier.init(n_, "offset_multiplier", base_gait_parameters_name + params_.gait_type.data + "/");
+  params_.stance_phase.init("stance_phase", base_gait_parameters_name + params_.gait_type.data + "/");
+  params_.swing_phase.init("swing_phase", base_gait_parameters_name + params_.gait_type.data + "/");
+  params_.phase_offset.init("phase_offset", base_gait_parameters_name + params_.gait_type.data + "/");
+  params_.offset_multiplier.init("offset_multiplier", base_gait_parameters_name + params_.gait_type.data + "/");
 }
 
 /*******************************************************************************************************************//**
@@ -1998,19 +2002,20 @@ void StateController::initAutoPoseParameters(void)
     base_auto_pose_parameters_name += (params_.auto_pose_type.data + "/");
   }
 
-  params_.pose_frequency.init(n_, "pose_frequency", base_auto_pose_parameters_name);
-  params_.pose_phase_length.init(n_, "pose_phase_length", base_auto_pose_parameters_name);
-  params_.pose_phase_starts.init(n_, "pose_phase_starts", base_auto_pose_parameters_name);
-  params_.pose_phase_ends.init(n_, "pose_phase_ends", base_auto_pose_parameters_name);
-  params_.pose_negation_phase_starts.init(n_, "pose_negation_phase_starts", base_auto_pose_parameters_name);
-  params_.pose_negation_phase_ends.init(n_, "pose_negation_phase_ends", base_auto_pose_parameters_name);
-  params_.x_amplitudes.init(n_, "x_amplitudes", base_auto_pose_parameters_name);
-  params_.y_amplitudes.init(n_, "y_amplitudes", base_auto_pose_parameters_name);
-  params_.z_amplitudes.init(n_, "z_amplitudes", base_auto_pose_parameters_name);
-  params_.gravity_amplitudes.init(n_, "gravity_amplitudes", base_auto_pose_parameters_name);
-  params_.roll_amplitudes.init(n_, "roll_amplitudes", base_auto_pose_parameters_name);
-  params_.pitch_amplitudes.init(n_, "pitch_amplitudes", base_auto_pose_parameters_name);
-  params_.yaw_amplitudes.init(n_, "yaw_amplitudes", base_auto_pose_parameters_name);
+  params_.pose_frequency.init("pose_frequency", base_auto_pose_parameters_name);
+  params_.pose_phase_length.init("pose_phase_length", base_auto_pose_parameters_name);
+  params_.pose_phase_starts.init("pose_phase_starts", base_auto_pose_parameters_name);
+  params_.pose_phase_ends.init("pose_phase_ends", base_auto_pose_parameters_name);
+  params_.pose_negation_phase_starts.init("pose_negation_phase_starts", base_auto_pose_parameters_name);
+  params_.pose_negation_phase_ends.init("pose_negation_phase_ends", base_auto_pose_parameters_name);
+  params_.negation_transition_ratio.init("negation_transition_ratio", base_auto_pose_parameters_name);
+  params_.x_amplitudes.init("x_amplitudes", base_auto_pose_parameters_name);
+  params_.y_amplitudes.init("y_amplitudes", base_auto_pose_parameters_name);
+  params_.z_amplitudes.init("z_amplitudes", base_auto_pose_parameters_name);
+  params_.gravity_amplitudes.init("gravity_amplitudes", base_auto_pose_parameters_name);
+  params_.roll_amplitudes.init("roll_amplitudes", base_auto_pose_parameters_name);
+  params_.pitch_amplitudes.init("pitch_amplitudes", base_auto_pose_parameters_name);
+  params_.yaw_amplitudes.init("yaw_amplitudes", base_auto_pose_parameters_name);
 }
 /***********************************************************************************************************************
 ***********************************************************************************************************************/

@@ -486,6 +486,11 @@ public:
    * @return The change from identity tip position to the new default tip position.
    */
   Vector3d calculateStanceSpanChange(void);
+  
+  /**
+   * Update Default Tip Position based on external definitions, stance span or tip position at beginning of stance
+   */
+  void updateDefaultTipPosition(void);
 
   /**
     * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in

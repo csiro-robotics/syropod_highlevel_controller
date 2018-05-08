@@ -75,8 +75,6 @@ Visualization Manager:
           Value: false
         AL_femur_joint:
           Value: false
-        AL_tarsus_joint:
-          Value: false
         AL_tibia_joint:
           Value: false
         AL_tip:
@@ -84,8 +82,6 @@ Visualization Manager:
         AR_coxa_joint:
           Value: false
         AR_femur_joint:
-          Value: false
-        AR_tarsus_joint:
           Value: false
         AR_tibia_joint:
           Value: false
@@ -96,8 +92,6 @@ Visualization Manager:
           Value: false
         BL_femur_joint:
           Value: false
-        BL_tarsus_joint:
-          Value: false
         BL_tibia_joint:
           Value: false
         BL_tip:
@@ -106,14 +100,16 @@ Visualization Manager:
           Value: false
         BR_femur_joint:
           Value: false
-        BR_tarsus_joint:
-          Value: false
         BR_tibia_joint:
           Value: false
         BR_tip:
           Value: false
         base_link:
           Value: true
+        imu:
+          Value: false
+        odom:
+          Value: false
         odom_ideal:
           Value: true
         walk_plane:
@@ -130,8 +126,6 @@ Visualization Manager:
               {}
             AL_femur_joint:
               {}
-            AL_tarsus_joint:
-              {}
             AL_tibia_joint:
               {}
             AL_tip:
@@ -139,8 +133,6 @@ Visualization Manager:
             AR_coxa_joint:
               {}
             AR_femur_joint:
-              {}
-            AR_tarsus_joint:
               {}
             AR_tibia_joint:
               {}
@@ -150,8 +142,6 @@ Visualization Manager:
               {}
             BL_femur_joint:
               {}
-            BL_tarsus_joint:
-              {}
             BL_tibia_joint:
               {}
             BL_tip:
@@ -159,8 +149,6 @@ Visualization Manager:
             BR_coxa_joint:
               {}
             BR_femur_joint:
-              {}
-            BR_tarsus_joint:
               {}
             BR_tibia_joint:
               {}
@@ -205,20 +193,13 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/workspace
       Name: MarkerArray
       Namespaces:
-        AL_workspace_cage_markers: true
-        AL_workspace_markers: true
-        AR_workspace_cage_markers: true
-        AR_workspace_markers: true
-        BL_workspace_cage_markers: true
-        BL_workspace_markers: true
-        BR_workspace_cage_markers: true
-        BR_workspace_markers: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /shc/debug/default_tip_positions
@@ -409,10 +390,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.274796396
+      Pitch: 0.33479619
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 0.850856721
+      Yaw: 0.910856485
     Saved:
       - Class: rviz/Orbit
         Distance: 2
@@ -450,5 +431,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1276
-  X: 1268
+  X: 1276
   Y: 0

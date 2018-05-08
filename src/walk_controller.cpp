@@ -745,6 +745,7 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
 /*******************************************************************************************************************//**
  * Calculates a estimated walk plane which best fits the default tip positions of legs in model.
  * Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
+ * Ref: https://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
 ***********************************************************************************************************************/
 void WalkController::updateWalkPlane(void)
 {
@@ -908,7 +909,7 @@ void LegStepper::iteratePhase(void)
     swing_progress_ = clamped(swing_progress_, 0.0, 1.0);
     stance_progress_ = -1.0;
   }
-  else if (step_state_ == STANCE || step_state_ == FORCE_STOP)
+  else
   {
     stance_progress_ = double(mod(phase_ + (step.period_ - step.stance_start_), step.period_) + 1) /
                       double(mod(step.stance_end_ - step.stance_start_, step.period_));
@@ -928,7 +929,7 @@ void LegStepper::updateStepState(void)
   {
     return;
   }
-  else if (phase_ >= step.swing_start_ && phase_ < step.swing_end_)
+  else if (phase_ >= step.swing_start_ && phase_ < step.swing_end_ && step_state_ != FORCE_STANCE)
   {
     step_state_ = SWING;
   }
@@ -998,6 +999,41 @@ Vector3d LegStepper::calculateStanceSpanChange(void)
 }
 
 /*******************************************************************************************************************//**
+ * Update Default Tip Position based on external definitions, stance span or tip position at beginning of stance
+***********************************************************************************************************************/
+void LegStepper::updateDefaultTipPosition(void)
+{
+  // Generate new default tip pose from external request transformed based on robot movement since request
+  Pose new_default_tip_pose;
+  if (external_default_.defined_)
+  {
+    new_default_tip_pose = external_default_.pose_.removePose(external_default_.transform_);
+  }
+  // Generate new default tip pose based on tip position at end of swing period
+  else
+  {
+    // Modify identity tip positions according to desired stance span modifier parameter
+    Vector3d identity_tip_position = identity_tip_pose_.position_;
+    identity_tip_position += calculateStanceSpanChange();
+    
+    // Update default tip position as projection of tip position at beginning of STANCE period onto walk plane
+    identity_tip_position = leg_->getDefaultBodyPose().transformVector(identity_tip_position);
+    Vector3d identity_to_stance_origin = stance_origin_tip_position_ - identity_tip_position;
+    Vector3d projection_to_walk_plane = getProjection(identity_to_stance_origin, walk_plane_normal_);
+    new_default_tip_pose = Pose(identity_tip_position + projection_to_walk_plane, UNDEFINED_ROTATION);
+  }
+  
+  // Update default tip pose and set walkspace to be regenerated if required
+  double default_tip_position_delta = (default_tip_pose_.position_ - new_default_tip_pose.position_).norm();
+  ROS_ASSERT(new_default_tip_pose.isValid());
+  default_tip_pose_ = new_default_tip_pose;
+  if (default_tip_position_delta > IK_TOLERANCE)
+  {
+    walker_->setRegenerateWalkspace();
+  }
+}
+
+/*******************************************************************************************************************//**
  * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in tip
  * position using two bezier curves for swing period and one for stance period. Each Bezier curve uses 5 control nodes
  * designed specifically to give a C2 smooth trajectory for the entire step cycle.
@@ -1042,6 +1078,7 @@ void LegStepper::updateTipPosition(void)
     {
       swing_origin_tip_position_ = current_tip_pose_.position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
+      updateDefaultTipPosition();
     }
     
     // Update target to externally defined position OR update default to meet step surface
@@ -1154,35 +1191,7 @@ void LegStepper::updateTipPosition(void)
     {
       stance_origin_tip_position_ = current_tip_pose_.position_;
       external_target_.defined_ = false; // Reset external target after every swing period
-      
-      // Generate new default tip pose from external request transformed based on robot movement since request
-      Pose new_default_tip_pose;
-      if (external_default_.defined_)
-      {
-        new_default_tip_pose = external_default_.pose_.removePose(external_default_.transform_);
-      }
-      // Generate new default tip pose based on tip position at end of swing period
-      else
-      {
-        // Modify identity tip positions according to desired stance span modifier parameter
-        Vector3d identity_tip_position = identity_tip_pose_.position_;
-        identity_tip_position += calculateStanceSpanChange();
-        
-        // Update default tip position as projection of tip position at beginning of STANCE period onto walk plane
-        identity_tip_position = leg_->getDefaultBodyPose().transformVector(identity_tip_position);
-        Vector3d identity_to_stance_origin = stance_origin_tip_position_ - identity_tip_position;
-        Vector3d projection_to_walk_plane = getProjection(identity_to_stance_origin, walk_plane_normal_);
-        new_default_tip_pose = Pose(identity_tip_position + projection_to_walk_plane, UNDEFINED_ROTATION);
-      }
-      
-      // Update default tip pose and regenerate walkspace if required
-      double default_tip_position_delta = (default_tip_pose_.position_ - new_default_tip_pose.position_).norm();
-      ROS_ASSERT(new_default_tip_pose.isValid());
-      default_tip_pose_ = new_default_tip_pose;
-      if (default_tip_position_delta > IK_TOLERANCE)
-      {
-        walker_->setRegenerateWalkspace();
-      }
+      updateDefaultTipPosition();
     }
 
     // Scales stride vector according to stance period specifically for STARTING state of walker
@@ -1332,11 +1341,10 @@ void LegStepper::forceNormalTouchdown(void)
 {
   Vector3d final_tip_velocity = -stride_vector_ * (stance_delta_t_ / walker_->getTimeDelta());
   Vector3d stance_node_seperation = 0.25 * final_tip_velocity * (walker_->getTimeDelta() / swing_delta_t_);
-  Vector3d default_target_tip_position = default_tip_pose_.position_ + 0.5 * stride_vector_;
   
   Vector3d bezier_target = target_tip_pose_.position_;
   Vector3d bezier_origin = target_tip_pose_.position_ - 4.0 * stance_node_seperation;
-  bezier_origin[2] = max(default_target_tip_position[2], target_tip_pose_.position_[2]);
+  bezier_origin[2] = max(swing_origin_tip_position_[2], target_tip_pose_.position_[2]);
   bezier_origin += swing_clearance_;
   
   swing_1_nodes_[4] = bezier_origin;

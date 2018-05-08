@@ -959,6 +959,8 @@ double Leg::applyIK(const bool& simulation)
     ik_success = applyIK(simulation);
   }
   
+  calculateTipForce();
+  
   return ik_success;
 }
 

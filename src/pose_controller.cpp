@@ -87,6 +87,7 @@ void PoseController::setAutoPoseParams(void)
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     leg_poser->setPoseNegationPhaseStart(params_.pose_negation_phase_starts.data.at(leg->getIDName()));
     leg_poser->setPoseNegationPhaseEnd(params_.pose_negation_phase_ends.data.at(leg->getIDName()));
+    leg_poser->setNegationTransitionRatio(params_.negation_transition_ratio.data.at(leg->getIDName()));
 
     // Set reference leg for auto posing system to that which has zero phase offset
     if (params_.offset_multiplier.data.at(leg->getIDName()) == 0)
@@ -1535,7 +1536,7 @@ LegPoser::LegPoser(shared_ptr<LegPoser> leg_poser)
 {
   pose_negation_phase_start_ = leg_poser->pose_negation_phase_start_;
   pose_negation_phase_end_ = leg_poser->pose_negation_phase_end_;
-  stop_negation_ = leg_poser->stop_negation_;
+  negate_auto_pose_ = leg_poser->negate_auto_pose_;
   first_iteration_ = leg_poser->first_iteration_;
   master_iteration_count_ = leg_poser->master_iteration_count_;
   desired_configuration_ = leg_poser->desired_configuration_;
@@ -1788,13 +1789,12 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
 }
 
 /*******************************************************************************************************************//**
- * Sets a pose for this Leg Poser which negates the default auto pose applied to the robot body. The negation pose is
- * defined by a 4th order bezier curve for both linear position and angular rotation and iterated along using the phase
- * input argument. The characteristics of each bezier curve are defined by the user parameters in the auto_pose.yaml
- * config file.
+ * Sets the leg specific auto pose from the default auto pose defined by auto pose parameters. The leg specific auto 
+ * pose may be negated according to user defined parameters. The negated pose is defined by interpolating from
+ * the default auto pose to identity pose (zero pose) and back again over the negation period. The ratio of the
+ * period which is used to interpolate to/from is defined by the negation transition ratio parameter.
  * @param[in] phase The phase is the input value which is used to determine the progression along the bezier curves
  * which define the output pose.
- * @see config/auto_pose.yaml
 ***********************************************************************************************************************/
 void LegPoser::updateAutoPose(const int& phase)
 {
@@ -1821,54 +1821,42 @@ void LegPoser::updateAutoPose(const int& phase)
       negation_phase += poser_->getPhaseLength();
     }
   }
+  
+  // Switch on/off auto pose negation
+  bool force_stance = leg_->getLegStepper()->getStepState() == FORCE_STANCE;
+  if (!force_stance && negation_phase == start_phase)
+  {
+    negate_auto_pose_ = true;
+  }
+  if (negation_phase < start_phase || negation_phase > end_phase)
+  {
+    negate_auto_pose_ = false;
+  }
 
-  if (negation_phase >= start_phase && negation_phase < end_phase && !stop_negation_)
+  // Assign leg auto pose according to default auto pose
+  auto_pose_ = poser_->getAutoPose();
+
+  // Negate auto pose for this leg during negation peroid as defined by parameters
+  if (negate_auto_pose_)
   {
     int iteration = negation_phase - start_phase + 1;
     int num_iterations = end_phase - start_phase;
-
-    Vector3d zero(0.0, 0.0, 0.0);
-    Vector3d position_amplitude = poser_->getAutoPose().position_;
-    Vector3d rotation_amplitude = quaternionToEulerAngles(poser_->getAutoPose().rotation_);
-    Vector3d position_control_nodes[5] = {zero, zero, zero, zero, zero};
-    Vector3d rotation_control_nodes[5] = {zero, zero, zero, zero, zero};
-
-    bool first_half = iteration <= num_iterations / 2; // Flag for 1st vs 2nd half of posing cycle
-
-    if (first_half)
+    bool first_half = iteration <= num_iterations / 2;
+    double control_input = 1.0;
+    if (negation_transition_ratio_ > 0.0)
     {
-      position_control_nodes[2] = position_amplitude;
-      position_control_nodes[3] = position_amplitude;
-      position_control_nodes[4] = position_amplitude;
-      rotation_control_nodes[2] = rotation_amplitude;
-      rotation_control_nodes[3] = rotation_amplitude;
-      rotation_control_nodes[4] = rotation_amplitude;
+      if (first_half)
+      {
+        control_input = min(1.0, iteration / (num_iterations * negation_transition_ratio_));
+      }
+      else
+      {
+        control_input = min(1.0, (num_iterations - iteration) / (num_iterations * negation_transition_ratio_));
+      }
     }
-    else
-    {
-      position_control_nodes[0] = position_amplitude;
-      position_control_nodes[1] = position_amplitude;
-      position_control_nodes[2] = position_amplitude;
-      rotation_control_nodes[0] = rotation_amplitude;
-      rotation_control_nodes[1] = rotation_amplitude;
-      rotation_control_nodes[2] = rotation_amplitude;
-    }
-
-    double delta_t = 1.0 / (num_iterations / 2.0);
-    int offset = (first_half ? 0 : num_iterations / 2.0); // Offsets iteration count for second half of posing cycle
-    double time_input = (iteration - offset) * delta_t;
-
-    Vector3d position = quarticBezier(position_control_nodes, time_input);
-    Vector3d rotation = quarticBezier(rotation_control_nodes, time_input);
-
-    auto_pose_ = poser_->getAutoPose();
-    auto_pose_ = auto_pose_.removePose(Pose(position, eulerAnglesToQuaternion(rotation)));
-  }
-  else
-  {
-    bool sync_with_step_cycle = (poser_->getPoseFrequency() == -1.0);
-    stop_negation_ = (sync_with_step_cycle && poser_->getAutoPoseState() == STOP_POSING);
-    auto_pose_ = poser_->getAutoPose();
+    control_input = smoothStep(control_input);
+    Pose negation = Pose::Identity().interpolate(control_input, auto_pose_);
+    auto_pose_ = auto_pose_.removePose(negation);
   }
 }
 
