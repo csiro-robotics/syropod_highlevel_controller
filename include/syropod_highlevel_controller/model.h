@@ -180,6 +180,12 @@ public:
    * controllers.
    */
   void updateModel(void);
+  
+  /**
+   * Estimates the acceleration vector due to gravity from pitch and roll orientations from IMU data
+   * @return The estimated acceleration vector due to gravity.
+   */
+  Vector3d estimateGravity(void);
 
 private:
   const Parameters& params_;                     ///< Pointer to parameter structure for storing parameter variables.

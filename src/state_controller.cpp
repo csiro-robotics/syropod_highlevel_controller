@@ -673,6 +673,7 @@ void StateController::executePlan(void)
   if (walker_->getWalkState() == STOPPED)
   {
     int progress;
+    
     // Publish request for step N of plan
     if (!target_configuration_acquired_ && !target_tip_pose_acquired_ && !target_body_pose_acquired_)
     {
@@ -724,9 +725,11 @@ void StateController::generateExternalTargetTransforms(void)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    ExternalTarget external_target;
     
     // External target transform
-    ExternalTarget external_target = leg_stepper->getExternalTarget();
+    external_target = leg_stepper->getExternalTarget();
     if (external_target.defined_)
     {
       ros::Time past = external_target.time_;
@@ -745,21 +748,40 @@ void StateController::generateExternalTargetTransforms(void)
     }
     
     // External default transform
-    ExternalTarget external_default = leg_stepper->getExternalDefault();
-    if (external_default.defined_)
+    external_target = leg_stepper->getExternalDefault();
+    if (external_target.defined_)
     {
-      ros::Time past = external_default.time_;
-      string frame_id = external_default.frame_id_;
+      ros::Time past = external_target.time_;
+      string frame_id = external_target.frame_id_;
       try
       {
         geometry_msgs::TransformStamped default_transform;
         default_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", Time(0), fixed_frame_id_);
-        external_default.transform_ = Pose(default_transform.transform);
-        leg_stepper->setExternalDefault(external_default);
+        external_target.transform_ = Pose(default_transform.transform);
+        leg_stepper->setExternalDefault(external_target);
       }
       catch (tf2::TransformException &ex) 
       {
         ROS_DEBUG("\n[SHC] Unable to look up external default transform -- (%s)\n",ex.what());
+      }
+    }
+    
+    // External target transform for planner mode
+    external_target = leg_poser->getExternalTarget();
+    if (external_target.defined_)
+    {
+      ros::Time past = external_target.time_;
+      string frame_id = external_target.frame_id_;
+      try
+      {
+        geometry_msgs::TransformStamped target_transform;
+        target_transform = transform_buffer_.lookupTransform(frame_id, past, "base_link", Time(0), fixed_frame_id_);
+        external_target.transform_ = Pose(target_transform.transform);
+        leg_poser->setExternalTarget(external_target);
+      }
+      catch (tf2::TransformException &ex) 
+      {
+        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
       }
     }
   }
@@ -1781,7 +1803,14 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
           }
           else
           {
-            leg_poser->setTargetTipPose(Pose(msg.target[i].pose));
+            ExternalTarget external_target;
+            external_target.pose_ = Pose(msg.target[i].pose);
+            external_target.swing_clearance_ = msg.swing_clearance[i];
+            external_target.time_ = msg.target[i].header.stamp;
+            external_target.frame_id_ = msg.target[i].header.frame_id;
+            external_target.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
+            external_target.defined_ = true;
+            leg_poser->setExternalTarget(external_target);
             target_tip_pose_acquired_ = true;
           }
         }

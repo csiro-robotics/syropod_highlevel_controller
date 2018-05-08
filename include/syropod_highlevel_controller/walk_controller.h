@@ -235,7 +235,7 @@ public:
    * Estimates the acceleration vector due to gravity.
    * @return The estimated acceleration vector due to gravity.
    */
-  Vector3d estimateGravity(void);
+  inline Vector3d estimateGravity(void) { return model_->estimateGravity(); };
   
   /**
    * Calculates the change in pose over the desired time period assuming constant desired body velocity and walk plane.

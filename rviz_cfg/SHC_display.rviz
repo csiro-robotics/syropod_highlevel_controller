@@ -73,7 +73,11 @@ Visualization Manager:
       Frames:
         AL_coxa_joint:
           Value: false
+        AL_coxat_joint:
+          Value: false
         AL_femur_joint:
+          Value: false
+        AL_tarsus_joint:
           Value: false
         AL_tibia_joint:
           Value: false
@@ -81,7 +85,11 @@ Visualization Manager:
           Value: false
         AR_coxa_joint:
           Value: false
+        AR_coxat_joint:
+          Value: false
         AR_femur_joint:
+          Value: false
+        AR_tarsus_joint:
           Value: false
         AR_tibia_joint:
           Value: false
@@ -90,7 +98,11 @@ Visualization Manager:
         All Enabled: false
         BL_coxa_joint:
           Value: false
+        BL_coxat_joint:
+          Value: false
         BL_femur_joint:
+          Value: false
+        BL_tarsus_joint:
           Value: false
         BL_tibia_joint:
           Value: false
@@ -98,18 +110,42 @@ Visualization Manager:
           Value: false
         BR_coxa_joint:
           Value: false
+        BR_coxat_joint:
+          Value: false
         BR_femur_joint:
+          Value: false
+        BR_tarsus_joint:
           Value: false
         BR_tibia_joint:
           Value: false
         BR_tip:
           Value: false
+        CL_coxa_joint:
+          Value: false
+        CL_coxat_joint:
+          Value: false
+        CL_femur_joint:
+          Value: false
+        CL_tarsus_joint:
+          Value: false
+        CL_tibia_joint:
+          Value: false
+        CL_tip:
+          Value: false
+        CR_coxa_joint:
+          Value: false
+        CR_coxat_joint:
+          Value: false
+        CR_femur_joint:
+          Value: false
+        CR_tarsus_joint:
+          Value: false
+        CR_tibia_joint:
+          Value: false
+        CR_tip:
+          Value: false
         base_link:
           Value: true
-        imu:
-          Value: false
-        odom:
-          Value: false
         odom_ideal:
           Value: true
         walk_plane:
@@ -124,7 +160,11 @@ Visualization Manager:
           base_link:
             AL_coxa_joint:
               {}
+            AL_coxat_joint:
+              {}
             AL_femur_joint:
+              {}
+            AL_tarsus_joint:
               {}
             AL_tibia_joint:
               {}
@@ -132,7 +172,11 @@ Visualization Manager:
               {}
             AR_coxa_joint:
               {}
+            AR_coxat_joint:
+              {}
             AR_femur_joint:
+              {}
+            AR_tarsus_joint:
               {}
             AR_tibia_joint:
               {}
@@ -140,7 +184,11 @@ Visualization Manager:
               {}
             BL_coxa_joint:
               {}
+            BL_coxat_joint:
+              {}
             BL_femur_joint:
+              {}
+            BL_tarsus_joint:
               {}
             BL_tibia_joint:
               {}
@@ -148,11 +196,39 @@ Visualization Manager:
               {}
             BR_coxa_joint:
               {}
+            BR_coxat_joint:
+              {}
             BR_femur_joint:
+              {}
+            BR_tarsus_joint:
               {}
             BR_tibia_joint:
               {}
             BR_tip:
+              {}
+            CL_coxa_joint:
+              {}
+            CL_coxat_joint:
+              {}
+            CL_femur_joint:
+              {}
+            CL_tarsus_joint:
+              {}
+            CL_tibia_joint:
+              {}
+            CL_tip:
+              {}
+            CR_coxa_joint:
+              {}
+            CR_coxat_joint:
+              {}
+            CR_femur_joint:
+              {}
+            CR_tarsus_joint:
+              {}
+            CR_tibia_joint:
+              {}
+            CR_tip:
               {}
             walk_plane:
               {}
@@ -179,9 +255,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/bezier_curves
       Name: Marker
       Namespaces:
-        primary_swing_control_nodes: true
-        secondary_swing_control_nodes: true
-        stance_control_nodes: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -189,7 +263,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/walkspace
       Name: Marker
       Namespaces:
-        walkspace_markers: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -205,7 +279,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/default_tip_positions
       Name: Marker
       Namespaces:
-        default_tip_position_markers: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -213,7 +287,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/target_tip_positions
       Name: Marker
       Namespaces:
-        target_tip_position_markers: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -221,7 +295,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/stride
       Name: Marker
       Namespaces:
-        stride_markers: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -431,5 +505,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1276
-  X: 1276
+  X: 1272
   Y: 0

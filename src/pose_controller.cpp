@@ -820,12 +820,25 @@ int PoseController::transitionStance(const double& transition_time)
   {
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    Pose target_pose = leg_poser->getTargetTipPose();
-    target_pose.rotation_ = UNDEFINED_ROTATION;
-    int progress = leg_poser->stepToPosition(target_pose, target_body_pose_, 0.0, transition_time, false);
-    leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), false);
-    leg->applyIK();
-    min_progress = min(progress, min_progress);
+    ExternalTarget target = leg_poser->getExternalTarget();
+    if (target.defined_)
+    {
+      Pose target_tip_pose = target.pose_.removePose(target.transform_);
+      if (target_tip_pose.rotation_.isApprox(UNDEFINED_ROTATION) && params_.gravity_aligned_tips.data)
+      {
+        target_tip_pose.rotation_ = Quaterniond::FromTwoVectors(Vector3d::UnitX(), model_->estimateGravity());
+      }
+      int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, target.swing_clearance_,
+                                              transition_time, false);
+      if (progress == PROGRESS_COMPLETE)
+      {
+        target.defined_ = false;
+        leg_poser->setExternalTarget(target);
+      }
+      leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), false);
+      leg->applyIK();
+      min_progress = min(progress, min_progress);
+    }
   }
   return min_progress;
 }
@@ -1302,21 +1315,6 @@ void PoseController::updateInclinationPose(void)
   inclination_pose_.position_[1] = lateral_correction;
 }
 
-/*******************************************************************************************************************//**
- * Estimates the acceleration vector due to gravity from pitch and roll orientations from IMU data
- * @return The estimated acceleration vector due to gravity.
-***********************************************************************************************************************/
-Vector3d PoseController::estimateGravity(void)
-{
-  Vector3d euler = quaternionToEulerAngles(model_->getImuData().orientation);
-  AngleAxisd pitch(-euler[1], Vector3d::UnitY());
-  AngleAxisd roll(-euler[0], Vector3d::UnitX());
-  Vector3d gravity(0, 0, GRAVITY_ACCELERATION);
-  gravity = pitch * gravity;
-  gravity = roll * gravity;
-  return gravity;
-}
-
 /***********************************************************************************************************************
  * Attempts to generate a pose (x/y linear translation only) to position body such that there is a zero sum of moments
  * from the force acting on the load bearing feet, allowing the robot to shift its centre of mass away from manually
@@ -1543,6 +1541,7 @@ LegPoser::LegPoser(shared_ptr<LegPoser> leg_poser)
   origin_configuration_ = leg_poser->origin_configuration_;
   origin_tip_pose_ = leg_poser->origin_tip_pose_;
   target_tip_pose_ = leg_poser->target_tip_pose_;
+  external_target_ = leg_poser->external_target_;
   transition_poses_ = leg_poser->transition_poses_;
   leg_completed_step_ = leg_poser->leg_completed_step_;
 }

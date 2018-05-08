@@ -780,21 +780,6 @@ void WalkController::updateWalkPlane(void)
 }
 
 /*******************************************************************************************************************//**
- * Estimates the acceleration vector due to gravity from pitch and roll orientations from IMU data
- * @return The estimated acceleration vector due to gravity.
-***********************************************************************************************************************/
-Vector3d WalkController::estimateGravity(void)
-{
-  Vector3d euler = quaternionToEulerAngles(model_->getImuData().orientation);
-  AngleAxisd pitch(-euler[1], Vector3d::UnitY());
-  AngleAxisd roll(-euler[0], Vector3d::UnitX());
-  Vector3d gravity(0, 0, GRAVITY_ACCELERATION);
-  gravity = pitch * gravity;
-  gravity = roll * gravity;
-  return gravity;
-}
-
-/*******************************************************************************************************************//**
  * Calculates the change in pose over the desired time period assuming constant desired body velocity and walk plane.
  * @params[in] time_period The period of time for which to estimate the odometry pose change.
  * @return The estimated odometry pose change over the desired time period.

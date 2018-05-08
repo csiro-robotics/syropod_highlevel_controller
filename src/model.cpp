@@ -183,6 +183,20 @@ void Model::updateModel(void)
   }
 }
 
+/*******************************************************************************************************************//**
+ * Estimates the acceleration vector due to gravity from pitch and roll orientations from IMU data
+ * @return The estimated acceleration vector due to gravity.
+***********************************************************************************************************************/
+Vector3d Model::estimateGravity(void)
+{
+  Vector3d euler = quaternionToEulerAngles(imu_data_.orientation);
+  AngleAxisd pitch(-euler[1], Vector3d::UnitY());
+  AngleAxisd roll(-euler[0], Vector3d::UnitX());
+  Vector3d gravity(0, 0, GRAVITY_ACCELERATION);
+  gravity = pitch * gravity;
+  gravity = roll * gravity;
+  return gravity;
+}
 
 /*******************************************************************************************************************//**
  * Constructor for a robot model leg object. Initialises member variables from parameters.

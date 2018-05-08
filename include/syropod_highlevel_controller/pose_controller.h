@@ -23,6 +23,7 @@
 #include "parameters_and_states.h"
 #include "pose.h"
 #include "model.h"
+#include "walk_controller.h"
 
 #define JOINT_TOLERANCE 0.01 ///< Tolerance allowing assumption that joints are in correct position (rad)
 #define TIP_TOLERANCE 0.01 ///< Tolerance allowing assumption that tip is in correct position (m)
@@ -278,7 +279,7 @@ public:
    * Estimates the acceleration vector due to gravity.
    * @return The estimated acceleration vector due to gravity.
    */
-  Vector3d estimateGravity(void);
+  inline Vector3d estimateGravity(void) { return model_->estimateGravity(); };
 
   /**
    * Attempts to generate a pose (x/y linear translation only) to position body such that there is a zero sum of moments
@@ -470,6 +471,9 @@ public:
 
   /** Accessor for target tip pose. */
   inline Pose getTargetTipPose(void) { return target_tip_pose_; };
+  
+  /** Accessor for externally set target tip pose. */
+  inline ExternalTarget getExternalTarget(void) { return external_target_; };
 
   /** Accessor for auto pose. */
   inline Pose getAutoPose(void) { return auto_pose_; };
@@ -491,6 +495,9 @@ public:
 
   /** Modifier for target tip pose. */
   inline void setTargetTipPose(const Pose& target) { target_tip_pose_ = target; };
+  
+  /** Modifier for externally set target tip pose. */
+  inline void setExternalTarget(const ExternalTarget& target) { external_target_ = target; };
 
   /** Modifier for auto pose. */
   inline void setAutoPose(const Pose& auto_pose) { auto_pose_ = auto_pose; };
@@ -580,9 +587,10 @@ private:
   sensor_msgs::JointState desired_configuration_; ///< Configuration target for transitionConfiguration function
   sensor_msgs::JointState origin_configuration_; ///< Configuration origin for transitionConfiguration function
 
-  Pose origin_tip_pose_;  ///< Origin tip pose used in bezier curve equations.
-  Pose current_tip_pose_; ///< Current tip pose according to the pose controller.
-  Pose target_tip_pose_;  ///< Target tip pose used in bezier curve equations.
+  Pose origin_tip_pose_;           ///< Origin tip pose used in bezier curve equations.
+  Pose current_tip_pose_;          ///< Current tip pose according to the pose controller.
+  Pose target_tip_pose_;           ///< Target tip pose used in bezier curve equations.
+  ExternalTarget external_target_; ///< Externally set target tip pose object.
 
   vector<Pose, aligned_allocator<Pose>> transition_poses_; ///< Vector of transition target tip poses.
 
