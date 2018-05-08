@@ -894,11 +894,16 @@ void LegStepper::iteratePhase(void)
     swing_progress_ = clamped(swing_progress_, 0.0, 1.0);
     stance_progress_ = -1.0;
   }
-  else
+  else if (step_state_ == STANCE)
   {
     stance_progress_ = double(mod(phase_ + (step.period_ - step.stance_start_), step.period_) + 1) /
                       double(mod(step.stance_end_ - step.stance_start_, step.period_));
     stance_progress_ = clamped(stance_progress_, 0.0, 1.0);
+    swing_progress_ = -1.0;
+  }
+  else if (step_state_ == FORCE_STOP)
+  {
+    stance_progress_ = 0.0;
     swing_progress_ = -1.0;
   }
 }

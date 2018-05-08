@@ -821,23 +821,33 @@ int PoseController::transitionStance(const double& transition_time)
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     ExternalTarget target = leg_poser->getExternalTarget();
+    Pose target_tip_pose = Pose::Undefined();
+    double swing_clearance = 0.0;
+    
+    // Update target if externally set target exists
     if (target.defined_)
     {
-      Pose target_tip_pose = target.pose_.removePose(target.transform_);
-      if (target_tip_pose.rotation_.isApprox(UNDEFINED_ROTATION) && params_.gravity_aligned_tips.data)
-      {
-        target_tip_pose.rotation_ = Quaterniond::FromTwoVectors(Vector3d::UnitX(), model_->estimateGravity());
-      }
-      int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, target.swing_clearance_,
-                                              transition_time, false);
-      if (progress == PROGRESS_COMPLETE)
-      {
-        target.defined_ = false;
-        leg_poser->setExternalTarget(target);
-      }
-      leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), false);
-      leg->applyIK();
-      min_progress = min(progress, min_progress);
+      target_tip_pose = target.pose_.removePose(target.transform_);
+      swing_clearance = target.swing_clearance_;
+    }
+    
+    // Update target rotation if gravity alignment is set
+    if (target_tip_pose.rotation_.isApprox(UNDEFINED_ROTATION) && params_.gravity_aligned_tips.data)
+    {
+      target_tip_pose.rotation_ = Quaterniond::FromTwoVectors(Vector3d::UnitX(), model_->estimateGravity());
+    }
+    
+    // Step to target pose
+    int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, swing_clearance, transition_time, false);
+    leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), false);
+    leg->applyIK();
+    min_progress = min(progress, min_progress);
+    
+    // Reset target if target achieved
+    if (target.defined_ && progress == PROGRESS_COMPLETE)
+    {
+      target.defined_ = false;
+      leg_poser->setExternalTarget(target);
     }
   }
   return min_progress;
@@ -1682,6 +1692,11 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
       first_iteration_ = false;
     }
   }
+  
+  if (desired_tip_pose == Pose::Undefined())
+  {
+    desired_tip_pose = origin_tip_pose_;
+  }
 
   // Apply delta z to target tip position (used for transitioning to state using admittance control)
   bool manually_manipulated = (leg_->getLegState() == MANUAL || leg_->getLegState()  == WALKING_TO_MANUAL);
@@ -1822,8 +1837,8 @@ void LegPoser::updateAutoPose(const int& phase)
   }
   
   // Switch on/off auto pose negation
-  bool force_stance = leg_->getLegStepper()->getStepState() == FORCE_STANCE;
-  if (!force_stance && negation_phase == start_phase)
+  StepState step_state = leg_->getLegStepper()->getStepState();
+  if (step_state != FORCE_STANCE && step_state != FORCE_STOP && negation_phase == start_phase)
   {
     negate_auto_pose_ = true;
   }
