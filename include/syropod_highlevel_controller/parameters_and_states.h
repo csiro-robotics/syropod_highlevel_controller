@@ -306,22 +306,23 @@ struct Parameters
   // *Max possible: 8 legs with 6 joints and 7 links each.
 
   // Walk controller parameters
-  Parameter<string> gait_type;                           ///< The default selected gait type
-  Parameter<double> body_clearance;                      ///< The requested height of the robot body above ground.
-  AdjustableParameter step_frequency;                    ///< The frequency of complete step cycles (Hz).
-  AdjustableParameter step_clearance;                    ///< The stepping clearance of the tip position above default.
-  AdjustableParameter step_depth;                        ///< The stepping depth used to find ground contact.
-  AdjustableParameter stance_span_modifier;              ///< The modifier for stance width (-1.0 = min, 1.0 = max)
-  Parameter<string> velocity_input_mode;                 ///< Determines velocity input as 'real' or 'throttle' based.
-  Parameter<double> body_velocity_scaler;                ///< Scales all body velocity inputs
-  Parameter<bool> force_cruise_velocity;                 ///< Flag denoting if cruise control mode uses set values.
-  Parameter<map<string, double>> linear_cruise_velocity; ///< Set values used in cruise control mode if requested.
-  Parameter<double> angular_cruise_velocity;             ///< Set values used in cruise control mode if requested.
-  Parameter<double> cruise_control_time_limit;           ///< Time limit after which cruise control input will zero.
-  Parameter<map<string, double>> leg_stance_positions[8];///< An array of maps of default tip stance positions.
-  Parameter<bool> gravity_aligned_tips;                  ///< Flag denoting if tip should align with gravity direction
-  Parameter<double> touchdown_threshold;                 ///< Threshold of tip force before touchdown is recognized
-  Parameter<double> liftoff_threshold;                   ///< Threshold of tip force before liftoff is recognized
+  Parameter<string> gait_type;                            ///< The default selected gait type
+  Parameter<double> body_clearance;                       ///< The requested height of the robot body above ground.
+  AdjustableParameter step_frequency;                     ///< The frequency of complete step cycles (Hz).
+  AdjustableParameter step_clearance;                     ///< The stepping clearance of the tip position above default.
+  AdjustableParameter step_depth;                         ///< The stepping depth used to find ground contact.
+  AdjustableParameter stance_span_modifier;               ///< The modifier for stance width (-1.0 = min, 1.0 = max)
+  Parameter<string> velocity_input_mode;                  ///< Determines velocity input as 'real' or 'throttle' based.
+  Parameter<double> body_velocity_scaler;                 ///< Scales all body velocity inputs
+  Parameter<bool> force_cruise_velocity;                  ///< Flag denoting if cruise control mode uses set values.
+  Parameter<map<string, double>> linear_cruise_velocity;  ///< Set values used in cruise control mode if requested.
+  Parameter<double> angular_cruise_velocity;              ///< Set values used in cruise control mode if requested.
+  Parameter<double> cruise_control_time_limit;            ///< Time limit after which cruise control input will zero.
+  Parameter<map<string, double>> leg_stance_positions[8]; ///< An array of maps of default tip stance positions.
+  Parameter<bool> force_normal_touchdown;                 ///< Flag denoting if tip touches down normal to walk plane
+  Parameter<bool> gravity_aligned_tips;                   ///< Flag denoting if tip should align with gravity direction
+  Parameter<double> touchdown_threshold;                  ///< Threshold of tip force before touchdown is recognized
+  Parameter<double> liftoff_threshold;                    ///< Threshold of tip force before liftoff is recognized
 
   // Pose controller parameters
   Parameter<string> auto_pose_type;                     ///< String denoting the default auto posing cycle type.

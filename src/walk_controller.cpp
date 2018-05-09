@@ -452,10 +452,8 @@ double WalkController::getLimit(const Vector2d& linear_velocity_input,
     int lower_bound = mod(upper_bound - BEARING_STEP, 360);
     bearing += (bearing < lower_bound) ? 360 : 0;
     upper_bound += (upper_bound < lower_bound) ? 360 : 0;
-    double interpolation_progress = (bearing - lower_bound) / (upper_bound - lower_bound);
-    double limit_interpolation = interpolate(limit.at(lower_bound),
-                                             limit.at(mod(upper_bound, 360)),
-                                             interpolation_progress);
+    double control_input = (bearing - lower_bound) / (upper_bound - lower_bound);
+    double limit_interpolation = interpolate(limit.at(lower_bound), limit.at(mod(upper_bound, 360)), control_input);
     min_limit = min(min_limit, limit_interpolation);
   }
   return min_limit;
@@ -978,13 +976,21 @@ Vector3d LegStepper::calculateStanceSpanChange(void)
   LimitMap upper_workplane = upper_bound_it->second;
   LimitMap lower_workplane = lower_bound_it->second;
   
-  // Calculate interpolation of raddii for target workplane height between existing workspace planes
+  // Calculate interpolation of radii for target workplane height between existing workspace planes
   double i = (target_workplane_height - lower_workplane_height) / (upper_workplane_height - lower_workplane_height);
   double stance_span_modifier = walker_->getParameters().stance_span_modifier.current_value;
   bool positive_y_axis = (Vector3d::UnitY().dot(identity_tip_pose_.position_) > 0.0);
   int bearing  = (positive_y_axis ^ (stance_span_modifier > 0.0)) ? 270 : 90;
   stance_span_modifier *= (positive_y_axis ? 1.0 : -1.0);
-  double radius = lower_workplane.at(bearing) * (1.0 - i) + upper_workplane.at(bearing) * i;
+  double radius = 0.0;
+  if (workspace.size() == 1)
+  {
+    radius = workspace.at(0.0).at(bearing);
+  }
+  else
+  {
+    radius = lower_workplane.at(bearing) * (1.0 - i) + upper_workplane.at(bearing) * i;
+  }
   return Vector3d(0.0, radius * stance_span_modifier, 0.0);
 }
 
@@ -1032,6 +1038,7 @@ void LegStepper::updateDefaultTipPosition(void)
 void LegStepper::updateTipPosition(void)
 {
   bool rough_terrain_mode = walker_->getParameters().rough_terrain_mode.data;
+  bool force_normal_touchdown = walker_->getParameters().force_normal_touchdown.data;
   double time_delta = walker_->getTimeDelta();
   StepCycle step = walker_->getStepCycle();
 
@@ -1118,24 +1125,10 @@ void LegStepper::updateTipPosition(void)
 
     // Generate swing control nodes (once at beginning of 1st half and continuously for 2nd half)
     bool ground_contact = (leg_->getStepPlanePose() != Pose::Undefined() && rough_terrain_mode);
-    /*
-    if (iteration == 1)
-    {
-      generatePrimarySwingControlNodes();
-      generateSecondarySwingControlNodes();
-    }
-    else if (!first_half)
-    {
-      generateSecondarySwingControlNodes(ground_contact);
-    }
-    */
-    
     generatePrimarySwingControlNodes();
     generateSecondarySwingControlNodes(!first_half && ground_contact);
-    
-    
-    // Force touchdown normal to walk plane in rough terrain mode (with reactive/proactive touchdown detection)
-    if (rough_terrain_mode && !ground_contact)
+    // Adjust control nodes to force touchdown normal to walk plane
+    if (force_normal_touchdown && !ground_contact)
     {
       forceNormalTouchdown();
     }
@@ -1217,24 +1210,34 @@ void LegStepper::updateTipRotation(void)
 {
   if (leg_->getJointCount() > 3 && (stance_progress_ >= 0.0 || swing_progress_ >= 0.5))
   {
+    // Set target tip rotation to align with gravity if parameter is set and target currently undefined
     if (walker_->getParameters().gravity_aligned_tips.data && target_tip_pose_.rotation_.isApprox(UNDEFINED_ROTATION))
     {
-      // WALK PLANE NORMAL ALIGNMENT
+      // WALK PLANE NORMAL ALIGNMENT TBD
       //target_tip_pose_.rotation_ = correctRotation(target_tip_rotation, origin_tip_pose_.rotation_);
 
       // GRAVITY ALIGNMENT
       target_tip_pose_.rotation_ = Quaterniond::FromTwoVectors(Vector3d::UnitX(), walker_->estimateGravity());
     }
     
-    current_tip_pose_.rotation_ = correctRotation(target_tip_pose_.rotation_, origin_tip_pose_.rotation_);
-    if (swing_progress_ >= 0.5)
+    // Target is undefined so set current tip rotation to undefined
+    if (target_tip_pose_.rotation_.isApprox(UNDEFINED_ROTATION))
     {
-      double c = smoothStep(min(1.0, 2.0 * (swing_progress_ - 0.5))); // Control input (0.0 -> 1.0)
-      Vector3d origin_tip_direction = origin_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
-      Vector3d target_tip_direction = target_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
-      Vector3d new_tip_direction = interpolate(origin_tip_direction, target_tip_direction, c);
-      Quaterniond new_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), new_tip_direction.normalized());
-      current_tip_pose_.rotation_ = correctRotation(new_tip_rotation, current_tip_pose_.rotation_);
+      current_tip_pose_.rotation_ = target_tip_pose_.rotation_;
+    }
+    // Target is defined so transition current tip rotation to target during back half of swing period
+    else
+    {
+      current_tip_pose_.rotation_ = correctRotation(target_tip_pose_.rotation_, origin_tip_pose_.rotation_);
+      if (swing_progress_ >= 0.5)
+      {
+        double c = smoothStep(min(1.0, 2.0 * (swing_progress_ - 0.5))); // Control input (0.0 -> 1.0)
+        Vector3d origin_tip_direction = origin_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
+        Vector3d target_tip_direction = target_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
+        Vector3d new_tip_direction = interpolate(origin_tip_direction, target_tip_direction, c);
+        Quaterniond new_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), new_tip_direction.normalized());
+        current_tip_pose_.rotation_ = correctRotation(new_tip_rotation, current_tip_pose_.rotation_);
+      }
     }
   }
   else
@@ -1291,6 +1294,7 @@ void LegStepper::generateSecondarySwingControlNodes(const bool& ground_contact)
   // Set for position continuity at transition between secondary swing and stance curves (C0 Smoothness)
   swing_2_nodes_[4] = target_tip_pose_.position_;
   
+  // Stops further movement of tip position in direction normal to walk plane
   if (ground_contact)
   {
     swing_2_nodes_[0] = current_tip_pose_.position_ + 0.0 * stance_node_seperation;

@@ -5,7 +5,6 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /TF1
         - /TF1/Frames1
         - /MarkerArray1
         - /MarkerArray1/Namespaces1
@@ -255,7 +254,9 @@ Visualization Manager:
       Marker Topic: /shc/debug/bezier_curves
       Name: Marker
       Namespaces:
-        {}
+        primary_swing_control_nodes: true
+        secondary_swing_control_nodes: true
+        stance_control_nodes: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -263,7 +264,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/walkspace
       Name: Marker
       Namespaces:
-        {}
+        walkspace_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -279,7 +280,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/default_tip_positions
       Name: Marker
       Namespaces:
-        {}
+        default_tip_position_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -287,7 +288,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/target_tip_positions
       Name: Marker
       Namespaces:
-        {}
+        target_tip_position_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -295,7 +296,7 @@ Visualization Manager:
       Marker Topic: /shc/debug/stride
       Name: Marker
       Namespaces:
-        {}
+        stride_markers: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -315,13 +316,13 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/terrain
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /syropod_stair_climb/stair_model
@@ -505,5 +506,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1276
-  X: 1280
+  X: 1276
   Y: 0

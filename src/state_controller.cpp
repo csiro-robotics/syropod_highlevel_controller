@@ -1864,6 +1864,7 @@ void StateController::initParameters(void)
   params_.linear_cruise_velocity.init("linear_cruise_velocity");
   params_.angular_cruise_velocity.init("angular_cruise_velocity");
   params_.cruise_control_time_limit.init("cruise_control_time_limit");
+  params_.force_normal_touchdown.init("force_normal_touchdown");
   params_.gravity_aligned_tips.init("gravity_aligned_tips");
   params_.liftoff_threshold.init("liftoff_threshold");
   params_.touchdown_threshold.init("touchdown_threshold");

@@ -896,7 +896,7 @@ void PoseController::updateCurrentPose(const RobotState& robot_state)
   }
   
   // Automatic (non-feedback) body posing to align tips orthogonal to walk plane during 2nd half of swing
-  if (params_.gravity_aligned_tips.data && model_->getLegByIDNumber(0)->getJointCount() < 4) // TODO EXPERIMENTAL
+  if (params_.gravity_aligned_tips.data && model_->getLegByIDNumber(0)->getJointCount() <= 3) // TODO EXPERIMENTAL
   {
     updateTipAlignPose();
     new_pose = new_pose.addPose(tip_align_pose_);

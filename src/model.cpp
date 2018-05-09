@@ -361,6 +361,7 @@ Workspace Leg::generateWorkspace(void)
   bool debug = params_.debug_workspace_calc.data;
   bool display_debug_visualisation = debug && params_.debug_rviz.data;
   bool workspace_generation_complete = false;
+  bool simple_workspace = !params_.rough_terrain_mode.data;
   
   // Publish static transforms for visualisation purposes
   if (display_debug_visualisation)
@@ -388,11 +389,15 @@ Workspace Leg::generateWorkspace(void)
     min_workplane.insert(Workplane::value_type(bearing, 0.0));
   }
   workspace_.clear();
+  if (simple_workspace)
+  {
+    workspace_.insert(Workspace::value_type(0.0, max_workplane));
+  }
 
-  bool found_lower_limit = false;
-  bool found_upper_limit = false;
-  double max_plane_height = MAX_WORKSPACE_RADIUS;
-  double min_plane_height = -MAX_WORKSPACE_RADIUS;
+  bool found_lower_limit = simple_workspace ? true : false;
+  bool found_upper_limit = simple_workspace ? true : false;
+  double max_plane_height = simple_workspace ? 0.0 : MAX_WORKSPACE_RADIUS;
+  double min_plane_height = simple_workspace ? 0.0 : -MAX_WORKSPACE_RADIUS;
   double search_height_delta = MAX_WORKSPACE_RADIUS / WORKSPACE_LAYERS;
   double search_height = 0.0;
   int search_bearing = 0;
@@ -550,8 +555,13 @@ Workplane Leg::getWorkplane(const double& height)
     Workplane undefined;
     return undefined;
   }
+  else if (workspace_.size() == 1)
+  {
+    return workspace_.at(0.0);
+  }
   
   // Get bounding existing workplanes within workspace
+  ROS_ASSERT(workspace_.size() > 1);
   Workspace::iterator upper_bound_it = workspace_.upper_bound(height);
   Workspace::iterator lower_bound_it = prev(upper_bound_it);
   double upper_workplane_height = setPrecision(upper_bound_it->first, 3);
