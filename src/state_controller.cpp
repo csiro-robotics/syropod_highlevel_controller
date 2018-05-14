@@ -1039,10 +1039,11 @@ void StateController::publishFrameTransforms(void)
       base_link_to_joint.transform.translation.x = joint_robot_frame.position_[0];
       base_link_to_joint.transform.translation.y = joint_robot_frame.position_[1];
       base_link_to_joint.transform.translation.z = joint_robot_frame.position_[2];
-      base_link_to_joint.transform.rotation.w = joint_robot_frame.rotation_.w();
-      base_link_to_joint.transform.rotation.x = joint_robot_frame.rotation_.x();
-      base_link_to_joint.transform.rotation.y = joint_robot_frame.rotation_.y();
-      base_link_to_joint.transform.rotation.z = joint_robot_frame.rotation_.z();
+      Quaterniond rotation = joint_robot_frame.rotation_ * AngleAxisd(joint->desired_position_, Vector3d::UnitZ());
+      base_link_to_joint.transform.rotation.w = rotation.w();
+      base_link_to_joint.transform.rotation.x = rotation.x();
+      base_link_to_joint.transform.rotation.y = rotation.y();
+      base_link_to_joint.transform.rotation.z = rotation.z();
       transform_broadcaster_.sendTransform(base_link_to_joint);
     }
 

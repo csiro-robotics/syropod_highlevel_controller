@@ -9,7 +9,7 @@ Panels:
         - /MarkerArray1
         - /MarkerArray1/Namespaces1
       Splitter Ratio: 0.5
-    Tree Height: 1309
+    Tree Height: 789
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -67,180 +67,27 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
-        AL_coxa_joint:
-          Value: false
-        AL_coxat_joint:
-          Value: false
-        AL_femur_joint:
-          Value: false
-        AL_tarsus_joint:
-          Value: false
-        AL_tibia_joint:
-          Value: false
-        AL_tip:
-          Value: false
-        AR_coxa_joint:
-          Value: false
-        AR_coxat_joint:
-          Value: false
-        AR_femur_joint:
-          Value: false
-        AR_tarsus_joint:
-          Value: false
-        AR_tibia_joint:
-          Value: false
-        AR_tip:
-          Value: false
         All Enabled: false
-        BL_coxa_joint:
-          Value: false
-        BL_coxat_joint:
-          Value: false
-        BL_femur_joint:
-          Value: false
-        BL_tarsus_joint:
-          Value: false
-        BL_tibia_joint:
-          Value: false
-        BL_tip:
-          Value: false
-        BR_coxa_joint:
-          Value: false
-        BR_coxat_joint:
-          Value: false
-        BR_femur_joint:
-          Value: false
-        BR_tarsus_joint:
-          Value: false
-        BR_tibia_joint:
-          Value: false
-        BR_tip:
-          Value: false
-        CL_coxa_joint:
-          Value: false
-        CL_coxat_joint:
-          Value: false
-        CL_femur_joint:
-          Value: false
-        CL_tarsus_joint:
-          Value: false
-        CL_tibia_joint:
-          Value: false
-        CL_tip:
-          Value: false
-        CR_coxa_joint:
-          Value: false
-        CR_coxat_joint:
-          Value: false
-        CR_femur_joint:
-          Value: false
-        CR_tarsus_joint:
-          Value: false
-        CR_tibia_joint:
-          Value: false
-        CR_tip:
-          Value: false
-        base_link:
-          Value: true
-        odom_ideal:
-          Value: true
-        walk_plane:
-          Value: true
       Marker Scale: 0.5
       Name: TF
       Show Arrows: false
       Show Axes: true
       Show Names: false
       Tree:
-        odom_ideal:
-          base_link:
-            AL_coxa_joint:
-              {}
-            AL_coxat_joint:
-              {}
-            AL_femur_joint:
-              {}
-            AL_tarsus_joint:
-              {}
-            AL_tibia_joint:
-              {}
-            AL_tip:
-              {}
-            AR_coxa_joint:
-              {}
-            AR_coxat_joint:
-              {}
-            AR_femur_joint:
-              {}
-            AR_tarsus_joint:
-              {}
-            AR_tibia_joint:
-              {}
-            AR_tip:
-              {}
-            BL_coxa_joint:
-              {}
-            BL_coxat_joint:
-              {}
-            BL_femur_joint:
-              {}
-            BL_tarsus_joint:
-              {}
-            BL_tibia_joint:
-              {}
-            BL_tip:
-              {}
-            BR_coxa_joint:
-              {}
-            BR_coxat_joint:
-              {}
-            BR_femur_joint:
-              {}
-            BR_tarsus_joint:
-              {}
-            BR_tibia_joint:
-              {}
-            BR_tip:
-              {}
-            CL_coxa_joint:
-              {}
-            CL_coxat_joint:
-              {}
-            CL_femur_joint:
-              {}
-            CL_tarsus_joint:
-              {}
-            CL_tibia_joint:
-              {}
-            CL_tip:
-              {}
-            CR_coxa_joint:
-              {}
-            CR_coxat_joint:
-              {}
-            CR_femur_joint:
-              {}
-            CR_tarsus_joint:
-              {}
-            CR_tibia_joint:
-              {}
-            CR_tip:
-              {}
-            walk_plane:
-              {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/gravity
       Name: Marker
       Namespaces:
-        gravity_marker: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /shc/debug/tip_trajectories
@@ -250,23 +97,21 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/bezier_curves
       Name: Marker
       Namespaces:
-        primary_swing_control_nodes: true
-        secondary_swing_control_nodes: true
-        stance_control_nodes: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/walkspace
       Name: Marker
       Namespaces:
-        walkspace_markers: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/MarkerArray
       Enabled: false
       Marker Topic: /shc/debug/workspace
@@ -276,45 +121,45 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/default_tip_positions
       Name: Marker
       Namespaces:
-        default_tip_position_markers: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/target_tip_positions
       Name: Marker
       Namespaces:
-        target_tip_position_markers: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/stride
       Name: Marker
       Namespaces:
-        stride_markers: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/walk_plane
       Name: Marker
       Namespaces:
-        walk_plane_marker: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /shc/debug/tip_force
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /shc/debug/terrain
@@ -450,7 +295,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.44743538
+      Distance: 2.16953731
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -465,10 +310,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.144796178
+      Pitch: 0.254796207
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 1.52585614
+      Yaw: 0.685856164
     Saved:
       - Class: rviz/Orbit
         Distance: 2
@@ -493,10 +338,10 @@ Visualization Manager:
 Window Geometry:
   "&Displays":
     collapsed: false
-  Height: 1571
+  Height: 1051
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd000000040000000000000273000005b8fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006c01000003fb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730000000044000005b8000000e301000003fb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c000002610000000100000110000005b8fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000044000005b8000000c601000003fb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004fc0000004cfc0100000002fb0000000800540069006d00650000000000000004fc0000025e01000003fb0000000800540069006d00650100000000000004500000000000000000000004fc000005b800000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd000000040000000000000273000003b0fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006c01000003fb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730000000044000003b0000000e301000003fb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c000002610000000100000110000005b8fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000044000005b8000000c601000003fb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004fc0000004cfc0100000002fb0000000800540069006d00650000000000000004fc0000025e01000003fb0000000800540069006d00650100000000000004500000000000000000000003bc000003b000000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -505,6 +350,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1276
-  X: 1276
+  Width: 956
+  X: 956
   Y: 0
