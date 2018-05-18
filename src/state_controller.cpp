@@ -575,7 +575,7 @@ void StateController::legStateToggle(void)
     string leg_name = leg->getIDName();
 
     // Calculate default pose for new loading pattern
-    //poser_->calculateDefaultPose(); // TODO temporarily removed
+    poser_->calculateDefaultPose();
 
     // Set new leg state and transition position if required
     // WALKING -> WALKING_TO_MANUAL
