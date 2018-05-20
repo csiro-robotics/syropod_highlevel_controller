@@ -644,6 +644,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
         if (at_target_tip_position || return_to_default_attempted_)
         {
           return_to_default_attempted_ = false;
+          leg_stepper->updateDefaultTipPosition();
           leg_stepper->setStepState(FORCE_STOP);
           leg_stepper->setAtCorrectPhase(true);
           legs_at_correct_phase_++;
@@ -661,7 +662,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     
     // Update tip positions
-    if (leg->getLegState() == WALKING/* && walk_state_ != STOPPED*/)
+    if (walk_state_ != STOPPED && leg->getLegState() == WALKING)
     {
       leg_stepper->updateTipPosition();  // updates current tip position through step cycle
       leg_stepper->updateTipRotation();
@@ -1024,7 +1025,7 @@ void LegStepper::updateDefaultTipPosition(void)
   default_tip_pose_ = new_default_tip_pose;
   if (default_tip_position_delta > IK_TOLERANCE)
   {
-    walker_->setRegenerateWalkspace();
+    //walker_->setRegenerateWalkspace();
   }
 }
 
@@ -1088,7 +1089,7 @@ void LegStepper::updateTipPosition(void)
         // Add lead to compensate for moving target
         if (external_target_.frame_id_ == "odom_ideal")
         {
-          double time_to_swing_end = (swing_iterations - iteration) * (swing_delta_t_ * 2.0);
+          double time_to_swing_end = (swing_iterations - iteration) * time_delta;
           Vector3d target_lead = walker_->calculateOdometry(time_to_swing_end).position_;
           target_tip_pose_.position_ -= target_lead;
         }

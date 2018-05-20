@@ -25,7 +25,7 @@
 
 #include "model.h"
 
-#define ADMITTANCE_DEADBAND 0.02
+#define ADMITTANCE_DEADBAND 0.0
 
 /*******************************************************************************************************************//**
  * This class handles the application of an admittance controller to the robot model. Specifically it calculates a

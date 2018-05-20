@@ -26,8 +26,9 @@
  */
 enum SystemState
 {
-  SUSPENDED,   ///< Controller system is temporarily suspended, waiting for user input.
-  OPERATIONAL, ///< Controller system is operational and running.
+  SUSPENDED,          ///< Controller system is temporarily suspended, waiting for user input.
+  OPERATIONAL,        ///< Controller system is operational and running.
+  SYSTEM_STATE_COUNT, ///< Misc enum defining number of System States
 };
 
 /**
@@ -35,11 +36,12 @@ enum SystemState
  */
 enum RobotState
 {
-  PACKED,       ///< The robot is in a 'packed' state with all joints at defined 'packed' positions.
-  READY,        ///< The robot is in a 'ready' state with all joints at defined 'unpacked' positions.
-  RUNNING,      ///< The robot is in a 'running' state. This state is where all posing and walking occurs.
-  UNKNOWN = -1, ///< The robot is in an initial 'unknown' state from which the controller will estimate an actual state.
-  OFF = -2,     ///< The robot is in 'off' state. Only used as alternative to 'running' state for direct start up.
+  PACKED,             ///< The robot is in a 'packed' state with all joints at defined 'packed' positions.
+  READY,              ///< The robot is in a 'ready' state with all joints at defined 'unpacked' positions.
+  RUNNING,            ///< The robot is in a 'running' state. This state is where all posing and walking occurs.
+  ROBOT_STATE_COUNT,  ///< Misc enum defining number of Robot States
+  UNKNOWN = -1,       ///< The robot is in an initial 'unknown' state from which the controller will estimate an actual state.
+  OFF = -2,           ///< The robot is in 'off' state. Only used as alternative to 'running' state for direct start up.
 };
 
 /**
@@ -51,6 +53,7 @@ enum GaitDesignation
   AMBLE_GAIT,             ///< Amble gait designation - as defined in config/gait.yaml
   RIPPLE_GAIT,            ///< Ripple gait designation - as defined in config/gait.yaml
   TRIPOD_GAIT,            ///< Tripod gait designation - as defined in config/gait.yaml
+  GAIT_DESIGNATION_COUNT, ///< Misc enum defining number of Gait Designations
   GAIT_UNDESIGNATED = -1, ///< Undesignated gait.
 };
 
@@ -63,6 +66,8 @@ enum PosingMode
   X_Y_POSING,        ///< Mode allowing for manual posing of the robot body via x/y axis translation.
   PITCH_ROLL_POSING, ///< Mode allowing for manual posing of the robot body via pitch/roll rotation.
   Z_YAW_POSING,      ///< Mode allowing for manual posing of the robot body via z axis translation and yaw rotation.
+  EXTERNAL_POSING,   ///< Mode allowing for posing input from external source.
+  POSING_MODE_COUNT, ///< Misc enum defining number of Posing Modes
 };
 
 /**
@@ -70,17 +75,10 @@ enum PosingMode
  */
 enum CruiseControlMode
 {
-  CRUISE_CONTROL_OFF, ///< Cruise control mode is off
-  CRUISE_CONTROL_ON,  ///< Cruise control mode is on
-};
-
-/**
- * Designation for potential auto navigation modes.
- */
-enum AutoNavigationMode
-{
-  AUTO_NAVIGATION_OFF, ///< Auto navigation mode is off
-  AUTO_NAVIGATION_ON,  ///< Auto navigation mode is on
+  CRUISE_CONTROL_OFF,           ///< Cruise control mode is off
+  CRUISE_CONTROL_ON,            ///< Cruise control mode is on
+  CRUISE_CONTROL_MODE_COUNT,    ///< Misc enum defining number of Cruise Control Modes
+  CRUISE_CONTROL_EXTERNAL = -1, ///< Cruise control mode is external
 };
 
 /**
@@ -88,8 +86,9 @@ enum AutoNavigationMode
  */
 enum PlannerMode
 {
-  PLANNER_MODE_OFF, ///< Planner mode is off
-  PLANNER_MODE_ON,  ///< Planner mode is on
+  PLANNER_MODE_OFF,   ///< Planner mode is off
+  PLANNER_MODE_ON,    ///< Planner mode is on
+  PLANNER_MODE_COUNT, ///< Misc enum defining number of Planner Modes
 };
 
 /**
@@ -99,8 +98,9 @@ enum LegState
 {
   WALKING,           ///< The leg is in a 'walking' state - participates in walking cycle.
   MANUAL,            ///< The leg is in a 'manual' state - able to move via manual manipulation inputs.
-  WALKING_TO_MANUAL, ///< The leg is in a 'walking to manual' state - transitioning from 'walking' to 'manual' state.
-  MANUAL_TO_WALKING, ///< The leg is in a 'manual to walking' state - transitioning from 'manual' to 'walking' state.
+  LEG_STATE_COUNT,   ///< Misc enum defining number of LegStates  
+  WALKING_TO_MANUAL = -1, ///< The leg is in 'walking to manual' state - transitioning from 'walking' to 'manual' state.
+  MANUAL_TO_WALKING = -2, ///< The leg is in 'manual to walking' state - transitioning from 'manual' to 'walking' state.
 };
 
 /**
@@ -108,10 +108,11 @@ enum LegState
  */
 enum WalkState
 {
-  STARTING, ///< The walk controller walk cycle is in a 'starting' state (transitioning from 'stopped' to 'moving').
-  MOVING,   ///< The walk controller walk cycle is in a 'moving' state (the primary walking state).
-  STOPPING, ///< The walk controller walk cycle is in a 'stopping' state (transitioning from 'moving' to 'stopped').
-  STOPPED   ///< The walk controller walk cycle is in a 'stopped' state (state whilst velocity input is zero).
+  STARTING,         ///< The walk controller cycle is in 'starting' state (transitioning from 'stopped' to 'moving').
+  MOVING,           ///< The walk controller cycle is in a 'moving' state (the primary walking state).
+  STOPPING,         ///< The walk controller cycle is in a 'stopping' state (transitioning from 'moving' to 'stopped').
+  STOPPED,          ///< The walk controller cycle is in a 'stopped' state (state whilst velocity input is zero).
+  WALK_STATE_COUNT, ///< Misc enum defining number of Walk States
 };
 
 /**
@@ -119,10 +120,11 @@ enum WalkState
  */
 enum StepState
 {
-  SWING,        ///< The leg step cycle is in a 'swing' state - the forward 'in air' progression of the step cycle.
-  STANCE,       ///< The leg step cycle is in a 'stance' state - the backward 'on ground' regression of the step cycle.
-  FORCE_STANCE, ///< State used to force a 'stance' state in non-standard instances.
-  FORCE_STOP    ///< State used to force the step cycle to stop iterating.
+  SWING,            ///< The leg step cycle is in a 'swing' state - the forward 'in air' progression of the step cycle.
+  STANCE,           ///< The leg step cycle is in a 'stance' state - the backward 'on ground' regression of the step cycle.
+  FORCE_STANCE,     ///< State used to force a 'stance' state in non-standard instances.
+  FORCE_STOP,       ///< State used to force the step cycle to stop iterating.
+  STEP_STATE_COUNT, ///< Misc enum defining number of Step States
 };
 
 /**
@@ -130,9 +132,10 @@ enum StepState
  */
 enum PosingState
 {
-  POSING,         ///< State signifiying that auto-poser objects should start their posing cycle.
-  STOP_POSING,    ///< State signifiying that auto-poser objects should end their posing cycle.
-  POSING_COMPLETE ///< State signifiying that ALL auto-poser objects have completed their individual posing cycles.
+  POSING,             ///< State signifiying that auto-poser objects should start their posing cycle.
+  STOP_POSING,        ///< State signifiying that auto-poser objects should end their posing cycle.
+  POSING_COMPLETE,    ///< State signifiying that ALL auto-poser objects have completed their individual posing cycles.
+  POSING_STATE_COUNT, ///< Misc enum defining number of Posing States
 };
 
 /**
@@ -140,12 +143,13 @@ enum PosingState
  */
 enum PoseResetMode
 {
-  NO_RESET,             ///< State requesting no reseting of manual body posing is requested.
-  Z_AND_YAW_RESET,      ///< State requesting manual body z-axis translation or yaw rotation posing to reset to zero.
-  X_AND_Y_RESET,        ///< State requesting manual body x-axis or y-axis translation posing to reset to zero.
-  PITCH_AND_ROLL_RESET, ///< State requesting manual body roll or pitch rotation posing to reset to zero.
-  ALL_RESET,            ///< State requesting all manual body posing (in any axis) to reset to zero.
-  IMMEDIATE_ALL_RESET,  ///< State forcing all manual body posing (in any axis) to reset to zero instantaneously.
+  NO_RESET,              ///< State requesting no reseting of manual body posing is requested.
+  Z_AND_YAW_RESET,       ///< State requesting manual body z-axis translation or yaw rotation posing to reset to zero.
+  X_AND_Y_RESET,         ///< State requesting manual body x-axis or y-axis translation posing to reset to zero.
+  PITCH_AND_ROLL_RESET,  ///< State requesting manual body roll or pitch rotation posing to reset to zero.
+  ALL_RESET,             ///< State requesting all manual body posing (in any axis) to reset to zero.
+  IMMEDIATE_ALL_RESET,   ///< State forcing all manual body posing (in any axis) to reset to zero instantaneously.
+  POSE_RESET_MODE_COUNT, ///< Misc enum defining number of Pose-Reset States
 };
 
 /**
@@ -153,14 +157,15 @@ enum PoseResetMode
  */
 enum LegDesignation
 {
-  LEG_0,                 ///< First leg - The front right most leg of the robot.
-  LEG_1,                 ///< Second leg - The leg following the 1st leg in a clockwise direction around the robot body.
-  LEG_2,                 ///< Third leg - The leg following the 2nd leg in a clockwise direction around the robot body.
-  LEG_3,                 ///< Fourth leg - The leg following the 3rd leg in a clockwise direction around the robot body.
-  LEG_4,                 ///< Fifth leg - The leg following the 4th leg in a clockwise direction around the robot body.
-  LEG_5,                 ///< Sixth leg - The leg following the 5th leg in a clockwise direction around the robot body.
-  LEG_6,                 ///< Seventh leg - The leg following the 6th leg in a clockwise direction around the robot body
-  LEG_7,                 ///< Eighth leg - The leg following the 7th leg in a clockwise direction around the robot body.
+  LEG_0,                 ///< 1st leg - The front right most leg of the robot.
+  LEG_1,                 ///< 2nd leg - The leg following the 1st leg in a clockwise direction around the robot body.
+  LEG_2,                 ///< 3rd leg - The leg following the 2nd leg in a clockwise direction around the robot body.
+  LEG_3,                 ///< 4th leg - The leg following the 3rd leg in a clockwise direction around the robot body.
+  LEG_4,                 ///< 5th leg - The leg following the 4th leg in a clockwise direction around the robot body.
+  LEG_5,                 ///< 6th leg - The leg following the 5th leg in a clockwise direction around the robot body.
+  LEG_6,                 ///< 7th leg - The leg following the 6th leg in a clockwise direction around the robot body
+  LEG_7,                 ///< 8th leg - The leg following the 7th leg in a clockwise direction around the robot body.
+  LEG_DESIGNATION_COUNT, ///< Misc enum defining number of Leg Designations
   LEG_UNDESIGNATED = -1, ///< A leg without any specific designation.
 };
 
@@ -169,15 +174,16 @@ enum LegDesignation
  */
 enum ParameterSelection
 {
-  NO_PARAMETER_SELECTION, ///< Designation for no parameter.
-  STEP_FREQUENCY,         ///< Designation for the adjustable parameter 'step_frequency'.
-  STEP_CLEARANCE,         ///< Designation for the adjustable parameter 'step_clearance'.
-  STEP_DEPTH,             ///< Designation for the adjustable parameter 'step_depth'.
-  STANCE_SPAN_MODIFIER,   ///< Designation for the adjustable parameter 'stance_span_modifier'.
-  VIRTUAL_MASS,           ///< Designation for the adjustable parameter 'virtual_mass'.
-  VIRTUAL_STIFFNESS,      ///< Designation for the adjustable parameter 'virtual_stiffness'.
-  VIRTUAL_DAMPING,        ///< Designation for the adjustable parameter 'virtual_damping'.
-  FORCE_GAIN,             ///< Designation for the adjustable parameter 'force_gain'.
+  NO_PARAMETER_SELECTION,    ///< Designation for no parameter.
+  STEP_FREQUENCY,            ///< Designation for the adjustable parameter 'step_frequency'.
+  STEP_CLEARANCE,            ///< Designation for the adjustable parameter 'step_clearance'.
+  STEP_DEPTH,                ///< Designation for the adjustable parameter 'step_depth'.
+  STANCE_SPAN_MODIFIER,      ///< Designation for the adjustable parameter 'stance_span_modifier'.
+  VIRTUAL_MASS,              ///< Designation for the adjustable parameter 'virtual_mass'.
+  VIRTUAL_STIFFNESS,         ///< Designation for the adjustable parameter 'virtual_stiffness'.
+  VIRTUAL_DAMPING,           ///< Designation for the adjustable parameter 'virtual_damping'.
+  FORCE_GAIN,                ///< Designation for the adjustable parameter 'force_gain'.
+  PARAMETER_SELECTION_COUNT, ///< Misc enum defining number of Parameter Selections
 };
 
 /**
@@ -185,8 +191,9 @@ enum ParameterSelection
  */
 enum SequenceSelection
 {
-  START_UP, ///< A start up sequence which occurs when the robot attempts to move from the ground to a walking stance.
-  SHUT_DOWN ///< A shut down sequence which occurs when the robot attempts to move from a walking stance to the ground.
+  START_UP,                 ///< Start up sequence occurs when robot attempts to move from ground to a walking stance.
+  SHUT_DOWN,                ///< Shut down sequence occurs when robot attempts to move from walking stance to ground.
+  SEQUENCE_SELECTION_COUNT, ///< Misc enum defining number of System States
 };
 
 /*******************************************************************************************************************//**

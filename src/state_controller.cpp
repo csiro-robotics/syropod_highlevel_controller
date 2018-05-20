@@ -56,8 +56,6 @@ StateController::StateController(void)
                                                      &StateController::gaitSelectionCallback, this);
   cruise_control_mode_subscriber_     = n.subscribe("syropod_remote/cruise_control_mode", 1,
                                                      &StateController::cruiseControlCallback, this);
-  auto_navigation_mode_subscriber_    = n.subscribe("syropod_remote/auto_navigation_mode", 1,
-                                                     &StateController::autoNavigationCallback, this);
   planner_mode_subscriber_            = n.subscribe("syropod_remote/planner_mode", 1,
                                                      &StateController::plannerModeCallback, this);
   primary_leg_selection_subscriber_   = n.subscribe("syropod_remote/primary_leg_selection", 1,
@@ -421,8 +419,9 @@ void StateController::runningState(void)
     update_tip_position = false;
   }
   // Cruise control (constant velocity input)
-  else if (cruise_control_mode_ == CRUISE_CONTROL_ON && auto_navigation_mode_ == AUTO_NAVIGATION_OFF &&
-          (params_.cruise_control_time_limit.data == 0.0 || ros::Time::now().toSec() < cruise_control_end_time_))
+  else if (cruise_control_mode_ == CRUISE_CONTROL_ON &&
+          (params_.cruise_control_time_limit.data == 0.0 ||
+           ros::Time::now().toSec() < cruise_control_end_time_))
   {
     linear_velocity_input_ = linear_cruise_velocity_;
     angular_velocity_input_ = angular_cruise_velocity_;
@@ -575,7 +574,7 @@ void StateController::legStateToggle(void)
     string leg_name = leg->getIDName();
 
     // Calculate default pose for new loading pattern
-    poser_->calculateDefaultPose();
+    //poser_->calculateDefaultPose();
 
     // Set new leg state and transition position if required
     // WALKING -> WALKING_TO_MANUAL
@@ -1206,6 +1205,12 @@ void StateController::posingModeCallback(const std_msgs::Int8& input)
           ROS_INFO("\nPosing mode set to Z_YAW_POSING. "
                    "Body will only respond to z translational and yaw rotational manual posing input.\n");
           break;
+        case (EXTERNAL_POSING):
+          ROS_INFO("\nPosing mode set to EXTERNAL_POSING. "
+                   "Body will only respond to posing input from external source.\n");
+          break;
+        default:
+          break;
       }
     }
   }
@@ -1277,34 +1282,13 @@ void StateController::cruiseControlCallback(const std_msgs::Int8& input)
         ROS_INFO("\nCruise control ON - Input velocity set to constant: Linear(X:Y): %f:%f, Angular(Z): %f\n",
                  linear_cruise_velocity_[0], linear_cruise_velocity_[1], angular_cruise_velocity_);
       }
+      else if (new_cruise_control_mode == CRUISE_CONTROL_EXTERNAL)
+      {
+        ROS_INFO("\nCruise control EXTERNAL - Input velocity set by external node.\n");
+      }
       else if (new_cruise_control_mode == CRUISE_CONTROL_OFF)
       {
         ROS_INFO("\nCruise control OFF - Input velocity set by user.\n");
-      }
-    }
-  }
-}
-
-/*******************************************************************************************************************//**
- * Callback handling the auto navigation mode and sending state messages to user interface.
- * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/auto_navigation_mode"
- * @see parameters_and_states.h
-***********************************************************************************************************************/
-void StateController::autoNavigationCallback(const std_msgs::Int8& input)
-{
-  if (robot_state_ == RUNNING)
-  {
-    AutoNavigationMode new_auto_navigation_mode = static_cast<AutoNavigationMode>(int(input.data));
-    if (new_auto_navigation_mode != auto_navigation_mode_)
-    {
-      auto_navigation_mode_ = new_auto_navigation_mode;
-      if (auto_navigation_mode_ == AUTO_NAVIGATION_ON)
-      {
-        ROS_INFO("\nAuto Navigation mode ON. User input is being ignored.\n");
-      }
-      else
-      {
-        ROS_INFO("\nAuto Navigation mode OFF. Control returned to user input.\n");
       }
     }
   }
@@ -2008,6 +1992,8 @@ void StateController::initGaitParameters(const GaitDesignation& gait_selection)
       break;
     case (GAIT_UNDESIGNATED):
       params_.gait_type.init("gait_type");
+      break;
+    default:
       break;
   }
 

@@ -227,13 +227,6 @@ public:
    * @see parameters_and_states.h
    */
   void cruiseControlCallback(const std_msgs::Int8& input);
-
-  /**
-   * Callback handling the auto navigation mode and sending state messages to user interface.
-   * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/auto_navigation_mode"
-   * @see parameters_and_states.h
-   */
-  void autoNavigationCallback(const std_msgs::Int8& input);
   
   /**
    * Callback handling the planner mode and sending state messages to user interface.
@@ -403,7 +396,6 @@ private:
   GaitDesignation gait_selection_ = GAIT_UNDESIGNATED;            ///< Current gait selection for the walk cycle
   PosingMode posing_mode_ = NO_POSING;                            ///< Current posing mode for manual posing
   CruiseControlMode cruise_control_mode_ = CRUISE_CONTROL_OFF;    ///< Current cruise control mode
-  AutoNavigationMode auto_navigation_mode_ = AUTO_NAVIGATION_OFF; ///< Current auto navigation mode
   PlannerMode planner_mode_ = PLANNER_MODE_OFF;                   ///< Current planner mode
 
   ParameterSelection parameter_selection_ = NO_PARAMETER_SELECTION; ///< Currently selected adjustable parameter
