@@ -192,7 +192,7 @@ Vector3d Model::estimateGravity(void)
   Vector3d euler = quaternionToEulerAngles(imu_data_.orientation);
   AngleAxisd pitch(-euler[1], Vector3d::UnitY());
   AngleAxisd roll(-euler[0], Vector3d::UnitX());
-  Vector3d gravity(GRAVITY_ACCELERATION, 0, 0);
+  Vector3d gravity(0, 0, GRAVITY_ACCELERATION);
   gravity = pitch * gravity;
   gravity = roll * gravity;
   return gravity;

@@ -662,7 +662,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     
     // Update tip positions
-    if (walk_state_ != STOPPED && leg->getLegState() == WALKING)
+    if (/*walk_state_ != STOPPED && */leg->getLegState() == WALKING)
     {
       leg_stepper->updateTipPosition();  // updates current tip position through step cycle
       leg_stepper->updateTipRotation();
