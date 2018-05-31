@@ -278,7 +278,7 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
         {
           Pose target_tip_pose = leg_poser->getTargetTipPose();
           bool apply_delta = (sequence == START_UP && final_transition); //Only add delta at end of StartUp sequence
-          double step_height = direct_step ? 0.0 : params_.step_clearance.current_value;
+          double step_height = direct_step ? 0.0 : params_.swing_height.current_value;
           double time_to_step = HORIZONTAL_TRANSITION_TIME / params_.step_frequency.current_value;
           time_to_step *= (first_sequence_execution_ ? 2.0 : 1.0); // Double time for initial sequence
           progress = leg_poser->stepToPosition(target_tip_pose, Pose::Identity(), step_height, time_to_step, apply_delta);
@@ -559,7 +559,7 @@ int PoseController::stepToNewStance(void) //Tripod leg coordination
     {
       shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-      double step_height = params_.step_clearance.current_value;
+      double step_height = params_.swing_height.current_value;
       double step_time = 1.0 / params_.step_frequency.current_value;
       Pose target_tip_pose = leg_stepper->getDefaultTipPose();
       progress = leg_poser->stepToPosition(target_tip_pose, model_->getCurrentPose(), step_height, step_time);
@@ -602,7 +602,7 @@ int PoseController::poseForLegManipulation(void) //Simultaneous leg coordination
     shared_ptr<Leg> leg = leg_it_->second;
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    double step_height = params_.step_clearance.current_value;
+    double step_height = params_.swing_height.current_value;
     double step_time = 1.0 / params_.step_frequency.current_value;
 
     // Set up target pose for legs depending on state

@@ -111,7 +111,7 @@ void WalkController::generateWalkspace(void)
       {
         distance_to_overlap_2 = distance_to_adjacent_leg_2 / cos(degreesToRadians(bearing_diff_2));
       }
-      double min_distance = min(distance_to_overlap_1, distance_to_overlap_2);
+      double min_distance = MAX_WORKSPACE_RADIUS;//min(distance_to_overlap_1, distance_to_overlap_2);
       min_distance = min(min_distance, MAX_WORKSPACE_RADIUS);
       if (walkspace_.find(bearing) != walkspace_.end() && min_distance < walkspace_[bearing])
       {
@@ -1075,7 +1075,10 @@ void LegStepper::updateTipPosition(void)
     {
       swing_origin_tip_position_ = current_tip_pose_.position_;
       swing_origin_tip_velocity_ = current_tip_velocity_;
-      updateDefaultTipPosition();
+      if (rough_terrain_mode)
+      {
+        updateDefaultTipPosition();
+      }
     }
     
     // Update target to externally defined position OR update default to meet step surface
@@ -1174,7 +1177,10 @@ void LegStepper::updateTipPosition(void)
     {
       stance_origin_tip_position_ = current_tip_pose_.position_;
       external_target_.defined_ = false; // Reset external target after every swing period
-      updateDefaultTipPosition();
+    if (rough_terrain_mode)
+      {
+        updateDefaultTipPosition();
+      }
     }
 
     // Scales stride vector according to stance period specifically for STARTING state of walker
@@ -1256,6 +1262,9 @@ void LegStepper::generatePrimarySwingControlNodes(void)
   Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_pose_.position_)/2.0;
   mid_tip_position[2] = max(swing_origin_tip_position_[2], target_tip_pose_.position_[2]);
   mid_tip_position += swing_clearance_;
+  double mid_lateral_shift = walker_->getParameters().swing_width.current_value;
+  bool positive_y_axis = (Vector3d::UnitY().dot(identity_tip_pose_.position_) > 0.0);
+  mid_tip_position[1] += positive_y_axis ? mid_lateral_shift : -mid_lateral_shift;
   Vector3d stance_node_seperation = 0.25 * swing_origin_tip_velocity_ * (walker_->getTimeDelta() / swing_delta_t_);
   
   // Control nodes for primary swing quartic bezier curves
@@ -1267,6 +1276,7 @@ void LegStepper::generatePrimarySwingControlNodes(void)
   swing_1_nodes_[2] = swing_origin_tip_position_ + 2.0 * stance_node_seperation;
   // Set for acceleration continuity at transition between swing curves (C2 Smoothness for symetric curves)
   swing_1_nodes_[3] = (mid_tip_position + swing_1_nodes_[2]) / 2.0;
+  swing_1_nodes_[3][1] = mid_tip_position[1];
   swing_1_nodes_[3][2] = mid_tip_position[2];
   // Set to default tip position so max swing height and transition to 2nd swing curve occurs at default tip position
   swing_1_nodes_[4] = mid_tip_position;

@@ -1525,13 +1525,21 @@ void StateController::dynamicParameterCallback(syropod_highlevel_controller::Dyn
                                      dynamic_parameter_->max_value);
       config.step_frequency = new_parameter_value_;
     }
-    else if (config.step_clearance != params_.step_clearance.current_value)
+    else if (config.swing_height != params_.swing_height.current_value)
     {
-      dynamic_parameter_ = &params_.step_clearance;
-      new_parameter_value_ = clamped(config.step_clearance,
+      dynamic_parameter_ = &params_.swing_height;
+      new_parameter_value_ = clamped(config.swing_height,
                                      dynamic_parameter_->min_value,
                                      dynamic_parameter_->max_value);
-      config.step_clearance = new_parameter_value_;
+      config.swing_height = new_parameter_value_;
+    }
+    else if (config.swing_width != params_.swing_width.current_value)
+    {
+      dynamic_parameter_ = &params_.swing_width;
+      new_parameter_value_ = clamped(config.swing_width,
+                                     dynamic_parameter_->min_value,
+                                     dynamic_parameter_->max_value);
+      config.swing_width = new_parameter_value_;
     }
     else if (config.step_depth != params_.step_depth.current_value)
     {
@@ -1840,7 +1848,8 @@ void StateController::initParameters(void)
   params_.gait_type.init("gait_type");
   params_.body_clearance.init("body_clearance");
   params_.step_frequency.init("step_frequency");
-  params_.step_clearance.init("step_clearance");
+  params_.swing_height.init("swing_height");
+  params_.swing_width.init("swing_width");
   params_.step_depth.init("step_depth");
   params_.stance_span_modifier.init("stance_span_modifier");
   params_.velocity_input_mode.init("velocity_input_mode");
@@ -1920,7 +1929,8 @@ void StateController::initParameters(void)
 
   // Generate adjustable parameter map for parameter adjustment selection
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_FREQUENCY, &params_.step_frequency));
-  params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_CLEARANCE, &params_.step_clearance));
+  params_.adjustable_map.insert(AdjustableMapType::value_type(SWING_HEIGHT, &params_.swing_height));
+  params_.adjustable_map.insert(AdjustableMapType::value_type(SWING_WIDTH, &params_.swing_width));
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_DEPTH, &params_.step_depth));
   params_.adjustable_map.insert(AdjustableMapType::value_type(STANCE_SPAN_MODIFIER, &params_.stance_span_modifier));
   params_.adjustable_map.insert(AdjustableMapType::value_type(VIRTUAL_MASS, &params_.virtual_mass));
@@ -1939,9 +1949,12 @@ void StateController::initParameters(void)
   config_max.step_frequency = params_.step_frequency.max_value;
   config_min.step_frequency = params_.step_frequency.min_value;
   config_default.step_frequency = params_.step_frequency.default_value;
-  config_max.step_clearance = params_.step_clearance.max_value;
-  config_min.step_clearance = params_.step_clearance.min_value;
-  config_default.step_clearance = params_.step_clearance.default_value;
+  config_max.swing_height = params_.swing_height.max_value;
+  config_min.swing_height = params_.swing_height.min_value;
+  config_default.swing_height = params_.swing_height.default_value;
+  config_max.swing_width = params_.swing_width.max_value;
+  config_min.swing_width = params_.swing_width.min_value;
+  config_default.swing_width = params_.swing_width.default_value;
   config_max.step_depth = params_.step_depth.max_value;
   config_min.step_depth = params_.step_depth.min_value;
   config_default.step_depth = params_.step_depth.default_value;

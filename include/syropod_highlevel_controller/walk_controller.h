@@ -81,7 +81,7 @@ public:
   inline double getTimeDelta(void) { return time_delta_; };
 
   /** Accessor for step clearance. */
-  inline double getStepClearance(void) { return params_.step_clearance.current_value; };
+  inline double getStepClearance(void) { return params_.swing_height.current_value; };
   
   /** Accessor for step depth. */
   inline double getStepDepth(void) { return params_.step_depth.current_value; };
@@ -543,8 +543,8 @@ private:
 
   bool new_step_frequency_ = false;
   double step_progress_ = 0.0;
-  double swing_progress_ = -1.0;  ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
-  double stance_progress_ = 0.0;  ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
+  double swing_progress_ = -1.0;   ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
+  double stance_progress_ = -1.0;  ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
 
   StepState step_state_ = STANCE; ///< The state of the step cycle.
 

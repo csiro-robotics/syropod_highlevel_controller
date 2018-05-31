@@ -389,6 +389,18 @@ Workspace Leg::generateWorkspace(void)
     min_workplane.insert(Workplane::value_type(bearing, 0.0));
   }
   workspace_.clear();
+  
+  // Calculate Identity tip pose
+  Pose current_pose = model_->getCurrentPose();
+  Vector3d identity_tip_position = current_pose.inverseTransformVector(leg_stepper_->getIdentityTipPose().position_);
+  
+  // Set zero workspace if unable to reach idenity_tip_pose
+  if ((identity_tip_position - current_tip_pose_.position_).norm() > IK_TOLERANCE)
+  {
+    workspace_.insert(Workspace::value_type(0.0, min_workplane));
+    return workspace_;
+  }
+
   if (simple_workspace)
   {
     workspace_.insert(Workspace::value_type(0.0, max_workplane));
@@ -814,24 +826,37 @@ VectorXd Leg::solveIK(const MatrixXd& delta, const bool& solve_rotation)
   // Generate joint limit cost function and gradient
   // ref: Chapter 2.4 of Autonomous Robots - Kinematics, Path Planning and Control, Farbod. Fahimi 2008
   i = 0;
-  double cost = 0.0;
-  VectorXd cost_gradient = VectorXd::Zero(joint_count_);
+  double position_limit_cost = 0.0;
+  double velocity_limit_cost = 0.0;
+  VectorXd position_cost_gradient = VectorXd::Zero(joint_count_);
+  VectorXd velocity_cost_gradient = VectorXd::Zero(joint_count_);
+  VectorXd combined_cost_gradient = VectorXd::Zero(joint_count_);
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
-  {    
+  {
     shared_ptr<Joint> joint = joint_it->second;
-    double joint_range = joint->max_position_ - joint->min_position_;
-    double range_centre = joint->min_position_ + joint_range/2.0;
-    if (joint_range != 0.0)
+
+    // POSITION LIMITS
+    double joint_position_range = joint->max_position_ - joint->min_position_;
+    double position_range_centre = joint->min_position_ + joint_position_range/2.0;
+    if (joint_position_range != 0.0)
     {
-      cost += sqr(abs(JOINT_LIMIT_COST_WEIGHT * (joint->desired_position_ - range_centre) / joint_range));
-      cost_gradient[i] = -sqr(JOINT_LIMIT_COST_WEIGHT) * (joint->desired_position_ - range_centre) / sqr(joint_range);
+      position_limit_cost += sqr(abs(JOINT_LIMIT_COST_WEIGHT * (joint->desired_position_ - position_range_centre) / joint_position_range));
+      position_cost_gradient[i] = -sqr(JOINT_LIMIT_COST_WEIGHT) * (joint->desired_position_ - position_range_centre) / sqr(joint_position_range);
     }
+
+    // VELOCITY LIMITS
+    double joint_velocity_range = 2 * joint->max_angular_speed_;
+    double velocity_range_centre = 0.0;
+    velocity_limit_cost += sqr(abs(JOINT_LIMIT_COST_WEIGHT * (joint->desired_velocity_ - velocity_range_centre) / joint_velocity_range));
+    velocity_cost_gradient[i] = -sqr(JOINT_LIMIT_COST_WEIGHT) * (joint->desired_velocity_ - velocity_range_centre) / sqr(joint_velocity_range);
   }
-  cost_gradient *= (cost == 0.0 ? 0.0 : 1.0 / sqrt(cost));
+  position_cost_gradient *= (position_limit_cost == 0.0 ? 0.0 : 1.0 / sqrt(position_limit_cost));
+  velocity_cost_gradient *= (velocity_limit_cost == 0.0 ? 0.0 : 1.0 / sqrt(velocity_limit_cost));
+  combined_cost_gradient = interpolate(position_cost_gradient, velocity_cost_gradient, 0.75);
 
   // Calculate joint position change
   identity = MatrixXd::Identity(joint_count_, joint_count_);
-  return jacobian_inverse * delta + (identity - jacobian_inverse * j) * cost_gradient;
+  return jacobian_inverse * delta + (identity - jacobian_inverse * j) * combined_cost_gradient;
 }
 
 /*******************************************************************************************************************//**
