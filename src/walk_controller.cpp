@@ -111,7 +111,8 @@ void WalkController::generateWalkspace(void)
       {
         distance_to_overlap_2 = distance_to_adjacent_leg_2 / cos(degreesToRadians(bearing_diff_2));
       }
-      double min_distance = MAX_WORKSPACE_RADIUS;//min(distance_to_overlap_1, distance_to_overlap_2);
+      bool overlapping = params_.overlapping_walkspaces.data;
+      double min_distance = overlapping ? MAX_WORKSPACE_RADIUS : min(distance_to_overlap_1, distance_to_overlap_2);
       min_distance = min(min_distance, MAX_WORKSPACE_RADIUS);
       if (walkspace_.find(bearing) != walkspace_.end() && min_distance < walkspace_[bearing])
       {

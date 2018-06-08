@@ -1638,8 +1638,10 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
     }
     if (get_effort_values)
     {
-      joint->current_effort_ = -joint_states.effort[i]; // Assuming dynamixel_interface reverse joint effort
-      joint->desired_effort_ = joint->current_effort_;
+      // Low pass filter of effort data
+      double s = 0.15;
+      joint->current_effort_ = s * joint_states.effort[i] + (1 - s) * joint->current_effort_;
+      joint->desired_effort_ = joint->current_effort_; //HACK
     }
   }
 
@@ -1858,6 +1860,7 @@ void StateController::initParameters(void)
   params_.linear_cruise_velocity.init("linear_cruise_velocity");
   params_.angular_cruise_velocity.init("angular_cruise_velocity");
   params_.cruise_control_time_limit.init("cruise_control_time_limit");
+  params_.overlapping_walkspaces.init("overlapping_walkspaces");
   params_.force_normal_touchdown.init("force_normal_touchdown");
   params_.gravity_aligned_tips.init("gravity_aligned_tips");
   params_.liftoff_threshold.init("liftoff_threshold");

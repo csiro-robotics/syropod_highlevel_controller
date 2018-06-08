@@ -328,6 +328,7 @@ struct Parameters
   Parameter<double> angular_cruise_velocity;              ///< Set values used in cruise control mode if requested.
   Parameter<double> cruise_control_time_limit;            ///< Time limit after which cruise control input will zero.
   Parameter<map<string, double>> leg_stance_positions[8]; ///< An array of maps of default tip stance positions.
+  Parameter<bool> overlapping_walkspaces;                 ///< Flag denoting if walkspaces are allowed to overlap
   Parameter<bool> force_normal_touchdown;                 ///< Flag denoting if tip touches down normal to walk plane
   Parameter<bool> gravity_aligned_tips;                   ///< Flag denoting if tip should align with gravity direction
   Parameter<double> touchdown_threshold;                  ///< Threshold of tip force before touchdown is recognized
