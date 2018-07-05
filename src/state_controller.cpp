@@ -1769,32 +1769,11 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
 
         if (leg->getIDName() == msg.name[i])
         {
-          if (walker_->getWalkState() != STOPPED)
-          {
-            if (!msg.target.empty() && Pose(msg.target[i].pose) != Pose::Undefined())
-            {
-              ExternalTarget external_target;
-              external_target.pose_ = Pose(msg.target[i].pose);
-              external_target.swing_clearance_ = msg.swing_clearance[i];
-              external_target.time_ = msg.target[i].header.stamp;
-              external_target.frame_id_ = msg.target[i].header.frame_id;
-              external_target.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
-              external_target.defined_ = true;
-              leg_stepper->setExternalTarget(external_target);
-            }
-            if (!msg.stance.empty() && Pose(msg.stance[i].pose) != Pose::Undefined())
-            {
-              ExternalTarget external_default;
-              external_default.pose_ = Pose(msg.stance[i].pose);
-              external_default.swing_clearance_ = 0.0;
-              external_default.time_ = msg.stance[i].header.stamp;
-              external_default.frame_id_ = msg.stance[i].header.frame_id;
-              external_default.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
-              external_default.defined_ = true;
-              leg_stepper->setExternalDefault(external_default);
-            }
-          }
-          else
+          bool is_external_target = !msg.target.empty() && Pose(msg.target[i].pose) != Pose::Undefined();
+          bool is_external_default = !msg.stance.empty() && Pose(msg.stance[i].pose) != Pose::Undefined();
+          
+          // Create external target from message and send to walk/pose controller depending on walk state
+          if (is_external_target)
           {
             ExternalTarget external_target;
             external_target.pose_ = Pose(msg.target[i].pose);
@@ -1803,8 +1782,28 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
             external_target.frame_id_ = msg.target[i].header.frame_id;
             external_target.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
             external_target.defined_ = true;
-            leg_poser->setExternalTarget(external_target);
-            target_tip_pose_acquired_ = true;
+            if (walker_->getWalkState() != STOPPED)
+            {
+              leg_stepper->setExternalTarget(external_target);
+            }
+            else
+            {
+              leg_poser->setExternalTarget(external_target);
+              target_tip_pose_acquired_ = true;
+            }
+          }
+          
+          // Create external default from message and send to walk/ controller if walking
+          if (is_external_default && walker_->getWalkState() != STOPPED)
+          {
+            ExternalTarget external_default;
+            external_default.pose_ = Pose(msg.stance[i].pose);
+            external_default.swing_clearance_ = 0.0;
+            external_default.time_ = msg.stance[i].header.stamp;
+            external_default.frame_id_ = msg.stance[i].header.frame_id;
+            external_default.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop
+            external_default.defined_ = true;
+            leg_stepper->setExternalDefault(external_default);
           }
         }
       }
