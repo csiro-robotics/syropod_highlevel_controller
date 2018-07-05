@@ -838,8 +838,8 @@ int PoseController::transitionStance(const double& transition_time)
     }
     
     // Step to target pose
-    int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, swing_clearance, transition_time, false);
-    leg->setDesiredTipPose(leg_poser->getCurrentTipPose(), false);
+    int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, swing_clearance, transition_time, true);
+    leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
     leg->applyIK();
     min_progress = min(progress, min_progress);
     

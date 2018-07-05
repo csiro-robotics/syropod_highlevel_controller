@@ -680,6 +680,7 @@ void StateController::executePlan(void)
       std_msgs::Int8 msg;
       msg.data = plan_step_;
       plan_step_request_publisher_.publish(msg);
+      model_->updateModel();
     }
     else
     {
