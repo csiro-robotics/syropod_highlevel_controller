@@ -134,7 +134,7 @@ StateController::~StateController(void)
  * flag and creates sub controller objects: WalkController, PoseController and AdmittanceController.
 ***********************************************************************************************************************/
 void StateController::init(void)
-{
+{  
   // Set initial gait selection number for gait toggling
   if (params_.gait_type.data == "tripod_gait")
   {
@@ -1638,9 +1638,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
     }
     if (get_effort_values)
     {
-      // Low pass filter of effort data
-      double s = 0.15;
-      joint->current_effort_ = s * joint_states.effort[i] + (1 - s) * joint->current_effort_;
+      joint->current_effort_ = joint_states.effort[i];
       joint->desired_effort_ = joint->current_effort_; //HACK
     }
   }
