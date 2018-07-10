@@ -1016,9 +1016,10 @@ double Leg::applyIK(const bool& simulation)
 /*******************************************************************************************************************//**
  * Updates joint transforms and applies forward kinematics to calculate a new tip pose. 
  * Sets leg current tip pose to new pose if requested.
- * @param[in] set_current Flag denoting of the calculated tip pose should be set as the current tip pose.
+ * @param[in] set_current Flag denoting if the calculated tip pose should be set as the current tip pose.
+ * @param[in] use_actual Flag denoting if the joint position values used for FK come from actual motor outputs
 ***********************************************************************************************************************/
-Pose Leg::applyFK(const bool& set_current)
+Pose Leg::applyFK(const bool& set_current, const bool& use_actual)
 {
   //Update joint transforms - skip first joint since it's transform is constant
   JointContainer::iterator joint_it;
@@ -1027,6 +1028,10 @@ Pose Leg::applyFK(const bool& set_current)
     shared_ptr<Joint> joint = joint_it->second;
     const shared_ptr<Link> reference_link = joint->reference_link_;
     double joint_angle = reference_link->actuating_joint_->desired_position_;
+    if (use_actual)
+    {
+      joint_angle = reference_link->actuating_joint_->current_position_;
+    }
     joint->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
                                                reference_link->dh_parameter_theta_ + joint_angle,
                                                reference_link->dh_parameter_r_,
@@ -1034,6 +1039,10 @@ Pose Leg::applyFK(const bool& set_current)
   }
   const shared_ptr<Link> reference_link = tip_->reference_link_;
   double joint_angle = reference_link->actuating_joint_->desired_position_;
+  if (use_actual)
+  {
+    joint_angle = reference_link->actuating_joint_->current_position_;
+  }
   tip_->current_transform_ = createDHMatrix(reference_link->dh_parameter_d_,
                                             reference_link->dh_parameter_theta_ + joint_angle,
                                             reference_link->dh_parameter_r_,
@@ -1041,7 +1050,7 @@ Pose Leg::applyFK(const bool& set_current)
 
   //Get world frame position of tip
   Pose tip_pose = tip_->getPoseRobotFrame();
-  if (set_current)
+  if (set_current && !use_actual)
   {
     if (current_tip_pose_ != Pose::Undefined())
     {

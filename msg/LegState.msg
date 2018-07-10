@@ -5,6 +5,7 @@ geometry_msgs/PoseStamped walker_tip_pose
 geometry_msgs/PoseStamped target_tip_pose
 geometry_msgs/PoseStamped poser_tip_pose
 geometry_msgs/PoseStamped model_tip_pose
+geometry_msgs/PoseStamped actual_tip_pose
 
 geometry_msgs/TwistStamped model_tip_velocity
 

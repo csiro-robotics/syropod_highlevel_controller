@@ -545,8 +545,9 @@ public:
     * Updates joint transforms and applies forward kinematics to calculate a new tip pose. 
     * Sets leg current tip pose to new pose if requested.
     * @param[in] set_current Flag denoting of the calculated tip pose should be set as the current tip pose.
+    * @param[in] use_actual Flag denoting if the joint position values used for FK come from actual motor outputs
     */
-  Pose applyFK(const bool& set_current = true);
+  Pose applyFK(const bool& set_current = true, const bool& use_actual = false);
 
 private:
   shared_ptr<Model> model_;        ///< A pointer to the parent robot model object.

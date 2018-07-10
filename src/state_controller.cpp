@@ -853,6 +853,10 @@ void StateController::publishLegState(void)
     msg.model_tip_pose.header.stamp = ros::Time::now();
     msg.model_tip_pose.header.frame_id = "base_link";
     msg.model_tip_pose.pose = leg->getCurrentTipPose().toPoseMessage();
+    
+    msg.actual_tip_pose.header.stamp = ros::Time::now();
+    msg.actual_tip_pose.header.frame_id = "base_link";
+    msg.actual_tip_pose.pose = leg->applyFK(false, true).toPoseMessage();
 
     // Tip velocities
     msg.model_tip_velocity.header.stamp = ros::Time::now();
