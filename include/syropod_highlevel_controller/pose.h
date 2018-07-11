@@ -200,7 +200,10 @@ public:
    */
   inline Pose addPose(const Pose& pose) 
   {
-    return Pose(position_ + pose.position_, rotation_ * pose.rotation_);
+    Pose return_pose = (*this);
+    return_pose.position_ = this->transformVector(pose.position_);
+    return_pose.rotation_ *= pose.rotation_;
+    return return_pose;
   }
   
   /**
@@ -210,7 +213,10 @@ public:
    */
   inline Pose removePose (const Pose& pose)
   { 
-    return Pose(position_ - pose.position_, rotation_ * pose.rotation_.inverse());
+    Pose return_pose = (*this);
+    return_pose.position_ = this->transformVector(-pose.position_);
+    return_pose.rotation_ *= pose.rotation_.inverse();
+    return return_pose;
   };
   
   /**

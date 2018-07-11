@@ -857,6 +857,7 @@ void StateController::publishLegState(void)
     msg.actual_tip_pose.header.stamp = ros::Time::now();
     msg.actual_tip_pose.header.frame_id = "base_link";
     msg.actual_tip_pose.pose = leg->applyFK(false, true).toPoseMessage();
+    leg->applyFK();
 
     // Tip velocities
     msg.model_tip_velocity.header.stamp = ros::Time::now();
@@ -986,7 +987,7 @@ void StateController::publishRotationPoseError(void)
 void StateController::publishFrameTransforms(void)
 {
   Pose odom_ideal_to_walk_plane = walker_->getOdometryIdeal();
-  Pose walk_plane_to_base_link = model_->getCurrentPose();
+  Pose walk_plane_to_base_link = model_->getCurrentPose();  
   Pose odom_ideal_to_base_link = odom_ideal_to_walk_plane.addPose(walk_plane_to_base_link);
   
   // Broadcast ideal odom tf, if odom tf from perception does not exist on tf tree
