@@ -987,7 +987,7 @@ void StateController::publishRotationPoseError(void)
 void StateController::publishFrameTransforms(void)
 {
   Pose odom_ideal_to_walk_plane = walker_->getOdometryIdeal();
-  Pose walk_plane_to_base_link = model_->getCurrentPose();  
+  Pose walk_plane_to_base_link = model_->getCurrentPose();
   Pose odom_ideal_to_base_link = odom_ideal_to_walk_plane.addPose(walk_plane_to_base_link);
   
   // Broadcast ideal odom tf, if odom tf from perception does not exist on tf tree
