@@ -1696,6 +1696,7 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
   if (desired_tip_pose == Pose::Undefined())
   {
     desired_tip_pose = origin_tip_pose_;
+    desired_tip_pose.rotation_ = UNDEFINED_ROTATION;
   }
 
   // Apply delta z to target tip position (used for transitioning to state using admittance control)
