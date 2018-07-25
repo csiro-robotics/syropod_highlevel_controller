@@ -517,6 +517,10 @@
 ### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/pose_negation_phase_ends:
     A map of phases which signify the end for each leg to negate any auto posing applied to it by auto-pose cycles.
       (type: {string: int, string: int, string: int, ... string: int})
+      
+### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/negation_transition_ratio:
+    A map of ratios which define what portion of the negation phase is used to transition to/from zero & total negation.
+      (type: {string: double, string: double, string: double, ... string: double})
 
 ### /syropod/auto_pose_parameters/\*AUTO_POSE_NAME\*/roll_amplitudes:
     An array of values which define the amplitude of rotational angular body posing about the x-axis (roll) for each 
