@@ -839,6 +839,7 @@ int PoseController::transitionStance(const double& transition_time)
     
     // Step to target pose
     int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, swing_clearance, transition_time, true);
+    ROS_INFO("PROGRESS %s: %d", leg->getIDName().c_str(), progress);
     leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
     leg->applyIK();
     min_progress = min(progress, min_progress);
@@ -850,6 +851,7 @@ int PoseController::transitionStance(const double& transition_time)
       leg_poser->setExternalTarget(target);
     }
   }
+  ROS_INFO("*****************");
   return min_progress;
 }
 
@@ -1672,31 +1674,27 @@ int LegPoser::transitionConfiguration(const double& transition_time)
 int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pose,
                              const double& lift_height, const double& time_to_step, const bool& apply_delta)
 {
-  Pose desired_tip_pose = target_tip_pose;
-  double time_input;
-
   if (first_iteration_)
   {
     origin_tip_pose_ = leg_->getCurrentTipPose();
     current_tip_pose_ = origin_tip_pose_;
-    
-    //Check if transition is needed
-    Vector3d transition = current_tip_pose_.position_ - target_pose.inverseTransformVector(target_tip_pose.position_);
-    if (transition.norm() < TIP_TOLERANCE)
-    {
-      return PROGRESS_COMPLETE;
-    }
-    else
-    {
-      master_iteration_count_ = 0;
-      first_iteration_ = false;
-    }
+    master_iteration_count_ = 0;
+    first_iteration_ = false;
   }
   
+  Pose desired_tip_pose = target_tip_pose;
   if (desired_tip_pose == Pose::Undefined())
   {
     desired_tip_pose = origin_tip_pose_;
-    desired_tip_pose.rotation_ = UNDEFINED_ROTATION;
+    desired_tip_pose.rotation_ = UNDEFINED_ROTATION; //FIXME
+  }
+  
+  // Check if transition is needed
+  Vector3d transition = origin_tip_pose_.position_ - target_pose.inverseTransformVector(desired_tip_pose.position_);
+  if (transition.norm() < TIP_TOLERANCE && lift_height == 0.0)
+  {
+    first_iteration_ = true;
+    return PROGRESS_COMPLETE;
   }
 
   // Apply delta z to target tip position (used for transitioning to state using admittance control)
@@ -1726,6 +1724,7 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
     new_tip_rotation = Quaterniond::FromTwoVectors(Vector3d::UnitX(), new_tip_direction.normalized());
   }
 
+  double time_input;
   Vector3d new_tip_position = origin_tip_pose_.position_;
   if (desired_tip_pose.position_ != UNDEFINED_POSITION)
   {
