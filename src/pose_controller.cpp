@@ -1677,7 +1677,6 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
   if (first_iteration_)
   {
     origin_tip_pose_ = leg_->getCurrentTipPose();
-    current_tip_pose_ = origin_tip_pose_;
     master_iteration_count_ = 0;
     first_iteration_ = false;
   }
@@ -1695,6 +1694,10 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
   {
     first_iteration_ = true;
     return PROGRESS_COMPLETE;
+  }
+  else if (first_iteration_)
+  {
+    current_tip_pose_ = origin_tip_pose_;
   }
 
   // Apply delta z to target tip position (used for transitioning to state using admittance control)
