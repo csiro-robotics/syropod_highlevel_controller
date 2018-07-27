@@ -87,7 +87,7 @@ StateController::StateController(void)
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n.subscribe(params_.syropod_type.data + "/imu/data", 1, &StateController::imuCallback, this);
-  joint_state_subscriber_ = n.subscribe("/joint_states", 1, &StateController::jointStatesCallback, this);
+  joint_state_subscriber_ = n.subscribe("/joint_states", 100, &StateController::jointStatesCallback, this);
   tip_state_subscriber_ = n.subscribe("/tip_states", 1, &StateController::tipStatesCallback, this);
 
   //Set up debugging publishers
@@ -1158,11 +1158,14 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
 ***********************************************************************************************************************/
 void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& input)
 {
-  linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y) * params_.body_velocity_scaler.data;
-  angular_velocity_input_ = input.angular.z * params_.body_velocity_scaler.data;
-  if (params_.velocity_input_mode.data == "throttle" && linear_velocity_input_.norm() > 1.0)
+  if (robot_state_ == RUNNING)
   {
-    linear_velocity_input_ = min(1.0, linear_velocity_input_.norm()) * linear_velocity_input_.normalized();
+    linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y) * params_.body_velocity_scaler.data;
+    angular_velocity_input_ = input.angular.z * params_.body_velocity_scaler.data;
+    if (params_.velocity_input_mode.data == "throttle" && linear_velocity_input_.norm() > 1.0)
+    {
+      linear_velocity_input_ = min(1.0, linear_velocity_input_.norm()) * linear_velocity_input_.normalized();
+    }
   }
 }
 
@@ -1172,7 +1175,7 @@ void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& inpu
 ***********************************************************************************************************************/
 void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
 {
-  if (system_state_ != SUSPENDED && poser_ != NULL)
+  if (robot_state_ == RUNNING)
   {
     Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
     Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
