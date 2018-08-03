@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
  )
 
-generate_dynamic_reconfigure_options(config/dynamic_parameter.cfg)
+generate_dynamic_reconfigure_options(config/Dynamic.cfg)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -93,7 +93,7 @@ generate_dynamic_reconfigure_options(config/dynamic_parameter.cfg)
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES syropod_highlevel_controller
-  CATKIN_DEPENDS roscpp rospy message_runtime std_msgs sensor_msgs geometry_msgs 
+  CATKIN_DEPENDS roscpp rospy message_runtime std_msgs sensor_msgs geometry_msgs dynamic_reconfigure
 #  DEPENDS system_lib
 )
 add_definitions(-DEIGEN3_SUPPORT -DDEBUG -std=c++11 -Wall -g -ggdb -O0 -fopenmp -fPIC)
