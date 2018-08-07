@@ -775,7 +775,7 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform(frame_id, past, "base_link", Time(0), fixed_frame_id_);
+        target_transform = transform_buffer_.lookupTransform("base_link", Time(0), frame_id, past, fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_poser->setExternalTarget(external_target);
       }
@@ -1786,7 +1786,8 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
           {
             ExternalTarget external_target;
             external_target.pose_ = Pose(msg.target[i].pose);
-            external_target.swing_clearance_ = msg.swing_clearance[i];
+            bool swing_clearance = msg.swing_clearance.size() > 0.0;
+            external_target.swing_clearance_ = swing_clearance ? msg.swing_clearance[i] : 0.0;
             external_target.time_ = msg.target[i].header.stamp;
             external_target.frame_id_ = msg.target[i].header.frame_id;
             external_target.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop

@@ -827,7 +827,7 @@ int PoseController::transitionStance(const double& transition_time)
     // Update target if externally set target exists
     if (target.defined_)
     {
-      target_tip_pose = target.pose_.removePose(target.transform_);
+      target_tip_pose = target.transform_.addPose(target.pose_);
       swing_clearance = target.swing_clearance_;
     }
     
@@ -839,7 +839,6 @@ int PoseController::transitionStance(const double& transition_time)
     
     // Step to target pose
     int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, swing_clearance, transition_time, true);
-    ROS_INFO("PROGRESS %s: %d", leg->getIDName().c_str(), progress);
     leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
     leg->applyIK();
     min_progress = min(progress, min_progress);
@@ -851,7 +850,6 @@ int PoseController::transitionStance(const double& transition_time)
       leg_poser->setExternalTarget(target);
     }
   }
-  ROS_INFO("*****************");
   return min_progress;
 }
 
@@ -1689,8 +1687,18 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
   }
   
   // Check if transition is needed
-  Vector3d transition = origin_tip_pose_.position_ - target_pose.inverseTransformVector(desired_tip_pose.position_);
-  if (transition.norm() < TIP_TOLERANCE && lift_height == 0.0)
+  Vector3d position_delta = origin_tip_pose_.position_ - target_pose.inverseTransformVector(desired_tip_pose.position_);
+  bool transition_position = position_delta.norm() > TIP_TOLERANCE;
+  bool transition_rotation = false;
+  if (!desired_tip_pose.rotation_.isApprox(UNDEFINED_ROTATION))
+  {
+    Vector3d origin_tip_direction = origin_tip_pose_.rotation_._transformVector(Vector3d::UnitX());
+    Vector3d desired_tip_direction = desired_tip_pose.rotation_._transformVector(Vector3d::UnitX());
+    AngleAxisd rotation_delta(Quaterniond::FromTwoVectors(origin_tip_direction, desired_tip_direction));
+    transition_rotation = rotation_delta.angle() > JOINT_TOLERANCE;
+  }
+  
+  if (!transition_position && !transition_rotation && lift_height == 0.0)
   {
     first_iteration_ = true;
     return PROGRESS_COMPLETE;
