@@ -795,7 +795,7 @@ void Leg::touchdownDetection(void)
 VectorXd Leg::solveIK(const MatrixXd& delta, const bool& solve_rotation)
 {
   // Calculate Jacobian from DH matrices along kinematic chain
-  // ref: 
+  // ref: robotics.stackexchange.com/questions/2760/computing-inverse-kinematic-with-jacobian-matrices-for-6-dof-manipulator
   shared_ptr<Joint> first_joint = joint_container_.begin()->second;
   Vector3d pe = tip_->getTransformFromJoint(first_joint->id_number_).block<3, 1>(0, 3);
   Vector3d z0(0, 0, 1);
@@ -820,11 +820,11 @@ VectorXd Leg::solveIK(const MatrixXd& delta, const bool& solve_rotation)
   MatrixXd j = jacobian;
   
   // Calculate jacobian inverse using damped least squares method
-  // ref: Chapter 5 of Introduction to Inverse Kinematics... , Samuel R. Buss 2009
+  // REF: Chapter 5 of Introduction to Inverse Kinematics... , Samuel R. Buss 2009
   jacobian_inverse = j.transpose() * ((j * j.transpose() + sqr(DLS_COEFFICIENT) * identity).inverse()); //DLS Method
   
   // Generate joint limit cost function and gradient
-  // ref: Chapter 2.4 of Autonomous Robots - Kinematics, Path Planning and Control, Farbod. Fahimi 2008
+  // REF: Chapter 2.4 of Autonomous Robots - Kinematics, Path Planning and Control, Farbod. Fahimi 2008
   i = 0;
   double position_limit_cost = 0.0;
   double velocity_limit_cost = 0.0;
