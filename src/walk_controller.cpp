@@ -787,7 +787,6 @@ Pose WalkController::calculateOdometry(const double& time_period)
 {
   Vector3d desired_linear_velocity = Vector3d(desired_linear_velocity_[0], desired_linear_velocity_[1], 0);
   Vector3d position_delta = desired_linear_velocity * time_period;
-  position_delta = odometry_ideal_.rotation_._transformVector(position_delta);
   Quaterniond rotation_delta = Quaterniond(AngleAxisd(desired_angular_velocity_ * time_period, Vector3d::UnitZ()));
   return Pose(position_delta, rotation_delta);
 }
