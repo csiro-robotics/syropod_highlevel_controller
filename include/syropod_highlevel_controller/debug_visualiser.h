@@ -1,5 +1,3 @@
-#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_DEBUG_OUTPUT_H
-#define SYROPOD_HIGHLEVEL_CONTROLLER_DEBUG_OUTPUT_H
 /*******************************************************************************************************************//**
  *  @file    debug_output.h
  *  @brief   Handles publishing of Syropod model info for debugging in RVIZ.
@@ -18,6 +16,9 @@
  *  without explicit permission of CSIRO
  *
 ***********************************************************************************************************************/
+
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_DEBUG_OUTPUT_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_DEBUG_OUTPUT_H
 
 #include "standard_includes.h"
 #include "pose.h"

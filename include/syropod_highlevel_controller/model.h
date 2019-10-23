@@ -1,5 +1,3 @@
-#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_MODEL_H
-#define SYROPOD_HIGHLEVEL_CONTROLLER_MODEL_H
 /*******************************************************************************************************************//**
  *  @file    model.h
  *  @brief   Describes the robot model including all legs, joints and links.
@@ -18,6 +16,9 @@
  *  without explicit permission of CSIRO
  *
 ***********************************************************************************************************************/
+
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_MODEL_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_MODEL_H
 
 #include "standard_includes.h"
 #include "parameters_and_states.h"
