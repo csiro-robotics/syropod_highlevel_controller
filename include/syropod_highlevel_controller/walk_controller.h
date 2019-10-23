@@ -1,5 +1,3 @@
-#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_WALK_CONTROLLER_H
-#define SYROPOD_HIGHLEVEL_CONTROLLER_WALK_CONTROLLER_H
 /*******************************************************************************************************************//**
  *  @file    walk_controller.h
  *  @brief   Handles control of Syropod walking.
@@ -18,6 +16,9 @@
  *  without explicit permission of CSIRO
  *
  **********************************************************************************************************************/
+
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_WALK_CONTROLLER_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_WALK_CONTROLLER_H
 
 #include "standard_includes.h"
 #include "parameters_and_states.h"

@@ -1,5 +1,3 @@
-#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H
-#define SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H
 /*******************************************************************************************************************//**
  *  @file    parameters_and_states.h
  *  @brief   Defines various Syropod and system parameters and states.
@@ -18,6 +16,9 @@
  *  without explicit permission of CSIRO
  *
 ***********************************************************************************************************************/
+
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H
 
 #include "standard_includes.h"
 

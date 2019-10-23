@@ -1,5 +1,3 @@
-#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_POSE_H
-#define SYROPOD_HIGHLEVEL_CONTROLLER_POSE_H
 /*******************************************************************************************************************//**
  *  @file    pose.h
  *  @brief   Custom class definition of Syropod pose.
@@ -18,6 +16,9 @@
  *  without explicit permission of CSIRO
  *
 ***********************************************************************************************************************/
+
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_POSE_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_POSE_H
 
 #include "standard_includes.h"
 

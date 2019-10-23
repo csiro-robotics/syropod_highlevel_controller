@@ -1,5 +1,3 @@
-#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H
-#define SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H
 /*******************************************************************************************************************//**
  *  @file    standard_includes.h
  *  @brief   Collection of standard libaries and common functions.
@@ -18,6 +16,9 @@
  *  without explicit permission of CSIRO
  *
 ***********************************************************************************************************************/
+
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H
 
 #include <ros/ros.h>
 #include <ros/console.h>

@@ -1,5 +1,3 @@
-#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_POSE_CONTROLLER_H
-#define SYROPOD_HIGHLEVEL_CONTROLLER_POSE_CONTROLLER_H
 /*******************************************************************************************************************//**
  *  @file    pose_controller.h
  *  @brief   Handles control of Syropod body posing.
@@ -18,6 +16,9 @@
  *  without explicit permission of CSIRO
  *
 ***********************************************************************************************************************/
+
+#ifndef SYROPOD_HIGHLEVEL_CONTROLLER_POSE_CONTROLLER_H
+#define SYROPOD_HIGHLEVEL_CONTROLLER_POSE_CONTROLLER_H
 
 #include "standard_includes.h"
 #include "parameters_and_states.h"
