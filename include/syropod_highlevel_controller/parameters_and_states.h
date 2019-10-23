@@ -1,21 +1,14 @@
 /*******************************************************************************************************************//**
- *  @file    parameters_and_states.h
- *  @brief   Defines various Syropod and system parameters and states.
- *
- *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    April 2018
- *  @version 0.5.10
- *
- *  CSIRO Autonomous Systems Laboratory
- *  Queensland Centre for Advanced Technologies
- *  PO Box 883, Kenmore, QLD 4069, Australia
- *
- *  (c) Copyright CSIRO 2017
- *
- *  All rights reserved, no part of this program may be used
- *  without explicit permission of CSIRO
- *
-***********************************************************************************************************************/
+//*********************************************************************************************************************
+// * CSIRO Autonomous Systems Laboratory
+// * Queensland Centre for Advanced Technologies
+// * PO Box 883, Kenmore, QLD 4069, Australia
+// *
+// * (c) Copyright CSIRO 2017
+// *
+// * All rights reserved, no part of this program may be used
+// * without explicit permission of CSIRO
+//*********************************************************************************************************************
 
 #ifndef SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H
 #define SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H
