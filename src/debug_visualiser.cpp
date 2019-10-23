@@ -1,21 +1,13 @@
-/*******************************************************************************************************************//**
- *  @file    debug_visualiser.cpp
- *  @brief   Handles publishing of Syropod model info for debugging in RVIZ.
- *
- *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    April 2018
- *  @version 0.5.10
- *
- *  CSIRO Autonomous Systems Laboratory
- *  Queensland Centre for Advanced Technologies
- *  PO Box 883, Kenmore, QLD 4069, Australia
- *
- *  (c) Copyright CSIRO 2017
- *
- *  All rights reserved, no part of this program may be used
- *  without explicit permission of CSIRO
- *
-***********************************************************************************************************************/
+//*********************************************************************************************************************
+// * CSIRO Autonomous Systems Laboratory
+// * Queensland Centre for Advanced Technologies
+// * PO Box 883, Kenmore, QLD 4069, Australia
+// *
+// * (c) Copyright CSIRO 2017
+// *
+// * All rights reserved, no part of this program may be used
+// * without explicit permission of CSIRO
+//*********************************************************************************************************************
 
 #include "syropod_highlevel_controller/debug_visualiser.h"
 #include "syropod_highlevel_controller/walk_controller.h"
