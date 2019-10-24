@@ -9,23 +9,16 @@
 #include "../include/syropod_highlevel_controller/admittance_controller.h"
 #include "../include/syropod_highlevel_controller/walk_controller.h"
 
-/*******************************************************************************************************************//**
- * AdmittanceController class constructor. Assigns pointers to robot model object and parameter data storage object.
- * @param[in] model Pointer to the robot model class object
- * @param[in] params Pointer to the parameter struct object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 AdmittanceController::AdmittanceController(shared_ptr<Model> model, const Parameters& params)
   : model_(model)
   , params_(params)
 {
 }
 
-/*******************************************************************************************************************//**
- * Iterates through legs in the robot model and updates the tip position offset value for each.
- * The calculation is achieved through the use of a classical Runge-Kutta ODE solver with a force input
- * acquired from a tip force callback OR from estimation from joint effort values.
- * @todo Implement admittance control in x/y axis
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void AdmittanceController::updateAdmittance(void)
 {
   // Get current force value on leg and run admittance calculations to get a vertical tip offset (deltaZ)
@@ -69,14 +62,8 @@ void AdmittanceController::updateAdmittance(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Scales virtual stiffness of an input swinging leg and two 'adjacent legs' according to an input reference.
- * The input reference ranges between 0.0 and 1.0, and defines the characteristic of the curve as stiffness changes
- * from the default stiffness (i.e. scaled by 1.0) to the swing/load stiffness (i.e. scaled by swing/load scaling value)
- * The swing stiffness value is applied to the swinging leg and load stiffness value applied to the two adjacent legs.
- * @param[in] leg A pointer to the leg object associated with the stiffness value to be updated.
- * @param[in] scale_reference A double ranging from 0.0->1.0 which controls the scaling of the stiffnesses
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void AdmittanceController::updateStiffness(shared_ptr<Leg> leg, const double& scale_reference)
 {
   int leg_id = leg->getIDNumber();
@@ -85,7 +72,7 @@ void AdmittanceController::updateStiffness(shared_ptr<Leg> leg, const double& sc
   shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
   shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
 
-  //(X-1)+1 to change range from 0->1 to 1->scaler
+  // (X-1)+1 to change range from 0->1 to 1->scaler
   double virtual_stiffness = params_.virtual_stiffness.current_value;
   double swing_stiffness = virtual_stiffness * (scale_reference * (params_.swing_stiffness_scaler.data - 1) + 1);
   double load_stiffness = virtual_stiffness * (scale_reference * (params_.load_stiffness_scaler.data - 1) + 1);
@@ -103,16 +90,8 @@ void AdmittanceController::updateStiffness(shared_ptr<Leg> leg, const double& sc
   }
 }
 
-/*******************************************************************************************************************//**
- * Scales virtual stiffness of swinging leg and adjacent legs according to the walk cycle of the walk controller.
- * The percentage vertical position difference of the swinging leg tip from it's default position is used as a reference
- * value ranging from 0.0 (default tip height) to 1.0 (max swing height). This reference value defines the
- * characteristic of the curve as stiffness changes from the default stiffness (i.e. scaled by 1.0) to the swing/load
- * stiffness (i.e. scaled by swing/load scaling value). The swing stiffness value is applied to the swinging leg and
- * load stiffness value applied to the two adjacent legs. The reseting and addition of stiffness allows overlapping
- * step cycles to JOINTLY add stiffness to simultaneously adjacent legs.
- * @param[in] walker A pointer to the walk controller
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void AdmittanceController::updateStiffness(shared_ptr<WalkController> walker)
 {
   // Reset virtual Stiffness each cycle
@@ -140,7 +119,7 @@ void AdmittanceController::updateStiffness(shared_ptr<WalkController> walker)
       shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
       shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
 
-      //(X-1)+1 to change range from 0->1 to 1->scaler
+      // (X-1)+1 to change range from 0->1 to 1->scaler
       double virtual_stiffness = params_.virtual_stiffness.current_value;
       double swing_stiffness = virtual_stiffness * (step_reference * (params_.swing_stiffness_scaler.data - 1) + 1);
       double load_stiffness = virtual_stiffness * (step_reference * (params_.load_stiffness_scaler.data - 1));
@@ -153,5 +132,4 @@ void AdmittanceController::updateStiffness(shared_ptr<WalkController> walker)
   }
 }
 
-/***********************************************************************************************************************
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
