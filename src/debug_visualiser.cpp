@@ -9,9 +9,8 @@
 #include "syropod_highlevel_controller/debug_visualiser.h"
 #include "syropod_highlevel_controller/walk_controller.h"
 
-/*******************************************************************************************************************//**
- * Constructor for debug visualiser class. Sets up publishers for the visualisation markers and initialises odometry.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 DebugVisualiser::DebugVisualiser(void)
 {
   ros::NodeHandle n;
@@ -31,11 +30,8 @@ DebugVisualiser::DebugVisualiser(void)
   terrain_publisher_ = n.advertise<visualization_msgs::Marker>("/shc/debug/terrain", 1000);
 }
 
-/*******************************************************************************************************************//**
- * Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
- * linking the origin points of each joint and tip of each leg.
- * @param[in] model A pointer to the robot model object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 {
   // Estimate of robot body length used in scaling markers
@@ -53,7 +49,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
   leg_line_list.type = visualization_msgs::Marker::LINE_LIST;
   leg_line_list.frame_locked = true;
   leg_line_list.scale.x = 0.01 * sqrt(marker_scale_);
-  leg_line_list.color.r = 1; //WHITE
+  leg_line_list.color.r = 1; // WHITE
   leg_line_list.color.g = 1;
   leg_line_list.color.b = 1;
   leg_line_list.color.a = 1;
@@ -135,10 +131,8 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
   robot_model_publisher_.publish(leg_line_list);
 }
 
-/*******************************************************************************************************************//**
-  * Publishes visualisation markers which represent the estimated walking plane.
-  * @param[in] walk_plane A Vector representing the walk plane
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector3d& walk_plane_normal)
 {
   visualization_msgs::Marker walk_plane_marker;
@@ -169,10 +163,8 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector
   walk_plane_publisher_.publish(walk_plane_marker);
 }
 
-/*******************************************************************************************************************//**
- * Publishes visualisation markers which represent the trajectory of the tip of the input leg.
- * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker tip_position_marker;
@@ -183,7 +175,7 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
   tip_position_marker.action = visualization_msgs::Marker::ADD;
   tip_position_marker.type = visualization_msgs::Marker::SPHERE_LIST;
   tip_position_marker.scale.x = 0.005 * sqrt(marker_scale_);
-  tip_position_marker.color.r = 1; //RED
+  tip_position_marker.color.r = 1; // RED
   tip_position_marker.color.a = 1;
   tip_position_marker.lifetime = ros::Duration(TRAJECTORY_DURATION);
   tip_position_marker.pose = Pose::Identity().toPoseMessage();
@@ -193,17 +185,15 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
   point.x = tip_position[0];
   point.y = tip_position[1];
   point.z = tip_position[2];
-  ROS_ASSERT(point.x + point.y + point.z < 1e3); //Check that point has valid values
+  ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
   tip_position_marker.points.push_back(point);
 
   tip_trajectory_publisher_.publish(tip_position_marker);
   tip_position_id_ = (tip_position_id_ + 1) % ID_LIMIT; // Ensures the trajectory marker id does not exceed overflow
 }
 
-/*******************************************************************************************************************//**
- * Publishes visualisation markers which represent an estimate of the terrain being traversed
- * @param[in] model A pointer to the robot model object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
 {
   LegContainer::iterator leg_it;
@@ -224,7 +214,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       terrain_marker.scale.x = 0.25 * sqrt(marker_scale_);
       terrain_marker.scale.y = 0.25 * sqrt(marker_scale_);
       terrain_marker.scale.z = tip_position[2] + 0.5;
-      terrain_marker.color.r = 1; //RED
+      terrain_marker.color.r = 1; // RED
       terrain_marker.color.a = 0.5;
       Pose pose(Vector3d(0, 0, -terrain_marker.scale.z / 2.0), model->getCurrentPose().rotation_.inverse());
       terrain_marker.pose = pose.toPoseMessage();
@@ -240,11 +230,8 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
   }
 }
 
-/*******************************************************************************************************************//**
- * Publishes visualisation markers which represent the control nodes of the three bezier curves used to control tip
- * trajectory of the input leg.
- * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker swing_1_nodes;
@@ -255,7 +242,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_1_nodes.action = visualization_msgs::Marker::ADD;
   swing_1_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
   swing_1_nodes.scale.x = 0.02 * sqrt(marker_scale_);
-  swing_1_nodes.color.g = 1; //YELLOW
+  swing_1_nodes.color.g = 1; // YELLOW
   swing_1_nodes.color.r = 1;
   swing_1_nodes.color.a = 1;
   swing_1_nodes.pose = Pose::Identity().toPoseMessage();
@@ -270,7 +257,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   swing_2_nodes.scale.x = 0.02 * sqrt(marker_scale_);
   swing_2_nodes.scale.y = 0.02 * sqrt(marker_scale_);
   swing_2_nodes.scale.z = 0.02 * sqrt(marker_scale_);
-  swing_2_nodes.color.r = 1; //YELLOW
+  swing_2_nodes.color.r = 1; // YELLOW
   swing_2_nodes.color.g = 1;
   swing_2_nodes.color.a = 1;
   swing_2_nodes.pose = Pose::Identity().toPoseMessage();
@@ -283,7 +270,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   stance_nodes.action = visualization_msgs::Marker::ADD;
   stance_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
   stance_nodes.scale.x = 0.02 * sqrt(marker_scale_);
-  stance_nodes.color.r = 1; //YELLOW
+  stance_nodes.color.r = 1; // YELLOW
   stance_nodes.color.g = 1;
   stance_nodes.color.a = 1;
   stance_nodes.pose = Pose::Identity().toPoseMessage();
@@ -299,7 +286,7 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
       point.x = stance_node[0];
       point.y = stance_node[1];
       point.z = stance_node[2];
-      ROS_ASSERT(point.x + point.y + point.z < 1e3); //Check that point has valid values
+      ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
       stance_nodes.points.push_back(point);
     }
     else if (leg_stepper->getStepState() == SWING)
@@ -308,13 +295,13 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
       point.x = swing_1_node[0];
       point.y = swing_1_node[1];
       point.z = swing_1_node[2];
-      ROS_ASSERT(point.x + point.y + point.z < 1e3); //Check that point has valid values
+      ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
       swing_1_nodes.points.push_back(point);
       Vector3d swing_2_node = leg_stepper->getSwing2ControlNode(i);
       point.x = swing_2_node[0];
       point.y = swing_2_node[1];
       point.z = swing_2_node[2];
-      ROS_ASSERT(point.x + point.y + point.z < 1e3); //Check that point has valid values
+      ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
       swing_2_nodes.points.push_back(point);
     }
   }
@@ -324,10 +311,8 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   bezier_curve_publisher_.publish(swing_2_nodes);
 }
 
-/*******************************************************************************************************************//**
-  * Publises visualisation markers which represent the default tip position of the leg
-  * @param[in] leg A pointer to a leg of the robot model object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateDefaultTipPositions(shared_ptr<Leg> leg)
 {
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
@@ -354,10 +339,8 @@ void DebugVisualiser::generateDefaultTipPositions(shared_ptr<Leg> leg)
   default_tip_position_publisher_.publish(default_tip_position);
 }
 
-/*******************************************************************************************************************//**
-  * Publises visualisation markers which represent the target tip position of the leg
-  * @param[in] leg A pointer to a leg of the robot model object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateTargetTipPositions(shared_ptr<Leg> leg)
 {
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
@@ -383,11 +366,8 @@ void DebugVisualiser::generateTargetTipPositions(shared_ptr<Leg> leg)
   target_tip_position_publisher_.publish(target_tip_position);
 }
 
-/*******************************************************************************************************************//**
-  * Publishes visualisation markers which represent the 2D walkspace for each leg.
-  * @param[in] leg A pointer to a leg of the robot model object
-  * @param[in] walkspace  A map of walkspace radii for a range of bearings to be visualised
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateWalkspace(shared_ptr<Leg> leg, const LimitMap& walkspace)
 {
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
@@ -433,11 +413,8 @@ void DebugVisualiser::generateWalkspace(shared_ptr<Leg> leg, const LimitMap& wal
   walkspace_publisher_.publish(walkspace_marker);
 }
 
-/*******************************************************************************************************************//**
-  * Publishes visualisation markers which represent the 3D workspace for each leg.
-  * @param[in] leg A pointer to a leg of the robot model object
-  * @param[in] body_clearance The vertical offset of the body above the walk plane
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const double& body_clearance)
 {
   Workspace workspace = leg->getWorkspace();
@@ -519,10 +496,8 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const double& body_
   workspace_publisher_.publish(workspace_cage_marker_array);
 }
 
-/*******************************************************************************************************************//**
-  * Publishes visualisation markers which represent requested stride vector for each leg.
-  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
 {
   shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
@@ -549,17 +524,15 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
   stride.scale.x = 0.01 * sqrt(marker_scale_);
   stride.scale.y = 0.015 * sqrt(marker_scale_);
   stride.scale.z = 0.02 * sqrt(marker_scale_);
-  stride.color.g = 1; //GREEN
+  stride.color.g = 1; // GREEN
   stride.color.a = 1;
   stride.pose = Pose::Identity().toPoseMessage();
 
   stride_publisher_.publish(stride);
 }
 
-/*******************************************************************************************************************//**
-  * Publishes visualisation markers which represent the calculated & measured estimated tip force vector for input leg.
-  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker tip_force;
@@ -607,10 +580,8 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
   tip_force_publisher_.publish(tip_force_measured);
 }
 
-/*******************************************************************************************************************//**
-  * Publishes visualisation markers which represent the estimated percentage of max torque in each joint.
-  * @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateJointTorques(shared_ptr<Leg> leg)
 {
   JointContainer::iterator joint_it;
@@ -642,10 +613,8 @@ void DebugVisualiser::generateJointTorques(shared_ptr<Leg> leg)
   }
 }
 
-/*******************************************************************************************************************//**
-  * Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
-  * @param[in] gravity_estimate An estimate of the gravitational acceleration vector
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate)
 {
   visualization_msgs::Marker gravity;
@@ -662,7 +631,7 @@ void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate)
   origin.y = robot_position[1];
   origin.z = robot_position[2];
   
-  Vector3d direction_vector = gravity_estimate.normalized() * 0.1 * sqrt(marker_scale_); //Arrow Length  
+  Vector3d direction_vector = gravity_estimate.normalized() * 0.1 * sqrt(marker_scale_); // Arrow Length  
   geometry_msgs::Point target;
   target = origin;
   target.x += direction_vector[0];
@@ -681,5 +650,4 @@ void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate)
   gravity_publisher_.publish(gravity);
 }
 
-/***********************************************************************************************************************
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
