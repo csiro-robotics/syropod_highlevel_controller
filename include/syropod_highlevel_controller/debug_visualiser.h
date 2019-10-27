@@ -18,101 +18,72 @@
 #define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+/// This class handles generation and publishing of visualisations for display in rviz for debugging purposes
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class DebugVisualiser
 {
 public:
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Constructor for debug output class. Sets up publishers for the visualisation markers and initialises odometry.
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Constructor for debug output class. Sets up publishers for the visualisation markers and initialises odometry.
   DebugVisualiser(void);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Modifier for the time_delta_ member variable
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Modifier for the time_delta_ member variable
   inline void setTimeDelta(const double& time_delta) { time_delta_ = time_delta; };
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
-  // linking the origin points of each joint and tip of each leg.
-  // @param[in] model A pointer to the robot model object
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publishes visualisation markers which represent the robot model for display in RVIZ. Consists of line segments
+  /// linking the origin points of each joint and tip of each leg.
+  /// @param[in] model A pointer to the robot model object
   void generateRobotModel(shared_ptr<Model> model);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the estimated walking plane.
-  // @param[in] walk_plane A Vector representing the walk plane
-  // @param[in] walk_plane_normal A Vector of the normal to the walk plane
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publishes visualisation markers which represent the estimated walking plane.
+  /// @param[in] walk_plane A Vector representing the walk plane
+  /// @param[in] walk_plane_normal A Vector of the normal to the walk plane
   void generateWalkPlane(const Vector3d& walk_plane, const Vector3d& walk_plane_normal);
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the trajectory of the tip of the input leg.
-  // @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publishes visualisation markers which represent the trajectory of the tip of the input leg.
+  /// @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
   void generateTipTrajectory(shared_ptr<Leg> leg);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent an estimate of the terrain being traversed
-  // @param[in] model A pointer to the robot model object
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publishes visualisation markers which represent an estimate of the terrain being traversed
+  /// @param[in] model A pointer to the robot model object
   void generateTerrainEstimate(shared_ptr<Model> model);
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the control nodes of the three bezier curves used to control tip
-  // trajectory of the input leg.
-  // @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  
+  /// Publishes visualisation markers which represent the control nodes of the three bezier curves used to control tip
+  /// trajectory of the input leg.
+  /// @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
   void generateBezierCurves(shared_ptr<Leg> leg);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the default tip position of the leg
-  // @param[in] leg A pointer to a leg of the robot model object
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publishes visualisation markers which represent the default tip position of the leg
+  /// @param[in] leg A pointer to a leg of the robot model object
   void generateDefaultTipPositions(shared_ptr<Leg> leg);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publises visualisation markers which represent the target tip position of the leg
-  // @param[in] leg A pointer to a leg of the robot model object
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publises visualisation markers which represent the target tip position of the leg
+  /// @param[in] leg A pointer to a leg of the robot model object
   void generateTargetTipPositions(shared_ptr<Leg> leg);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the 2D walkspace for each leg.
-  // @param[in] leg A pointer to a leg of the robot model object
-  // @param[in] walkspace  A map of walkspace radii for a range of bearings to be visualised
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publishes visualisation markers which represent the 2D walkspace for each leg.
+  /// @param[in] leg A pointer to a leg of the robot model object
+  /// @param[in] walkspace  A map of walkspace radii for a range of bearings to be visualised
   void generateWalkspace(shared_ptr<Leg> leg, const LimitMap& walkspace);
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the 3D workspace for each leg.
-  // @param[in] leg A pointer to a leg of the robot model object
-  // @param[in] body_clearance The vertical offset of the body above the walk plane
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  
+  /// Publishes visualisation markers which represent the 3D workspace for each leg.
+  /// @param[in] leg A pointer to a leg of the robot model object
+  /// @param[in] body_clearance The vertical offset of the body above the walk plane
   void generateWorkspace(shared_ptr<Leg> leg, const double& body_clearance);
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent requested stride vector for each leg.
-  // @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  
+  /// Publishes visualisation markers which represent requested stride vector for each leg.
+  /// @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
   void generateStride(shared_ptr<Leg> leg);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the estimated tip force vector for input leg.
-  // @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publishes visualisation markers which represent the estimated tip force vector for input leg.
+  /// @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
   void generateTipForce(shared_ptr<Leg> leg);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the estimated percentage of max torque in each joint.
-  // @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publishes visualisation markers which represent the estimated percentage of max torque in each joint.
+  /// @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published.
   void generateJointTorques(shared_ptr<Leg> leg);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
-  // @param[in] gravity_estimate An estimate of the gravitational acceleration vector
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
+  /// @param[in] gravity_estimate An estimate of the gravitational acceleration vector
   void generateGravity(const Vector3d& gravity_estimate);
 
 private:
