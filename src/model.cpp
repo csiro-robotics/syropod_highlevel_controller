@@ -11,10 +11,8 @@
 #include "../include/syropod_highlevel_controller/pose_controller.h"
 #include "../include/syropod_highlevel_controller/debug_visualiser.h"
 
-/*******************************************************************************************************************//**
- * Contructor for robot model object - initialises member variables from parameters.
- * @param[in] params A pointer to the parameter data structure.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Model::Model(const Parameters& params, shared_ptr<DebugVisualiser> debug_visualiser)
   : params_(params)
   , debug_visualiser_(debug_visualiser)
@@ -28,10 +26,8 @@ Model::Model(const Parameters& params, shared_ptr<DebugVisualiser> debug_visuali
   imu_data_.angular_velocity = Vector3d::Zero();
 }
 
-/*******************************************************************************************************************//**
- * Copy Constructor for a robot model object. Initialises member variables from existing Model object.
- * @param[in] model A pointer to a existing reference robot model object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Model::Model(shared_ptr<Model> model)
   : params_(model->params_)
   , debug_visualiser_(model->debug_visualiser_)
@@ -43,11 +39,8 @@ Model::Model(shared_ptr<Model> model)
 {
 }
 
-/*******************************************************************************************************************//**
- * Generates child leg objects and copies state from reference model if provided.
- * Separated from constructor due to shared_from_this() constraints.
- * @param[in] model A pointer to a existing reference robot model object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Model::generate(shared_ptr<Model> model)
 {
   for (int i = 0; i < leg_count_; ++i)
@@ -69,11 +62,8 @@ void Model::generate(shared_ptr<Model> model)
 }
 
 
-/*******************************************************************************************************************//**
- * Iterate through legs in robot model and have them run their initialisation.
- * @param[in] use_default_joint_positions Flag denoting if the leg should initialise using default joint position values
- * for any joint with unknown current position values.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Model::initLegs(const bool& use_default_joint_positions)
 {
   LegContainer::iterator leg_it;
@@ -84,13 +74,8 @@ void Model::initLegs(const bool& use_default_joint_positions)
   }
 }
 
-/*******************************************************************************************************************//**
- * Estimates if the robot is bearing its load on its legs. Estimates the average distance between body and leg tips
- * and checks if the average breaks the plane of the robot body underside, if so, assume that at least one leg is
- * bearing load.
- * @todo Make more robust by estimating body height above the ground.
- * @todo Parameterise HALF_BODY_DEPTH
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 bool Model::legsBearingLoad(void)
 {
   double body_height_estimate = 0.0;
@@ -103,10 +88,8 @@ bool Model::legsBearingLoad(void)
   return -(body_height_estimate / leg_count_) > HALF_BODY_DEPTH; //TODO Parameterise this value
 }
 
-/*******************************************************************************************************************//**
- * Returns pointer to leg requsted via identification name string input.
- * @param[in] leg_id_name The identification name of the requested leg object pointer.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 shared_ptr<Leg> Model::getLegByIDName(const string& leg_id_name)
 {
   LegContainer::iterator leg_it;
@@ -121,9 +104,8 @@ shared_ptr<Leg> Model::getLegByIDName(const string& leg_id_name)
   return NULL;
 }
 
-/*******************************************************************************************************************//**
- * Updates joint default positions for each leg according to current joint positions of each leg.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Model::updateDefaultConfiguration(void)
 {
   LegContainer::iterator leg_it;
@@ -134,9 +116,8 @@ void Model::updateDefaultConfiguration(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Generates workspace polyhedron for each leg in model.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Model::generateWorkspaces(void)
 {
   // Create copy of model for searching for kinematic limitations
@@ -156,10 +137,8 @@ void Model::generateWorkspaces(void)
   ROS_INFO("\n[SHC] Generating workspace (100%%) . . .\n");
 }
 
-/*******************************************************************************************************************//**
- * Updates model configuration by applying inverse kinematics to solve desired tip poses generated from walk/pose
- * controllers.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Model::updateModel(void)
 {
   // Model uses posed tip positions, adds deltaZ from admittance controller and applies inverse kinematics on each leg
@@ -172,10 +151,8 @@ void Model::updateModel(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Estimates the acceleration vector due to gravity from pitch and roll orientations from IMU data
- * @return The estimated acceleration vector due to gravity.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Vector3d Model::estimateGravity(void)
 {
   Vector3d euler = quaternionToEulerAngles(imu_data_.orientation);
@@ -187,12 +164,8 @@ Vector3d Model::estimateGravity(void)
   return gravity;
 }
 
-/*******************************************************************************************************************//**
- * Constructor for a robot model leg object. Initialises member variables from parameters.
- * @param[in] model A pointer to the parent robot model.
- * @param[in] id_number An identification number for this leg object.
- * @param[in] params A pointer to the parameter data structure.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params)
   : model_(model)
   , params_(params)
@@ -215,11 +188,8 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   group_ = (id_number % 2); // Even/odd groups
 }
 
-/*******************************************************************************************************************//**
- * Copy Constructor for a robot model leg object. Initialises member variables from existing Leg object.
- * @param[in] leg A pointer to the existing robot model leg object.
- * @param[in] model A pointer to the parent model of the leg
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Leg::Leg(shared_ptr<Leg> leg, shared_ptr<Model> model)
   : params_(leg->params_)
   , id_number_(leg->id_number_)
@@ -247,11 +217,8 @@ Leg::Leg(shared_ptr<Leg> leg, shared_ptr<Model> model)
   step_plane_pose_ = leg->step_plane_pose_;
 }
 
-/*******************************************************************************************************************//**
- * Generates child joint/link/tip objects and copies state from reference leg if provided.
- * Separated from constructor due to shared_from_this() constraints.
- * @param[in] leg A pointer to a existing reference robot model leg object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Leg::generate(shared_ptr<Leg> leg)
 {
   shared_ptr<Joint> null_joint = allocate_shared<Joint>(aligned_allocator<Joint>()); //Null joint acts as origin
@@ -314,12 +281,8 @@ void Leg::generate(shared_ptr<Leg> leg)
   }
 }
 
-/*******************************************************************************************************************//**
- * Initialises leg object by setting desired joint state to default values or to current position (from encoders) and
- * running forward kinematics for tip position.
- * @param[in] use_default_joint_positions Flag denoting if the leg should initialise using default joint position values
- * for any joint with unknown current position values.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Leg::init(const bool& use_default_joint_positions)
 {
   JointContainer::iterator joint_it;
@@ -341,10 +304,8 @@ void Leg::init(const bool& use_default_joint_positions)
   desired_tip_pose_ = current_tip_pose_;
 }
 
-/*******************************************************************************************************************//**
- * Generates workspace polyhedron for this leg by searching for kinematic limitations.
- * @return The generated workspace object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Workspace Leg::generateWorkspace(void)
 {
   bool debug = params_.debug_workspace_calc.data;
@@ -408,7 +369,7 @@ Workspace Leg::generateWorkspace(void)
   double distance_from_origin;
   int number_iterations;
   
-  // Iterate through all legs and move legs along search bearings to kinematic limits.
+  // Iterate through all legs and move legs along search bearings to kinematic limits
   while(true)
   {
     Pose current_pose = model_->getCurrentPose();
@@ -446,10 +407,10 @@ Workspace Leg::generateWorkspace(void)
       }
     }
   
-    // Move tip position linearly along search bearing in search of kinematic workspace limit.
+    // Move tip position linearly along search bearing in search of kinematic workspace limit
     double i = double(iteration) / number_iterations; // Interpolation control variable
     Vector3d desired_tip_position = origin_tip_position * (1.0 - i) + target_tip_position * i; // Interpolate
-    //Quaterniond desired_tip_rotation = leg_stepper->getIdentityTipPose().rotation_;
+    // Quaterniond desired_tip_rotation = leg_stepper->getIdentityTipPose().rotation_;
     setDesiredTipPose(Pose(desired_tip_position, UNDEFINED_ROTATION));
     double ik_result = applyIK(true);
     distance_from_origin = Vector3d(current_tip_pose_.position_ - identity_tip_position).norm();
@@ -518,7 +479,7 @@ Workspace Leg::generateWorkspace(void)
         {
           workspace_.insert(Workspace::value_type(search_height, max_workplane));
         }
-        // All searches complete - set workspace generation complete and reset.
+        // All searches complete - set workspace generation complete and reset
         else
         {
           workspace_generation_complete = true;;
@@ -542,11 +503,8 @@ Workspace Leg::generateWorkspace(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Generates interpolated workplane within workspace from given height above workspace origin
- * @params[in] height The desired workplane height from workspace origin
- * @return The interpolated workplane at input height
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Workplane Leg::getWorkplane(const double& height)
 {  
   bool within_workspace = (height >= workspace_.begin()->first && height <= workspace_.rbegin()->first);
@@ -585,11 +543,8 @@ Workplane Leg::getWorkplane(const double& height)
   return workplane;
 }
 
-/*******************************************************************************************************************//**
- * Generates a reachable tip position from an input test tip position within the workspace of this leg.
- * @params[in] reference_tip_position The tip position to use as reference to generate a reachable tip position
- * @return A reachable tip position which lies within the leg workspace based on the input reference tip position
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Vector3d Leg::makeReachable(const Vector3d& reference_tip_position)
 {
   // Get workplane containing test tip position
@@ -612,7 +567,7 @@ Vector3d Leg::makeReachable(const Vector3d& reference_tip_position)
                                          workplane.at(mod(upper_bound, 360)),
                                          interpolation_progress);
   
-  // If test tip position is beyond limit, calculate new position along same workplane bearing within limits.
+  // If test tip position is beyond limit, calculate new position along same workplane bearing within limits
   if (distance_to_test >  distance_to_limit)
   {
     Vector3d new_tip_position = AngleAxisd(raw_bearing, Vector3d::UnitZ()) * (Vector3d::UnitX() * distance_to_limit);
@@ -626,9 +581,8 @@ Vector3d Leg::makeReachable(const Vector3d& reference_tip_position)
   }
 }
 
-/*******************************************************************************************************************//**
- * Updates joint default positions according to current joint positions.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Leg::updateDefaultConfiguration(void)
 {
   JointContainer::iterator joint_it;
@@ -639,10 +593,8 @@ void Leg::updateDefaultConfiguration(void)
   }
 }
 
-/*******************************************************************************************************************//**
-  * Generates a JointState message from the desired state of the joints of the leg object.
-  * @param[out] joint_state_msg The output JointState mesage to fill with the state of joints within this leg object.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Leg::generateDesiredJointStateMsg(sensor_msgs::JointState* joint_state_msg)
 {
   joint_state_msg->header.stamp = ros::Time::now();
@@ -657,10 +609,8 @@ void Leg::generateDesiredJointStateMsg(sensor_msgs::JointState* joint_state_msg)
   }
 }
 
-/*******************************************************************************************************************//**
- * Returns pointer to joint requested via identification name string input.
- * @param[in] joint_id_name The identification name of the requested joint object pointer.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 shared_ptr<Joint> Leg::getJointByIDName(const string& joint_id_name)
 {
   JointContainer::iterator joint_it;
@@ -675,10 +625,8 @@ shared_ptr<Joint> Leg::getJointByIDName(const string& joint_id_name)
   return NULL;
 }
 
-/*******************************************************************************************************************//**
- * Returns pointer to link requested via identification name string input.
- * @param[in] link_id_name The identification name of the requested link object pointer.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 shared_ptr<Link> Leg::getLinkByIDName(const string& link_id_name)
 {
   LinkContainer::iterator link_it;
@@ -693,11 +641,8 @@ shared_ptr<Link> Leg::getLinkByIDName(const string& link_id_name)
   return NULL;
 }
 
-/*******************************************************************************************************************//**
- * Sets desired tip pose to the input, applying admittance controller vertical offset (delta z) if requested.
- * @param[in] tip_pose The input desired tip pose
- * @param[in] apply_delta Flag denoting if admittance control position offset should be applied to desired tip position.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Leg::setDesiredTipPose(const Pose& tip_pose, bool apply_delta)
 {
   // Don't apply delta to manually manipulated legs
@@ -710,11 +655,8 @@ void Leg::setDesiredTipPose(const Pose& tip_pose, bool apply_delta)
   ROS_ASSERT(desired_tip_pose_.isValid());
 }
 
-/*******************************************************************************************************************//**
-  * Calculates an estimate for the tip force vector acting on this leg, using the calculated state jacobian and 
-  * values for the torque on each joint in the leg.
-  * @todo Implement rotation to tip frame
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Leg::calculateTipForce(void)
 {
   shared_ptr<Joint> first_joint = joint_container_.begin()->second;
@@ -724,21 +666,21 @@ void Leg::calculateTipForce(void)
   Vector3d p0(0, 0, 0);
 
   MatrixXd jacobian(6, joint_count_);
-  jacobian.block<3, 1>(0, 0) = z0.cross(pe - p0); //Linear velocity
-  jacobian.block<3, 1>(3, 0) = z0; //Angular velocity
+  jacobian.block<3, 1>(0, 0) = z0.cross(pe - p0); // Linear velocity
+  jacobian.block<3, 1>(3, 0) = z0; // Angular velocity
 
   VectorXd joint_torques(joint_count_);
   joint_torques[0] = first_joint->current_effort_;
   
-  //Skip first joint dh parameters since it is a fixed transformation
+  // Skip first joint dh parameters since it is a fixed transformation
   int i = 1;
   JointContainer::iterator joint_it;
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
     shared_ptr<Joint> joint = joint_it->second;
     Matrix4d t = joint->getTransformFromJoint(first_joint->id_number_);
-    jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); //Linear velocity
-    jacobian.block<3, 1>(3, i) = t.block<3, 1>(0, 2); //Angular velocity
+    jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); // Linear velocity
+    jacobian.block<3, 1>(3, i) = t.block<3, 1>(0, 2); // Angular velocity
     joint_torques[i] = joint->current_effort_;
   }
 
@@ -757,10 +699,8 @@ void Leg::calculateTipForce(void)
   tip_force_calculated_[2] = s * raw_tip_force[2] * params_.force_gain.current_value + (1 - s) * tip_force_calculated_[2];
 }
 
-/*******************************************************************************************************************//**
-  * Checks tip force magnitude against touchdown/liftoff thresholds to instantaneously define the location of the 
-  * step plane.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Leg::touchdownDetection(void)
 {
   if (tip_force_measured_.norm() > params_.touchdown_threshold.data && step_plane_pose_ == Pose::Undefined())
@@ -773,14 +713,8 @@ void Leg::touchdownDetection(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Applies inverse kinematics to calculate required change in joint positions to achieve desired tip pose. Inverse
- * kinematics is generated via the calculation of a jacobian for the current state of the leg, which is used as per
- * the Damped Least Squares method to generate a change in joint position for each joint.
- * @param[in] delta The iterative change in tip position and rotation
- * @param[in] solve_rotation Flag denoting if IK should solve for rotation as well rather than just position.
- * @todo Calculate optimal DLS coefficient (this value currently works sufficiently).
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 VectorXd Leg::solveIK(const MatrixXd& delta, const bool& solve_rotation)
 {
   // Calculate Jacobian from DH matrices along kinematic chain
@@ -791,17 +725,17 @@ VectorXd Leg::solveIK(const MatrixXd& delta, const bool& solve_rotation)
   Vector3d p0(0, 0, 0);
 
   MatrixXd jacobian(6, joint_count_);
-  jacobian.block<3, 1>(0, 0) = z0.cross(pe - p0); //Linear velocity
-  jacobian.block<3, 1>(3, 0) = solve_rotation ? z0 : Vector3d::Zero(); //Angular velocity
+  jacobian.block<3, 1>(0, 0) = z0.cross(pe - p0); // Linear velocity
+  jacobian.block<3, 1>(3, 0) = solve_rotation ? z0 : Vector3d::Zero(); // Angular velocity
 
   JointContainer::iterator joint_it;
-  int i = 1; //Skip first joint dh parameters since it is a fixed transformation
+  int i = 1; // Skip first joint dh parameters since it is a fixed transformation
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
     shared_ptr<Joint> joint = joint_it->second;
     Matrix4d t = joint->getTransformFromJoint(first_joint->id_number_);
-    jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); //Linear velocity
-    jacobian.block<3, 1>(3, i) = solve_rotation ? t.block<3, 1>(0, 2) : Vector3d(0,0,0); //Angular velocity
+    jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); // Linear velocity
+    jacobian.block<3, 1>(3, i) = solve_rotation ? t.block<3, 1>(0, 2) : Vector3d(0,0,0); // Angular velocity
   }
 
   MatrixXd identity = MatrixXd::Identity(6, 6);
@@ -848,13 +782,8 @@ VectorXd Leg::solveIK(const MatrixXd& delta, const bool& solve_rotation)
   return jacobian_inverse * delta + (identity - jacobian_inverse * j) * combined_cost_gradient;
 }
 
-/*******************************************************************************************************************//**
- * Updates the joint positions of each joint in this leg based on the input vector. Clamps joint velocities and
- * positions based on limits and calculates a ratio of proximity of joint position to limits.
- * @param[in] delta The iterative change in joint position for each joint.
- * @param[in] simulation Flag denoting if this execution is for simulation purposes rather than normal use.
- * @return The ratio of the proximity of the joint position to it's limits (i.e. 0.0 = at limit, 1.0 = furthest away)
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 double Leg::updateJointPositions(const VectorXd& delta, const bool& simulation)
 {
   int index = 0;
@@ -899,7 +828,7 @@ double Leg::updateJointPositions(const VectorXd& delta, const bool& simulation)
       }
     }
 
-    //Calculates the proximity of the joint closest to one of it's limits. Used for preventing exceeding workspace.
+    // Calculates the proximity of the joint closest to one of it's limits. Used for preventing exceeding workspace.
     // (1.0 = furthest possible from limit, 0.0 = equal to limit)
     double min_diff = abs(joint->min_position_ - joint->desired_position_);
     double max_diff = abs(joint->max_position_ - joint->desired_position_);
@@ -915,14 +844,8 @@ double Leg::updateJointPositions(const VectorXd& delta, const bool& simulation)
   return min_limit_proximity;
 }
 
-/*******************************************************************************************************************//**
- * Applies inverse kinematics solution to achieve desired tip position. Clamps joint positions and velocities
- * within limits and applies forward kinematics to update tip position. Returns an estimate of the chance of solving
- * IK within thresholds on the next iteration. 0.0 denotes failure on THIS iteration.
- * @param[in] simulation Flag denoting if this execution is for simulation purposes rather than normal use.
- * @return A double between 0.0 and 1.0 which estimates the chance of solving IK within thresholds on the next 
- * iteration. 0.0 denotes failure on THIS iteration.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 double Leg::applyIK(const bool& simulation)
 {
   // Generate position delta vector in reference to the base of the leg
@@ -1002,15 +925,11 @@ double Leg::applyIK(const bool& simulation)
   return ik_success;
 }
 
-/*******************************************************************************************************************//**
- * Updates joint transforms and applies forward kinematics to calculate a new tip pose. 
- * Sets leg current tip pose to new pose if requested.
- * @param[in] set_current Flag denoting if the calculated tip pose should be set as the current tip pose.
- * @param[in] use_actual Flag denoting if the joint position values used for FK come from actual motor outputs
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Pose Leg::applyFK(const bool& set_current, const bool& use_actual)
 {
-  //Update joint transforms - skip first joint since it's transform is constant
+  // Update joint transforms - skip first joint since it's transform is constant
   JointContainer::iterator joint_it;
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
@@ -1037,7 +956,7 @@ Pose Leg::applyFK(const bool& set_current, const bool& use_actual)
                                             reference_link->dh_parameter_r_,
                                             reference_link->dh_parameter_alpha_);
 
-  //Get world frame position of tip
+  // Get world frame position of tip
   Pose tip_pose = tip_->getPoseRobotFrame();
   if (set_current && !use_actual)
   {
@@ -1053,13 +972,8 @@ Pose Leg::applyFK(const bool& set_current, const bool& use_actual)
   return tip_pose;
 }
 
-/*******************************************************************************************************************//**
- * Constructor for Link object. Initialises member variables from parameters.
- * @param[in] leg A pointer to the parent leg object.
- * @param[in] actuating_joint A pointer to the actuating joint object, from which this link is moved.
- * @param[in] id_number The identification number for this link.
- * @param[in] params A pointer to the parameter data structure.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params)
   : parent_leg_(leg)
   , actuating_joint_(actuating_joint)
@@ -1077,10 +991,8 @@ Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id
   }
 }
 
-/*******************************************************************************************************************//**
- * Copy Constructor for Link object. Initialises member variables from existing Link object.
- * @param[in] link A pointer to an existing link object.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Link::Link(shared_ptr<Link> link)
   : parent_leg_(link->parent_leg_)
   , actuating_joint_(link->actuating_joint_)
@@ -1093,13 +1005,8 @@ Link::Link(shared_ptr<Link> link)
 {
 }
 
-/*******************************************************************************************************************//**
- * Constructor for Joint object. Initialises member variables from parameters and generates initial transform.
- * @param[in] leg A pointer to the parent leg object.
- * @param[in] reference_link A pointer to the reference link object, from which this joint actuates.
- * @param[in] id_number The identification number for this joint
- * @param[in] params A pointer to the parameter data structure.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, const Parameters& params)
   : parent_leg_(leg)
   , reference_link_(reference_link)
@@ -1147,10 +1054,8 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
   }
 }
 
-/*******************************************************************************************************************//**
- * Copy Constructor for Joint object. Initialises member variables from existing Joint object.
- * @param[in] joint A pointer to an existing Joint object.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Joint::Joint(shared_ptr<Joint> joint)
   : parent_leg_(joint->parent_leg_)
   , reference_link_(joint->reference_link_)
@@ -1183,9 +1088,8 @@ Joint::Joint(shared_ptr<Joint> joint)
   default_effort_ = joint->default_effort_;
 }
 
-/*******************************************************************************************************************//**
- * Constructor for null joint object. Acts as a null joint object for use in ending kinematic chains.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Joint::Joint(void)
   : parent_leg_(NULL)
   , reference_link_(NULL)
@@ -1194,11 +1098,8 @@ Joint::Joint(void)
 {
 }
 
-/*******************************************************************************************************************//**
- * Constructor for Tip object. Initialises member variables from parameters and generates initial transform.
- * @param[in] leg A pointer to the parent leg object.
- * @param[in] reference_link A pointer to the reference link object, which is attached to this tip object.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Tip::Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link)
   : parent_leg_(leg)
   , reference_link_(reference_link)
@@ -1211,10 +1112,8 @@ Tip::Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link)
   current_transform_ = identity_transform_;
 }
 
-/*******************************************************************************************************************//**
- * Copy Constructor for Tip object. Initialises member variables from existing Tip object.
- * @param[in] tip A pointer to an existing tip object.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Tip::Tip(shared_ptr<Tip> tip)
   : parent_leg_(tip->parent_leg_)
   , reference_link_(tip->reference_link_)
@@ -1224,5 +1123,4 @@ Tip::Tip(shared_ptr<Tip> tip)
   current_transform_ = tip->current_transform_;
 }
 
-/***********************************************************************************************************************
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
