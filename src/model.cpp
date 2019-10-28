@@ -85,7 +85,7 @@ bool Model::legsBearingLoad(void)
     shared_ptr<Leg> leg = leg_it->second;
     body_height_estimate += leg->getCurrentTipPose().position_[2];
   }
-  return -(body_height_estimate / leg_count_) > HALF_BODY_DEPTH; //TODO Parameterise this value
+  return -(body_height_estimate / leg_count_) > HALF_BODY_DEPTH; // TODO Parameterise this value
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

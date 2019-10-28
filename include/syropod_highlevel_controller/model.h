@@ -59,6 +59,7 @@ class Model : public enable_shared_from_this<Model>
 public:
   /// Contructor for robot model object - initialises member variables from parameters.
   /// @param[in] params A pointer to the parameter data structure
+  /// @param[in] debug_visualiser A pointer to debug visualiser object
   Model(const Parameters& params, shared_ptr<DebugVisualiser> debug_visualiser);
   
   /// Copy Constructor for a robot model object. Initialises member variables from existing Model object.
@@ -66,21 +67,27 @@ public:
   Model(shared_ptr<Model> model);
 
   /// Accessor for leg object container.
+  /// @return Pointer to leg container object
   inline LegContainer* getLegContainer(void) { return &leg_container_; };
   
   /// Accessor for debug visualiser pointer.
+  /// @return Pointer to debug visualiser object
   inline shared_ptr<DebugVisualiser> getDebugVisualiser(void) { return debug_visualiser_; };
 
   /// Accessor for leg count (number of legs in robot model).
+  /// @return Number of legs in the robot model
   inline int getLegCount(void) { return leg_count_; };
 
   /// Accessor for current pose of the robot model body.
+  /// @return The current pose of the robot model body
   inline Pose getCurrentPose(void) { return current_pose_; };
   
   /// Accessor for default pose of the robot model body.
+  /// @return The default pose of the robot model body
   inline Pose getDefaultPose(void) { return default_pose_; };
 
   /// Accessor for the time delta value which defines the period of the ros cycle.
+  /// @return The time delta value which define the period of the ros cycle
   inline double getTimeDelta(void) { return time_delta_; }
 
   /// Modifier for the current pose of the robot model body.
@@ -104,19 +111,23 @@ public:
   /// Estimates if the robot is bearing its load on its legs. Estimates the average distance between body and leg tips
   /// and checks if the average breaks the plane of the robot body underside, if so, assume that at least one leg is
   /// bearing load.
+  /// @return Flag denoting whether the robot is bearing its load on its legs
   /// @todo Make more robust by estimating body height above the ground
   /// @todo Parameterise HALF_BODY_DEPTH
   bool legsBearingLoad(void);
 
   /// Returns pointer to leg requested via identification number input.
   /// @param[in] leg_id_num The identification number of the requested leg object pointer
+  /// @return The Pointer to leg requested via identification number input
   inline shared_ptr<Leg> getLegByIDNumber(const int& leg_id_num) { return leg_container_[leg_id_num]; };
 
   /// Returns pointer to leg requsted via identification name string input.
   /// @param[in] leg_id_name The identification name of the requested leg object pointer
+  /// @return The pointer to leg requested via identification name input
   shared_ptr<Leg> getLegByIDName(const string& leg_id_name);
   
   /// Accessor for imu data.
+  /// @return The imu data structure of the robot model
   inline ImuData getImuData(void) 
   { 
     ImuData imu_data(imu_data_);
@@ -128,6 +139,9 @@ public:
   };
   
   /// Modifier for imu data.
+  /// @param[in] orientation The orientation to be set as the orientation of the imu
+  /// @param[in] linear_acceleration The linear acceleration to be set as the linear acceleration of the imu
+  /// @param[in] angular_velocity The angular velocity to be set as the angular velocity of the imu
   inline void setImuData(const Quaterniond& orientation, 
                          const Vector3d& linear_acceleration, 
                          const Vector3d& angular_velocity)
@@ -191,84 +205,111 @@ public:
   Leg(shared_ptr<Leg> leg, shared_ptr<Model> model = NULL);
 
   /// Accessor for identification name of this leg object.
+  /// @return The identification name of the leg object
   inline string getIDName(void) { return id_name_; };
 
   /// Accessor for identification number of this leg object.
+  /// @return The identification number of the leg object
   inline int getIDNumber(void) { return id_number_; };
 
   /// Accessor for the number of child joint objects for this leg.
+  /// @return The number of child joint objects of the leg
   inline int getJointCount(void) { return joint_count_; };
 
   /// Accessor for the step coordination group of this leg.
+  /// @return the step coordination group of the leg
   inline int getGroup(void) { return group_; };
   
   /// Accessor for the workspace polyhedron.
+  /// @return the workspace polyhedron of the leg
   inline Workspace getWorkspace(void) { return workspace_; };
 
   /// Accessor for the cuurent state of this leg.
+  /// @return The current state of the leg
   inline LegState getLegState(void) { return leg_state_; };
 
-  /// Accessor for the current estimated force vector on the tip of this leg.
+  /// Accessor for the current calculated force vector on the tip of this leg.
+  /// @return The current calculated force vector on the tip of the leg
   inline Vector3d getTipForceCalculated(void) { return tip_force_calculated_; };
   
-  /// Accessor for the current estimated force vector on the tip of this leg. 
+  /// Accessor for the current measured force vector on the tip of this leg. 
+  /// @return The current measured force vector on the tip of the leg
   inline Vector3d getTipForceMeasured(void) { return tip_force_measured_; };
   
-  /// Accessor for the current estimated torque vector on the tip of this leg.
+  /// Accessor for the current calculated torque vector on the tip of this leg.
+  /// @return The current calculated torque vector on the tip of the leg
   inline Vector3d getTipTorqueCalculated(void) { return tip_torque_calculated_; };
   
-  /// Accessor for the current estimated torque vector on the tip of this leg.
+  /// Accessor for the current measured torque vector on the tip of this leg.
+  /// @return The current measured torque vector on the tip of the leg
   inline Vector3d getTipTorqueMeasured(void) { return tip_torque_measured_; };
   
   /// Accessor for the current estimated pose of the stepping surface plane.
+  /// @return The current estimated pose of the steppping surface plane
   inline Pose getStepPlanePose(void) { return step_plane_pose_; };
 
   /// Accessor for the current admittance control position offset for this leg.
+  /// @return The current admittance control position offset for the leg
   inline Vector3d getAdmittanceDelta(void) { return admittance_delta_; };
 
   /// Accessor for the virtual mass value used in the admittance control model of this leg.
+  /// @return The virtual mass value used in the admittance control model of the leg
   inline double getVirtualMass(void) { return virtual_mass_; };
 
   /// Accessor for the current virtual stiffness value used in the admittance control model of this leg.
+  /// @return The current virtual stiffness value used in the admittance control model of the leg
   inline double getVirtualStiffness(void) { return virtual_stiffness_; };
 
   /// Accessor for the virtual damping ratio value used in the admittance control model of this leg.
+  /// @return The virtual damping ratio value used in the admittance control model of this leg
   inline double getVirtualDampingRatio(void) { return virtual_damping_ratio_; };
 
   /// Accessor for the admittance state object for this leg.
+  /// @return The admittance state object for the leg
   inline state_type* getAdmittanceState(void) { return &admittance_state_; };
 
   /// Accessor for the container of Joint objects associated with this leg.
+  /// @return The container of Joint objects associated with the leg
   inline JointContainer* getJointContainer(void) { return &joint_container_; };
 
   /// Accessor for the container of Link objects associated with this leg.
+  /// @return The container of Link objects associated with the leg
   inline LinkContainer* getLinkContainer(void) { return &link_container_; };
 
   /// Accessor for the Tip object associated with this leg.
+  /// @return The Tip object associated with the leg
   inline shared_ptr<Tip> getTip(void) { return tip_; };
 
   /// Accessor for the LegStepper object associated with this leg.
+  /// @return The LegStepper object associated with the leg
   inline shared_ptr<LegStepper> getLegStepper(void) { return leg_stepper_; };
 
   /// Accessor for the LegPoser object associated with this leg.
+  /// @return The LegPoser object associated with the leg
   inline shared_ptr<LegPoser> getLegPoser(void) { return leg_poser_; };
   
   /// Accessor for the desired tip pose of this leg.
+  /// @return The desired tip pose of the leg
   inline Pose getDesiredTipPose(void) { return desired_tip_pose_; };
 
   /// Accessor for the desired tip velocity of this leg.
+  /// @return The desired tip velocity of the leg
   inline Vector3d getDesiredTipVelocity(void) { return desired_tip_velocity_; };
 
   /// Accessor for the current tip pose of this leg.
+  /// @return The current tip pose of the leg
   inline Pose getCurrentTipPose(void) { return current_tip_pose_; };
 
   /// Accessor for the current tip velocity of this leg.
+  /// @return The current tip velocity of the leg
   inline Vector3d getCurrentTipVelocity(void) { return current_tip_velocity_; };
   
   /// Accessor for the current pose of the robot body.
+  /// @return The current pose of the robot body
   inline Pose getCurrentBodyPose(void) { return model_->getCurrentPose(); };
   
-  /// Accessor for the current pose of the robot body.
+  /// Accessor for the default pose of the robot body.
+  /// @return The default pose of the robot body
   inline Pose getDefaultBodyPose(void) { return model_->getDefaultPose(); };
   
   /// Modifier for the workspace of the leg.
@@ -359,12 +400,12 @@ public:
   Workspace generateWorkspace(void);
   
   /// Generates interpolated workplane within workspace from given height above workspace origin.
-  /// @params[in] height The desired workplane height from workspace origin
+  /// @param[in] height The desired workplane height from workspace origin
   /// @return The interpolated workplane at input height
   Workplane getWorkplane(const double& height);
   
   /// Generates a reachable tip position from an input test tip position within the workspace of this leg.
-  /// @params[in] reference_tip_position The tip position to use as reference to generate a reachable tip position
+  /// @param[in] reference_tip_position The tip position to use as reference to generate a reachable tip position
   /// @return A reachable tip position which lies within the leg workspace based on the input reference tip position
   Vector3d makeReachable(const Vector3d& reference_tip_position);
   
@@ -377,18 +418,22 @@ public:
 
   /// Returns pointer to joint requested via identification number input.
   /// @param[in] joint_id_number The identification name of the requested joint object pointer
+  /// @return Pointer to joint requested via identification number input
   inline shared_ptr<Joint> getJointByIDNumber(const int& joint_id_number) { return joint_container_[joint_id_number]; };
 
   /// Returns pointer to joint requested via identification name string input.
   /// @param[in] joint_id_name The identification name of the requested joint object pointer
+  /// @return Pointer to joint requested via identification name string input
   shared_ptr<Joint> getJointByIDName(const string& joint_id_name);
 
   /// Returns pointer to link requested via identification number input.
   /// @param[in] link_id_number The identification number of the requested link object pointer
+  /// @return Pointer to link requested via identification number input
   inline shared_ptr<Link> getLinkByIDNumber(const int& link_id_number) { return link_container_[link_id_number]; };
 
   /// Returns pointer to link requested via identification name string input.
   /// @param[in] link_id_name The identification name of the requested link object pointer
+  /// @return Pointer to link requested via identification name string input
   shared_ptr<Link> getLinkByIDName(const string& link_id_name);
 
   /// Sets desired tip pose to the input, applying admittance controller vertical offset (delta z) if requested.
@@ -414,6 +459,7 @@ public:
   /// the Damped Least Squares method to generate a change in joint position for each joint.
   /// @param[in] delta The iterative change in tip position and rotation
   /// @param[in] solve_rotation Flag denoting if IK should solve for rotation as well rather than just position
+  /// @return TBD
   /// @todo Calculate optimal DLS coefficient (this value currently works sufficiently)
   VectorXd solveIK(const MatrixXd& delta, const bool& solve_rotation);
   
@@ -437,6 +483,7 @@ public:
   /// Sets leg current tip pose to new pose if requested.
   /// @param[in] set_current Flag denoting of the calculated tip pose should be set as the current tip pose
   /// @param[in] use_actual Flag denoting if the joint position values used for FK come from actual motor outputs
+  /// @return Calculated new tip pose by applying forward kinematics
   Pose applyFK(const bool& set_current = true, const bool& use_actual = false);
 
 private:
