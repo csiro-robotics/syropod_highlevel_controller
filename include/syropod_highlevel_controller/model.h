@@ -459,11 +459,10 @@ public:
   /// the Damped Least Squares method to generate a change in joint position for each joint.
   /// @param[in] delta The iterative change in tip position and rotation
   /// @param[in] solve_rotation Flag denoting if IK should solve for rotation as well rather than just position
-  /// @return TBD
+  /// @return The position delta for each joint in the model to achieve desired tip position delta. 
   /// @todo Calculate optimal DLS coefficient (this value currently works sufficiently)
   VectorXd solveIK(const MatrixXd& delta, const bool& solve_rotation);
   
-
   /// Updates the joint positions of each joint in this leg based on the input vector. Clamps joint velocities and
   /// positions based on limits and calculates a ratio of proximity of joint position to limits.
   /// @param[in] delta The iterative change in joint position for each joint
