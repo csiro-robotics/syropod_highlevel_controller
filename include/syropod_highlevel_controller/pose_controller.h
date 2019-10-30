@@ -400,11 +400,11 @@ private:
 
   double x_amplitude_;       ///< Amplitude of x axis component of linear translation in auto pose
   double y_amplitude_;       ///< Amplitude of y axis component of linear translation in auto pose
-  double z_amplitude_;       ///< Amplitude of z axis component of linear t**ranslation in auto pose
-  double gravity_amplitude_; ///< Amplitude of the linear translation in au**to pose in the direction of gravity
-  double roll_amplitude_;    ///< Amplitude of roll component of angular ro**tation in auto pose
-  double pitch_amplitude_;   ///< Amplitude of pitch component of angular r**otation in auto pose
-  double yaw_amplitude_;     ///< Amplitude of yaw component of angular rot**ation in auto pose
+  double z_amplitude_;       ///< Amplitude of z axis component of linear translation in auto pose
+  double gravity_amplitude_; ///< Amplitude of the linear translation in auto pose in the direction of gravity
+  double roll_amplitude_;    ///< Amplitude of roll component of angular rotation in auto pose
+  double pitch_amplitude_;   ///< Amplitude of pitch component of angular rotation in auto pose
+  double yaw_amplitude_;     ///< Amplitude of yaw component of angular rotation in auto pose
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
