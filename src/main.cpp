@@ -10,11 +10,11 @@
 
 #define ACQUISTION_TIME 10 ///< Max time controller will wait to acquire intitial joint states (seconds)
 
-/*******************************************************************************************************************//**
- * Main loop. Sets up ros environment including the node handle, rosconsole messaging, loop rate etc. Also creates and
- * initialises the 'StateController', calls the state controller loop and publishers, and sends messages for the user
- * interface.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Main loop. Sets up ros environment including the node handle, rosconsole messaging, loop rate etc. Also creates and
+/// initialises the 'StateController', calls the state controller loop and publishers, and sends messages for the user
+/// interface.
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "shc");
@@ -55,11 +55,11 @@ int main(int argc, char* argv[])
   ros::Rate r(roundToInt(1.0 / params.time_delta.data));
 
   // Wait specified time to aquire all published joint positions via callback
-  int spin = ACQUISTION_TIME / params.time_delta.data; //Spin cycles from time
+  int spin = ACQUISTION_TIME / params.time_delta.data; // Spin cycles from time
   while (spin--)
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nAcquiring robot state . . .\n");
-    // End wait if joints are intitialised or debugging in rviz (joint states will never initialise).
+    // End wait if joints are intitialised or debugging in rviz (joint states will never initialise)
     if (state.jointPositionsInitialised())
     {
       spin = 0;
@@ -134,5 +134,4 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-/***********************************************************************************************************************
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
