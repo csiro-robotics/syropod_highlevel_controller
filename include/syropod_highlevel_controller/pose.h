@@ -157,7 +157,7 @@ public:
     return (~*this).transformVector(vec);
   };
   
-  /// Adds input pose to *this pose..
+  /// Adds input pose to *this pose.
   /// @param[in] pose The pose to add from *this pose
   /// @return The combination of *this pose and input pose
   inline Pose addPose(const Pose& pose) 
