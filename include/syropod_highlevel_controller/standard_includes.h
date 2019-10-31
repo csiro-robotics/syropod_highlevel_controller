@@ -64,58 +64,50 @@ using namespace ros;
 using namespace tf2_ros;
 using namespace Eigen;
 
-/**
- * Converts Degrees to Radians.
- * @param[in] degrees Value in degrees to be converted to radians.
- */
+/// Converts Degrees to Radians.
+/// @param[in] degrees Value in degrees to be converted to radians
+/// @return Value converted to radians from degrees
 inline double degreesToRadians(const double& degrees) { return degrees / 360.0 * 2.0 * M_PI; };
 
-/**
- * Converts Radians to Degrees.
- * @param[in] radians Value in radians to be converted to degrees.
- */
+/// Converts Radians to Degrees.
+/// @param[in] radians Value in radians to be converted to degrees
+/// @return Value converted to degrees from radians
 inline double radiansToDegrees(const double& radians) { return (radians / (2.0 * M_PI)) * 360.0; };
 
-/**
- * Performs the modulo operation with adherence to Euclidean division.
- * @param[in] a The dividend for the operation.
- * @param[in] b The divisor for the operation.
- */
+/// Performs the modulo operation with adherence to Euclidean division.
+/// @param[in] a The dividend for the operation
+/// @param[in] b The divisor for the operation
+/// @return The result after performing modulo operation with adherence to Euclidean division
 template <class T>
 inline T mod(const T& a, const T& b) { return (a % b + b) % b; };
 
-/**
- * Performs the square operation.
- * @param[in] val The value to be squared.
- */
+/// Performs the square operation.
+/// @param[in] val The value to be squared
+/// @return The result after squaring the value
 template <class T>
 inline T sqr(const T& val) { return val * val; };
 
-/**
- * Returns 1 or -1 depending on the sign of the input.
- * @param[in] val The input value.
- */
+/// Returns 1 or -1 depending on the sign of the input.
+/// @param[in] val The input value
+/// @return 1 or -1 depending on the sign of the input
 template <class T>
 inline T sign(const T& val) { return (val > 0 ? 1 : -1); };
 
-/**
- * Rounds the input number to the nearest integer.
- * @param[in] x The input number.
- */
+/// Rounds the input number to the nearest integer.
+/// @param[in] x The input number
+/// @return Nearest integer to the input number
 inline int roundToInt(const double& x) { return (x >= 0 ? int(x + 0.5) : -int(0.5 - x)); };
 
-/**
- * Rounds the input number to the nearest EVEN integer.
- * @param[in] x The input number.
- */
+/// Rounds the input number to the nearest EVEN integer.
+/// @param[in] x The input number
+/// @return Nearest even integer to the input number
 inline int roundToEvenInt(const double& x) { return (int(x) % 2 == 0 ? int(x) : int(x) + 1); };
 
-/**
- * Returns the input value 'clamped' within min and max limits.
- * @param[in] value The input value.
- * @param[in] min_value The minimum limit.
- * @param[in] max_value The maximum limit.
- */
+/// Returns the input value 'clamped' within min and max limits.
+/// @param[in] value The input value
+/// @param[in] min_value The minimum limit
+/// @param[in] max_value The maximum limit
+/// @return The input value clamped within min and max limits
 template <class T>
 inline T clamped(const T& value, const T& min_value, const T& max_value)
 {
@@ -123,22 +115,20 @@ inline T clamped(const T& value, const T& min_value, const T& max_value)
   return max(min_value, min(value, max_value));
 }
 
-/**
- * Returns the input vector scaled such that the magnitude does not exceed the input magnitude.
- * @param[in] value The input vector.
- * @param[in] magnitude The maximum magnitude.
- */
+/// Returns the input vector scaled such that the magnitude does not exceed the input magnitude.
+/// @param[in] value The input vector
+/// @param[in] magnitude The maximum magnitude
+/// @return The input vector scaled such that the magnitude does not exceed the input magnitude
 template <class T>
 inline T clamped(const T& value, const double& magnitude)
 {
   return value.norm() > magnitude ? (value * (magnitude / value.norm())) : value;
 }
 
-/**
- * Returns the input vector scaled such that each element does not exceed the magnitude of each element of the limit vector.
- * @param[in] value The input vector.
- * @param[in] limit The limit vector.
- */
+/// Returns the input vector scaled such that each element does not exceed the magnitude of each element of the limit vector.
+/// @param[in] value The input vector
+/// @param[in] limit The limit vector
+/// @return The input vector scaled such that each element does not exceed the magnitude of each element of the limit vector
 template <class T>
 inline T clamped(const T& value, const T& limit)
 {
@@ -150,21 +140,19 @@ inline T clamped(const T& value, const T& limit)
   return result;
 }
 
-/**
- * Returns the input value with a precision defined by the precision input. (Eg: 1.00001 @ precision = 3 -> 1.000)
- * @param[in] value The input value.
- * @param[in] precision The required precision.
- */
+/// Returns the input value with a precision defined by the precision input. (Eg: 1.00001 @ precision = 3 -> 1.000)
+/// @param[in] value The input value
+/// @param[in] precision The required precision
+/// @return The input value with a precision defined by the precision input
 inline double setPrecision(const double& value, const int& precision)
 {
   return roundToInt(value * pow(10, precision)) / pow(10, precision);
 }
 
-/**
- * Returns the input vector with a precision defined by the precision input. (Eg: 1.00001 @ precision = 3 -> 1.000)
- * @param[in] vector The input vector.
- * @param[in] precision The required precision.
- */
+/// Returns the input vector with a precision defined by the precision input. (Eg: 1.00001 @ precision = 3 -> 1.000)
+/// @param[in] vector The input vector
+/// @param[in] precision The required precision
+/// @return The input vector with a precision defined by the precision input
 inline Vector3d setPrecision(const Vector3d& vector, const int& precision)
 {
   return Vector3d(roundToInt(vector[0] * pow(10, precision)) / pow(10, precision),
@@ -172,24 +160,20 @@ inline Vector3d setPrecision(const Vector3d& vector, const int& precision)
                   roundToInt(vector[2] * pow(10, precision)) / pow(10, precision));
 }
 
-/**
- * Converts a linear control input (0.0 to 1.0) to a smoothed signal using the SmoothStep function.
- * (https://en.wikipedia.org/wiki/Smoothstep)
- * @param[in] control_input The linear control input from 0.0 to 1.0
- * @return The output of the control input run through a smoothStep function.
- */
+/// Converts a linear control input (0.0 to 1.0) to a smoothed signal using the SmoothStep function.
+/// (https://en.wikipedia.org/wiki/Smoothstep)
+/// @param[in] control_input The linear control input from 0.0 to 1.0
+/// @return The output of the control input run through a smoothStep function
 inline double smoothStep(const double& control_input)
 {
   return (6.0*pow(control_input, 5) - 15.0*pow(control_input, 4) + 10.0*pow(control_input, 3));
 }
 
-/**
- * Calculates the projection vector of an input vector onto a reference vector.
- * (en.wikipedia.org/wiki/Vector_projection)
- * @param[in] a The input vector
- * @param[in] b The reference vector
- * @return The resultant projection vector
- */
+/// Calculates the projection vector of an input vector onto a reference vector.
+/// (en.wikipedia.org/wiki/Vector_projection)
+/// @param[in] a The input vector
+/// @param[in] b The reference vector
+/// @return The resultant projection vector
 inline Vector3d getProjection(const Vector3d& a, const Vector3d& b)
 {
   if (a.norm() == 0.0 || b.norm() == 0.0)
@@ -202,25 +186,21 @@ inline Vector3d getProjection(const Vector3d& a, const Vector3d& b)
   }
 }
 
-/**
- * Calculates the rejection vector of an input vector onto a reference vector.
- * (en.wikipedia.org/wiki/Vector_projection)
- * @param[in] a The input vector
- * @param[in] b The reference vector
- * @return The resultant rejection vector
- */
+/// Calculates the rejection vector of an input vector onto a reference vector.
+/// (en.wikipedia.org/wiki/Vector_projection)
+/// @param[in] a The input vector
+/// @param[in] b The reference vector
+/// @return The resultant rejection vector
 inline Vector3d getRejection(const Vector3d& a, const Vector3d& b)
 {
   return a - getProjection(a, b);
 }
 
-/**
- * Returns the linear interpolation between origin and target defined by the control input
- * @param[in] origin The origin of the linear interpolation (control input == 0.0)
- * @param[in] target The target of the linear interpolation (control_input == 1.0)
- * @param[in] control_input The input determining the interpolation point between origin and target.
- * @return The resultant linear interpolation value
- */
+/// Returns the linear interpolation between origin and target defined by the control input
+/// @param[in] origin The origin of the linear interpolation (control input == 0.0)
+/// @param[in] target The target of the linear interpolation (control_input == 1.0)
+/// @param[in] control_input The input determining the interpolation point between origin and target
+/// @return The resultant linear interpolation value
 template <class T>
 inline T interpolate(const T& origin, const T& target, const double& control_input)
 {
@@ -228,11 +208,10 @@ inline T interpolate(const T& origin, const T& target, const double& control_inp
   return (1.0 - control_input) * origin + control_input * target;
 }
 
-/**
- * Return rotation with shorter path between identical rotations on quaternion.
- * @params[in] test The test rotation to check for shorter rotation path.
- * @params[in] reference The reference rotation for the target rotation.
- */
+/// Return rotation with shorter path between identical rotations on quaternion.
+/// @param[in] test The test rotation to check for shorter rotation path
+/// @param[in] reference The reference rotation for the target rotation
+/// @return Rotation with shorter path between identical rotations on quaternion
 inline Quaterniond correctRotation(const Quaterniond& test, const Quaterniond& reference)
 {
   if (test.dot(reference) < 0.0)
@@ -245,11 +224,10 @@ inline Quaterniond correctRotation(const Quaterniond& test, const Quaterniond& r
   }
 }
 
-/**
- * Converts Euler Angles (intrisic or extrinsic roll/pitch/yaw order) to Eigen Quaternion
- * @param[in] euler Eigen Vector3d of Euler angles (roll, pitch, yaw) to be converted
- * @params[in] intrinsic Defines whether conversion occurs intrinsically or extrinsically.
- */
+/// Converts Euler Angles (intrisic or extrinsic roll/pitch/yaw order) to Eigen Quaternion
+/// @param[in] euler Eigen Vector3d of Euler angles (roll, pitch, yaw) to be converted
+/// @param[in] intrinsic Defines whether conversion occurs intrinsically or extrinsically
+/// @return Eigen Quaternion generated using given Euler Angles
 inline Quaterniond eulerAnglesToQuaternion(const Vector3d& euler, const bool& intrinsic = false)
 {
   if (intrinsic)
@@ -266,12 +244,11 @@ inline Quaterniond eulerAnglesToQuaternion(const Vector3d& euler, const bool& in
   }
 }
 
-/**
- * Converts Eigen Quaternion to Euler angles (intrinsic or extrinsic roll/pitch/yaw order) and enures values are in the
- * range -PI:PI.
- * @params[in] rotation Eigen Quaterniond of rotation to be converted
- * @params[in] intrinsic Defines whether conversion occurs intrinsically or extrinsically.
- */
+/// Converts Eigen Quaternion to Euler angles (intrinsic or extrinsic roll/pitch/yaw order) and enures values are in the
+/// range -PI:PI.
+/// @param[in] rotation Eigen Quaterniond of rotation to be converted
+/// @param[in] intrinsic Defines whether conversion occurs intrinsically or extrinsically
+/// @return Euler Angles generated using given Eigen Quaternoid
 inline Vector3d quaternionToEulerAngles(const Quaterniond& rotation, const bool& intrinsic = false)
 {
   Vector3d result(0,0,0);
@@ -286,14 +263,14 @@ inline Vector3d quaternionToEulerAngles(const Quaterniond& rotation, const bool&
   {
     result = rotation.toRotationMatrix().eulerAngles(2,1,0);
   }
-  /* 
-   * RotationMatrix::eulerAngles returns values in the ranges [0:PI, -PI:PI, -PI:PI] which means that in order to
-   * represent a rotation smaller than zero about the first axis, the first axis is pointed in the opposite direction 
-   * and is then flipped around using the 2nd and 3rd axes (i.e. 2nd and 3rd axes += PI). The resultant euler rotation
-   * is correct but results in angles outside the desired range of -PI:PI. The following code checks if this flipping
-   * occurs by checking is the angles of the 2nd and 3rd axes are greater than PI/2. If so all resultant euler
-   * angles are modified such that they range between -PI:PI.
-   */
+  
+  /// RotationMatrix::eulerAngles returns values in the ranges [0:PI, -PI:PI, -PI:PI] which means that in order to
+  /// represent a rotation smaller than zero about the first axis, the first axis is pointed in the opposite direction 
+  /// and is then flipped around using the 2nd and 3rd axes (i.e. 2nd and 3rd axes += PI). The resultant euler rotation
+  /// is correct but results in angles outside the desired range of -PI:PI. The following code checks if this flipping
+  /// occurs by checking is the angles of the 2nd and 3rd axes are greater than PI/2. If so all resultant euler
+  /// angles are modified such that they range between -PI:PI.
+
   if ((abs(result[1]) > M_PI/2 || abs(result[2]) > M_PI/2)) //Flipped
   {
     result[0] -= M_PI;
@@ -318,10 +295,9 @@ inline Vector3d quaternionToEulerAngles(const Quaterniond& rotation, const bool&
   return intrinsic ? result : Vector3d(result[2], result[1], result[0]);
 }
 
-/**
- * Returns a string representation of the input value.
- * @param[in] number The input value.
- */
+/// Returns a string representation of the input value.
+/// @param[in] number The input value
+/// @return String representation of the input value
 template <typename T>
 inline string numberToString(const T& number)
 {
@@ -330,11 +306,10 @@ inline string numberToString(const T& number)
   return ss.str();
 }
 
-/**
- * Returns a string formatted using the same input arguments as rosconsole.
- * @param[in] format The input string.
- * @param[in] args The list of arguments to populate the format string.
- */
+/// Returns a string formatted using the same input arguments as rosconsole.
+/// @param[in] format The input string
+/// @param[in] args The list of arguments to populate the format string
+/// @return Formatted string using the input and the list of arguments 
 template<typename ... Args>
 inline string stringFormat(const string& format, Args ... args)
 {
@@ -344,12 +319,11 @@ inline string stringFormat(const string& format, Args ... args)
   return string(buf.get(), buf.get() + size - 1);   // We don't want the '\0' inside
 }
 
-/**
- * Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input
- * control nodes.
- * @param[in] points An array of control node vectors.
- * @param[in] t A time input from 0.0 to 1.0.
- */
+/// Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input
+/// control nodes.
+/// @param[in] points An array of control node vectors
+/// @param[in] t A time input from 0.0 to 1.0
+/// @return Vector representation generated using the given input array of control node vectors and the time input
 template <class T>
 inline T cubicBezier(const T* points, const double& t)
 {
@@ -358,12 +332,11 @@ inline T cubicBezier(const T* points, const double& t)
          points[3] * (t * t * t);
 }
 
-/**
- * Returns a vector representing a 3d point at a given time input along the derivative of a 3rd order bezier curve
- * defined by input control nodes.
- * @param[in] points An array of control node vectors.
- * @param[in] t A time input from 0.0 to 1.0.
- */
+/// Returns a vector representing a 3d point at a given time input along the derivative of a 3rd order bezier curve
+/// defined by input control nodes.
+/// @param[in] points An array of control node vectors
+/// @param[in] t A time input from 0.0 to 1.0
+/// @return Vector representation generated using the given input array of control node vectors and the time input
 template <class T>
 inline T cubicBezierDot(const T* points, const double& t)
 {
@@ -372,12 +345,11 @@ inline T cubicBezierDot(const T* points, const double& t)
           3 * t * t * (points[3] - points[2]));
 }
 
-/**
- * Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
- * control nodes.
- * @param[in] points An array of control node vectors.
- * @param[in] t A time input from 0.0 to 1.0.
- */
+/// Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
+/// control nodes.
+/// @param[in] points An array of control node vectors
+/// @param[in] t A time input from 0.0 to 1.0
+/// @return Vector representation generated using the given input array of control node vectors and the time input
 template <class T>
 inline T quarticBezier(const T* points, const double& t)
 {
@@ -386,12 +358,11 @@ inline T quarticBezier(const T* points, const double& t)
          points[3] * (4.0 * t * t * t * s) + points[4] * (t * t * t * t);
 }
 
-/**
- * Returns a vector representing a 3d point at a given time input along the derivative of a 4th order bezier curve
- * defined by input control nodes.
- * @param[in] points An array of control node vectors.
- * @param[in] t A time input from 0.0 to 1.0.
- */
+/// Returns a vector representing a 3d point at a given time input along the derivative of a 4th order bezier curve
+/// defined by input control nodes.
+/// @param[in] points An array of control node vectors
+/// @param[in] t A time input from 0.0 to 1.0
+/// @return Vector representation generated using the given input array of control node vectors and the time input
 template <class T>
 inline T quarticBezierDot(const T* points, const double& t)
 {
@@ -400,13 +371,12 @@ inline T quarticBezierDot(const T* points, const double& t)
           12.0 * s * t * t * (points[3] - points[2]) + 4.0 * t * t * t * (points[4] - points[3]));
 }
 
-/**
- * Generates a classical Denavit–Hartenberg (DH) matrix from DH parameters.
- * @param[in] d The DH parameter representing offset along previous z-axis to the common normal.
- * @param[in] theta The DH parameter representing angle about previous z axis, from old x-axis to new x-axis.
- * @param[in] r The DH parameter representing length of the common normal.
- * @param[in] alpha The DH parameter representing angle about common normal, form old z-axis to new z-axis.
- */
+/// Generates a classical Denavit–Hartenberg (DH) matrix from DH parameters.
+/// @param[in] d The DH parameter representing offset along previous z-axis to the common normal
+/// @param[in] theta The DH parameter representing angle about previous z axis, from old x-axis to new x-axis
+/// @param[in] r The DH parameter representing length of the common normal
+/// @param[in] alpha The DH parameter representing angle about common normal, form old z-axis to new z-axis
+/// @return Classical Denavit-Hartenberg (DH) matrix generated using the given DH parameters as input
 inline Matrix4d createDHMatrix(const double& d, const double& theta, const double& r, const double& alpha)
 {
   Matrix4d m;
@@ -417,6 +387,6 @@ inline Matrix4d createDHMatrix(const double& d, const double& theta, const doubl
   return m;
 }
 
-/***********************************************************************************************************************
-***********************************************************************************************************************/
-#endif /* SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H */
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#endif // SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H
