@@ -417,9 +417,6 @@ public:
   /// @param[in] at_correct_phase The new value for the flag
   inline void setAtCorrectPhase(const bool& at_correct_phase) { at_correct_phase_ = at_correct_phase; };
   
-  /// TBD
-  inline void setNewStepFrequency(void) { new_step_frequency_ = true; };
-  
   /// Modifier for the flag denoting touchdown detection enabled.
   /// @param[in] touchdown_detection The new value for the flag
   inline void setTouchdownDetection(const bool& touchdown_detection) { touchdown_detection_ = touchdown_detection; };
@@ -489,10 +486,9 @@ private:
   int phase_ = 0;    ///< Step cycle phase
   int phase_offset_; ///< Step cycle phase offset
 
-  bool new_step_frequency_ = false;
-  double step_progress_ = 0.0;
-  double swing_progress_ = -1.0;   ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
-  double stance_progress_ = -1.0;  ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
+  double step_progress_ = 0.0;      ///< The progress of the entire step cycle (0.0->1.0 || -1.0)
+  double swing_progress_ = -1.0;    ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
+  double stance_progress_ = -1.0;   ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
 
   StepState step_state_ = STANCE; ///< The state of the step cycle
 

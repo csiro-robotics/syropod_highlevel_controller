@@ -690,7 +690,7 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
   }
 }
 
-Ref: https://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void WalkController::updateWalkPlane(void)
 {
@@ -785,7 +785,6 @@ LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
   completed_first_step_ = leg_stepper->completed_first_step_;
   phase_ = leg_stepper->phase_;
   phase_offset_ = leg_stepper->phase_offset_;
-  new_step_frequency_ = leg_stepper->new_step_frequency_;
   stance_progress_ = leg_stepper->stance_progress_;
   swing_progress_ = leg_stepper->swing_progress_;
   stance_progress_ = leg_stepper->stance_progress_;
