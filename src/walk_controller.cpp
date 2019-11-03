@@ -10,22 +10,16 @@
 #include "../include/syropod_highlevel_controller/pose_controller.h"
 #include "../include/syropod_highlevel_controller/debug_visualiser.h"
 
-/*******************************************************************************************************************//**
- * Constructor for the walk controller.
- * @param[in] model A pointer to the robot model.
- * @param[in] params A copy of the parameter data structure
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 WalkController::WalkController(shared_ptr<Model> model, const Parameters& params)
   : model_(model)
   , params_(params)
 {
 }
 
-/*******************************************************************************************************************//**
- * Initialises walk controller by setting desired default walking stance tip positions from parameters and creating
- * LegStepper objects for each leg. Also populates workspace map with initial values by finding bisector line between
- * adjacent leg tip positions.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void WalkController::init(void)
 {
   time_delta_ = params_.time_delta.data;
@@ -59,9 +53,8 @@ void WalkController::init(void)
   generateStepCycle();
 }
 
-/*******************************************************************************************************************//**
- * Generates a 2D polygon from leg workspace, representing the acceptable space to walk within.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void WalkController::generateWalkspace(void)
 {
   // Initially populate walkspace with maximum values (without overlapping between adjacent legs)
@@ -233,17 +226,8 @@ void WalkController::generateWalkspace(void)
   generateLimits();
 }
 
-/*******************************************************************************************************************//**
- * Generate maximum linear and angular speed/acceleration for each workspace radius in workspace map from a given step
- * cycle. These calculated values will accomodate overshoot of tip outside defined workspace whilst body accelerates,
- * effectively scaling usable workspace. The calculated values are either set as walk controller limits OR output to
- * given pointer arguments.
- * @params[in] step Step cycle timing object
- * @params[out] max_linear_speed_ptr Pointer to output object to store new maximum linear speed values
- * @params[out] max_angular_speed_ptr Pointer to output object to store new maximum angular speed values
- * @params[out] max_linear_acceleration_ptr Pointer to output object to store new maximum linear acceleration values
- * @params[out] max_angular_acceleration_ptr Pointer to output object to store new maximum angular acceleration values
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void WalkController::generateLimits(StepCycle step,
                                     LimitMap* max_linear_speed_ptr,
                                     LimitMap* max_angular_speed_ptr, 
@@ -363,12 +347,8 @@ void WalkController::generateLimits(StepCycle step,
   }
 }
 
-/*******************************************************************************************************************//**
- * Generates step timing object from walk cycle parameters, normalising base parameters according to step frequency.
- * Returns step timing object and optionally sets step timing in Walk Controller
- * @params[in] set_step_cycle Flag denoting if generated step cycle object is to be set in Walk Controller
- * @return Generated step cycle object
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 StepCycle WalkController::generateStepCycle(const bool set_step_cycle)
 {
   StepCycle step;
@@ -416,15 +396,8 @@ StepCycle WalkController::generateStepCycle(const bool set_step_cycle)
   return step;
 }
 
-/*******************************************************************************************************************//**
- * Given an input linear velocity vector and angular velocity, this function calculates a stride bearing then calculates
- * an interpolation of the two limits at the bearings (defined by the input limit map) bounding the stride bearing.
- * This is calculated for each leg and the minimum value returned.
- * @params[in] linear_velocity_input The velocity input given to the Syropod defining desired linear body motion
- * @params[in] angular_velocity_input The velocity input given to the Syropod defining desired angular body motion
- * @params[in] limit The LimitMap object which contains limit data for a range of bearings from 0-360 degrees.
- * @return The smallest interpolated limit for a given bearing from each of the Syropod legs.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 double WalkController::getLimit(const Vector2d& linear_velocity_input,
                                 const double& angular_velocity_input,
                                 const LimitMap& limit)
@@ -449,14 +422,8 @@ double WalkController::getLimit(const Vector2d& linear_velocity_input,
   return min_limit;
 }
 
-/*******************************************************************************************************************//**
- * Updates all legs in the walk cycle. Calculates stride vectors for all legs from robot body velocity inputs and calls
- * trajectory update functions for each leg to update individual tip positions. Also manages the overall walk state via
- * state machine and input velocities as well as the individual step state of each leg as they progress through stance
- * and swing states.
- * @params[in] linear_velocity_input An input for the desired linear velocity of the robot body in the x/y plane.
- * @params[in] angular_velocity_input An input for the desired angular velocity of the robot body about the z axis.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void WalkController::updateWalk(const Vector2d& linear_velocity_input, const double& angular_velocity_input)
 {
   Vector2d new_linear_velocity;
@@ -562,7 +529,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
       leg_stepper->setPhase(leg_stepper->getPhaseOffset());
       leg_stepper->updateStepState();
     }
-    return; //Skips iteration of phase so auto posing can catch up
+    return; // Skips iteration of phase so auto posing can catch up
   }
   // State transition: STARTING->MOVING
   else if (walk_state_ == STARTING && legs_at_correct_phase_ == leg_count && legs_completed_first_step_ == leg_count)
@@ -623,7 +590,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     }
     else if (walk_state_ == STOPPING)
     {
-      // All legs must attempt at least one step to achieve default tip position after ending a swing.
+      // All legs must attempt at least one step to achieve default tip position after ending a swing
       bool zero_body_velocity = leg_stepper->getStrideVector().norm() == 0;
       Vector3d walk_plane_normal = leg_stepper->getWalkPlaneNormal();
       Vector3d error = (leg_stepper->getCurrentTipPose().position_ - leg_stepper->getTargetTipPose().position_);
@@ -654,7 +621,7 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
     // Update tip positions
     if (/*walk_state_ != STOPPED && */leg->getLegState() == WALKING)
     {
-      leg_stepper->updateTipPosition();  // updates current tip position through step cycle
+      leg_stepper->updateTipPosition();  // Updates current tip position through step cycle
       leg_stepper->updateTipRotation();
       leg_stepper->iteratePhase();
     }
@@ -667,15 +634,8 @@ void WalkController::updateWalk(const Vector2d& linear_velocity_input, const dou
   }
 }
 
-/*******************************************************************************************************************//**
- * Updates the tip position for legs in the manual state from tip velocity inputs. Two modes are available: joint
- * control allows manipulation of joint positions directly but only works for 3DOF legs; tip control allows
- * manipulation of the tip in cartesian space in the robot frame.
- * @params[in] primary_leg_selection_ID The designation of a leg selected (in the primary role) for manipulation.
- * @params[in] primary_tip_velocity_input The velocity input to move the 1st leg tip position in the robot frame.
- * @params[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
- * @params[in] secondary_tip_velocity_input The velocity input to move the 2nd leg tip position in the robot frame.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void WalkController::updateManual(const int& primary_leg_selection_ID, const Vector3d& primary_tip_velocity_input,
                                   const int& secondary_leg_selection_ID, const Vector3d& secondary_tip_velocity_input)
 {
@@ -699,7 +659,7 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
       if (tip_velocity_input.norm() != 0.0)
       {
         // Joint control works only for 3DOF legs as velocity inputs for x/y/z axes mapped to positions for joints 1/2/3
-        if (params_.leg_manipulation_mode.data == "joint_control" && leg->getJointCount() == 3) //HACK
+        if (params_.leg_manipulation_mode.data == "joint_control" && leg->getJointCount() == 3) // HACK
         {
           double coxa_joint_velocity = tip_velocity_input[1] * params_.max_rotation_velocity.data * time_delta_;
           double tibia_joint_velocity = tip_velocity_input[0] * params_.max_rotation_velocity.data * time_delta_;
@@ -730,11 +690,8 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Vec
   }
 }
 
-/*******************************************************************************************************************//**
- * Calculates a estimated walk plane which best fits the default tip positions of legs in model.
- * Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
- * Ref: https://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void WalkController::updateWalkPlane(void)
 {
   vector<double> raw_A;
@@ -767,11 +724,8 @@ void WalkController::updateWalkPlane(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Calculates the change in pose over the desired time period assuming constant desired body velocity and walk plane.
- * @params[in] time_period The period of time for which to estimate the odometry pose change.
- * @return The estimated odometry pose change over the desired time period.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Pose WalkController::calculateOdometry(const double& time_period)
 {
   Vector3d desired_linear_velocity = Vector3d(desired_linear_velocity_[0], desired_linear_velocity_[1], 0);
@@ -780,12 +734,8 @@ Pose WalkController::calculateOdometry(const double& time_period)
   return Pose(position_delta, rotation_delta);
 }
 
-/*******************************************************************************************************************//**
- * Leg stepper object constructor, initialises member variables from walk controller.
- * @param[in] walker A pointer to the walk controller.
- * @param[in] leg A pointer to the parent leg object.
- * @param[in] identity_tip_pose The default walking stance tip position about which the step cycle is based.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 LegStepper::LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, const Pose& identity_tip_pose)
   : walker_(walker)
   , leg_(leg)
@@ -812,10 +762,8 @@ LegStepper::LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, c
   }
 };
 
-/*******************************************************************************************************************//**
- * Leg stepper object copy constructor, initialises member variables from reference leg stepper object.
- * @param[in] leg_stepper The reference leg stepper object to copy.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
   : walker_(leg_stepper->walker_)
   , leg_(leg_stepper->leg_)
@@ -837,7 +785,6 @@ LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
   completed_first_step_ = leg_stepper->completed_first_step_;
   phase_ = leg_stepper->phase_;
   phase_offset_ = leg_stepper->phase_offset_;
-  new_step_frequency_ = leg_stepper->new_step_frequency_;
   stance_progress_ = leg_stepper->stance_progress_;
   swing_progress_ = leg_stepper->swing_progress_;
   stance_progress_ = leg_stepper->stance_progress_;
@@ -854,9 +801,8 @@ LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
   }
 };
 
-/*******************************************************************************************************************//**
- * Updates phase for new step cycle parameters
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::updatePhase(void)
 {
   StepCycle step = walker_->getStepCycle();
@@ -864,9 +810,8 @@ void LegStepper::updatePhase(void)
   updateStepState();
 }
 
-/*******************************************************************************************************************//**
- * Iterates the step phase and updates the progress variables
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::iteratePhase(void)
 {
   StepCycle step = walker_->getStepCycle();
@@ -895,9 +840,8 @@ void LegStepper::iteratePhase(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Updates the Step state of this LegStepper according to the phase
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::updateStepState(void)
 {
   // Update step state from phase unless force stopped
@@ -916,10 +860,8 @@ void LegStepper::updateStepState(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Updates the stride vector for this leg based on desired linear and angular velocity, with reference to the estimated
- * walk plane. Also updates the swing clearance vector with reference to the estimated walk plane.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::updateStride(void)
 {
   walk_plane_ = walker_->getWalkPlane();
@@ -946,10 +888,8 @@ void LegStepper::updateStride(void)
   swing_clearance_ = walker_->getStepClearance() * walk_plane_normal_.normalized();
 }
 
-/*******************************************************************************************************************//**
- * Calculates the lateral change in distance from identity tip position to new default tip position for a leg.
- * @return The change from identity tip position to the new default tip position.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Vector3d LegStepper::calculateStanceSpanChange(void)
 {
   // Calculate target height of plane within workspace
@@ -983,9 +923,8 @@ Vector3d LegStepper::calculateStanceSpanChange(void)
   return Vector3d(0.0, radius * stance_span_modifier, 0.0);
 }
 
-/*******************************************************************************************************************//**
- * Update Default Tip Position based on external definitions, stance span or tip position at beginning of stance
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::updateDefaultTipPosition(void)
 {
   // Generate new default tip pose from external request transformed based on robot movement since request
@@ -1018,12 +957,8 @@ void LegStepper::updateDefaultTipPosition(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Updates position of tip using three quartic bezier curves to generate the tip trajectory. Calculates change in tip
- * position using two bezier curves for swing period and one for stance period. Each Bezier curve uses 5 control nodes
- * designed specifically to give a C2 smooth trajectory for the entire step cycle.
- * @todo Move proactive target shifting to seperate node and use external target API
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::updateTipPosition(void)
 {
   bool rough_terrain_mode = walker_->getParameters().rough_terrain_mode.data;
@@ -1197,10 +1132,8 @@ void LegStepper::updateTipPosition(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Updates rotation of tip orthogonal to the plane of the body during swing period. Interpolation from origin rotation
- * to orthogonal rotation occurs during first half of swing and is kept orthogonal during second half.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::updateTipRotation(void)
 {
   if (leg_->getJointCount() > 3 && (stance_progress_ >= 0.0 || swing_progress_ >= 0.5))
@@ -1242,10 +1175,8 @@ void LegStepper::updateTipRotation(void)
   }
 }
 
-/*******************************************************************************************************************//**
- * Generates control nodes for quartic bezier curve of 1st half of the swing tip trajectory calculation.
- * of swing trajectory generation.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::generatePrimarySwingControlNodes(void)
 {
   Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_pose_.position_)/2.0;
@@ -1271,11 +1202,8 @@ void LegStepper::generatePrimarySwingControlNodes(void)
   swing_1_nodes_[4] = mid_tip_position;
 }
 
-/*******************************************************************************************************************//**
- * Generates control nodes for quartic bezier curve of 1st half of the swing tip trajectory calculation.
- * of swing trajectory generation.
- * @param[in] ground_contact Denotes if leg has made ground contact and swing trajectory towards ground should cease.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::generateSecondarySwingControlNodes(const bool& ground_contact)
 {
   Vector3d final_tip_velocity = -stride_vector_ * (stance_delta_t_ / walker_->getTimeDelta());
@@ -1304,11 +1232,8 @@ void LegStepper::generateSecondarySwingControlNodes(const bool& ground_contact)
   }
 }
 
-/*******************************************************************************************************************//**
- * Generates control nodes for quartic bezier curve of stance tip trajectory calculation.
- * @param[in] stride_scaler A scaling variable which modifies stride vector according to stance period specifically 
- * for STARTING state of walker
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::generateStanceControlNodes(const double& stride_scaler)
 {
   Vector3d stance_node_seperation = -stride_vector_ * stride_scaler * 0.25;
@@ -1326,10 +1251,8 @@ void LegStepper::generateStanceControlNodes(const double& stride_scaler)
   stance_nodes_[4] = stance_origin_tip_position_ + 4.0 * stance_node_seperation;
 }
 
-/*******************************************************************************************************************//**
- * Updates control nodes for quartic bezier curves of both halves of swing tip trajectory calculation to force the 
- * trajectory of the touchdown period of the swing period to be normal to the walk plane.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void LegStepper::forceNormalTouchdown(void)
 {
   Vector3d final_tip_velocity = -stride_vector_ * (stance_delta_t_ / walker_->getTimeDelta());
@@ -1347,5 +1270,4 @@ void LegStepper::forceNormalTouchdown(void)
   swing_2_nodes_[1] = swing_2_nodes_[0] + (swing_2_nodes_[2] - bezier_origin)/2.0;
 }
 
-/***********************************************************************************************************************
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
