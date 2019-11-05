@@ -47,4 +47,12 @@
 *.kdev*
 .catkin_workspace
 
+# Catkin spaces
+build/
+devel/
+install/
+logs/
+
+
+
 
