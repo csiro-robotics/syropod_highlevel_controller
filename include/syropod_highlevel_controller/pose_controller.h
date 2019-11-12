@@ -37,14 +37,14 @@ class AutoPoser;
 /// requirements and methods. Generation of a user controlled 'manual' body pose and an IMU feedback based automatic
 /// body pose are examples of these sub-poses, which are combined and applied to the robot model body.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-typedef vector<shared_ptr<AutoPoser>, Eigen::aligned_allocator<shared_ptr<AutoPoser>>> AutoPoserContainer;
-class PoseController : public enable_shared_from_this<PoseController>
+typedef std::vector<std::shared_ptr<AutoPoser>, Eigen::aligned_allocator<std::shared_ptr<AutoPoser>>> AutoPoserContainer;
+class PoseController : public std::enable_shared_from_this<PoseController>
 {
 public:
   /// PoseController class constructor. Initialises member variables.
   /// @param[in] model Pointer to the robot model class object
   /// @param[in] params Pointer to the parameter struct object
-  PoseController(shared_ptr<Model> model, const Parameters& params);
+  PoseController(std::shared_ptr<Model> model, const Parameters& params);
 
   /// Accessor for pose reset mode.
   /// @return The pose reset mode (Mode for controlling which posing axes to reset to zero)
@@ -252,10 +252,10 @@ public:
   void calculateDefaultPose(void);
 
 private:
-  shared_ptr<Model> model_;       ///< Pointer to robot model object
+  std::shared_ptr<Model> model_;       ///< Pointer to robot model object
   const Parameters& params_;      ///< Pointer to parameter data structure for storing parameter variables
 
-  shared_ptr<Leg> auto_pose_reference_leg_; ///< Reference leg for auto posing system
+  std::shared_ptr<Leg> auto_pose_reference_leg_; ///< Reference leg for auto posing system
 
   PoseResetMode pose_reset_mode_;         ///< Mode for controlling which posing axes to reset to zero
   Eigen::Vector3d translation_velocity_input_;   ///< Velocity input for controlling the translation component of manual pose
@@ -294,7 +294,7 @@ private:
   bool first_sequence_execution_ = true;        ///< Flags if the controller has executed its first sequence
   bool reset_transition_sequence_ = true;       ///< Flags if the saved transition sequence needs to be regenerated
 
-  vector<double> default_joint_positions_[8];   ///< Joint positions for default stance used in Direct Startup  
+  std::vector<double> default_joint_positions_[8];   ///< Joint positions for default stance used in Direct Startup  
 
   AutoPoserContainer auto_poser_container_;         ///< Object containing all Auto Poser objects
   PosingState auto_posing_state_ = POSING_COMPLETE; ///< The state of auto posing
@@ -327,7 +327,7 @@ public:
   /// Auto poser contructor.
   /// @param[in] poser Pointer to the Pose Controller object.
   /// @param[in] id Int defining the id number of the created Auto Poser object.
-  AutoPoser(shared_ptr<PoseController> poser, const int& id);
+  AutoPoser(std::shared_ptr<PoseController> poser, const int& id);
 
   /// Accessor for id number of Auto Poser object.
   /// @return The identification number of the Auto Poser object
@@ -377,7 +377,7 @@ public:
   inline void resetChecks(void)
   {
     start_check_ = false;
-    end_check_ = pair<bool, bool>(false, false);
+    end_check_ = std::pair<bool, bool>(false, false);
   }
 
   /// Returns a pose which contributes to the auto pose applied to the robot body. The resultant pose is defined by a 4th
@@ -390,12 +390,12 @@ public:
   Pose updatePose(int phase);
 
 private:
-  shared_ptr<PoseController> poser_; ///< Pointer to pose controller object
+  std::shared_ptr<PoseController> poser_; ///< Pointer to pose controller object
   int id_number_;                    ///< Identification number of Auto Poser object
   int start_phase_;                  ///< Phase value denoting start of posing cycle
   int end_phase_;                    ///< Phase value denoting end of posing cycle
   bool start_check_;                 ///< Flag denoting if the posing cycle should start / has started
-  pair<bool, bool> end_check_;       ///< Pair of flags which together denote if posing cycle should end / has ended
+  std::pair<bool, bool> end_check_;       ///< Pair of flags which together denote if posing cycle should end / has ended
   bool allow_posing_ = false;        ///< Flag denoting if the Auto Poser is allowed to continue updating pose output
 
   double x_amplitude_;       ///< Amplitude of x axis component of linear translation in auto pose
@@ -423,15 +423,15 @@ public:
   /// Leg poser contructor.
   /// @param[in] poser Pointer to the Pose Controller object
   /// @param[in] leg Pointer to the parent leg object associated with the create Leg Poser object
-  LegPoser(shared_ptr<PoseController> poser, shared_ptr<Leg> leg);
+  LegPoser(std::shared_ptr<PoseController> poser, std::shared_ptr<Leg> leg);
   
   /// Leg poser copy contructor.
   /// @param[in] leg_poser Pointer to the Leg Poser object to be copied from
-  LegPoser(shared_ptr<LegPoser> leg_poser);
+  LegPoser(std::shared_ptr<LegPoser> leg_poser);
   
   /// Accessor for pointer to parent leg object.
   /// @return Pointer to parent leg object
-  inline shared_ptr<Leg> getParentLeg(void) { return leg_; };
+  inline std::shared_ptr<Leg> getParentLeg(void) { return leg_; };
 
   /// Accessor for current tip pose according to the Leg Poser object.
   /// @return The current tip pose according to the Leg Poser object
@@ -463,7 +463,7 @@ public:
   
   /// Modifier for the pointer to the parent leg.
   /// @param[in] parent_leg Pointer to be set as the pointer to the parent leg
-  inline void setParentLeg(shared_ptr<Leg> parent_leg) { leg_ = parent_leg; };
+  inline void setParentLeg(std::shared_ptr<Leg> parent_leg) { leg_ = parent_leg; };
 
   /// Modifier for current tip pose according to the Leg Poser object.
   /// @param[in] current Pose to be set as the current tip pose according to the Leg Poser object
@@ -556,8 +556,8 @@ public:
   void updateAutoPose(const int& phase);
 
 private:
-  shared_ptr<PoseController> poser_; ///< Pointer to pose controller object
-  shared_ptr<Leg> leg_;              ///< Pointer to the parent leg object
+  std::shared_ptr<PoseController> poser_; ///< Pointer to pose controller object
+  std::shared_ptr<Leg> leg_;              ///< Pointer to the parent leg object
 
   Pose auto_pose_;                          ///< Leg specific auto pose (from default auto pose - negated if required)
   bool negate_auto_pose_ = false;           ///< Flag denoting if negation of auto pose is to occur
@@ -576,7 +576,7 @@ private:
   Pose target_tip_pose_;           ///< Target tip pose used in bezier curve equations
   ExternalTarget external_target_; ///< Externally set target tip pose object
 
-  vector<Pose, Eigen::aligned_allocator<Pose>> transition_poses_; ///< Vector of transition target tip poses
+  std::vector<Pose, Eigen::aligned_allocator<Pose>> transition_poses_; ///< Vector of transition target tip poses
 
   bool leg_completed_step_ = false; ///< Flag denoting if leg has completed its required step in a sequence
 

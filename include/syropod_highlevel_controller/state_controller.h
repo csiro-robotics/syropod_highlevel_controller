@@ -293,16 +293,16 @@ private:
   ros::Publisher plan_step_request_publisher_;        ///< Publisher for topic "/shc/plan_step_request"
   
   tf2_ros::Buffer transform_buffer_;
-  shared_ptr<tf2_ros::TransformListener> transform_listener_;
+  std::shared_ptr<tf2_ros::TransformListener> transform_listener_;
   tf2_ros::TransformBroadcaster transform_broadcaster_;
 
   boost::recursive_mutex mutex_; ///< Mutex used in setup of dynamic reconfigure server
   dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>* dynamic_reconfigure_server_;
 
-  shared_ptr<Model> model_;                     ///< Pointer to robot model object
-  shared_ptr<WalkController> walker_;           ///< Pointer to walk controller object
-  shared_ptr<PoseController> poser_;            ///< Pointer to pose controller object
-  shared_ptr<AdmittanceController> admittance_; ///< Pointer to admittance controller object
+  std::shared_ptr<Model> model_;                     ///< Pointer to robot model object
+  std::shared_ptr<WalkController> walker_;           ///< Pointer to walk controller object
+  std::shared_ptr<PoseController> poser_;            ///< Pointer to pose controller object
+  std::shared_ptr<AdmittanceController> admittance_; ///< Pointer to admittance controller object
   DebugVisualiser debug_visualiser_;            ///< Debug class object used for RVIZ visualization
   Parameters params_;                           ///< Parameter data structure for storing parameter variables
 
@@ -327,8 +327,8 @@ private:
   LegDesignation secondary_leg_selection_ = LEG_UNDESIGNATED; ///< Current secondary leg selection designation
   LegState primary_leg_state_ = WALKING;                      ///< State of primary leg selection
   LegState secondary_leg_state_ = WALKING;                    ///< State of secondary leg selection
-  shared_ptr<Leg> primary_leg_;                               ///< Pointer to leg object of primary leg selection
-  shared_ptr<Leg> secondary_leg_;                             ///< Pointer to leg object of secondary leg selection
+  std::shared_ptr<Leg> primary_leg_;                               ///< Pointer to leg object of primary leg selection
+  std::shared_ptr<Leg> secondary_leg_;                             ///< Pointer to leg object of secondary leg selection
 
   int manual_leg_count_ = 0;                  ///< Count of legs that are currently in manual manipulation mode
   double cruise_control_end_time_ = 0.0;      ///< End time of cruise control mode used for limiting purposes
@@ -344,7 +344,7 @@ private:
   bool target_tip_pose_acquired_ = false;       ///< Flag denoting if tip pose has been acquired from planner interface
   bool target_body_pose_acquired_ = false;      ///< Flag denoting if body pose has been acquiredfrom planner interface
   int plan_step_ = 0;                           ///< The plan step currently being requested/executed
-  string fixed_frame_id_;                       ///< The id of the fixed frame
+  std::string fixed_frame_id_;                       ///< The id of the fixed frame
 
   Eigen::Vector2d linear_velocity_input_;            ///< Input for the desired linear velocity of the robot body
   double angular_velocity_input_ = 0;         ///< Input for the desired angular velocity of the robot body

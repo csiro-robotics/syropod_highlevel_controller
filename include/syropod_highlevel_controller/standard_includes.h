@@ -59,8 +59,6 @@
 
 #define GRAVITY_ACCELERATION -9.81 ///< Approximate gravitational acceleration (m/s/s)
 
-using namespace std;
-
 /// Converts Degrees to Radians.
 /// @param[in] degrees Value in degrees to be converted to radians
 /// @return Value converted to radians from degrees
@@ -109,7 +107,7 @@ template <class T>
 inline T clamped(const T& value, const T& min_value, const T& max_value)
 {
   ROS_ASSERT(min_value <= max_value);
-  return max(min_value, min(value, max_value));
+  return std::max(min_value, std::min(value, max_value));
 }
 
 /// Returns the input vector scaled such that the magnitude does not exceed the input magnitude.
@@ -296,9 +294,9 @@ inline Eigen::Vector3d quaternionToEulerAngles(const Eigen::Quaterniond& rotatio
 /// @param[in] number The input value
 /// @return String representation of the input value
 template <typename T>
-inline string numberToString(const T& number)
+inline std::string numberToString(const T& number)
 {
-  ostringstream ss;
+  std::ostringstream ss;
   ss << number;
   return ss.str();
 }
@@ -308,12 +306,12 @@ inline string numberToString(const T& number)
 /// @param[in] args The list of arguments to populate the format string
 /// @return Formatted string using the input and the list of arguments 
 template<typename ... Args>
-inline string stringFormat(const string& format, Args ... args)
+inline std::string stringFormat(const std::string& format, Args ... args)
 {
   size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1;   // Extra space for '\0'
-  unique_ptr<char[]> buf(new char[ size ]);
+  std::unique_ptr<char[]> buf(new char[ size ]);
   snprintf(buf.get(), size, format.c_str(), args ...);
-  return string(buf.get(), buf.get() + size - 1);   // We don't want the '\0' inside
+  return std::string(buf.get(), buf.get() + size - 1);   // We don't want the '\0' inside
 }
 
 /// Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input

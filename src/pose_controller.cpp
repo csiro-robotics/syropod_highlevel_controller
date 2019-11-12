@@ -11,7 +11,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-PoseController::PoseController(shared_ptr<Model> model, const Parameters& params)
+PoseController::PoseController(std::shared_ptr<Model> model, const Parameters& params)
   : model_(model)
   , params_(params)
 {
@@ -31,8 +31,8 @@ void PoseController::init(void)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    leg->setLegPoser(allocate_shared<LegPoser>(Eigen::aligned_allocator<LegPoser>(), shared_from_this(), leg));
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    leg->setLegPoser(std::allocate_shared<LegPoser>(Eigen::aligned_allocator<LegPoser>(), shared_from_this(), leg));
   }
   setAutoPoseParams();
   walk_plane_pose_.position_ = Eigen::Vector3d(0.0, 0.0, params_.body_clearance.data);
@@ -65,8 +65,8 @@ void PoseController::setAutoPoseParams(void)
   // Set posing negation phase variables according to auto posing parameters
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     leg_poser->setPoseNegationPhaseStart(params_.pose_negation_phase_starts.data.at(leg->getIDName()));
     leg_poser->setPoseNegationPhaseEnd(params_.pose_negation_phase_ends.data.at(leg->getIDName()));
     leg_poser->setNegationTransitionRatio(params_.negation_transition_ratio.data.at(leg->getIDName()));
@@ -82,14 +82,14 @@ void PoseController::setAutoPoseParams(void)
   auto_poser_container_.clear();
   for (int i = 0; i < int(params_.pose_phase_starts.data.size()); ++i)
   {
-    auto_poser_container_.push_back(allocate_shared<AutoPoser>(Eigen::aligned_allocator<AutoPoser>(), shared_from_this(), i));
+    auto_poser_container_.push_back(std::allocate_shared<AutoPoser>(Eigen::aligned_allocator<AutoPoser>(), shared_from_this(), i));
   }
 
   // For each auto-poser object set control variables from auto_posing parameters
   AutoPoserContainer::iterator auto_poser_it;
   for (auto_poser_it = auto_poser_container_.begin(); auto_poser_it != auto_poser_container_.end(); ++auto_poser_it)
   {
-    shared_ptr<AutoPoser> auto_poser = *auto_poser_it;
+    std::shared_ptr<AutoPoser> auto_poser = *auto_poser_it;
     int id = auto_poser->getIDNumber();
     auto_poser->setStartPhase(params_.pose_phase_starts.data[id]);
     auto_poser->setEndPhase(params_.pose_phase_ends.data[id]);
@@ -110,9 +110,9 @@ void PoseController::updateStance(void)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     Pose current_pose = model_->getCurrentPose();
     LegState leg_state = leg->getLegState();
 
@@ -151,8 +151,8 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
     transition_step_ = 0;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+      std::shared_ptr<Leg> leg = leg_it_->second;
+      std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
       leg_poser->resetTransitionSequence();
       leg_poser->addTransitionPose(leg->getCurrentTipPose()); // Initial transition position
     }
@@ -173,7 +173,7 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
     execute_vertical_transition = transition_step_ % 2; // Odd steps
     next_transition_step = transition_step_ + 1;
     transition_step_target = transition_step_count_;
-    total_progress = transition_step_ * 100 / max(transition_step_count_, 1);
+    total_progress = transition_step_ * 100 / std::max(transition_step_count_, 1);
   }
   else if (sequence == SHUT_DOWN)
   {
@@ -181,7 +181,7 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
     execute_vertical_transition = !(transition_step_ % 2); // Even steps
     next_transition_step = transition_step_ - 1;
     transition_step_target = 0;
-    total_progress = 100 - transition_step_ * 100 / max(transition_step_count_, 1);
+    total_progress = 100 - transition_step_ * 100 / std::max(transition_step_count_, 1);
   }
 
   // Determine if this transition is the last one before end of sequence
@@ -209,9 +209,9 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
       ROS_DEBUG_COND(debug, "\nTRANSITION STEP: %d (HORIZONTAL):\n", transition_step_);
       for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
       {
-        shared_ptr<Leg> leg = leg_it_->second;
-        shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-        shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+        std::shared_ptr<Leg> leg = leg_it_->second;
+        std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+        std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
         leg_poser->setLegCompletedStep(false);
 
         Eigen::Vector3d target_tip_position;
@@ -241,9 +241,9 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
     bool direct_step = !model_->legsBearingLoad();
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+      std::shared_ptr<Leg> leg = leg_it_->second;
+      std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
       if (!leg_poser->getLegCompletedStep())
       {
         // Step leg if leg is in stepping group OR simultaneous direct stepping is allowed
@@ -276,11 +276,11 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
               // Send sequence optimisation debug message
               if (debug && transition_step_ == 0)
               {
-                string joint_position_string;
+                std::string joint_position_string;
                 for (joint_it_ = leg->getJointContainer()->begin();
                      joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
                 {
-                  shared_ptr<Joint> joint = joint_it_->second;
+                  std::shared_ptr<Joint> joint = joint_it_->second;
                   joint_position_string += stringFormat("\tJoint: %s\tPosition: %f\n",
                                                         joint->id_name_.c_str(), joint->desired_position_);
                 }
@@ -310,11 +310,11 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
     // Normalise transition progress for use in calculation of total sequence progress
     if (direct_step)
     {
-      normalised_progress = progress / max(transition_step_count_, 1);
+      normalised_progress = progress / std::max(transition_step_count_, 1);
     }
     else
     {
-      normalised_progress = (progress / 2 + (current_group_ == 0 ? 0 : 50)) / max(transition_step_count_, 1);
+      normalised_progress = (progress / 2 + (current_group_ == 0 ? 0 : 50)) / std::max(transition_step_count_, 1);
     }
 
     // Check if legs have completed steps and if transition has completed without a proximity alert
@@ -348,9 +348,9 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
       ROS_DEBUG_COND(debug, "\nTRANSITION STEP: %d (VERTICAL):\n", transition_step_);
       for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
       {
-        shared_ptr<Leg> leg = leg_it_->second;
-        shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-        shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+        std::shared_ptr<Leg> leg = leg_it_->second;
+        std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+        std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
         Eigen::Vector3d target_tip_position;
         if (leg_poser->hasTransitionPose(next_transition_step))
         {
@@ -379,8 +379,8 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
     bool all_legs_within_workspace = true;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+      std::shared_ptr<Leg> leg = leg_it_->second;
+      std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
       Pose target_tip_pose = leg_poser->getTargetTipPose();
       bool apply_delta = (sequence == START_UP && final_transition);
       double time_to_step = VERTICAL_TRANSITION_TIME / params_.step_frequency.current_value;
@@ -398,8 +398,8 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
     {
       for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
       {
-        shared_ptr<Leg> leg = leg_it_->second;
-        shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+        std::shared_ptr<Leg> leg = leg_it_->second;
+        std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
         progress = leg_poser->resetStepToPosition();
         if (first_sequence_execution_)
         {
@@ -420,7 +420,7 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
     }
 
     // Normalise transition progress for use in calculation of total sequence progress
-    normalised_progress = progress / max(transition_step_count_, 1);
+    normalised_progress = progress / std::max(transition_step_count_, 1);
   }
 
   // Update count of transition steps as first sequence executes
@@ -449,7 +449,7 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
   // If sequence has not completed return percentage estimate of completion (i.e. < 100%)
   else
   {
-    total_progress = min(total_progress + normalised_progress, PROGRESS_COMPLETE - 1);
+    total_progress = std::min(total_progress + normalised_progress, PROGRESS_COMPLETE - 1);
     return (first_sequence_execution_ ? -1 : total_progress);
   }
 }
@@ -463,15 +463,15 @@ int PoseController::directStartup(void) // Simultaneous leg coordination
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
     // Run model in simulation to find joint positions for default stance
     if (!executing_transition_)
     {
       // Create copy of leg at initial state
-      shared_ptr<Leg> test_leg = allocate_shared<Leg>(Eigen::aligned_allocator<Leg>(), leg);
+      std::shared_ptr<Leg> test_leg = std::allocate_shared<Leg>(Eigen::aligned_allocator<Leg>(), leg);
       test_leg->generate(leg);
       test_leg->init(true);
 
@@ -479,7 +479,7 @@ int PoseController::directStartup(void) // Simultaneous leg coordination
       Pose default_tip_pose = leg_stepper->getDefaultTipPose();
       while (progress != PROGRESS_COMPLETE)
       {
-        shared_ptr<LegPoser> test_leg_poser = test_leg->getLegPoser();
+        std::shared_ptr<LegPoser> test_leg_poser = test_leg->getLegPoser();
         progress = test_leg_poser->stepToPosition(default_tip_pose, model_->getCurrentPose(), 0.0, time_to_start);
         test_leg->setDesiredTipPose(test_leg_poser->getCurrentTipPose(), true);
         test_leg->applyIK(true);
@@ -494,7 +494,7 @@ int PoseController::directStartup(void) // Simultaneous leg coordination
       JointContainer::iterator joint_it;
       for (joint_it = test_leg->getJointContainer()->begin(); joint_it != test_leg->getJointContainer()->end(); ++joint_it)
       {
-        shared_ptr<Joint> joint = joint_it->second;
+        std::shared_ptr<Joint> joint = joint_it->second;
         int joint_index = joint->id_number_ - 1;
         default_configuration.name[joint_index] = joint->id_name_;
         default_configuration.position[joint_index] = joint->desired_position_;
@@ -518,11 +518,11 @@ int PoseController::stepToNewStance(void) // Tripod leg coordination
   int leg_count = model_->getLegCount();
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<Leg> leg = leg_it_->second;
     if (leg->getGroup() == current_group_)
     {
-      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-      shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+      std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
       double step_height = params_.swing_height.current_value;
       double step_time = 1.0 / params_.step_frequency.current_value;
       Pose target_tip_pose = leg_stepper->getDefaultTipPose();
@@ -558,9 +558,9 @@ int PoseController::poseForLegManipulation(void) // Simultaneous leg coordinatio
   int min_progress = UNASSIGNED_VALUE; // Percentage progress (0%->100%)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     double step_height = params_.swing_height.current_value;
     double step_time = 1.0 / params_.step_frequency.current_value;
 
@@ -593,7 +593,7 @@ int PoseController::poseForLegManipulation(void) // Simultaneous leg coordinatio
     }
 
     int progress = leg_poser->stepToPosition(target_tip_pose, Pose::Identity(), step_height, step_time);
-    min_progress = min(progress, min_progress);
+    min_progress = std::min(progress, min_progress);
     if (progress != PROGRESS_COMPLETE)
     {
       leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
@@ -613,8 +613,8 @@ int PoseController::packLegs(const double& time_to_pack) // Simultaneous leg coo
   int number_pack_steps = 1;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     number_pack_steps = model_->getLegByIDNumber(0)->getJointByIDNumber(1)->packed_positions_.size();
     
     // Generate unpacked configuration
@@ -659,8 +659,8 @@ int PoseController::unpackLegs(const double& time_to_unpack) // Simultaneous leg
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     
     // Generate unpacked configuration
     if (!executing_transition_)
@@ -674,7 +674,7 @@ int PoseController::unpackLegs(const double& time_to_unpack) // Simultaneous leg
       JointContainer::iterator joint_it;
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
-        shared_ptr<Joint> joint = joint_it->second;
+        std::shared_ptr<Joint> joint = joint_it->second;
         int joint_index = joint->id_number_ - 1;
         unpacked_configuration.name[joint_index] = joint->id_name_;
         double target_position = (pack_step_ > 0) ? joint->packed_positions_.at(pack_step_ - 1) : joint->unpacked_position_;
@@ -705,13 +705,13 @@ int PoseController::transitionConfiguration(const double& transition_time) // Si
   int min_progress = INT_MAX; // Percentage progress (0%->100%)
   
   // Iterate through message and build individual leg configurations
-  map<string, sensor_msgs::JointState> configuration_sorter;
+  std::map<std::string, sensor_msgs::JointState> configuration_sorter;
   if (!executing_transition_)
   {
     for (uint i = 0; i < target_configuration_.name.size(); ++i)
     {
-      string joint_name = target_configuration_.name[i];
-      string leg_name = joint_name.substr(0, joint_name.find("_"));
+      std::string joint_name = target_configuration_.name[i];
+      std::string leg_name = joint_name.substr(0, joint_name.find("_"));
       int joint_count = model_->getLegByIDName(leg_name)->getJointCount();
       int joint_index = model_->getLegByIDName(leg_name)->getJointByIDName(joint_name)->id_number_ - 1;
       
@@ -721,7 +721,7 @@ int PoseController::transitionConfiguration(const double& transition_time) // Si
         sensor_msgs::JointState new_leg_configuration;
         new_leg_configuration.name.assign(joint_count, "");
         new_leg_configuration.position.assign(joint_count, UNASSIGNED_VALUE);
-        configuration_sorter.insert(map<string, sensor_msgs::JointState>::value_type(leg_name, new_leg_configuration));
+        configuration_sorter.insert(std::map<std::string, sensor_msgs::JointState>::value_type(leg_name, new_leg_configuration));
       }
       
       // Populate configuration with desired values
@@ -735,8 +735,8 @@ int PoseController::transitionConfiguration(const double& transition_time) // Si
   // Run configuration transition for each leg
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     if (!executing_transition_)
     {
       sensor_msgs::JointState desired_configuration;
@@ -747,7 +747,7 @@ int PoseController::transitionConfiguration(const double& transition_time) // Si
       leg_poser->setDesiredConfiguration(desired_configuration);
     }
     int progress = leg_poser->transitionConfiguration(transition_time);
-    min_progress = min(progress, min_progress);
+    min_progress = std::min(progress, min_progress);
   }
 
   executing_transition_ = (min_progress != 0 && min_progress != PROGRESS_COMPLETE);
@@ -761,8 +761,8 @@ int PoseController::transitionStance(const double& transition_time)
   int min_progress = INT_MAX; // Percentage progress (0%->100%)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     ExternalTarget target = leg_poser->getExternalTarget();
     Pose target_tip_pose = Pose::Undefined();
     double swing_clearance = 0.0;
@@ -784,7 +784,7 @@ int PoseController::transitionStance(const double& transition_time)
     int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, swing_clearance, transition_time, true);
     leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
     leg->applyIK();
-    min_progress = min(progress, min_progress);
+    min_progress = std::min(progress, min_progress);
     
     // Reset target if target achieved
     if (target.defined_ && progress == PROGRESS_COMPLETE)
@@ -997,7 +997,7 @@ void PoseController::updateIKErrorPose(void)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<Leg> leg = leg_it_->second;
     WalkState walk_state = leg->getLegStepper()->getWalkState();
     if (walk_state != STOPPED)
     {
@@ -1014,8 +1014,8 @@ void PoseController::updateTipAlignPose(void)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     double swing_progress = leg_stepper->getSwingProgress();
     if (swing_progress != -1.0)
     {
@@ -1024,8 +1024,8 @@ void PoseController::updateTipAlignPose(void)
       Eigen::Quaterniond walk_plane_rotation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(), walk_plane_normal);
 
       // Calculate vector from tip position to final joint position
-      shared_ptr<Tip> tip = leg->getTip();
-      shared_ptr<Joint> joint = tip->reference_link_->actuating_joint_;
+      std::shared_ptr<Tip> tip = leg->getTip();
+      std::shared_ptr<Joint> joint = tip->reference_link_->actuating_joint_;
       Eigen::Vector3d tip_position = tip->getPoseRobotFrame().position_;
       Eigen::Vector3d joint_position = joint->getPoseRobotFrame().position_;
       Eigen::Vector3d tip_to_joint = joint_position - tip_position;
@@ -1085,9 +1085,9 @@ void PoseController::updateWalkPlanePose(void)
   double c = 0.0; // Control input ((0.0 -> 1.0)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    double swing_progress_scaler = max(1.0, double(params_.swing_phase.data) / params_.phase_offset.data);
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    double swing_progress_scaler = std::max(1.0, double(params_.swing_phase.data) / params_.phase_offset.data);
     double swing_progress = leg_stepper->getSwingProgress() * swing_progress_scaler; // Handles overlapping swing periods
     
     if (swing_progress >= 0 && swing_progress <= 1.0)
@@ -1121,7 +1121,7 @@ void PoseController::updateWalkPlanePose(void)
 
 void PoseController::updateAutoPose(void)
 {
-  shared_ptr<LegStepper> leg_stepper = auto_pose_reference_leg_->getLegStepper();
+  std::shared_ptr<LegStepper> leg_stepper = auto_pose_reference_leg_->getLegStepper();
   auto_pose_ = Pose::Identity();
 
   // Update auto posing state
@@ -1153,7 +1153,7 @@ void PoseController::updateAutoPose(void)
   AutoPoserContainer::iterator auto_poser_it;
   for (auto_poser_it = auto_poser_container_.begin(); auto_poser_it != auto_poser_container_.end(); ++auto_poser_it)
   {
-    shared_ptr<AutoPoser> auto_poser = *auto_poser_it;
+    std::shared_ptr<AutoPoser> auto_poser = *auto_poser_it;
     Pose updated_pose = auto_poser->updatePose(master_phase);
     auto_posers_complete += int(!auto_poser->isPosing());
     auto_pose_ = auto_pose_.addPose(updated_pose);
@@ -1168,8 +1168,8 @@ void PoseController::updateAutoPose(void)
   // Update leg specific auto pose using leg posers
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     leg_poser->updateAutoPose(master_phase);
   }
 }
@@ -1260,7 +1260,7 @@ void PoseController::calculateDefaultPose(void)
   // Check how many legs are load bearing and how many are transitioning states
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<Leg> leg = leg_it_->second;
     LegState state = leg->getLegState();
 
     if (state == WALKING || state == MANUAL_TO_WALKING)
@@ -1283,8 +1283,8 @@ void PoseController::calculateDefaultPose(void)
 
       for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
       {
-        shared_ptr<Leg> leg = leg_it_->second;
-        shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+        std::shared_ptr<Leg> leg = leg_it_->second;
+        std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
         LegState state = leg->getLegState();
 
         if (state == WALKING || state == MANUAL_TO_WALKING)
@@ -1313,7 +1313,7 @@ void PoseController::calculateDefaultPose(void)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-AutoPoser::AutoPoser(shared_ptr<PoseController> poser, const int& id)
+AutoPoser::AutoPoser(std::shared_ptr<PoseController> poser, const int& id)
   : poser_(poser)
   , id_number_(id)
 {
@@ -1348,7 +1348,7 @@ Pose AutoPoser::updatePose(int phase)
   if (!allow_posing_ && start_check_) // Start posing
   {
     allow_posing_ = true;
-    end_check_ = pair<bool, bool>(false, false);
+    end_check_ = std::pair<bool, bool>(false, false);
   }
   else if (allow_posing_ && sync_with_step_cycle && end_check_.first && end_check_.second) // Stop posing
   {
@@ -1426,7 +1426,7 @@ Pose AutoPoser::updatePose(int phase)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-LegPoser::LegPoser(shared_ptr<PoseController> poser, shared_ptr<Leg> leg)
+LegPoser::LegPoser(std::shared_ptr<PoseController> poser, std::shared_ptr<Leg> leg)
   : poser_(poser)
   , leg_(leg)
   , auto_pose_(Pose::Identity())
@@ -1437,7 +1437,7 @@ LegPoser::LegPoser(shared_ptr<PoseController> poser, shared_ptr<Leg> leg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-LegPoser::LegPoser(shared_ptr<LegPoser> leg_poser)
+LegPoser::LegPoser(std::shared_ptr<LegPoser> leg_poser)
   : poser_(leg_poser->poser_)
   , leg_(leg_poser->leg_)
   , auto_pose_(leg_poser->auto_pose_)
@@ -1476,7 +1476,7 @@ int LegPoser::transitionConfiguration(const double& transition_time)
     int i = 0;
     for (joint_it = leg_->getJointContainer()->begin(); joint_it != leg_->getJointContainer()->end(); ++joint_it, ++i)
     {
-      shared_ptr<Joint> joint = joint_it->second;
+      std::shared_ptr<Joint> joint = joint_it->second;
       ROS_ASSERT(desired_configuration_.name[i] == joint->id_name_);
       bool joint_at_target = abs(desired_configuration_.position[i] - joint->desired_position_) < JOINT_TOLERANCE;
       all_joints_at_target = all_joints_at_target && joint_at_target;
@@ -1497,7 +1497,7 @@ int LegPoser::transitionConfiguration(const double& transition_time)
     }
   }
 
-  int num_iterations = max(1, int(roundToInt(transition_time / poser_->getParameters().time_delta.data)));
+  int num_iterations = std::max(1, int(roundToInt(transition_time / poser_->getParameters().time_delta.data)));
   double delta_t = 1.0 / num_iterations;
 
   master_iteration_count_++;
@@ -1507,7 +1507,7 @@ int LegPoser::transitionConfiguration(const double& transition_time)
   int i = 0;
   for (joint_it = leg_->getJointContainer()->begin(); joint_it != leg_->getJointContainer()->end(); ++joint_it, ++i)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
     double control_nodes[4];
     control_nodes[0] = origin_configuration_.position[i];
     control_nodes[1] = origin_configuration_.position[i];
@@ -1524,7 +1524,7 @@ int LegPoser::transitionConfiguration(const double& transition_time)
   if (poser_->getParameters().debug_moveToJointPosition.data && leg_->getIDNumber() == 0) // reference leg for debugging
   {
     double time = master_iteration_count_ * delta_t;
-    string origin_string, current_string, target_string;
+    std::string origin_string, current_string, target_string;
     for (uint i = 0; i < new_configuration.name.size(); ++i)
     {
       origin_string += stringFormat("%f\t", origin_configuration_.position[i]);
@@ -1599,7 +1599,7 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
 
   master_iteration_count_++;
 
-  int num_iterations = max(1, int(roundToInt(time_to_step / poser_->getParameters().time_delta.data)));
+  int num_iterations = std::max(1, int(roundToInt(time_to_step / poser_->getParameters().time_delta.data)));
   double delta_t = 1.0 / num_iterations;
 
   double completion_ratio = (double(master_iteration_count_ - 1) / double(num_iterations));
@@ -1748,11 +1748,11 @@ void LegPoser::updateAutoPose(const int& phase)
     {
       if (first_half)
       {
-        control_input = min(1.0, iteration / (num_iterations * negation_transition_ratio_));
+        control_input = std::min(1.0, iteration / (num_iterations * negation_transition_ratio_));
       }
       else
       {
-        control_input = min(1.0, (num_iterations - iteration) / (num_iterations * negation_transition_ratio_));
+        control_input = std::min(1.0, (num_iterations - iteration) / (num_iterations * negation_transition_ratio_));
       }
     }
     control_input = smoothStep(control_input);

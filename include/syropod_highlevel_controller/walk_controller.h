@@ -15,7 +15,7 @@
 #include "model.h"
 
 class DebugVisualiser;
-typedef map<int, double> LimitMap;
+typedef std::map<int, double> LimitMap;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Object containing parameters which define the timing of the step cycle.
@@ -39,7 +39,7 @@ struct ExternalTarget
 {
   Pose pose_;              ///< The target tip pose
   double swing_clearance_; ///< The height of the swing trajectory clearance normal to walk plane
-  string frame_id_;        ///< The target tip pose reference frame id
+  std::string frame_id_;        ///< The target tip pose reference frame id
   ros::Time time_;         ///< The ros time of the request for the target tip pose
   Pose transform_;         ///< The transform between reference frames at time of request and current time
   bool defined_ = false;   ///< Flag denoting if external target object has been defined
@@ -51,13 +51,13 @@ struct ExternalTarget
 /// maximum body velocities and accelerations and transformation of input desired body velocities to individual tip
 /// stride vectors.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-class WalkController : public enable_shared_from_this<WalkController>
+class WalkController : public std::enable_shared_from_this<WalkController>
 {
 public:
   /// Constructor for the walk controller.
   /// @param[in] model A pointer to the robot model
   /// @param[in] params A copy of the parameter data structure
-  WalkController(shared_ptr<Model> model, const Parameters& params);
+  WalkController(std::shared_ptr<Model> model, const Parameters& params);
 
   /// Accessor for pointer to parameter data structure.
   /// @return Pointer to parameter data structure
@@ -227,7 +227,7 @@ public:
   Pose calculateOdometry(const double& time_period);
 
 private:
-  shared_ptr<Model> model_;            ///< Pointer to robot model object
+  std::shared_ptr<Model> model_;            ///< Pointer to robot model object
   const Parameters& params_;           ///< Pointer to parameter data structure for storing parameter variables
   double time_delta_;                  ///< The time period of the ros cycle
 
@@ -280,15 +280,15 @@ public:
   /// @param[in] walker A pointer to the walk controller
   /// @param[in] leg A pointer to the parent leg object
   /// @param[in] identity_tip_pose The default walking stance tip pose about which the step cycle is based
-  LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, const Pose& identity_tip_pose);
+  LegStepper(std::shared_ptr<WalkController> walker, std::shared_ptr<Leg> leg, const Pose& identity_tip_pose);
   
   /// Leg stepper object copy constructor, initialises member variables from reference leg stepper object.
   /// @param[in] leg_stepper The reference leg stepper object to copy
-  LegStepper(shared_ptr<LegStepper> leg_stepper);
+  LegStepper(std::shared_ptr<LegStepper> leg_stepper);
   
   /// Accessor for pointer to parent leg object.
   /// @return Pointer to parent leg object
-  inline shared_ptr<Leg> getParentLeg(void) { return leg_; };
+  inline std::shared_ptr<Leg> getParentLeg(void) { return leg_; };
 
   /// Accessor for the current tip pose according to the walk controller.
   /// @return Current tip pose accoding to the walk controller
@@ -379,7 +379,7 @@ public:
   
   /// Modifier for the pointer to the parent leg object.
   /// @param[in] parent_leg The new parent leg pointer
-  inline void setParentLeg(shared_ptr<Leg> parent_leg) { leg_ = parent_leg; };
+  inline void setParentLeg(std::shared_ptr<Leg> parent_leg) { leg_ = parent_leg; };
 
   /// Modifier for the current tip pose according to the walk controller.
   /// @param[in] current_tip_pose The new current tip pose
@@ -476,8 +476,8 @@ public:
   void forceNormalTouchdown(void);
 
 private:
-  shared_ptr<WalkController> walker_;  ///< Pointer to walk controller object
-  shared_ptr<Leg> leg_;                ///< Pointer to the parent leg object
+  std::shared_ptr<WalkController> walker_;  ///< Pointer to walk controller object
+  std::shared_ptr<Leg> leg_;                ///< Pointer to the parent leg object
 
   bool at_correct_phase_ = false;     ///< Flag denoting if the leg is at the correct phase per the walk state
   bool completed_first_step_ = false; ///< Flag denoting if the leg has completed its first step  

@@ -13,7 +13,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Model::Model(const Parameters& params, shared_ptr<DebugVisualiser> debug_visualiser)
+Model::Model(const Parameters& params, std::shared_ptr<DebugVisualiser> debug_visualiser)
   : params_(params)
   , debug_visualiser_(debug_visualiser)
   , leg_count_(params_.leg_id.data.size())
@@ -28,7 +28,7 @@ Model::Model(const Parameters& params, shared_ptr<DebugVisualiser> debug_visuali
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Model::Model(shared_ptr<Model> model)
+Model::Model(std::shared_ptr<Model> model)
   : params_(model->params_)
   , debug_visualiser_(model->debug_visualiser_)
   , leg_count_(model->leg_count_)
@@ -41,20 +41,20 @@ Model::Model(shared_ptr<Model> model)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Model::generate(shared_ptr<Model> model)
+void Model::generate(std::shared_ptr<Model> model)
 {
   for (int i = 0; i < leg_count_; ++i)
   {
-    shared_ptr<Leg> leg;
+    std::shared_ptr<Leg> leg;
     if (model != NULL)
     {
-      shared_ptr<Leg> reference_leg = model->leg_container_.find(i)->second;
-      leg = allocate_shared<Leg>(Eigen::aligned_allocator<Leg>(), reference_leg, shared_from_this());
+      std::shared_ptr<Leg> reference_leg = model->leg_container_.find(i)->second;
+      leg = std::allocate_shared<Leg>(Eigen::aligned_allocator<Leg>(), reference_leg, shared_from_this());
       leg->generate(reference_leg);
     }
     else
     {
-      leg = allocate_shared<Leg>(Eigen::aligned_allocator<Leg>(), shared_from_this(), i, params_);
+      leg = std::allocate_shared<Leg>(Eigen::aligned_allocator<Leg>(), shared_from_this(), i, params_);
       leg->generate();
     }
     leg_container_.insert(LegContainer::value_type(i, leg));
@@ -69,7 +69,7 @@ void Model::initLegs(const bool& use_default_joint_positions)
   LegContainer::iterator leg_it;
   for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
+    std::shared_ptr<Leg> leg = leg_it->second;
     leg->init(use_default_joint_positions);
   }
 }
@@ -82,7 +82,7 @@ bool Model::legsBearingLoad(void)
   LegContainer::iterator leg_it;
   for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
+    std::shared_ptr<Leg> leg = leg_it->second;
     body_height_estimate += leg->getCurrentTipPose().position_[2];
   }
   return -(body_height_estimate / leg_count_) > HALF_BODY_DEPTH; // TODO Parameterise this value
@@ -90,12 +90,12 @@ bool Model::legsBearingLoad(void)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-shared_ptr<Leg> Model::getLegByIDName(const string& leg_id_name)
+std::shared_ptr<Leg> Model::getLegByIDName(const std::string& leg_id_name)
 {
   LegContainer::iterator leg_it;
   for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
+    std::shared_ptr<Leg> leg = leg_it->second;
     if (leg->getIDName() == leg_id_name)
     {
       return leg;
@@ -111,7 +111,7 @@ void Model::updateDefaultConfiguration(void)
   LegContainer::iterator leg_it;
   for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
+    std::shared_ptr<Leg> leg = leg_it->second;
     leg->updateDefaultConfiguration();
   }
 }
@@ -121,7 +121,7 @@ void Model::updateDefaultConfiguration(void)
 void Model::generateWorkspaces(void)
 {
   // Create copy of model for searching for kinematic limitations
-  shared_ptr<Model> search_model = allocate_shared<Model>(Eigen::aligned_allocator<Model>(), shared_from_this());
+  std::shared_ptr<Model> search_model = std::allocate_shared<Model>(Eigen::aligned_allocator<Model>(), shared_from_this());
   search_model->generate(shared_from_this());
   search_model->initLegs(true);
   
@@ -129,9 +129,9 @@ void Model::generateWorkspaces(void)
   LegContainer::iterator leg_it;
   for (leg_it = search_model->getLegContainer()->begin(); leg_it != search_model->getLegContainer()->end(); ++leg_it)
   {
-    shared_ptr<Leg> search_leg = leg_it->second;
+    std::shared_ptr<Leg> search_leg = leg_it->second;
     ROS_INFO("\n[SHC] Generating workspace (%d%%) . . .\n", roundToInt(100.0 * search_leg->getIDNumber() / leg_count_));
-    shared_ptr<Leg> leg = leg_container_.at(search_leg->getIDNumber());
+    std::shared_ptr<Leg> leg = leg_container_.at(search_leg->getIDNumber());
     leg->setWorkspace(search_leg->generateWorkspace());
   }
   ROS_INFO("\n[SHC] Generating workspace (100%%) . . .\n");
@@ -145,7 +145,7 @@ void Model::updateModel(void)
   LegContainer::iterator leg_it;
   for (leg_it = leg_container_.begin(); leg_it != leg_container_.end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
+    std::shared_ptr<Leg> leg = leg_it->second;
     leg->setDesiredTipPose();
     leg->applyIK();
   }
@@ -166,7 +166,7 @@ Eigen::Vector3d Model::estimateGravity(void)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params)
+Leg::Leg(std::shared_ptr<Model> model, const int& id_number, const Parameters& params)
   : model_(model)
   , params_(params)
   , id_number_(id_number)
@@ -174,7 +174,7 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
   , joint_count_(params_.leg_DOF.data.at(id_name_))
   , leg_state_(WALKING)
   , admittance_delta_(Eigen::Vector3d::Zero())
-  , admittance_state_(vector<double>(2))
+  , admittance_state_(std::vector<double>(2))
 {
   desired_tip_pose_ = Pose::Undefined();
   desired_tip_velocity_ = Eigen::Vector3d::Zero();
@@ -190,7 +190,7 @@ Leg::Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Leg::Leg(shared_ptr<Leg> leg, shared_ptr<Model> model)
+Leg::Leg(std::shared_ptr<Leg> leg, std::shared_ptr<Model> model)
   : params_(leg->params_)
   , id_number_(leg->id_number_)
   , id_name_(leg->id_name_)
@@ -219,24 +219,24 @@ Leg::Leg(shared_ptr<Leg> leg, shared_ptr<Model> model)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Leg::generate(shared_ptr<Leg> leg)
+void Leg::generate(std::shared_ptr<Leg> leg)
 {
-  shared_ptr<Joint> null_joint = allocate_shared<Joint>(Eigen::aligned_allocator<Joint>()); //Null joint acts as origin
-  shared_ptr<Link> base_link = 
-    allocate_shared<Link>(Eigen::aligned_allocator<Link>(), shared_from_this(), null_joint, 0, params_);
+  std::shared_ptr<Joint> null_joint = std::allocate_shared<Joint>(Eigen::aligned_allocator<Joint>()); //Null joint acts as origin
+  std::shared_ptr<Link> base_link = 
+    std::allocate_shared<Link>(Eigen::aligned_allocator<Link>(), shared_from_this(), null_joint, 0, params_);
   link_container_.insert(LinkContainer::value_type(0, base_link));
-  shared_ptr<Link> prev_link = base_link;
+  std::shared_ptr<Link> prev_link = base_link;
   for (int i = 1; i < joint_count_ + 1; ++i)
   {
-    shared_ptr<Joint> new_joint = 
-      allocate_shared<Joint>(Eigen::aligned_allocator<Joint>(), shared_from_this(), prev_link, i, params_);
-    shared_ptr<Link> new_link = 
-      allocate_shared<Link>(Eigen::aligned_allocator<Link>(), shared_from_this(), new_joint, i, params_);
+    std::shared_ptr<Joint> new_joint = 
+      std::allocate_shared<Joint>(Eigen::aligned_allocator<Joint>(), shared_from_this(), prev_link, i, params_);
+    std::shared_ptr<Link> new_link = 
+      std::allocate_shared<Link>(Eigen::aligned_allocator<Link>(), shared_from_this(), new_joint, i, params_);
     joint_container_.insert(JointContainer::value_type(i, new_joint));
     link_container_.insert(LinkContainer::value_type(i, new_link));
     prev_link = new_link;
   }
-  tip_ = allocate_shared<Tip>(Eigen::aligned_allocator<Tip>(), shared_from_this(), prev_link);
+  tip_ = std::allocate_shared<Tip>(Eigen::aligned_allocator<Tip>(), shared_from_this(), prev_link);
 
   // If given reference leg, copy member element variables to this leg object
   if (leg != NULL)
@@ -245,8 +245,8 @@ void Leg::generate(shared_ptr<Leg> leg)
     JointContainer::iterator joint_it;
     for (joint_it = leg->joint_container_.begin(); joint_it != leg->joint_container_.end(); ++joint_it)
     {
-      shared_ptr<Joint> old_joint = joint_it->second;
-      shared_ptr<Joint> new_joint = joint_container_.find(old_joint->id_number_)->second;
+      std::shared_ptr<Joint> old_joint = joint_it->second;
+      std::shared_ptr<Joint> new_joint = joint_container_.find(old_joint->id_number_)->second;
       new_joint->current_transform_ = old_joint->current_transform_;
       new_joint->identity_transform_ = old_joint->identity_transform_;
       new_joint->desired_position_publisher_ = old_joint->desired_position_publisher_;
@@ -272,11 +272,11 @@ void Leg::generate(shared_ptr<Leg> leg)
     tip_->current_transform_ = leg->tip_->current_transform_;
     
     // Copy LegStepper
-    leg_stepper_ = allocate_shared<LegStepper>(Eigen::aligned_allocator<LegStepper>(), leg->getLegStepper());
+    leg_stepper_ = std::allocate_shared<LegStepper>(Eigen::aligned_allocator<LegStepper>(), leg->getLegStepper());
     leg_stepper_->setParentLeg(shared_from_this());
     
     // Copy LegPoser
-    leg_poser_ = allocate_shared<LegPoser>(Eigen::aligned_allocator<LegPoser>(), leg->getLegPoser());
+    leg_poser_ = std::allocate_shared<LegPoser>(Eigen::aligned_allocator<LegPoser>(), leg->getLegPoser());
     leg_poser_->setParentLeg(shared_from_this());
   }
 }
@@ -288,7 +288,7 @@ void Leg::init(const bool& use_default_joint_positions)
   JointContainer::iterator joint_it;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
     if (use_default_joint_positions)
     {
       joint->current_position_ = joint->default_position_;
@@ -489,7 +489,7 @@ Workspace Leg::generateWorkspace(void)
     // Display robot model and workspace for debugging purposes
     if (display_debug_visualisation)
     {
-      shared_ptr<DebugVisualiser> debug = model_->getDebugVisualiser();
+      std::shared_ptr<DebugVisualiser> debug = model_->getDebugVisualiser();
       debug->generateRobotModel(model_);
       debug->generateWorkspace(shared_from_this(), params_.body_clearance.data);
       ros::Rate r(100);
@@ -588,7 +588,7 @@ void Leg::updateDefaultConfiguration(void)
   JointContainer::iterator joint_it;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
     joint->default_position_ = joint->desired_position_;
   }
 }
@@ -601,7 +601,7 @@ void Leg::generateDesiredJointStateMsg(sensor_msgs::JointState* joint_state_msg)
   JointContainer::iterator joint_it;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
     joint_state_msg->name.push_back(joint->id_name_);
     joint_state_msg->position.push_back(joint->desired_position_);
     joint_state_msg->velocity.push_back(joint->desired_velocity_);
@@ -611,12 +611,12 @@ void Leg::generateDesiredJointStateMsg(sensor_msgs::JointState* joint_state_msg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-shared_ptr<Joint> Leg::getJointByIDName(const string& joint_id_name)
+std::shared_ptr<Joint> Leg::getJointByIDName(const std::string& joint_id_name)
 {
   JointContainer::iterator joint_it;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
     if (joint->id_name_ == joint_id_name)
     {
       return joint;
@@ -627,12 +627,12 @@ shared_ptr<Joint> Leg::getJointByIDName(const string& joint_id_name)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-shared_ptr<Link> Leg::getLinkByIDName(const string& link_id_name)
+std::shared_ptr<Link> Leg::getLinkByIDName(const std::string& link_id_name)
 {
   LinkContainer::iterator link_it;
   for (link_it = link_container_.begin(); link_it != link_container_.end(); ++link_it)
   {
-    shared_ptr<Link> link = link_it->second;
+    std::shared_ptr<Link> link = link_it->second;
     if (link->id_name_ == link_id_name)
     {
       return link;
@@ -659,7 +659,7 @@ void Leg::setDesiredTipPose(const Pose& tip_pose, bool apply_delta)
 
 void Leg::calculateTipForce(void)
 {
-  shared_ptr<Joint> first_joint = joint_container_.begin()->second;
+  std::shared_ptr<Joint> first_joint = joint_container_.begin()->second;
 
   Eigen::Vector3d pe = tip_->getTransformFromJoint(first_joint->id_number_).block<3, 1>(0, 3);
   Eigen::Vector3d z0(0, 0, 1);
@@ -677,7 +677,7 @@ void Leg::calculateTipForce(void)
   JointContainer::iterator joint_it;
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
     Eigen::Matrix4d t = joint->getTransformFromJoint(first_joint->id_number_);
     jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); // Linear velocity
     jacobian.block<3, 1>(3, i) = t.block<3, 1>(0, 2); // Angular velocity
@@ -719,7 +719,7 @@ Eigen::VectorXd Leg::solveIK(const Eigen::MatrixXd& delta, const bool& solve_rot
 {
   // Calculate Jacobian from DH matrices along kinematic chain
   // ref: robotics.stackexchange.com/questions/2760/computing-inverse-kinematic-with-jacobian-matrices-for-6-dof-manipulator
-  shared_ptr<Joint> first_joint = joint_container_.begin()->second;
+  std::shared_ptr<Joint> first_joint = joint_container_.begin()->second;
   Eigen::Vector3d pe = tip_->getTransformFromJoint(first_joint->id_number_).block<3, 1>(0, 3);
   Eigen::Vector3d z0(0, 0, 1);
   Eigen::Vector3d p0(0, 0, 0);
@@ -732,7 +732,7 @@ Eigen::VectorXd Leg::solveIK(const Eigen::MatrixXd& delta, const bool& solve_rot
   int i = 1; // Skip first joint dh parameters since it is a fixed transformation
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
     Eigen::Matrix4d t = joint->getTransformFromJoint(first_joint->id_number_);
     jacobian.block<3, 1>(0, i) = t.block<3, 1>(0, 2).cross(pe - t.block<3, 1>(0, 3)); // Linear velocity
     jacobian.block<3, 1>(3, i) = solve_rotation ? t.block<3, 1>(0, 2) : Eigen::Vector3d(0,0,0); // Angular velocity
@@ -756,7 +756,7 @@ Eigen::VectorXd Leg::solveIK(const Eigen::MatrixXd& delta, const bool& solve_rot
   Eigen::VectorXd combined_cost_gradient = Eigen::VectorXd::Zero(joint_count_);
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++i)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
 
     // POSITION LIMITS
     double joint_position_range = joint->max_position_ - joint->min_position_;
@@ -787,12 +787,12 @@ Eigen::VectorXd Leg::solveIK(const Eigen::MatrixXd& delta, const bool& solve_rot
 double Leg::updateJointPositions(const Eigen::VectorXd& delta, const bool& simulation)
 {
   int index = 0;
-  string clamping_events;
+  std::string clamping_events;
   double min_limit_proximity = 1.0;
   JointContainer::iterator joint_it;
   for (joint_it = joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it, ++index)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
     joint->desired_velocity_ = delta[index] / model_->getTimeDelta();
     ROS_ASSERT(joint->desired_velocity_ < UNASSIGNED_VALUE);
 
@@ -833,8 +833,8 @@ double Leg::updateJointPositions(const Eigen::VectorXd& delta, const bool& simul
     double min_diff = abs(joint->min_position_ - joint->desired_position_);
     double max_diff = abs(joint->max_position_ - joint->desired_position_);
     double half_joint_range = (joint->max_position_ - joint->min_position_) / 2.0;
-    double limit_proximity = half_joint_range != 0 ? min(min_diff, max_diff) / half_joint_range : 1.0;
-    min_limit_proximity = min(limit_proximity, min_limit_proximity);
+    double limit_proximity = half_joint_range != 0 ? std::min(min_diff, max_diff) / half_joint_range : 1.0;
+    min_limit_proximity = std::min(limit_proximity, min_limit_proximity);
     
     // Report clamping events
     ROS_WARN_COND(!clamping_events.empty() && !params_.ignore_IK_warnings.data && !simulation,
@@ -849,7 +849,7 @@ double Leg::updateJointPositions(const Eigen::VectorXd& delta, const bool& simul
 double Leg::applyIK(const bool& simulation)
 {
   // Generate position delta vector in reference to the base of the leg
-  shared_ptr<Joint> base_joint = joint_container_.begin()->second;
+  std::shared_ptr<Joint> base_joint = joint_container_.begin()->second;
   Pose leg_frame_desired_tip_pose = base_joint->getPoseJointFrame(desired_tip_pose_);
   Pose leg_frame_current_tip_pose = base_joint->getPoseJointFrame(current_tip_pose_);
   Eigen::Vector3d position_delta = leg_frame_desired_tip_pose.position_ - leg_frame_current_tip_pose.position_;
@@ -897,7 +897,7 @@ double Leg::applyIK(const bool& simulation)
                  current_tip_pose_.position_[0], current_tip_pose_.position_[1], current_tip_pose_.position_[2]);
 
   // Display warning messages for associated inverse kinematic deviations
-  string axis_label[3] = {"x", "y", "z"};
+  std::string axis_label[3] = {"x", "y", "z"};
   for (int i = 0; i < 3; ++i)
   {
     Eigen::Vector3d position_error = current_tip_pose_.position_ - desired_tip_pose_.position_;
@@ -933,8 +933,8 @@ Pose Leg::applyFK(const bool& set_current, const bool& use_actual)
   JointContainer::iterator joint_it;
   for (joint_it = ++joint_container_.begin(); joint_it != joint_container_.end(); ++joint_it)
   {
-    shared_ptr<Joint> joint = joint_it->second;
-    const shared_ptr<Link> reference_link = joint->reference_link_;
+    std::shared_ptr<Joint> joint = joint_it->second;
+    const std::shared_ptr<Link> reference_link = joint->reference_link_;
     double joint_angle = reference_link->actuating_joint_->desired_position_;
     if (use_actual)
     {
@@ -945,7 +945,7 @@ Pose Leg::applyFK(const bool& set_current, const bool& use_actual)
                                                reference_link->dh_parameter_r_,
                                                reference_link->dh_parameter_alpha_);
   }
-  const shared_ptr<Link> reference_link = tip_->reference_link_;
+  const std::shared_ptr<Link> reference_link = tip_->reference_link_;
   double joint_angle = reference_link->actuating_joint_->desired_position_;
   if (use_actual)
   {
@@ -974,7 +974,7 @@ Pose Leg::applyFK(const bool& set_current, const bool& use_actual)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params)
+Link::Link(std::shared_ptr<Leg> leg, std::shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params)
   : parent_leg_(leg)
   , actuating_joint_(actuating_joint)
   , id_number_(id_number)
@@ -993,7 +993,7 @@ Link::Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Link::Link(shared_ptr<Link> link)
+Link::Link(std::shared_ptr<Link> link)
   : parent_leg_(link->parent_leg_)
   , actuating_joint_(link->actuating_joint_)
   , id_number_(link->id_number_)
@@ -1007,7 +1007,7 @@ Link::Link(shared_ptr<Link> link)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, const Parameters& params)
+Joint::Joint(std::shared_ptr<Leg> leg, std::shared_ptr<Link> reference_link, const int& id_number, const Parameters& params)
   : parent_leg_(leg)
   , reference_link_(reference_link)
   , id_number_(id_number)
@@ -1020,9 +1020,9 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
   default_position_ = clamped(0.0, min_position_, max_position_);
   
   // Populate packed configuration/s joint position/s
-  map<string, double> joint_parameters = params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data;
+  std::map<std::string, double> joint_parameters = params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data;
   bool get_next_packed_position = true;
-  string packed_position_key = "packed";
+  std::string packed_position_key = "packed";
   int i = 0;
   while (get_next_packed_position)
   {
@@ -1031,7 +1031,7 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
       packed_positions_.push_back(joint_parameters.at(packed_position_key));
       get_next_packed_position = (packed_position_key != "packed");
     } 
-    catch (out_of_range)
+    catch (std::out_of_range)
     {
       get_next_packed_position = (packed_position_key == "packed");
     }
@@ -1056,7 +1056,7 @@ Joint::Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Joint::Joint(shared_ptr<Joint> joint)
+Joint::Joint(std::shared_ptr<Joint> joint)
   : parent_leg_(joint->parent_leg_)
   , reference_link_(joint->reference_link_)
   , id_number_(joint->id_number_)
@@ -1100,7 +1100,7 @@ Joint::Joint(void)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Tip::Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link)
+Tip::Tip(std::shared_ptr<Leg> leg, std::shared_ptr<Link> reference_link)
   : parent_leg_(leg)
   , reference_link_(reference_link)
   , id_name_(leg->getIDName() + "_tip")
@@ -1114,7 +1114,7 @@ Tip::Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Tip::Tip(shared_ptr<Tip> tip)
+Tip::Tip(std::shared_ptr<Tip> tip)
   : parent_leg_(tip->parent_leg_)
   , reference_link_(tip->reference_link_)
   , id_name_(tip->id_name_)

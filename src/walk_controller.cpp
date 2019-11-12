@@ -12,7 +12,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-WalkController::WalkController(shared_ptr<Model> model, const Parameters& params)
+WalkController::WalkController(std::shared_ptr<Model> model, const Parameters& params)
   : model_(model)
   , params_(params)
 {
@@ -31,7 +31,7 @@ void WalkController::init(void)
   // Set default stance tip positions from parameters
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<Leg> leg = leg_it_->second;
     double x_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("x");
     double y_position = params_.leg_stance_positions[leg->getIDNumber()].data.at("y");
     Eigen::Quaterniond identity_tip_rotation = UNDEFINED_ROTATION;
@@ -41,7 +41,7 @@ void WalkController::init(void)
       identity_tip_rotation = correctRotation(identity_tip_rotation, Eigen::Quaterniond::Identity());
     }
     Pose identity_tip_pose(Eigen::Vector3d(x_position, y_position, 0.0), identity_tip_rotation);
-    leg->setLegStepper(allocate_shared<LegStepper>(Eigen::aligned_allocator<LegStepper>(),
+    leg->setLegStepper(std::allocate_shared<LegStepper>(Eigen::aligned_allocator<LegStepper>(),
                                                    shared_from_this(), leg, identity_tip_pose));
   }
 
@@ -63,9 +63,9 @@ void WalkController::generateWalkspace(void)
   {
     // Get positions of adjacent legs
     int leg_count = model_->getLegCount();
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(mod(leg->getIDNumber() + 1, leg_count));
-    shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(mod(leg->getIDNumber() - 1, leg_count));
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(mod(leg->getIDNumber() + 1, leg_count));
+    std::shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(mod(leg->getIDNumber() - 1, leg_count));
     Eigen::Vector3d default_tip_position = leg->getLegStepper()->getDefaultTipPose().position_;
     Eigen::Vector3d adjacent_1_tip_position = adjacent_leg_1->getLegStepper()->getDefaultTipPose().position_;
     Eigen::Vector3d adjacent_2_tip_position = adjacent_leg_2->getLegStepper()->getDefaultTipPose().position_;
@@ -94,8 +94,8 @@ void WalkController::generateWalkspace(void)
         distance_to_overlap_2 = distance_to_adjacent_leg_2 / cos(degreesToRadians(bearing_diff_2));
       }
       bool overlapping = params_.overlapping_walkspaces.data;
-      double min_distance = overlapping ? MAX_WORKSPACE_RADIUS : min(distance_to_overlap_1, distance_to_overlap_2);
-      min_distance = min(min_distance, MAX_WORKSPACE_RADIUS);
+      double min_distance = overlapping ? MAX_WORKSPACE_RADIUS : std::min(distance_to_overlap_1, distance_to_overlap_2);
+      min_distance = std::min(min_distance, MAX_WORKSPACE_RADIUS);
       if (walkspace_.find(bearing) != walkspace_.end() && min_distance < walkspace_[bearing])
       {
         walkspace_[bearing] = min_distance;
@@ -110,8 +110,8 @@ void WalkController::generateWalkspace(void)
   // Generate walkspace for each leg whilst ensuring symmetry and minimum values
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     
     // Calculate target height of plane within workspace
     Pose current_pose = model_->getCurrentPose();
@@ -258,15 +258,15 @@ void WalkController::generateLimits(StepCycle step,
   int max_stance_extension = 0;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<Leg> leg = leg_it_->second;
     ROS_ASSERT(params_.offset_multiplier.data.count(leg->getIDName()));
     int multiplier = params_.offset_multiplier.data.at(leg->getIDName());
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     int step_offset = (base_step_offset * multiplier) % step.period_;
     leg_stepper->setPhaseOffset(step_offset);
     if (step_offset > step.swing_start_ && step_offset < step.swing_end_)  // SWING STATE
     {
-      max_stance_extension = max(max_stance_extension, step.swing_end_ - step_offset);
+      max_stance_extension = std::max(max_stance_extension, step.swing_end_ - step_offset);
     }
   }
 
@@ -286,8 +286,8 @@ void WalkController::generateLimits(StepCycle step,
     double stance_overshoot = 0;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      std::shared_ptr<Leg> leg = leg_it_->second;
+      std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       // All referenced swings are the LAST swing period BEFORE the max velocity (stride length) is reached
       double step_offset = leg_stepper->getPhaseOffset();
       double t = step_offset * time_delta_; // Time between swing end and max velocity being reached
@@ -297,7 +297,7 @@ void WalkController::generateLimits(StepCycle step,
       double d0 = -stride_length / 2.0; // Distance to default tip position at time of swing end
       double d1 = d0 + v0 * t + 0.5 * max_acceleration * sqr(t); // Distance from default tip position at max velocity
       double d2 = max_speed * (step.stance_period_ * time_delta_ - t); // Distance from default tip position at end of stance
-      stance_overshoot = max(stance_overshoot, d1 + d2 - walkspace_radius); // Max overshoot past walkspace limitations
+      stance_overshoot = std::max(stance_overshoot, d1 + d2 - walkspace_radius); // Max overshoot past walkspace limitations
     }
 
     // Scale walkspace to accomodate stance overshoot and normal swing overshoot
@@ -305,8 +305,8 @@ void WalkController::generateLimits(StepCycle step,
     double scaled_walkspace_radius = (walkspace_radius / (walkspace_radius + stance_overshoot + swing_overshoot)) * walkspace_radius;
     
     // Stance radius based around front right leg to ensure positive values
-    shared_ptr<Leg> reference_leg = model_->getLegByIDNumber(0);
-    shared_ptr<LegStepper> reference_leg_stepper = reference_leg->getLegStepper();
+    std::shared_ptr<Leg> reference_leg = model_->getLegByIDNumber(0);
+    std::shared_ptr<LegStepper> reference_leg_stepper = reference_leg->getLegStepper();
     double x_position = reference_leg_stepper->getDefaultTipPose().position_[0];
     double y_position = reference_leg_stepper->getDefaultTipPose().position_[1];
     double stance_radius = Eigen::Vector2d(x_position, y_position).norm();
@@ -387,8 +387,8 @@ StepCycle WalkController::generateStepCycle(const bool set_step_cycle)
     {
       for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
       {
-        shared_ptr<Leg> leg = leg_it_->second;
-        shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+        std::shared_ptr<Leg> leg = leg_it_->second;
+        std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
         leg_stepper->updatePhase();
       }
     }
@@ -405,8 +405,8 @@ double WalkController::getLimit(const Eigen::Vector2d& linear_velocity_input,
   double min_limit = UNASSIGNED_VALUE;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     Eigen::Vector3d tip_position = leg_stepper->getCurrentTipPose().position_;
     Eigen::Vector2d rotation_normal = Eigen::Vector2d(-tip_position[1], tip_position[0]);
     Eigen::Vector2d stride_vector = linear_velocity_input + angular_velocity_input * rotation_normal;
@@ -417,7 +417,7 @@ double WalkController::getLimit(const Eigen::Vector2d& linear_velocity_input,
     upper_bound += (upper_bound < lower_bound) ? 360 : 0;
     double control_input = (bearing - lower_bound) / (upper_bound - lower_bound);
     double limit_interpolation = interpolate(limit.at(lower_bound), limit.at(mod(upper_bound, 360)), control_input);
-    min_limit = min(min_limit, limit_interpolation);
+    min_limit = std::min(min_limit, limit_interpolation);
   }
   return min_limit;
 }
@@ -478,8 +478,8 @@ void WalkController::updateWalk(const Eigen::Vector2d& linear_velocity_input, co
   // Check that all legs are in WALKING state
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (leg->getLegState() != WALKING)
     {
       if (linear_velocity_input.norm())
@@ -521,8 +521,8 @@ void WalkController::updateWalk(const Eigen::Vector2d& linear_velocity_input, co
     walk_state_ = STARTING;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      std::shared_ptr<Leg> leg = leg_it_->second;
+      std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       leg_stepper->setAtCorrectPhase(false);
       leg_stepper->setCompletedFirstStep(false);
       leg_stepper->setStepState(STANCE);
@@ -553,8 +553,8 @@ void WalkController::updateWalk(const Eigen::Vector2d& linear_velocity_input, co
   // Update walk/step state and tip position along trajectory for each leg
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
     // Walk State Machine
     if (walk_state_ == STARTING)
@@ -641,8 +641,8 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Eig
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (leg->getLegState() == MANUAL)
     {
       Eigen::Vector3d tip_velocity_input;
@@ -694,14 +694,14 @@ void WalkController::updateManual(const int& primary_leg_selection_ID, const Eig
 
 void WalkController::updateWalkPlane(void)
 {
-  vector<double> raw_A;
-  vector<double> raw_B;
+  std::vector<double> raw_A;
+  std::vector<double> raw_B;
   if (model_->getLegCount() >= 3) // Minimum for plane estimation
   {
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
-      shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      std::shared_ptr<Leg> leg = leg_it_->second;
+      std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
       raw_A.push_back(leg_stepper->getDefaultTipPose().position_[0]);
       raw_A.push_back(leg_stepper->getDefaultTipPose().position_[1]);
       raw_A.push_back(1.0);
@@ -736,7 +736,7 @@ Pose WalkController::calculateOdometry(const double& time_period)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-LegStepper::LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, const Pose& identity_tip_pose)
+LegStepper::LegStepper(std::shared_ptr<WalkController> walker, std::shared_ptr<Leg> leg, const Pose& identity_tip_pose)
   : walker_(walker)
   , leg_(leg)
   , identity_tip_pose_(identity_tip_pose)
@@ -764,7 +764,7 @@ LegStepper::LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, c
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-LegStepper::LegStepper(shared_ptr<LegStepper> leg_stepper)
+LegStepper::LegStepper(std::shared_ptr<LegStepper> leg_stepper)
   : walker_(leg_stepper->walker_)
   , leg_(leg_stepper->leg_)
   , identity_tip_pose_(leg_stepper->identity_tip_pose_)
@@ -1159,7 +1159,7 @@ void LegStepper::updateTipRotation(void)
       current_tip_pose_.rotation_ = correctRotation(target_tip_pose_.rotation_, origin_tip_pose_.rotation_);
       if (swing_progress_ >= 0.5)
       {
-        double c = smoothStep(min(1.0, 2.0 * (swing_progress_ - 0.5))); // Control input (0.0 -> 1.0)
+        double c = smoothStep(std::min(1.0, 2.0 * (swing_progress_ - 0.5))); // Control input (0.0 -> 1.0)
         Eigen::Vector3d origin_tip_direction = origin_tip_pose_.rotation_._transformVector(Eigen::Vector3d::UnitX());
         Eigen::Vector3d target_tip_direction = target_tip_pose_.rotation_._transformVector(Eigen::Vector3d::UnitX());
         Eigen::Vector3d new_tip_direction = interpolate(origin_tip_direction, target_tip_direction, c);
@@ -1180,7 +1180,7 @@ void LegStepper::updateTipRotation(void)
 void LegStepper::generatePrimarySwingControlNodes(void)
 {
   Eigen::Vector3d mid_tip_position = (swing_origin_tip_position_ + target_tip_pose_.position_)/2.0;
-  mid_tip_position[2] = max(swing_origin_tip_position_[2], target_tip_pose_.position_[2]);
+  mid_tip_position[2] = std::max(swing_origin_tip_position_[2], target_tip_pose_.position_[2]);
   mid_tip_position += swing_clearance_;
   double mid_lateral_shift = walker_->getParameters().swing_width.current_value;
   bool positive_y_axis = (Eigen::Vector3d::UnitY().dot(identity_tip_pose_.position_) > 0.0);
@@ -1260,7 +1260,7 @@ void LegStepper::forceNormalTouchdown(void)
   
   Eigen::Vector3d bezier_target = target_tip_pose_.position_;
   Eigen::Vector3d bezier_origin = target_tip_pose_.position_ - 4.0 * stance_node_seperation;
-  bezier_origin[2] = max(swing_origin_tip_position_[2], target_tip_pose_.position_[2]);
+  bezier_origin[2] = std::max(swing_origin_tip_position_[2], target_tip_pose_.position_[2]);
   bezier_origin += swing_clearance_;
   
   swing_1_nodes_[4] = bezier_origin;

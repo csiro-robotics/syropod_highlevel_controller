@@ -53,18 +53,18 @@ public:
 /// This class serves as the top-level parent of each leg object and associated tip/joint/link objects. It contains data
 /// which is relevant to the robot body or the robot as a whole rather than leg dependent data.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-typedef map<int, shared_ptr<Leg>, less<int>, Eigen::aligned_allocator<pair<const int, shared_ptr<Leg>>>> LegContainer;
-class Model : public enable_shared_from_this<Model>
+typedef std::map<int, std::shared_ptr<Leg>, std::less<int>, Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<Leg>>>> LegContainer;
+class Model : public std::enable_shared_from_this<Model>
 {
 public:
   /// Contructor for robot model object - initialises member variables from parameters.
   /// @param[in] params A pointer to the parameter data structure
   /// @param[in] debug_visualiser A pointer to debug visualiser object
-  Model(const Parameters& params, shared_ptr<DebugVisualiser> debug_visualiser);
+  Model(const Parameters& params, std::shared_ptr<DebugVisualiser> debug_visualiser);
   
   /// Copy Constructor for a robot model object. Initialises member variables from existing Model object.
   /// @param[in] model A pointer to a existing reference robot model object
-  Model(shared_ptr<Model> model);
+  Model(std::shared_ptr<Model> model);
 
   /// Accessor for leg object container.
   /// @return Pointer to leg container object
@@ -72,7 +72,7 @@ public:
   
   /// Accessor for debug visualiser pointer.
   /// @return Pointer to debug visualiser object
-  inline shared_ptr<DebugVisualiser> getDebugVisualiser(void) { return debug_visualiser_; };
+  inline std::shared_ptr<DebugVisualiser> getDebugVisualiser(void) { return debug_visualiser_; };
 
   /// Accessor for leg count (number of legs in robot model).
   /// @return Number of legs in the robot model
@@ -101,7 +101,7 @@ public:
   /// Generates child leg objects and copies state from reference model if provided.
   /// Separated from constructor due to shared_from_this() constraints.
   /// @param[in] model A pointer to a existing reference robot model object
-  void generate(shared_ptr<Model> model = NULL);
+  void generate(std::shared_ptr<Model> model = NULL);
 
   /// Iterate through legs in robot model and have them run their initialisation.
   /// @param[in] use_default_joint_positions Flag denoting if the leg should initialise using default joint position
@@ -119,12 +119,12 @@ public:
   /// Returns pointer to leg requested via identification number input.
   /// @param[in] leg_id_num The identification number of the requested leg object pointer
   /// @return The Pointer to leg requested via identification number input
-  inline shared_ptr<Leg> getLegByIDNumber(const int& leg_id_num) { return leg_container_[leg_id_num]; };
+  inline std::shared_ptr<Leg> getLegByIDNumber(const int& leg_id_num) { return leg_container_[leg_id_num]; };
 
   /// Returns pointer to leg requsted via identification name string input.
   /// @param[in] leg_id_name The identification name of the requested leg object pointer
   /// @return The pointer to leg requested via identification name input
-  shared_ptr<Leg> getLegByIDName(const string& leg_id_name);
+  std::shared_ptr<Leg> getLegByIDName(const std::string& leg_id_name);
   
   /// Accessor for imu data.
   /// @return The imu data structure of the robot model
@@ -167,7 +167,7 @@ public:
 
 private:
   const Parameters& params_;                     ///< Pointer to parameter structure for storing parameter variables
-  shared_ptr<DebugVisualiser> debug_visualiser_; ///< Pointer to debug visualiser object
+  std::shared_ptr<DebugVisualiser> debug_visualiser_; ///< Pointer to debug visualiser object
   LegContainer leg_container_;                   ///< The container map for all robot model leg objects
   
   int leg_count_;                ///< The number of leg objects within the robot model
@@ -185,28 +185,28 @@ public:
 /// application of both forward and inverse kinematics. This class contains all child Joint, Link and Tip objects
 /// associated with the leg.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-typedef vector<double> state_type; // Impedance state used in admittance controller
-typedef map<int, double> Workplane;
-typedef map<double, Workplane> Workspace;
-typedef map<int, shared_ptr<Joint>, less<int>, Eigen::aligned_allocator<pair<const int, shared_ptr<Joint>>>> JointContainer;
-typedef map<int, shared_ptr<Link>, less<int>, Eigen::aligned_allocator<pair<const int, shared_ptr<Link>>>> LinkContainer;
-class Leg : public enable_shared_from_this<Leg>
+typedef std::vector<double> state_type; // Impedance state used in admittance controller
+typedef std::map<int, double> Workplane;
+typedef std::map<double, Workplane> Workspace;
+typedef std::map<int, std::shared_ptr<Joint>, std::less<int>, Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<Joint>>>> JointContainer;
+typedef std::map<int, std::shared_ptr<Link>, std::less<int>, Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<Link>>>> LinkContainer;
+class Leg : public std::enable_shared_from_this<Leg>
 {
 public:
   /// Constructor for a robot model leg object. Initialises member variables from parameters.
   /// @param[in] model A pointer to the parent robot model
   /// @param[in] id_number An identification number for this leg object
   /// @param[in] params A pointer to the parameter data structure
-  Leg(shared_ptr<Model> model, const int& id_number, const Parameters& params);
+  Leg(std::shared_ptr<Model> model, const int& id_number, const Parameters& params);
   
   /// Copy Constructor for a robot model leg object. Initialises member variables from existing Leg object.
   /// @param[in] leg A pointer to the parent robot model
   /// @param[in] model A pointer to the parent model of the leg
-  Leg(shared_ptr<Leg> leg, shared_ptr<Model> model = NULL);
+  Leg(std::shared_ptr<Leg> leg, std::shared_ptr<Model> model = NULL);
 
   /// Accessor for identification name of this leg object.
   /// @return The identification name of the leg object
-  inline string getIDName(void) { return id_name_; };
+  inline std::string getIDName(void) { return id_name_; };
 
   /// Accessor for identification number of this leg object.
   /// @return The identification number of the leg object
@@ -278,15 +278,15 @@ public:
 
   /// Accessor for the Tip object associated with this leg.
   /// @return The Tip object associated with the leg
-  inline shared_ptr<Tip> getTip(void) { return tip_; };
+  inline std::shared_ptr<Tip> getTip(void) { return tip_; };
 
   /// Accessor for the LegStepper object associated with this leg.
   /// @return The LegStepper object associated with the leg
-  inline shared_ptr<LegStepper> getLegStepper(void) { return leg_stepper_; };
+  inline std::shared_ptr<LegStepper> getLegStepper(void) { return leg_stepper_; };
 
   /// Accessor for the LegPoser object associated with this leg.
   /// @return The LegPoser object associated with the leg
-  inline shared_ptr<LegPoser> getLegPoser(void) { return leg_poser_; };
+  inline std::shared_ptr<LegPoser> getLegPoser(void) { return leg_poser_; };
   
   /// Accessor for the desired tip pose of this leg.
   /// @return The desired tip pose of the leg
@@ -330,11 +330,11 @@ public:
 
   /// Modifier for the LegStepper object associated with this leg.
   /// @param[in] leg_stepper A pointer to the new LegStepper object for this leg
-  inline void setLegStepper(shared_ptr<LegStepper> leg_stepper) { leg_stepper_ = leg_stepper; };
+  inline void setLegStepper(std::shared_ptr<LegStepper> leg_stepper) { leg_stepper_ = leg_stepper; };
 
   /// Modifier for the LegPoser object associated with this leg.
   /// @param[in] leg_poser A pointer to the new LegPoser object for this leg
-  inline void setLegPoser(shared_ptr<LegPoser> leg_poser) { leg_poser_ = leg_poser; };
+  inline void setLegPoser(std::shared_ptr<LegPoser> leg_poser) { leg_poser_ = leg_poser; };
 
   /// Modifier for the current estimated force vector on the tip of this leg (from calculation of joint torques).
   /// @param[in] tip_force The new tip force estimate for this leg
@@ -387,7 +387,7 @@ public:
   /// Generates child joint/link/tip objects and copies state from reference leg if provided.
   /// Separated from constructor due to shared_from_this() constraints.
   /// @param[in] leg A pointer to an existing reference robot model leg object
-  void generate(shared_ptr<Leg> leg = NULL);
+  void generate(std::shared_ptr<Leg> leg = NULL);
 
   /// Initialises leg object by setting desired joint state to default values or to current position (from encoders)
   /// and running forward kinematics for tip position.
@@ -419,22 +419,22 @@ public:
   /// Returns pointer to joint requested via identification number input.
   /// @param[in] joint_id_number The identification name of the requested joint object pointer
   /// @return Pointer to joint requested via identification number input
-  inline shared_ptr<Joint> getJointByIDNumber(const int& joint_id_number) { return joint_container_[joint_id_number]; };
+  inline std::shared_ptr<Joint> getJointByIDNumber(const int& joint_id_number) { return joint_container_[joint_id_number]; };
 
   /// Returns pointer to joint requested via identification name string input.
   /// @param[in] joint_id_name The identification name of the requested joint object pointer
   /// @return Pointer to joint requested via identification name string input
-  shared_ptr<Joint> getJointByIDName(const string& joint_id_name);
+  std::shared_ptr<Joint> getJointByIDName(const std::string& joint_id_name);
 
   /// Returns pointer to link requested via identification number input.
   /// @param[in] link_id_number The identification number of the requested link object pointer
   /// @return Pointer to link requested via identification number input
-  inline shared_ptr<Link> getLinkByIDNumber(const int& link_id_number) { return link_container_[link_id_number]; };
+  inline std::shared_ptr<Link> getLinkByIDNumber(const int& link_id_number) { return link_container_[link_id_number]; };
 
   /// Returns pointer to link requested via identification name string input.
   /// @param[in] link_id_name The identification name of the requested link object pointer
   /// @return Pointer to link requested via identification name string input
-  shared_ptr<Link> getLinkByIDName(const string& link_id_name);
+  std::shared_ptr<Link> getLinkByIDName(const std::string& link_id_name);
 
   /// Sets desired tip pose to the input, applying admittance controller vertical offset (delta z) if requested.
   /// @param[in] tip_pose The input desired tip pose
@@ -486,14 +486,14 @@ public:
   Pose applyFK(const bool& set_current = true, const bool& use_actual = false);
 
 private:
-  shared_ptr<Model> model_;        ///< A pointer to the parent robot model object
+  std::shared_ptr<Model> model_;        ///< A pointer to the parent robot model object
   const Parameters& params_;       ///< Pointer to parameter data structure for storing parameter variables
   JointContainer joint_container_; ///< The container object for all child Joint objects
   LinkContainer link_container_;   ///< The container object for all child Link objects
-  shared_ptr<Tip> tip_;            ///< A pointer to the child Tip object
+  std::shared_ptr<Tip> tip_;            ///< A pointer to the child Tip object
 
-  shared_ptr<LegStepper> leg_stepper_;  ///< A pointer to the LegStepper object associated with this leg
-  shared_ptr<LegPoser> leg_poser_;      ///< A pointer to the LegPoser object associated with this leg
+  std::shared_ptr<LegStepper> leg_stepper_;  ///< A pointer to the LegStepper object associated with this leg
+  std::shared_ptr<LegPoser> leg_poser_;      ///< A pointer to the LegPoser object associated with this leg
 
   const int id_number_;         ///< The identification number for this leg
   const std::string id_name_;   ///< The identification name for this leg
@@ -541,16 +541,16 @@ public:
   /// @param[in] actuating_joint A pointer to the actuating joint object, from which this link is moved
   /// @param[in] id_number The identification number for this link
   /// @param[in] params A pointer to the parameter data structure
-  Link(shared_ptr<Leg> leg, shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params);
+  Link(std::shared_ptr<Leg> leg, std::shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params);
   
   /// Copy Constructor for Link object. Initialises member variables from existing Link object.
   /// @param[in] link A pointer to an existing link object
-  Link(shared_ptr<Link> link);
+  Link(std::shared_ptr<Link> link);
 
-  const shared_ptr<Leg> parent_leg_;        ///< A pointer to the parent leg object associated with this link
-  const shared_ptr<Joint> actuating_joint_; ///< A pointer to the actuating Joint object associated with this link
+  const std::shared_ptr<Leg> parent_leg_;        ///< A pointer to the parent leg object associated with this link
+  const std::shared_ptr<Joint> actuating_joint_; ///< A pointer to the actuating Joint object associated with this link
   const int id_number_;                     ///< The identification number for this link
-  const string id_name_;                    ///< The identification name for this link
+  const std::string id_name_;                    ///< The identification name for this link
   const double dh_parameter_r_;             ///< The DH parameter 'r' associated with this link
   const double dh_parameter_theta_;         ///< The DH parameter 'theta' associated with this link
   const double dh_parameter_d_;             ///< The DH parameter 'd' associated with this link
@@ -572,11 +572,11 @@ public:
   /// @param[in] reference_link A pointer to the reference link object, from which this joint actuates
   /// @param[in] id_number The identification number for this joint
   /// @param[in] params A pointer to the parameter data structure
-  Joint(shared_ptr<Leg> leg, shared_ptr<Link> reference_link, const int& id_number, const Parameters& params);
+  Joint(std::shared_ptr<Leg> leg, std::shared_ptr<Link> reference_link, const int& id_number, const Parameters& params);
   
   /// Copy Constructor for Joint object. Initialises member variables from existing Joint object.
   /// @param[in] joint A pointer to an existing Joint object
-  Joint(shared_ptr<Joint> joint);
+  Joint(std::shared_ptr<Joint> joint);
   
   /// Constructor for null joint object. Acts as a null joint object for use in ending kinematic chains.
   Joint(void);
@@ -587,7 +587,7 @@ public:
   /// @return The transformation matrix from target joint to this joint
   inline Eigen::Matrix4d getTransformFromJoint(const int& target_joint_id = 0) const
   {
-    shared_ptr<Joint> next_joint = reference_link_->actuating_joint_;
+    std::shared_ptr<Joint> next_joint = reference_link_->actuating_joint_;
     bool at_target = (target_joint_id == next_joint->id_number_);
     return at_target ? current_transform_ : next_joint->getTransformFromJoint(target_joint_id) * current_transform_;
   };
@@ -610,10 +610,10 @@ public:
     return robot_frame_pose.transform(transform.inverse());
   };
 
-  const shared_ptr<Leg> parent_leg_;      ///< A pointer to the parent leg object associated with this joint
-  const shared_ptr<Link> reference_link_; ///< A pointer to the reference Link object associated with this joint
+  const std::shared_ptr<Leg> parent_leg_;      ///< A pointer to the parent leg object associated with this joint
+  const std::shared_ptr<Link> reference_link_; ///< A pointer to the reference Link object associated with this joint
   const int id_number_;                   ///< The identification number for this joint
-  const string id_name_;                  ///< The identification name for this joint
+  const std::string id_name_;                  ///< The identification name for this joint
   Eigen::Matrix4d current_transform_;            ///< The current transformation matrix between previous joint and this joint
   Eigen::Matrix4d identity_transform_;           ///< The identity transformation matrix between previous joint and this joint
 
@@ -621,7 +621,7 @@ public:
 
   const double min_position_ = 0.0;       ///< The minimum position allowed for this joint
   const double max_position_ = 0.0;       ///< The maximum position allowed for this joint
-  vector<double> packed_positions_ ;      ///< The defined position of this joint in a 'packed' state
+  std::vector<double> packed_positions_ ;      ///< The defined position of this joint in a 'packed' state
   const double unpacked_position_ = 0.0;  ///< The defined position of this joint in an 'unpacked' state
   const double max_angular_speed_ = 0.0;  ///< The maximum angular speed of this joint
 
@@ -654,11 +654,11 @@ public:
   /// Constructor for Tip object. Initialises member variables from parameters and generates initial transform.
   /// @param[in] leg A pointer to the parent leg object
   /// @param[in] reference_link A pointer to the reference link object, which is attached to this tip object
-  Tip(shared_ptr<Leg> leg, shared_ptr<Link> reference_link);
+  Tip(std::shared_ptr<Leg> leg, std::shared_ptr<Link> reference_link);
   
   /// Copy Constructor for Tip object. Initialises member variables from existing Tip object.
   /// @param[in] tip A pointer to an existing tip object
-  Tip(shared_ptr<Tip> tip);
+  Tip(std::shared_ptr<Tip> tip);
 
   /// Returns the transformation matrix from the specified target joint  of the robot model to the tip. 
   /// Target joint defaults to the origin of the kinematic chain.
@@ -666,7 +666,7 @@ public:
   /// @return The transformation matrix from target joint to the tip
   inline Eigen::Matrix4d getTransformFromJoint(const int& target_joint_id = 0) const
   {
-    shared_ptr<Joint> next_joint = reference_link_->actuating_joint_;
+    std::shared_ptr<Joint> next_joint = reference_link_->actuating_joint_;
     bool at_target = (target_joint_id == next_joint->id_number_);
     return at_target ? current_transform_ : next_joint->getTransformFromJoint(target_joint_id) * current_transform_;
   };
@@ -689,9 +689,9 @@ public:
     return robot_frame_pose.transform(transform.inverse());
   };
 
-  const shared_ptr<Leg> parent_leg_;       ///< A pointer to the parent leg object associated with the tip
-  const shared_ptr<Link> reference_link_;  ///< A pointer to the reference Link object associated with the tip
-  const string id_name_;                   ///< The identification name for the tip
+  const std::shared_ptr<Leg> parent_leg_;       ///< A pointer to the parent leg object associated with the tip
+  const std::shared_ptr<Link> reference_link_;  ///< A pointer to the reference Link object associated with the tip
+  const std::string id_name_;                   ///< The identification name for the tip
   Eigen::Matrix4d current_transform_;             ///< The current transformation matrix between previous joint and the tip
   Eigen::Matrix4d identity_transform_;            ///< The identity transformation matrix between previous joint and the tip
 

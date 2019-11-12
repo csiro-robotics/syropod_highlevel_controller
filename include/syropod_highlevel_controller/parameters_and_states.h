@@ -199,8 +199,8 @@ public:
   /// @param[in] name_input The unique name of the parameter to look for on ros parameter server
   /// @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
   /// @param[in] required_input Bool denoting if this parameter is required to be initialised
-  inline void init(const string& name_input,
-                   const string& base_parameter_name = "/syropod/parameters/",
+  inline void init(const std::string& name_input,
+                   const std::string& base_parameter_name = "/syropod/parameters/",
                    const bool& required_input = true)
   {
     ros::NodeHandle n;
@@ -211,7 +211,7 @@ public:
                    " Check config file is loaded and type is correct\n", name.c_str());
   }
 
-  string name;              ///< Name of the parameter
+  std::string name;              ///< Name of the parameter
   T data;                   ///< Data which defines parameter
   bool required = true;     ///< Denotes if this parameter is required to be initialised
   bool initialised = false; ///< Denotes if this parameter has been initialised
@@ -224,15 +224,15 @@ public:
 /// This structure contains the data associated with a dynamically adjustable parameter acquired from the ros parameter
 /// server via a self initialisation function.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-struct AdjustableParameter : public Parameter<map<string, double>>
+struct AdjustableParameter : public Parameter<std::map<std::string, double>>
 {
 public:
   /// Initialisation function which self populates parameter data from ros parameter server.
   /// @param[in] name_input The unique name of the parameter to look for on ros parameter server
   /// @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
   /// @param[in] required_input Bool denoting if this parameter is required to be initialised
-  inline void init(const string& name_input,
-                   const string& base_parameter_name = "/syropod/parameters/",
+  inline void init(const std::string& name_input,
+                   const std::string& base_parameter_name = "/syropod/parameters/",
                    const bool& required_input = true)
   {
     ros::NodeHandle n;
@@ -267,7 +267,7 @@ public:
 /// map object of adjustable parameters. It is used to easily pass parameters amongst controller objects.
 /// @todo Remove leg_span_scale parameter if not used in WalkController
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-typedef map<ParameterSelection, AdjustableParameter*> AdjustableMapType;
+typedef std::map<ParameterSelection, AdjustableParameter*> AdjustableMapType;
 struct Parameters
 {
   AdjustableMapType adjustable_map;  ///< Map between adjustable parameter designations and associated Parameter object
@@ -286,34 +286,34 @@ struct Parameters
   Parameter<bool> combined_control_interface;     ///< Flag requesting the combined desired joint position format
 
   // Model parameters
-  Parameter<string> syropod_type;                 ///< The type of the robot described by these parameters
-  Parameter<vector<string>> leg_id;               ///< A vector of identification names for each leg of the robot
-  Parameter<vector<string>> joint_id;             ///< A vector of identification names for each joint of each leg
-  Parameter<vector<string>> link_id;              ///< A vector of identification names for each link of each leg
-  Parameter<map<string, int>> leg_DOF;            ///< A map of the leg name and its degrees of freedom
+  Parameter<std::string> syropod_type;                 ///< The type of the robot described by these parameters
+  Parameter<std::vector<std::string>> leg_id;               ///< A vector of identification names for each leg of the robot
+  Parameter<std::vector<std::string>> joint_id;             ///< A vector of identification names for each joint of each leg
+  Parameter<std::vector<std::string>> link_id;              ///< A vector of identification names for each link of each leg
+  Parameter<std::map<std::string, int>> leg_DOF;            ///< A map of the leg name and its degrees of freedom
   Parameter<bool> clamp_joint_positions;          ///< A bool denoting if joint position limits are adhered to
   Parameter<bool> clamp_joint_velocities;         ///< A bool denoting if joint velocity limits are adhered to
   Parameter<bool> ignore_IK_warnings;             ///< A bool denoting if IK deviation warnings are displayed to user
 
-  Parameter<map<string, double>> joint_parameters[8][6];  ///< An array of maps of joint parameter names and values*
-  Parameter<map<string, double>> link_parameters[8][7];   ///< An array of maps of link parameter names and values*
+  Parameter<std::map<std::string, double>> joint_parameters[8][6];  ///< An array of maps of joint parameter names and values*
+  Parameter<std::map<std::string, double>> link_parameters[8][7];   ///< An array of maps of link parameter names and values*
   // *Max possible: 8 legs with 6 joints and 7 links each
 
   // Walk controller parameters
-  Parameter<string> gait_type;                            ///< The default selected gait type
+  Parameter<std::string> gait_type;                            ///< The default selected gait type
   Parameter<double> body_clearance;                       ///< The requested height of the robot body above ground
   AdjustableParameter step_frequency;                     ///< The frequency of complete step cycles (Hz)
   AdjustableParameter swing_height;                       ///< Vertical displacement of swing trajectory above default
   AdjustableParameter swing_width;                        ///< Lateral displacement of swing trajectory out from default
   AdjustableParameter step_depth;                         ///< The stepping depth used to find ground contact
   AdjustableParameter stance_span_modifier;               ///< The modifier for stance width (-1.0 = min, 1.0 = max)
-  Parameter<string> velocity_input_mode;                  ///< Determines velocity input as 'real' or 'throttle' based
+  Parameter<std::string> velocity_input_mode;                  ///< Determines velocity input as 'real' or 'throttle' based
   Parameter<double> body_velocity_scaler;                 ///< Scales all body velocity inputs
   Parameter<bool> force_cruise_velocity;                  ///< Flag denoting if cruise control mode uses set values
-  Parameter<map<string, double>> linear_cruise_velocity;  ///< Set values used in cruise control mode if requested
+  Parameter<std::map<std::string, double>> linear_cruise_velocity;  ///< Set values used in cruise control mode if requested
   Parameter<double> angular_cruise_velocity;              ///< Set values used in cruise control mode if requested
   Parameter<double> cruise_control_time_limit;            ///< Time limit after which cruise control input will zero
-  Parameter<map<string, double>> leg_stance_positions[8]; ///< An array of maps of default tip stance positions
+  Parameter<std::map<std::string, double>> leg_stance_positions[8]; ///< An array of maps of default tip stance positions
   Parameter<bool> overlapping_walkspaces;                 ///< Flag denoting if walkspaces are allowed to overlap
   Parameter<bool> force_normal_touchdown;                 ///< Flag denoting if tip touches down normal to walk plane
   Parameter<bool> gravity_aligned_tips;                   ///< Flag denoting if tip should align with gravity direction
@@ -321,15 +321,15 @@ struct Parameters
   Parameter<double> liftoff_threshold;                    ///< Threshold of tip force before liftoff is recognized
 
   // Pose controller parameters
-  Parameter<string> auto_pose_type;                     ///< String denoting the default auto posing cycle type
+  Parameter<std::string> auto_pose_type;                     ///< String denoting the default auto posing cycle type
   Parameter<bool> start_up_sequence;                    ///< Flag allowing execution of start up and shutdown sequences
   Parameter<double> time_to_start;                      ///< The time to complete a direct start up
-  Parameter<map<string, double>> rotation_pid_gains;    ///< PID gains used in imu based automatic posing
-  Parameter<map<string, double>> max_translation;       ///< The maximum allowable linear translation positions
+  Parameter<std::map<std::string, double>> rotation_pid_gains;    ///< PID gains used in imu based automatic posing
+  Parameter<std::map<std::string, double>> max_translation;       ///< The maximum allowable linear translation positions
   Parameter<double> max_translation_velocity;           ///< The maximum allowable linear translation velocity
-  Parameter<map<string, double>> max_rotation;          ///< The maximum allowable angular rotation positions
+  Parameter<std::map<std::string, double>> max_rotation;          ///< The maximum allowable angular rotation positions
   Parameter<double> max_rotation_velocity;              ///< The maximum allowable angular rotation velocity
-  Parameter<string> leg_manipulation_mode;              ///< String denoting the type of leg manipulation
+  Parameter<std::string> leg_manipulation_mode;              ///< String denoting the type of leg manipulation
 
   // Admittance controller parameters
   Parameter<bool> dynamic_stiffness;         ///< Flag denoting whether the virtual stiffness variable is dynamic
@@ -346,26 +346,26 @@ struct Parameters
   Parameter<int> stance_phase;                   ///< The ratio of the entire step cycle which is in 'stance'
   Parameter<int> swing_phase;                    ///< The ratio of the entire step cycle which is in 'swing'
   Parameter<int> phase_offset;                   ///< The base phase offset between step cycles of successive legs
-  Parameter<map<string, int>> offset_multiplier; ///< The leg dependent multiplier used to set the step cycle offset
+  Parameter<std::map<std::string, int>> offset_multiplier; ///< The leg dependent multiplier used to set the step cycle offset
 
   //Auto pose parameters
   Parameter<double> pose_frequency;                         ///< The frequency at which all auto posing cycles run
   Parameter<int> pose_phase_length;                         ///< The length of all auto posing cycles
-  Parameter<vector<int>> pose_phase_starts;                 ///< The phase at which each auto pose cycle starts
-  Parameter<vector<int>> pose_phase_ends;                   ///< The phase at which each auto pose cycle ends
-  Parameter<map<string, int>> pose_negation_phase_starts;   ///< The phase for start of auto posing negation
-  Parameter<map<string, int>> pose_negation_phase_ends;     ///< The phase for end of auto posing negation
-  Parameter<map<string, double>> negation_transition_ratio; ///< The ratio of the negation period used to transition
-  Parameter<vector<double>> x_amplitudes;                   ///< The max amplitudes of x posing in each auto pose cycle
-  Parameter<vector<double>> y_amplitudes;                   ///< The max amplitudes of y posing in each auto pose cycle
-  Parameter<vector<double>> z_amplitudes;                   ///< The max amplitudes of z posing in each auto pose cycle
-  Parameter<vector<double>> gravity_amplitudes;             ///< The max amplitudes of posing in each auto pose cycle
-  Parameter<vector<double>> roll_amplitudes;                ///< The max amplitudes of roll in each auto pose cycle
-  Parameter<vector<double>> pitch_amplitudes;               ///< The max amplitudes of pitch in each auto pose cycle
-  Parameter<vector<double>> yaw_amplitudes;                 ///< The max amplitudes of yaw in each auto pose cycle
+  Parameter<std::vector<int>> pose_phase_starts;                 ///< The phase at which each auto pose cycle starts
+  Parameter<std::vector<int>> pose_phase_ends;                   ///< The phase at which each auto pose cycle ends
+  Parameter<std::map<std::string, int>> pose_negation_phase_starts;   ///< The phase for start of auto posing negation
+  Parameter<std::map<std::string, int>> pose_negation_phase_ends;     ///< The phase for end of auto posing negation
+  Parameter<std::map<std::string, double>> negation_transition_ratio; ///< The ratio of the negation period used to transition
+  Parameter<std::vector<double>> x_amplitudes;                   ///< The max amplitudes of x posing in each auto pose cycle
+  Parameter<std::vector<double>> y_amplitudes;                   ///< The max amplitudes of y posing in each auto pose cycle
+  Parameter<std::vector<double>> z_amplitudes;                   ///< The max amplitudes of z posing in each auto pose cycle
+  Parameter<std::vector<double>> gravity_amplitudes;             ///< The max amplitudes of posing in each auto pose cycle
+  Parameter<std::vector<double>> roll_amplitudes;                ///< The max amplitudes of roll in each auto pose cycle
+  Parameter<std::vector<double>> pitch_amplitudes;               ///< The max amplitudes of pitch in each auto pose cycle
+  Parameter<std::vector<double>> yaw_amplitudes;                 ///< The max amplitudes of yaw in each auto pose cycle
 
   // Debug Parameters
-  Parameter<string> console_verbosity;       ///< The level of verbosity required from the rosconsole output
+  Parameter<std::string> console_verbosity;       ///< The level of verbosity required from the rosconsole output
   Parameter<bool> debug_moveToJointPosition; ///< Flag determining if function moveToJointPosition() outputs debug info
   Parameter<bool> debug_stepToPosition;      ///< Flag determining if function stepToPosition() outputs debug info
   Parameter<bool> debug_swing_trajectory;    ///< Flag determining if swing trajectory generation outputs debug info
