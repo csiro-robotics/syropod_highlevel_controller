@@ -42,9 +42,9 @@ class DebugVisualiser;
 struct ImuData
 {
 public:
-  Quaterniond orientation;
-  Vector3d linear_acceleration;
-  Vector3d angular_velocity;
+  Eigen::Quaterniond orientation;
+  Eigen::Vector3d linear_acceleration;
+  Eigen::Vector3d angular_velocity;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
@@ -53,7 +53,7 @@ public:
 /// This class serves as the top-level parent of each leg object and associated tip/joint/link objects. It contains data
 /// which is relevant to the robot body or the robot as a whole rather than leg dependent data.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-typedef map<int, shared_ptr<Leg>, less<int>, aligned_allocator<pair<const int, shared_ptr<Leg>>>> LegContainer;
+typedef map<int, shared_ptr<Leg>, less<int>, Eigen::aligned_allocator<pair<const int, shared_ptr<Leg>>>> LegContainer;
 class Model : public enable_shared_from_this<Model>
 {
 public:
@@ -133,7 +133,7 @@ public:
     ImuData imu_data(imu_data_);
     if (imu_data_.orientation.isApprox(UNDEFINED_ROTATION))
     {
-      imu_data.orientation = Quaterniond::Identity();
+      imu_data.orientation = Eigen::Quaterniond::Identity();
     }
     return imu_data;
   };
@@ -142,9 +142,9 @@ public:
   /// @param[in] orientation The orientation to be set as the orientation of the imu
   /// @param[in] linear_acceleration The linear acceleration to be set as the linear acceleration of the imu
   /// @param[in] angular_velocity The angular velocity to be set as the angular velocity of the imu
-  inline void setImuData(const Quaterniond& orientation, 
-                         const Vector3d& linear_acceleration, 
-                         const Vector3d& angular_velocity)
+  inline void setImuData(const Eigen::Quaterniond& orientation, 
+                         const Eigen::Vector3d& linear_acceleration, 
+                         const Eigen::Vector3d& angular_velocity)
   {
     imu_data_.orientation = orientation.normalized();
     imu_data_.linear_acceleration = linear_acceleration;
@@ -163,7 +163,7 @@ public:
   
   /// Estimates the acceleration vector due to gravity from pitch and roll orientations from IMU data
   /// @return The estimated acceleration vector due to gravity.
-  Vector3d estimateGravity(void);
+  Eigen::Vector3d estimateGravity(void);
 
 private:
   const Parameters& params_;                     ///< Pointer to parameter structure for storing parameter variables
@@ -188,8 +188,8 @@ public:
 typedef vector<double> state_type; // Impedance state used in admittance controller
 typedef map<int, double> Workplane;
 typedef map<double, Workplane> Workspace;
-typedef map<int, shared_ptr<Joint>, less<int>, aligned_allocator<pair<const int, shared_ptr<Joint>>>> JointContainer;
-typedef map<int, shared_ptr<Link>, less<int>, aligned_allocator<pair<const int, shared_ptr<Link>>>> LinkContainer;
+typedef map<int, shared_ptr<Joint>, less<int>, Eigen::aligned_allocator<pair<const int, shared_ptr<Joint>>>> JointContainer;
+typedef map<int, shared_ptr<Link>, less<int>, Eigen::aligned_allocator<pair<const int, shared_ptr<Link>>>> LinkContainer;
 class Leg : public enable_shared_from_this<Leg>
 {
 public:
@@ -230,19 +230,19 @@ public:
 
   /// Accessor for the current calculated force vector on the tip of this leg.
   /// @return The current calculated force vector on the tip of the leg
-  inline Vector3d getTipForceCalculated(void) { return tip_force_calculated_; };
+  inline Eigen::Vector3d getTipForceCalculated(void) { return tip_force_calculated_; };
   
   /// Accessor for the current measured force vector on the tip of this leg. 
   /// @return The current measured force vector on the tip of the leg
-  inline Vector3d getTipForceMeasured(void) { return tip_force_measured_; };
+  inline Eigen::Vector3d getTipForceMeasured(void) { return tip_force_measured_; };
   
   /// Accessor for the current calculated torque vector on the tip of this leg.
   /// @return The current calculated torque vector on the tip of the leg
-  inline Vector3d getTipTorqueCalculated(void) { return tip_torque_calculated_; };
+  inline Eigen::Vector3d getTipTorqueCalculated(void) { return tip_torque_calculated_; };
   
   /// Accessor for the current measured torque vector on the tip of this leg.
   /// @return The current measured torque vector on the tip of the leg
-  inline Vector3d getTipTorqueMeasured(void) { return tip_torque_measured_; };
+  inline Eigen::Vector3d getTipTorqueMeasured(void) { return tip_torque_measured_; };
   
   /// Accessor for the current estimated pose of the stepping surface plane.
   /// @return The current estimated pose of the steppping surface plane
@@ -250,7 +250,7 @@ public:
 
   /// Accessor for the current admittance control position offset for this leg.
   /// @return The current admittance control position offset for the leg
-  inline Vector3d getAdmittanceDelta(void) { return admittance_delta_; };
+  inline Eigen::Vector3d getAdmittanceDelta(void) { return admittance_delta_; };
 
   /// Accessor for the virtual mass value used in the admittance control model of this leg.
   /// @return The virtual mass value used in the admittance control model of the leg
@@ -294,7 +294,7 @@ public:
 
   /// Accessor for the desired tip velocity of this leg.
   /// @return The desired tip velocity of the leg
-  inline Vector3d getDesiredTipVelocity(void) { return desired_tip_velocity_; };
+  inline Eigen::Vector3d getDesiredTipVelocity(void) { return desired_tip_velocity_; };
 
   /// Accessor for the current tip pose of this leg.
   /// @return The current tip pose of the leg
@@ -302,7 +302,7 @@ public:
 
   /// Accessor for the current tip velocity of this leg.
   /// @return The current tip velocity of the leg
-  inline Vector3d getCurrentTipVelocity(void) { return current_tip_velocity_; };
+  inline Eigen::Vector3d getCurrentTipVelocity(void) { return current_tip_velocity_; };
   
   /// Accessor for the current pose of the robot body.
   /// @return The current pose of the robot body
@@ -338,19 +338,19 @@ public:
 
   /// Modifier for the current estimated force vector on the tip of this leg (from calculation of joint torques).
   /// @param[in] tip_force The new tip force estimate for this leg
-  inline void setTipForceCalculated(const Vector3d& tip_force) { tip_force_calculated_ = tip_force; };
+  inline void setTipForceCalculated(const Eigen::Vector3d& tip_force) { tip_force_calculated_ = tip_force; };
   
   /// Modifier for the current estimated torque vector on the tip of this leg (from calculation of joint torques).
   /// @param[in] tip_torque The new tip torque estimate for this leg
-  inline void setTipTorqueCalculated(const Vector3d& tip_torque) { tip_torque_calculated_ = tip_torque; };
+  inline void setTipTorqueCalculated(const Eigen::Vector3d& tip_torque) { tip_torque_calculated_ = tip_torque; };
   
   /// Modifier for the current estimated force vector on the tip of this leg (from direct measurement).
   /// @param[in] tip_force The new tip force estimate for this leg
-  inline void setTipForceMeasured(const Vector3d& tip_force) { tip_force_measured_ = tip_force; };
+  inline void setTipForceMeasured(const Eigen::Vector3d& tip_force) { tip_force_measured_ = tip_force; };
   
   /// Modifier for the current estimated torque vector on the tip of this leg (from direct measurement).
   /// @param[in] tip_torque The new tip torque estimate for this leg
-  inline void setTipTorqueMeasured(const Vector3d& tip_torque) { tip_torque_measured_ = tip_torque; };
+  inline void setTipTorqueMeasured(const Eigen::Vector3d& tip_torque) { tip_torque_measured_ = tip_torque; };
   
   /// Modifier for the current estimated pose of the stepping surface plane.
   /// @param[in] step_plane_pose The new estimate of the pose of the stepping surface plane for this leg
@@ -359,9 +359,9 @@ public:
   /// Modifier for the current admittance control position offset for this leg. Only sets component of input vector 
   /// which aligns with direction of tip.
   /// @param[in] delta The calculated delta vector of this leg
-  inline void setAdmittanceDelta(const Vector3d& delta) 
+  inline void setAdmittanceDelta(const Eigen::Vector3d& delta) 
   { 
-    admittance_delta_ = getProjection(delta, current_tip_pose_.rotation_._transformVector(Vector3d::UnitX()));
+    admittance_delta_ = getProjection(delta, current_tip_pose_.rotation_._transformVector(Eigen::Vector3d::UnitX()));
   };
 
   /// Modifier for the virtual mass value used in the admittance control model of this leg.
@@ -407,7 +407,7 @@ public:
   /// Generates a reachable tip position from an input test tip position within the workspace of this leg.
   /// @param[in] reference_tip_position The tip position to use as reference to generate a reachable tip position
   /// @return A reachable tip position which lies within the leg workspace based on the input reference tip position
-  Vector3d makeReachable(const Vector3d& reference_tip_position);
+  Eigen::Vector3d makeReachable(const Eigen::Vector3d& reference_tip_position);
   
   /// Updates joint default positions according to current joint positions.
   void updateDefaultConfiguration(void);
@@ -443,7 +443,7 @@ public:
 
   /// Modifier for the desired tip velocity of the tip of this leg object.
   /// @param[in] tip_velocity The new tip velocity of this leg object
-  inline void setDesiredTipVelocity(const Vector3d& tip_velocity) { desired_tip_velocity_ = tip_velocity; };
+  inline void setDesiredTipVelocity(const Eigen::Vector3d& tip_velocity) { desired_tip_velocity_ = tip_velocity; };
   
   /// Calculates an estimate for the tip force vector acting on this leg, using the calculated state jacobian and 
   /// values for the torque on each joint in the leg.
@@ -461,14 +461,14 @@ public:
   /// @param[in] solve_rotation Flag denoting if IK should solve for rotation as well rather than just position
   /// @return The position delta for each joint in the model to achieve desired tip position delta. 
   /// @todo Calculate optimal DLS coefficient (this value currently works sufficiently)
-  VectorXd solveIK(const MatrixXd& delta, const bool& solve_rotation);
+  Eigen::VectorXd solveIK(const Eigen::MatrixXd& delta, const bool& solve_rotation);
   
   /// Updates the joint positions of each joint in this leg based on the input vector. Clamps joint velocities and
   /// positions based on limits and calculates a ratio of proximity of joint position to limits.
   /// @param[in] delta The iterative change in joint position for each joint
   /// @param[in] simulation Flag denoting if this execution is for simulation purposes rather than normal use
   /// @return The ratio of the proximity of the joint position to it's limits (i.e. 0.0 = at limit, 1.0 = furthest away)
-  double updateJointPositions(const VectorXd& delta, const bool& simulation);
+  double updateJointPositions(const Eigen::VectorXd& delta, const bool& simulation);
 
   /// Applies inverse kinematics solution to achieve desired tip position. Clamps joint positions and velocities
   /// within limits and applies forward kinematics to update tip position. Returns an estimate of the chance of solving
@@ -505,7 +505,7 @@ private:
   ros::Publisher leg_state_publisher_;     ///< The ros publisher object that publishes state messages for this leg
   ros::Publisher asc_leg_state_publisher_; ///< The ros publisher object that publishes ASC state messages for this leg
 
-  Vector3d admittance_delta_;    ///< The admittance controller tip position offset vector
+  Eigen::Vector3d admittance_delta_;    ///< The admittance controller tip position offset vector
   double virtual_mass_;          ///< The virtual mass of the admittance controller virtual model of this leg
   double virtual_stiffness_;     ///< The virtual stiffness of the admittance controller virtual model of this leg
   double virtual_damping_ratio_; ///< The virtual damping ratio of the admittance controller virtual model of this leg
@@ -514,15 +514,15 @@ private:
   Pose desired_tip_pose_;        ///< Desired tip pose before applying Inverse/Forward kinematics
   Pose current_tip_pose_;        ///< Current tip pose according to the model
   
-  Vector3d desired_tip_velocity_; ///< Desired linear tip velocity before applying Inverse/Forward kinematics
-  Vector3d current_tip_velocity_; ///< Current linear tip velocity according to the model
+  Eigen::Vector3d desired_tip_velocity_; ///< Desired linear tip velocity before applying Inverse/Forward kinematics
+  Eigen::Vector3d current_tip_velocity_; ///< Current linear tip velocity according to the model
 
   int group_; ///< Leg stepping coordination group (Either 0 or 1)
 
-  Vector3d tip_force_calculated_;  ///< Calculated force estimation on the tip
-  Vector3d tip_torque_calculated_; ///< Calculated torque estimation on the tip
-  Vector3d tip_force_measured_;    ///< Measured force estimation on the tip
-  Vector3d tip_torque_measured_;   ///< Measured torque estimation on the tip
+  Eigen::Vector3d tip_force_calculated_;  ///< Calculated force estimation on the tip
+  Eigen::Vector3d tip_torque_calculated_; ///< Calculated torque estimation on the tip
+  Eigen::Vector3d tip_force_measured_;    ///< Measured force estimation on the tip
+  Eigen::Vector3d tip_torque_measured_;   ///< Measured torque estimation on the tip
   Pose step_plane_pose_;           ///< Estimation of the pose of the stepping surface plane
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -585,7 +585,7 @@ public:
   /// Target joint defaults to the origin of the kinematic chain.
   /// @param[in] target_joint_id ID number of joint object defining the target joint for the transformation
   /// @return The transformation matrix from target joint to this joint
-  inline Matrix4d getTransformFromJoint(const int& target_joint_id = 0) const
+  inline Eigen::Matrix4d getTransformFromJoint(const int& target_joint_id = 0) const
   {
     shared_ptr<Joint> next_joint = reference_link_->actuating_joint_;
     bool at_target = (target_joint_id == next_joint->id_number_);
@@ -597,7 +597,7 @@ public:
   /// @return The input pose transformed into the robot frame
   inline Pose getPoseRobotFrame(const Pose& joint_frame_pose = Pose::Identity()) const
   {
-    Matrix4d transform = getTransformFromJoint();
+    Eigen::Matrix4d transform = getTransformFromJoint();
     return joint_frame_pose.transform(transform);
   };
 
@@ -606,7 +606,7 @@ public:
   /// @return The input pose transformed into the frame of this joint
   inline Pose getPoseJointFrame(const Pose& robot_frame_pose = Pose::Identity()) const
   {
-    MatrixXd transform = getTransformFromJoint();
+    Eigen::MatrixXd transform = getTransformFromJoint();
     return robot_frame_pose.transform(transform.inverse());
   };
 
@@ -614,8 +614,8 @@ public:
   const shared_ptr<Link> reference_link_; ///< A pointer to the reference Link object associated with this joint
   const int id_number_;                   ///< The identification number for this joint
   const string id_name_;                  ///< The identification name for this joint
-  Matrix4d current_transform_;            ///< The current transformation matrix between previous joint and this joint
-  Matrix4d identity_transform_;           ///< The identity transformation matrix between previous joint and this joint
+  Eigen::Matrix4d current_transform_;            ///< The current transformation matrix between previous joint and this joint
+  Eigen::Matrix4d identity_transform_;           ///< The identity transformation matrix between previous joint and this joint
 
   ros::Publisher desired_position_publisher_; ///< The ros publisher for publishing desired position values
 
@@ -664,7 +664,7 @@ public:
   /// Target joint defaults to the origin of the kinematic chain.
   /// @param[in] target_joint_id ID number of joint object defining the target joint for the transformation
   /// @return The transformation matrix from target joint to the tip
-  inline Matrix4d getTransformFromJoint(const int& target_joint_id = 0) const
+  inline Eigen::Matrix4d getTransformFromJoint(const int& target_joint_id = 0) const
   {
     shared_ptr<Joint> next_joint = reference_link_->actuating_joint_;
     bool at_target = (target_joint_id == next_joint->id_number_);
@@ -676,7 +676,7 @@ public:
   /// @return The input pose transformed into the robot frame
   inline Pose getPoseRobotFrame(const Pose& tip_frame_pose = Pose::Identity()) const
   {
-    Matrix4d transform = getTransformFromJoint();
+    Eigen::Matrix4d transform = getTransformFromJoint();
     return tip_frame_pose.transform(transform);
   };
   
@@ -685,15 +685,15 @@ public:
   /// @return The input pose transformed into the tip frame
   inline Pose getPoseTipFrame(const Pose& robot_frame_pose = Pose::Identity()) const
   {
-    Matrix4d transform = getTransformFromJoint();
+    Eigen::Matrix4d transform = getTransformFromJoint();
     return robot_frame_pose.transform(transform.inverse());
   };
 
   const shared_ptr<Leg> parent_leg_;       ///< A pointer to the parent leg object associated with the tip
   const shared_ptr<Link> reference_link_;  ///< A pointer to the reference Link object associated with the tip
   const string id_name_;                   ///< The identification name for the tip
-  Matrix4d current_transform_;             ///< The current transformation matrix between previous joint and the tip
-  Matrix4d identity_transform_;            ///< The identity transformation matrix between previous joint and the tip
+  Eigen::Matrix4d current_transform_;             ///< The current transformation matrix between previous joint and the tip
+  Eigen::Matrix4d identity_transform_;            ///< The identity transformation matrix between previous joint and the tip
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

@@ -37,7 +37,7 @@ class AutoPoser;
 /// requirements and methods. Generation of a user controlled 'manual' body pose and an IMU feedback based automatic
 /// body pose are examples of these sub-poses, which are combined and applied to the robot model body.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-typedef vector<shared_ptr<AutoPoser>, aligned_allocator<shared_ptr<AutoPoser>>> AutoPoserContainer;
+typedef vector<shared_ptr<AutoPoser>, Eigen::aligned_allocator<shared_ptr<AutoPoser>>> AutoPoserContainer;
 class PoseController : public enable_shared_from_this<PoseController>
 {
 public:
@@ -76,15 +76,15 @@ public:
 
   /// Accessor for error in rotation absement - used in imu posing PID.
   /// @return The error in rotation absement (Difference between current and desired rotation absement for IMU posing PID)
-  inline Vector3d getRotationAbsementError(void) { return rotation_absement_error_; };
+  inline Eigen::Vector3d getRotationAbsementError(void) { return rotation_absement_error_; };
 
   /// Accessor for error in rotation position - used in imu posing PID.
   /// @return The error in rotation position (Difference between current and desired rotation position for IMU posing PID) 
-  inline Vector3d getRotationPositionError(void) { return rotation_position_error_; };
+  inline Eigen::Vector3d getRotationPositionError(void) { return rotation_position_error_; };
 
   /// Accessor for error in rotation velocity - used in imu posing PID.
   /// @return The error in rotation velocity (Difference between current and desired rotation velocity for IMU posing PID)
-  inline Vector3d getRotationVelocityError(void) { return rotation_velocity_error_; };
+  inline Eigen::Vector3d getRotationVelocityError(void) { return rotation_velocity_error_; };
 
   /// Modifier for pose phase length.
   /// @param[in] phase_length The phase length to be set as the phase length of the auto posing cycle
@@ -105,7 +105,7 @@ public:
   /// Modifier for manual pose velocity input.
   /// @param[in] translation The value to be set as the velocity input for controlling the translation component of manual pose
   /// @param[in] rotation The value to be set as the velocity input for controlling the rotational component of manual pose
-  inline void setManualPoseInput(const Vector3d& translation, const Vector3d& rotation)
+  inline void setManualPoseInput(const Eigen::Vector3d& translation, const Eigen::Vector3d& rotation)
   {
     translation_velocity_input_ = translation;
     rotation_velocity_input_ = rotation;
@@ -244,7 +244,7 @@ public:
   
   /// Estimates the acceleration vector due to gravity.
   /// @return The estimated acceleration vector due to gravity.
-  inline Vector3d estimateGravity(void) { return model_->estimateGravity(); };
+  inline Eigen::Vector3d estimateGravity(void) { return model_->estimateGravity(); };
 
   /// Attempts to generate a pose (x/y linear translation only) to position body such that there is a zero sum of moments
   /// from the force acting on the load bearing feet, allowing the robot to shift its centre of mass away from manually
@@ -258,8 +258,8 @@ private:
   shared_ptr<Leg> auto_pose_reference_leg_; ///< Reference leg for auto posing system
 
   PoseResetMode pose_reset_mode_;         ///< Mode for controlling which posing axes to reset to zero
-  Vector3d translation_velocity_input_;   ///< Velocity input for controlling the translation component of manual pose
-  Vector3d rotation_velocity_input_;      ///< Velocity input for controlling the rotational component of manual pose
+  Eigen::Vector3d translation_velocity_input_;   ///< Velocity input for controlling the translation component of manual pose
+  Eigen::Vector3d rotation_velocity_input_;      ///< Velocity input for controlling the rotational component of manual pose
 
   int legs_completed_step_ = 0;           ///< Number of legs having completed the required step in a sequence
   int current_group_ = 0;                 ///< The current leg group executing a stepping maneuver
@@ -303,9 +303,9 @@ private:
   int pose_phase_length_ = 0;                       ///< The phase length of the auto posing cycle
   int normaliser_ = 1;                              ///< The value used to scale base posing cycle start/end ratios
 
-  Vector3d rotation_absement_error_;  ///< Difference between current and desired rotation absement for IMU posing PID
-  Vector3d rotation_position_error_;  ///< Difference between current and desired rotation position for IMU posing PID
-  Vector3d rotation_velocity_error_;  ///< Difference between current and desired rotation velocity for IMU posing PID
+  Eigen::Vector3d rotation_absement_error_;  ///< Difference between current and desired rotation absement for IMU posing PID
+  Eigen::Vector3d rotation_position_error_;  ///< Difference between current and desired rotation position for IMU posing PID
+  Eigen::Vector3d rotation_velocity_error_;  ///< Difference between current and desired rotation velocity for IMU posing PID
 
   LegContainer::iterator leg_it_;     ///< Leg iteration member variable used to minimise code
   JointContainer::iterator joint_it_; ///< Joint iteration member variable used to minimise code
@@ -576,7 +576,7 @@ private:
   Pose target_tip_pose_;           ///< Target tip pose used in bezier curve equations
   ExternalTarget external_target_; ///< Externally set target tip pose object
 
-  vector<Pose, aligned_allocator<Pose>> transition_poses_; ///< Vector of transition target tip poses
+  vector<Pose, Eigen::aligned_allocator<Pose>> transition_poses_; ///< Vector of transition target tip poses
 
   bool leg_completed_step_ = false; ///< Flag denoting if leg has completed its required step in a sequence
 

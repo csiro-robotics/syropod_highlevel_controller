@@ -346,11 +346,11 @@ private:
   int plan_step_ = 0;                           ///< The plan step currently being requested/executed
   string fixed_frame_id_;                       ///< The id of the fixed frame
 
-  Vector2d linear_velocity_input_;            ///< Input for the desired linear velocity of the robot body
+  Eigen::Vector2d linear_velocity_input_;            ///< Input for the desired linear velocity of the robot body
   double angular_velocity_input_ = 0;         ///< Input for the desired angular velocity of the robot body
-  Vector3d primary_tip_velocity_input_;       ///< Input for the desired linear velocity of the primary leg tip
-  Vector3d secondary_tip_velocity_input_;     ///< Input for the desired linear velocity of the secondary leg tip
-  Vector2d linear_cruise_velocity_;           ///< Desired constant linear body velocity for cruise control mode
+  Eigen::Vector3d primary_tip_velocity_input_;       ///< Input for the desired linear velocity of the primary leg tip
+  Eigen::Vector3d secondary_tip_velocity_input_;     ///< Input for the desired linear velocity of the secondary leg tip
+  Eigen::Vector2d linear_cruise_velocity_;           ///< Desired constant linear body velocity for cruise control mode
   double angular_cruise_velocity_;            ///< Desired constant angular body velocity for cruise control mode
 
   LegContainer::iterator leg_it_;     ///< Leg iteration member variable used to minimise code

@@ -54,15 +54,14 @@
 #define PROGRESS_COMPLETE 100 ///< Value denoting 100% and a completion of progress of various functions
 #define THROTTLE_PERIOD 5  ///< Default throttle period for all throttled rosconsole messages (seconds)
 
-#define UNDEFINED_ROTATION Quaterniond(0,0,0,0)
-#define UNDEFINED_POSITION Vector3d(double(INT_MAX), double(INT_MAX), double(INT_MAX))
+#define UNDEFINED_ROTATION Eigen::Quaterniond(0,0,0,0)
+#define UNDEFINED_POSITION Eigen::Vector3d(double(INT_MAX), double(INT_MAX), double(INT_MAX))
 
 #define GRAVITY_ACCELERATION -9.81 ///< Approximate gravitational acceleration (m/s/s)
 
 using namespace std;
 using namespace ros;
 using namespace tf2_ros;
-using namespace Eigen;
 
 /// Converts Degrees to Radians.
 /// @param[in] degrees Value in degrees to be converted to radians
@@ -132,7 +131,7 @@ inline T clamped(const T& value, const double& magnitude)
 template <class T>
 inline T clamped(const T& value, const T& limit)
 {
-  VectorXd result(value.size());
+  Eigen::VectorXd result(value.size());
   for (int i = 0; i < value.size(); ++i)
   {
     result[i] = clamped(value[i], -limit[i], limit[1]);
@@ -153,9 +152,9 @@ inline double setPrecision(const double& value, const int& precision)
 /// @param[in] vector The input vector
 /// @param[in] precision The required precision
 /// @return The input vector with a precision defined by the precision input
-inline Vector3d setPrecision(const Vector3d& vector, const int& precision)
+inline Eigen::Vector3d setPrecision(const Eigen::Vector3d& vector, const int& precision)
 {
-  return Vector3d(roundToInt(vector[0] * pow(10, precision)) / pow(10, precision),
+  return Eigen::Vector3d(roundToInt(vector[0] * pow(10, precision)) / pow(10, precision),
                   roundToInt(vector[1] * pow(10, precision)) / pow(10, precision),
                   roundToInt(vector[2] * pow(10, precision)) / pow(10, precision));
 }
@@ -174,11 +173,11 @@ inline double smoothStep(const double& control_input)
 /// @param[in] a The input vector
 /// @param[in] b The reference vector
 /// @return The resultant projection vector
-inline Vector3d getProjection(const Vector3d& a, const Vector3d& b)
+inline Eigen::Vector3d getProjection(const Eigen::Vector3d& a, const Eigen::Vector3d& b)
 {
   if (a.norm() == 0.0 || b.norm() == 0.0)
   {
-    return Vector3d::Zero();
+    return Eigen::Vector3d::Zero();
   }
   else
   {
@@ -191,7 +190,7 @@ inline Vector3d getProjection(const Vector3d& a, const Vector3d& b)
 /// @param[in] a The input vector
 /// @param[in] b The reference vector
 /// @return The resultant rejection vector
-inline Vector3d getRejection(const Vector3d& a, const Vector3d& b)
+inline Eigen::Vector3d getRejection(const Eigen::Vector3d& a, const Eigen::Vector3d& b)
 {
   return a - getProjection(a, b);
 }
@@ -212,11 +211,11 @@ inline T interpolate(const T& origin, const T& target, const double& control_inp
 /// @param[in] test The test rotation to check for shorter rotation path
 /// @param[in] reference The reference rotation for the target rotation
 /// @return Rotation with shorter path between identical rotations on quaternion
-inline Quaterniond correctRotation(const Quaterniond& test, const Quaterniond& reference)
+inline Eigen::Quaterniond correctRotation(const Eigen::Quaterniond& test, const Eigen::Quaterniond& reference)
 {
   if (test.dot(reference) < 0.0)
   {
-    return Quaterniond(-test.w(), -test.x(), -test.y(), -test.z());
+    return Eigen::Quaterniond(-test.w(), -test.x(), -test.y(), -test.z());
   }
   else
   {
@@ -228,19 +227,19 @@ inline Quaterniond correctRotation(const Quaterniond& test, const Quaterniond& r
 /// @param[in] euler Eigen Vector3d of Euler angles (roll, pitch, yaw) to be converted
 /// @param[in] intrinsic Defines whether conversion occurs intrinsically or extrinsically
 /// @return Eigen Quaternion generated using given Euler Angles
-inline Quaterniond eulerAnglesToQuaternion(const Vector3d& euler, const bool& intrinsic = false)
+inline Eigen::Quaterniond eulerAnglesToQuaternion(const Eigen::Vector3d& euler, const bool& intrinsic = false)
 {
   if (intrinsic)
   {
-    return Quaterniond(AngleAxisd(euler[0], Vector3d::UnitX()) *
-                       AngleAxisd(euler[1], Vector3d::UnitY()) *
-                       AngleAxisd(euler[2], Vector3d::UnitZ()));
+    return Eigen::Quaterniond(Eigen::AngleAxisd(euler[0], Eigen::Vector3d::UnitX()) *
+                       Eigen::AngleAxisd(euler[1], Eigen::Vector3d::UnitY()) *
+                       Eigen::AngleAxisd(euler[2], Eigen::Vector3d::UnitZ()));
   }
   else
   {
-    return Quaterniond(AngleAxisd(euler[2], Vector3d::UnitZ()) *
-                       AngleAxisd(euler[1], Vector3d::UnitY()) *
-                       AngleAxisd(euler[0], Vector3d::UnitX()));
+    return Eigen::Quaterniond(Eigen::AngleAxisd(euler[2], Eigen::Vector3d::UnitZ()) *
+                       Eigen::AngleAxisd(euler[1], Eigen::Vector3d::UnitY()) *
+                       Eigen::AngleAxisd(euler[0], Eigen::Vector3d::UnitX()));
   }
 }
 
@@ -249,9 +248,9 @@ inline Quaterniond eulerAnglesToQuaternion(const Vector3d& euler, const bool& in
 /// @param[in] rotation Eigen Quaterniond of rotation to be converted
 /// @param[in] intrinsic Defines whether conversion occurs intrinsically or extrinsically
 /// @return Euler Angles generated using given Eigen Quaternoid
-inline Vector3d quaternionToEulerAngles(const Quaterniond& rotation, const bool& intrinsic = false)
+inline Eigen::Vector3d quaternionToEulerAngles(const Eigen::Quaterniond& rotation, const bool& intrinsic = false)
 {
-  Vector3d result(0,0,0);
+  Eigen::Vector3d result(0,0,0);
   
   // Intrinsic rotation (roll, pitch, yaw order)
   if (intrinsic)
@@ -292,7 +291,7 @@ inline Vector3d quaternionToEulerAngles(const Quaterniond& rotation, const bool&
     }
   }
   
-  return intrinsic ? result : Vector3d(result[2], result[1], result[0]);
+  return intrinsic ? result : Eigen::Vector3d(result[2], result[1], result[0]);
 }
 
 /// Returns a string representation of the input value.
@@ -377,9 +376,9 @@ inline T quarticBezierDot(const T* points, const double& t)
 /// @param[in] r The DH parameter representing length of the common normal
 /// @param[in] alpha The DH parameter representing angle about common normal, form old z-axis to new z-axis
 /// @return Classical Denavit-Hartenberg (DH) matrix generated using the given DH parameters as input
-inline Matrix4d createDHMatrix(const double& d, const double& theta, const double& r, const double& alpha)
+inline Eigen::Matrix4d createDHMatrix(const double& d, const double& theta, const double& r, const double& alpha)
 {
-  Matrix4d m;
+  Eigen::Matrix4d m;
   m << cos(theta), -sin(theta)*cos(alpha),  sin(theta)*sin(alpha), r* cos(theta),
   sin(theta),  cos(theta)*cos(alpha), -cos(theta)*sin(alpha), r* sin(theta),
   0,             sin(alpha),             cos(alpha),            d,

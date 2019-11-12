@@ -37,7 +37,7 @@ public:
   /// Publishes visualisation markers which represent the estimated walking plane.
   /// @param[in] walk_plane A Vector representing the walk plane
   /// @param[in] walk_plane_normal A Vector of the normal to the walk plane
-  void generateWalkPlane(const Vector3d& walk_plane, const Vector3d& walk_plane_normal);
+  void generateWalkPlane(const Eigen::Vector3d& walk_plane, const Eigen::Vector3d& walk_plane_normal);
 
   /// Publishes visualisation markers which represent the trajectory of the tip of the input leg.
   /// @param[in] leg A pointer to the leg associated with the tip trajectory that is to be published
@@ -84,7 +84,7 @@ public:
   
   /// Publishes visualisation markers which represent the estimate of the gravitational acceleration vector.
   /// @param[in] gravity_estimate An estimate of the gravitational acceleration vector
-  void generateGravity(const Vector3d& gravity_estimate);
+  void generateGravity(const Eigen::Vector3d& gravity_estimate);
 
 private:
   ros::Publisher robot_model_publisher_;          ///< Publisher for topic "/shc/visualisation/robot_model"

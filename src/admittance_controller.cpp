@@ -26,8 +26,8 @@ void AdmittanceController::updateAdmittance(void)
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
     shared_ptr<Leg> leg = leg_it->second;
-    Vector3d admittance_delta = Vector3d::Zero();
-    Vector3d tip_force = params_.use_joint_effort.data ? leg->getTipForceCalculated() : leg->getTipForceMeasured();
+    Eigen::Vector3d admittance_delta = Eigen::Vector3d::Zero();
+    Eigen::Vector3d tip_force = params_.use_joint_effort.data ? leg->getTipForceCalculated() : leg->getTipForceMeasured();
     tip_force *= params_.force_gain.current_value;
     for (int i = 0; i < 3; ++i)
     {

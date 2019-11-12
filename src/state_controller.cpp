@@ -19,12 +19,12 @@ StateController::StateController(void)
 
   // Create robot model
   shared_ptr<DebugVisualiser> debug_visualiser_ptr = 
-    allocate_shared<DebugVisualiser>(aligned_allocator<DebugVisualiser>(), debug_visualiser_);
-  model_ = allocate_shared<Model>(aligned_allocator<Model>(), params_, debug_visualiser_ptr);
+    allocate_shared<DebugVisualiser>(Eigen::aligned_allocator<DebugVisualiser>(), debug_visualiser_);
+  model_ = allocate_shared<Model>(Eigen::aligned_allocator<Model>(), params_, debug_visualiser_ptr);
   model_->generate();
 
   debug_visualiser_.setTimeDelta(params_.time_delta.data);
-  transform_listener_ = allocate_shared<TransformListener>(aligned_allocator<TransformListener>(), transform_buffer_);
+  transform_listener_ = allocate_shared<TransformListener>(Eigen::aligned_allocator<TransformListener>(), transform_buffer_);
 
   // Hexapod Remote topic subscriptions
   system_state_subscriber_            = n.subscribe("syropod_remote/system_state", 1,
@@ -138,11 +138,11 @@ void StateController::init(void)
   }
 
   // Create controller objects and smart pointers
-  walker_ = allocate_shared<WalkController>(aligned_allocator<WalkController>(), model_, params_);
+  walker_ = allocate_shared<WalkController>(Eigen::aligned_allocator<WalkController>(), model_, params_);
   walker_->init();
-  poser_ = allocate_shared<PoseController>(aligned_allocator<PoseController>(), model_, params_);
+  poser_ = allocate_shared<PoseController>(Eigen::aligned_allocator<PoseController>(), model_, params_);
   poser_->init();
-  admittance_ = allocate_shared<AdmittanceController>(aligned_allocator<AdmittanceController>(), model_, params_);
+  admittance_ = allocate_shared<AdmittanceController>(Eigen::aligned_allocator<AdmittanceController>(), model_, params_);
 
   robot_state_ = UNKNOWN;
 
@@ -347,7 +347,7 @@ void StateController::transitionRobotState(void)
     }
     else
     {
-      linear_velocity_input_ = Vector2d::Zero();
+      linear_velocity_input_ = Eigen::Vector2d::Zero();
       angular_velocity_input_ = 0.0;
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to transition state . . .\n");
     }
@@ -452,7 +452,7 @@ void StateController::adjustParameter(void)
     double max_angular_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
     
     // Generate target velocities to achieve before changing step frequency
-    Vector2d target_linear_velocity;
+    Eigen::Vector2d target_linear_velocity;
     double target_angular_velocity;
     if (params_.velocity_input_mode.data == "throttle")
     {
@@ -515,7 +515,7 @@ void StateController::changeGait(void)
   // Force Syropod to stop walking
   else
   {
-    linear_velocity_input_ = Vector2d::Zero();
+    linear_velocity_input_ = Eigen::Vector2d::Zero();
     angular_velocity_input_ = 0.0;
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to change gait . . .\n");
   }
@@ -627,7 +627,7 @@ void StateController::legStateToggle(void)
   else
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to transition leg state . . .\n");
-    linear_velocity_input_ = Vector2d::Zero();
+    linear_velocity_input_ = Eigen::Vector2d::Zero();
     angular_velocity_input_ = 0.0;
   }
 }
@@ -677,7 +677,7 @@ void StateController::executePlan(void)
   else
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to begin plan execution . . .\n");
-    linear_velocity_input_ = Vector2d(0.0, 0.0);
+    linear_velocity_input_ = Eigen::Vector2d(0.0, 0.0);
     angular_velocity_input_ = 0.0;
   }
 }
@@ -856,8 +856,8 @@ void StateController::publishLegState(void)
     msg.pose_delta = walker_->calculateOdometry(time_to_swing_end).toPoseMessage();
 
     // Leg specific auto pose
-    Vector3d position = leg_poser->getAutoPose().position_;
-    Quaterniond rotation = leg_poser->getAutoPose().rotation_;
+    Eigen::Vector3d position = leg_poser->getAutoPose().position_;
+    Eigen::Quaterniond rotation = leg_poser->getAutoPose().rotation_;
     msg.auto_pose = Pose(position, rotation).toPoseMessage();
 
     // Admittance controller
@@ -892,8 +892,8 @@ void StateController::publishVelocity(void)
 void StateController::publishPose(void)
 {
   geometry_msgs::Twist msg;
-  Vector3d position = model_->getCurrentPose().position_;
-  Quaterniond rotation = model_->getCurrentPose().rotation_;
+  Eigen::Vector3d position = model_->getCurrentPose().position_;
+  Eigen::Quaterniond rotation = model_->getCurrentPose().rotation_;
   msg.linear.x = position[0];
   msg.linear.y = position[1];
   msg.linear.z = position[2];
@@ -1001,7 +1001,7 @@ void StateController::publishFrameTransforms(void)
       base_link_to_joint.transform.translation.x = joint_robot_frame.position_[0];
       base_link_to_joint.transform.translation.y = joint_robot_frame.position_[1];
       base_link_to_joint.transform.translation.z = joint_robot_frame.position_[2];
-      Quaterniond rotation = joint_robot_frame.rotation_ * AngleAxisd(joint->desired_position_, Vector3d::UnitZ());
+      Eigen::Quaterniond rotation = joint_robot_frame.rotation_ * Eigen::AngleAxisd(joint->desired_position_, Eigen::Vector3d::UnitZ());
       base_link_to_joint.transform.rotation.w = rotation.w();
       base_link_to_joint.transform.rotation.x = rotation.x();
       base_link_to_joint.transform.rotation.y = rotation.y();
@@ -1108,7 +1108,7 @@ void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& inpu
 {
   if (robot_state_ == RUNNING)
   {
-    linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y) * params_.body_velocity_scaler.data;
+    linear_velocity_input_ = Eigen::Vector2d(input.linear.x, input.linear.y) * params_.body_velocity_scaler.data;
     angular_velocity_input_ = input.angular.z * params_.body_velocity_scaler.data;
     if (params_.velocity_input_mode.data == "throttle" && linear_velocity_input_.norm() > 1.0)
     {
@@ -1123,8 +1123,8 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
 {
   if (robot_state_ == RUNNING)
   {
-    Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
-    Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
+    Eigen::Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
+    Eigen::Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
     poser_->setManualPoseInput(translation_input, rotation_input);
   }
 }
@@ -1366,14 +1366,14 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
 
 void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point& input)
 {
-  primary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
+  primary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point& input)
 {
-  secondary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
+  secondary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1516,9 +1516,9 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
 {
   if (system_state_ != SUSPENDED && poser_ != NULL)
   {
-    Quaterniond orientation(data.orientation.w, data.orientation.x, data.orientation.y, data.orientation.z);
-    Vector3d angular_velocity(data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z);
-    Vector3d linear_acceleration(data.linear_acceleration.x, data.linear_acceleration.y, data.linear_acceleration.z);
+    Eigen::Quaterniond orientation(data.orientation.w, data.orientation.x, data.orientation.y, data.orientation.z);
+    Eigen::Vector3d angular_velocity(data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z);
+    Eigen::Vector3d linear_acceleration(data.linear_acceleration.x, data.linear_acceleration.y, data.linear_acceleration.z);
     model_->setImuData(orientation, linear_acceleration, angular_velocity);
   }
 }
@@ -1589,8 +1589,8 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (get_wrench_values)
     {
-      Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
-      Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
+      Eigen::Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
+      Eigen::Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
       if (leg_stepper != NULL)
       {
         leg_stepper->setTouchdownDetection(true);
@@ -1608,9 +1608,9 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
       if (tip_states.step_plane[i].z != UNASSIGNED_VALUE)
       {
         // From step plane representation calculate position and orientation of plane relative to tip frame
-        Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
-        Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
-        Quaterniond step_plane_orientation =  Quaterniond::FromTwoVectors(Vector3d(0,0,1.0), -step_plane_normal);
+        Eigen::Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
+        Eigen::Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
+        Eigen::Quaterniond step_plane_orientation =  Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0,0,1.0), -step_plane_normal);
         
         // Transform into robot frame and store
         Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));

@@ -23,7 +23,7 @@ public:
   /// Pose class constructor.
   /// @param[in] position The vector input to be set as the position vector of the pose
   /// @param[in] rotation The vector input to be set as the rotation vector of the pose
-  inline Pose(const Vector3d& position, const Quaterniond& rotation)
+  inline Pose(const Eigen::Vector3d& position, const Eigen::Quaterniond& rotation)
   {
     position_ = position;
     rotation_ = rotation;
@@ -33,8 +33,8 @@ public:
   /// @param[in] pose The geometry_msgs/Pose input to be set as the pose
   inline Pose(const geometry_msgs::Pose& pose)
   {
-    position_ = Vector3d(pose.position.x, pose.position.y, pose.position.z);
-    rotation_ = Quaterniond(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
+    position_ = Eigen::Vector3d(pose.position.x, pose.position.y, pose.position.z);
+    rotation_ = Eigen::Quaterniond(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
   };
   
   /// Checks for NaN values within pose elements.
@@ -54,8 +54,8 @@ public:
   /// @param[in] transform The geometry_msgs/Transform input to be used to construct the pose
   inline Pose(const geometry_msgs::Transform& transform)
   {
-    position_ = Vector3d(transform.translation.x, transform.translation.y, transform.translation.z);
-    rotation_ = Quaterniond(transform.rotation.w, transform.rotation.x, transform.rotation.y, transform.rotation.z);
+    position_ = Eigen::Vector3d(transform.translation.x, transform.translation.y, transform.translation.z);
+    rotation_ = Eigen::Quaterniond(transform.rotation.w, transform.rotation.x, transform.rotation.y, transform.rotation.z);
   };
   
   /// Returns a conversion of this pose object into a geometry_msgs::Pose.
@@ -116,10 +116,10 @@ public:
   /// @return The transformed pose
   inline Pose transform(const geometry_msgs::Transform& transform) const
   {
-    Vector3d position(position_ + Vector3d(transform.translation.x,
+    Eigen::Vector3d position(position_ + Eigen::Vector3d(transform.translation.x,
                                            transform.translation.y,
                                            transform.translation.z));
-    Quaterniond rotation(rotation_ * Quaterniond(transform.rotation.w,
+    Eigen::Quaterniond rotation(rotation_ * Eigen::Quaterniond(transform.rotation.w,
                                                  transform.rotation.x,
                                                  transform.rotation.y,
                                                  transform.rotation.z));
@@ -129,23 +129,23 @@ public:
   /// Transforms this pose according to an input transformation matrix constructed from DH matrices.
   /// @param[in] transform The input transformation matrix
   /// @return The transformed pose
-  inline Pose transform(const Matrix4d& transform) const
+  inline Pose transform(const Eigen::Matrix4d& transform) const
   {
     Pose return_pose;
     // Position
-    Vector4d result(position_[0], position_[1], position_[2], 1);
+    Eigen::Vector4d result(position_[0], position_[1], position_[2], 1);
     result = transform * result;
-    return_pose.position_ = Vector3d(result[0], result[1], result[2]);
+    return_pose.position_ = Eigen::Vector3d(result[0], result[1], result[2]);
     // Orientation
-    Matrix3d rotation_matrix = transform.block<3, 3>(0, 0);
-    return_pose.rotation_ = (Quaterniond(rotation_matrix) * rotation_).normalized();
+    Eigen::Matrix3d rotation_matrix = transform.block<3, 3>(0, 0);
+    return_pose.rotation_ = (Eigen::Quaterniond(rotation_matrix) * rotation_).normalized();
     return return_pose;
   }
   
   /// Transforms an input vector into the reference frame of this pose.
   /// @param[in] vec The input vector to be transformed into this pose's reference frame
   /// @return The transformed vector
-  inline Vector3d transformVector(const Vector3d& vec) const 
+  inline Eigen::Vector3d transformVector(const Eigen::Vector3d& vec) const 
   { 
     return position_ + rotation_._transformVector(vec);
   };
@@ -153,7 +153,7 @@ public:
   /// Transforms an input vector from the reference frame of this pose.
   /// @param[in] vec The input vector to be transformed from this pose's reference frame
   /// @return The inversly transformed vector
-  inline Vector3d inverseTransformVector(const Vector3d& vec) const 
+  inline Eigen::Vector3d inverseTransformVector(const Eigen::Vector3d& vec) const 
   { 
     return (~*this).transformVector(vec);
   };
@@ -186,8 +186,8 @@ public:
   /// @return The resultant interpolated pose
   inline Pose interpolate (const double& control_input, const Pose& target_pose)
   { 
-    Vector3d position = control_input * target_pose.position_ + (1.0 - control_input) * (*this).position_;
-    Quaterniond rotation = (*this).rotation_.slerp(control_input, target_pose.rotation_);
+    Eigen::Vector3d position = control_input * target_pose.position_ + (1.0 - control_input) * (*this).position_;
+    Eigen::Quaterniond rotation = (*this).rotation_.slerp(control_input, target_pose.rotation_);
     return Pose(position, rotation);
   };
   
@@ -195,7 +195,7 @@ public:
   /// @return The Identity Pose
   inline static Pose Identity(void) 
   { 
-    return Pose(Vector3d::Zero(), Quaterniond::Identity()); 
+    return Pose(Eigen::Vector3d::Zero(), Eigen::Quaterniond::Identity()); 
   }
   
   /// Returns pose with position and rotation elements all set to undefined values.
@@ -205,8 +205,8 @@ public:
     return Pose(UNDEFINED_POSITION, UNDEFINED_ROTATION);
   }
   
-  Vector3d position_;     ///< The position element of the pose class
-  Quaterniond rotation_;  ///< The rotation element of the pose class
+  Eigen::Vector3d position_;     ///< The position element of the pose class
+  Eigen::Quaterniond rotation_;  ///< The rotation element of the pose class
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
