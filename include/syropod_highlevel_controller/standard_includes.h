@@ -61,7 +61,6 @@
 
 using namespace std;
 using namespace ros;
-using namespace tf2_ros;
 
 /// Converts Degrees to Radians.
 /// @param[in] degrees Value in degrees to be converted to radians

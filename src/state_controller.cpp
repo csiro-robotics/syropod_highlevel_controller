@@ -24,7 +24,7 @@ StateController::StateController(void)
   model_->generate();
 
   debug_visualiser_.setTimeDelta(params_.time_delta.data);
-  transform_listener_ = allocate_shared<TransformListener>(Eigen::aligned_allocator<TransformListener>(), transform_buffer_);
+  transform_listener_ = allocate_shared<tf2_ros::TransformListener>(Eigen::aligned_allocator<tf2_ros::TransformListener>(), transform_buffer_);
 
   // Hexapod Remote topic subscriptions
   system_state_subscriber_            = n.subscribe("syropod_remote/system_state", 1,
