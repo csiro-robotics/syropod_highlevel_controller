@@ -703,7 +703,7 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", Time(0), fixed_frame_id_);
+        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_stepper->setExternalTarget(external_target);
       }
@@ -722,7 +722,7 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped default_transform;
-        default_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", Time(0), fixed_frame_id_);
+        default_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(default_transform.transform);
         leg_stepper->setExternalDefault(external_target);
       }
@@ -741,7 +741,7 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform("base_link", Time(0), frame_id, past, fixed_frame_id_);
+        target_transform = transform_buffer_.lookupTransform("base_link", ros::Time(0), frame_id, past, fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_poser->setExternalTarget(external_target);
       }
@@ -951,7 +951,7 @@ void StateController::publishFrameTransforms(void)
   try
   {
     fixed_frame_id_ = "odom";
-    transform_buffer_.lookupTransform("base_link", "odom", Time(0));
+    transform_buffer_.lookupTransform("base_link", "odom", ros::Time(0));
   }
   catch (tf2::TransformException &ex) 
   {
