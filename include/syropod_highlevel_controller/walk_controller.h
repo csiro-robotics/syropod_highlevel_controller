@@ -235,8 +235,7 @@ private:
   WalkState walk_state_ = STOPPED;           ///< The current walk cycle state
   PosingState pose_state_ = POSING_COMPLETE; ///< The current state of auto posing
 
-  // Step cycle timing object
-  StepCycle step_;                     ///< TBD
+  StepCycle step_;                     ///< Step cycle timing object
 
   // Workspace generation variables
   LimitMap walkspace_;                 ///< A map of interpolated radii for given bearings in degrees at default stance

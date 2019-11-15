@@ -385,9 +385,8 @@ void DebugVisualiser::generateWalkspace(std::shared_ptr<Leg> leg, const LimitMap
   walkspace_marker.color.b = 1;
   walkspace_marker.color.a = 1;
   Pose pose(Eigen::Vector3d::Zero(), Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(),
-  leg_stepper->getWalkPlaneNormal()));
+                                                                        leg_stepper->getWalkPlaneNormal()));
   walkspace_marker.pose = pose.toPoseMessage();
-  
   geometry_msgs::Point origin_point;
   Eigen::Vector3d walkspace_origin = leg_stepper->getDefaultTipPose().position_;
   walkspace_origin = pose.inverseTransformVector(walkspace_origin);

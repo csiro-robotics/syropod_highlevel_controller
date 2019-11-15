@@ -54,8 +54,11 @@ public:
   /// @param[in] transform The geometry_msgs/Transform input to be used to construct the pose
   inline Pose(const geometry_msgs::Transform& transform)
   {
-  position_ = Eigen::Vector3d(transform.translation.x, transform.translation.y, transform.translation.z);
-  rotation_ = Eigen::Quaterniond(transform.rotation.w,transform.rotation.x,transform.rotation.y,transform.rotation.z);
+    position_ = Eigen::Vector3d(transform.translation.x, transform.translation.y, transform.translation.z);
+    rotation_ = Eigen::Quaterniond(transform.rotation.w,
+                                   transform.rotation.x,
+                                   transform.rotation.y,
+                                   transform.rotation.z);
   };
   
   /// Returns a conversion of this pose object into a geometry_msgs::Pose.
