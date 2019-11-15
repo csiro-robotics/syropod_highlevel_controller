@@ -82,7 +82,8 @@ void PoseController::setAutoPoseParams(void)
   auto_poser_container_.clear();
   for (int i = 0; i < int(params_.pose_phase_starts.data.size()); ++i)
   {
-    auto_poser_container_.push_back(std::allocate_shared<AutoPoser>(Eigen::aligned_allocator<AutoPoser>(), shared_from_this(), i));
+    auto_poser_container_.push_back(std::allocate_shared<AutoPoser>(Eigen::aligned_allocator<AutoPoser>(),
+    shared_from_this(), i));
   }
 
   // For each auto-poser object set control variables from auto_posing parameters
@@ -123,8 +124,10 @@ void PoseController::updateStance(void)
       current_pose = current_pose.addPose(leg_poser->getAutoPose());
 
       // Apply pose to current walking tip position to calculate new 'posed' tip position
-      Eigen::Vector3d new_tip_position = current_pose.inverseTransformVector(leg_stepper->getCurrentTipPose().position_);
-      Eigen::Quaterniond new_tip_rotation = current_pose.rotation_.inverse() * leg_stepper->getCurrentTipPose().rotation_;
+      Eigen::Vector3d new_tip_position = current_pose.inverseTransformVector(leg_stepper->
+      getCurrentTipPose().position_);
+      Eigen::Quaterniond new_tip_rotation = current_pose.rotation_.inverse() * leg_stepper->
+      getCurrentTipPose().rotation_;
       Pose new_pose(new_tip_position, new_tip_rotation);
       ROS_ASSERT(new_pose.isValid());
       leg_poser->setCurrentTipPose(new_pose);
@@ -254,7 +257,8 @@ int PoseController::executeSequence(const SequenceSelection& sequence)
           double step_height = direct_step ? 0.0 : params_.swing_height.current_value;
           double time_to_step = HORIZONTAL_TRANSITION_TIME / params_.step_frequency.current_value;
           time_to_step *= (first_sequence_execution_ ? 2.0 : 1.0); // Double time for initial sequence
-          progress = leg_poser->stepToPosition(target_tip_pose, Pose::Identity(), step_height, time_to_step, apply_delta);
+          progress = leg_poser->stepToPosition(target_tip_pose, Pose::Identity(), step_height, time_to_step, 
+          apply_delta);
           leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
           double limit_proximity = leg->applyIK();
           bool exceeded_workspace = limit_proximity < safety_factor; // Leg attempted to move beyond safe workspace
@@ -492,7 +496,8 @@ int PoseController::directStartup(void) // Simultaneous leg coordination
 
       // Populate configuration with default values
       JointContainer::iterator joint_it;
-      for (joint_it = test_leg->getJointContainer()->begin(); joint_it != test_leg->getJointContainer()->end(); ++joint_it)
+      for (joint_it = test_leg->getJointContainer()->begin(); joint_it != test_leg->getJointContainer()->end();
+      ++joint_it)
       {
         std::shared_ptr<Joint> joint = joint_it->second;
         int joint_index = joint->id_number_ - 1;
@@ -677,7 +682,8 @@ int PoseController::unpackLegs(const double& time_to_unpack) // Simultaneous leg
         std::shared_ptr<Joint> joint = joint_it->second;
         int joint_index = joint->id_number_ - 1;
         unpacked_configuration.name[joint_index] = joint->id_name_;
-        double target_position = (pack_step_ > 0) ? joint->packed_positions_.at(pack_step_ - 1) : joint->unpacked_position_;
+        double target_position = (pack_step_ > 0) ? joint->packed_positions_.at(pack_step_ - 1) : 
+        joint->unpacked_position_;
         unpacked_configuration.position[joint_index] =  target_position;
       }
       leg_poser->setDesiredConfiguration(unpacked_configuration);
@@ -721,7 +727,8 @@ int PoseController::transitionConfiguration(const double& transition_time) // Si
         sensor_msgs::JointState new_leg_configuration;
         new_leg_configuration.name.assign(joint_count, "");
         new_leg_configuration.position.assign(joint_count, UNASSIGNED_VALUE);
-        configuration_sorter.insert(std::map<std::string, sensor_msgs::JointState>::value_type(leg_name, new_leg_configuration));
+        configuration_sorter.insert(std::map<std::string, sensor_msgs::JointState>::value_type(leg_name,
+        new_leg_configuration));
       }
       
       // Populate configuration with desired values
@@ -777,11 +784,13 @@ int PoseController::transitionStance(const double& transition_time)
     // Update target rotation if gravity alignment is set
     if (target_tip_pose.rotation_.isApprox(UNDEFINED_ROTATION) && params_.gravity_aligned_tips.data)
     {
-      target_tip_pose.rotation_ = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitX(), model_->estimateGravity());
+      target_tip_pose.rotation_ = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitX(), 
+      model_->estimateGravity());
     }
     
     // Step to target pose
-    int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, swing_clearance, transition_time, true);
+    int progress = leg_poser->stepToPosition(target_tip_pose, target_body_pose_, swing_clearance, transition_time,
+    true);
     leg->setDesiredTipPose(leg_poser->getCurrentTipPose());
     leg->applyIK();
     min_progress = std::min(progress, min_progress);
@@ -988,7 +997,8 @@ void PoseController::updateManualPose(void)
 
   // Update position according to limitations
   manual_pose_.position_ = desired_position;
-  manual_pose_.rotation_ = correctRotation(eulerAnglesToQuaternion(desired_rotation, true), Eigen::Quaterniond::Identity());
+  manual_pose_.rotation_ = correctRotation(eulerAnglesToQuaternion(desired_rotation, true), 
+  Eigen::Quaterniond::Identity());
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1021,7 +1031,8 @@ void PoseController::updateTipAlignPose(void)
     {
       // Calculate vector normal to walk plane and rotation of this vector from vertical.
       Eigen::Vector3d walk_plane_normal = leg_stepper->getWalkPlaneNormal();
-      Eigen::Quaterniond walk_plane_rotation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(), walk_plane_normal);
+      Eigen::Quaterniond walk_plane_rotation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(),
+      walk_plane_normal);
 
       // Calculate vector from tip position to final joint position
       std::shared_ptr<Tip> tip = leg->getTip();
@@ -1088,7 +1099,7 @@ void PoseController::updateWalkPlanePose(void)
     std::shared_ptr<Leg> leg = leg_it_->second;
     std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     double swing_progress_scaler = std::max(1.0, double(params_.swing_phase.data) / params_.phase_offset.data);
-    double swing_progress = leg_stepper->getSwingProgress() * swing_progress_scaler; // Handles overlapping swing periods
+    double swing_progress = leg_stepper->getSwingProgress() * swing_progress_scaler; // Handle overlapping swing periods
     
     if (swing_progress >= 0 && swing_progress <= 1.0)
     {
@@ -1178,7 +1189,8 @@ void PoseController::updateAutoPose(void)
 
 void PoseController::updateIMUPose(void)
 {
-  Eigen::Quaterniond current_rotation = correctRotation(model_->getImuData().orientation, Eigen::Quaterniond::Identity());
+  Eigen::Quaterniond current_rotation = correctRotation(model_->getImuData().orientation,
+  Eigen::Quaterniond::Identity());
   Eigen::Quaterniond target_rotation = correctRotation(manual_pose_.rotation_, Eigen::Quaterniond::Identity());
   Eigen::Quaterniond rotation_error = (current_rotation * target_rotation.inverse()).normalized();
 
@@ -1227,7 +1239,8 @@ void PoseController::updateIMUPose(void)
 void PoseController::updateInclinationPose(void)
 {
   Eigen::Quaterniond compensation_combined = (manual_pose_.rotation_ * auto_pose_.rotation_).normalized();
-  Eigen::Quaterniond compensation_removed = (model_->getImuData().orientation * compensation_combined.inverse()).normalized();
+  Eigen::Quaterniond compensation_removed = (model_->getImuData().orientation * 
+  compensation_combined.inverse()).normalized();
   
   Eigen::Vector3d euler = quaternionToEulerAngles(compensation_removed);
 
@@ -1572,7 +1585,8 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
   }
   
   // Check if transition is needed
-  Eigen::Vector3d position_delta = origin_tip_pose_.position_ - target_pose.inverseTransformVector(desired_tip_pose.position_);
+  Eigen::Vector3d position_delta = origin_tip_pose_.position_ -
+  target_pose.inverseTransformVector(desired_tip_pose.position_);
   bool transition_position = position_delta.norm() > TIP_TOLERANCE;
   bool transition_rotation = false;
   if (!desired_tip_pose.rotation_.isApprox(UNDEFINED_ROTATION))
@@ -1613,7 +1627,8 @@ int LegPoser::stepToPosition(const Pose& target_tip_pose, const Pose& target_pos
   {
     Eigen::Vector3d origin_tip_direction = origin_tip_pose_.rotation_._transformVector(Eigen::Vector3d::UnitX());
     Eigen::Vector3d desired_tip_direction = desired_tip_pose.rotation_._transformVector(Eigen::Vector3d::UnitX());
-    Eigen::Vector3d new_tip_direction = interpolate(origin_tip_direction, desired_tip_direction, smoothStep(completion_ratio));
+    Eigen::Vector3d new_tip_direction = interpolate(origin_tip_direction, desired_tip_direction,
+    smoothStep(completion_ratio));
     new_tip_rotation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitX(), new_tip_direction.normalized());
   }
 

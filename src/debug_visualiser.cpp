@@ -154,7 +154,8 @@ void DebugVisualiser::generateWalkPlane(const Eigen::Vector3d& walk_plane, const
   walk_plane_marker.pose.position.y = 0.0;
   walk_plane_marker.pose.position.z = walk_plane[2];
   
-  Eigen::Quaterniond walk_plane_orientation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(), walk_plane_normal);
+  Eigen::Quaterniond walk_plane_orientation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(),
+  walk_plane_normal);
   walk_plane_marker.pose.orientation.w = walk_plane_orientation.w();
   walk_plane_marker.pose.orientation.x = walk_plane_orientation.x();
   walk_plane_marker.pose.orientation.y = walk_plane_orientation.y();
@@ -383,7 +384,8 @@ void DebugVisualiser::generateWalkspace(std::shared_ptr<Leg> leg, const LimitMap
   walkspace_marker.color.g = 1;
   walkspace_marker.color.b = 1;
   walkspace_marker.color.a = 1;
-  Pose pose(Eigen::Vector3d::Zero(), Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(), leg_stepper->getWalkPlaneNormal()));
+  Pose pose(Eigen::Vector3d::Zero(), Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(),
+  leg_stepper->getWalkPlaneNormal()));
   walkspace_marker.pose = pose.toPoseMessage();
   
   geometry_msgs::Point origin_point;
@@ -443,7 +445,8 @@ void DebugVisualiser::generateWorkspace(std::shared_ptr<Leg> leg, const double& 
     Workplane workplane = workspace_it->second;
     workspace_marker.id = workspace_id;
     geometry_msgs::Point origin_point;
-    Eigen::Vector3d identity_tip_position = leg_stepper->getIdentityTipPose().position_ - Eigen::Vector3d::UnitZ() * body_clearance;
+    Eigen::Vector3d identity_tip_position = leg_stepper->getIdentityTipPose().position_ - 
+    Eigen::Vector3d::UnitZ() * body_clearance;
     Eigen::Vector3d workplane_origin = identity_tip_position + Eigen::Vector3d::UnitZ() * plane_height;
     origin_point.x = workplane_origin[0];
     origin_point.y = workplane_origin[1];
@@ -474,7 +477,8 @@ void DebugVisualiser::generateWorkspace(std::shared_ptr<Leg> leg, const double& 
           visualization_msgs::Marker workspace_cage_marker = workspace_marker;
           workspace_cage_marker.ns = leg->getIDName() + "_workspace_markers";
           workspace_cage_marker.id = bearing;
-          workspace_cage_markers.insert(std::map<int, visualization_msgs::Marker>::value_type(bearing, workspace_cage_marker));
+          workspace_cage_markers.insert(std::map<int, visualization_msgs::Marker>::value_type(bearing,
+          workspace_cage_marker));
         }
         workspace_cage_markers[bearing].points.push_back(point);
       }

@@ -120,10 +120,12 @@ inline T clamped(const T& value, const double& magnitude)
   return value.norm() > magnitude ? (value * (magnitude / value.norm())) : value;
 }
 
-/// Returns the input vector scaled such that each element does not exceed the magnitude of each element of the limit vector.
+/// Returns the input vector scaled such that each element does not exceed the magnitude of each element of the limit
+/// vector.
 /// @param[in] value The input vector
 /// @param[in] limit The limit vector
-/// @return The input vector scaled such that each element does not exceed the magnitude of each element of the limit vector
+/// @return The input vector scaled such that each element does not exceed the magnitude of each element of the limit
+/// vector
 template <class T>
 inline T clamped(const T& value, const T& limit)
 {
@@ -260,7 +262,7 @@ inline Eigen::Vector3d quaternionToEulerAngles(const Eigen::Quaterniond& rotatio
   }
   
   /// RotationMatrix::eulerAngles returns values in the ranges [0:PI, -PI:PI, -PI:PI] which means that in order to
-  /// represent a rotation smaller than zero about the first axis, the first axis is pointed in the opposite direction 
+  /// represent a rotation smaller than zero about the first axis, the first axis is pointed in the opposite direction
   /// and is then flipped around using the 2nd and 3rd axes (i.e. 2nd and 3rd axes += PI). The resultant euler rotation
   /// is correct but results in angles outside the desired range of -PI:PI. The following code checks if this flipping
   /// occurs by checking is the angles of the 2nd and 3rd axes are greater than PI/2. If so all resultant euler

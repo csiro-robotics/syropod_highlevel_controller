@@ -121,7 +121,8 @@ void Model::updateDefaultConfiguration(void)
 void Model::generateWorkspaces(void)
 {
   // Create copy of model for searching for kinematic limitations
-  std::shared_ptr<Model> search_model = std::allocate_shared<Model>(Eigen::aligned_allocator<Model>(), shared_from_this());
+  std::shared_ptr<Model> search_model = std::allocate_shared<Model>(Eigen::aligned_allocator<Model>(),
+  shared_from_this());
   search_model->generate(shared_from_this());
   search_model->initLegs(true);
   
@@ -221,7 +222,8 @@ Leg::Leg(std::shared_ptr<Leg> leg, std::shared_ptr<Model> model)
 
 void Leg::generate(std::shared_ptr<Leg> leg)
 {
-  std::shared_ptr<Joint> null_joint = std::allocate_shared<Joint>(Eigen::aligned_allocator<Joint>()); //Null joint acts as origin
+  std::shared_ptr<Joint> null_joint = std::allocate_shared<Joint>(Eigen::aligned_allocator<Joint>()); // Null joint 
+  // acts as origin
   std::shared_ptr<Link> base_link = 
     std::allocate_shared<Link>(Eigen::aligned_allocator<Link>(), shared_from_this(), null_joint, 0, params_);
   link_container_.insert(LinkContainer::value_type(0, base_link));
@@ -342,7 +344,8 @@ Workspace Leg::generateWorkspace(void)
   
   // Calculate Identity tip pose
   Pose current_pose = model_->getCurrentPose();
-  Eigen::Vector3d identity_tip_position = current_pose.inverseTransformVector(leg_stepper_->getIdentityTipPose().position_);
+  Eigen::Vector3d identity_tip_position = current_pose.inverseTransformVector(leg_stepper_->
+  getIdentityTipPose().position_);
   
   // Set zero workspace if unable to reach idenity_tip_pose
   if ((identity_tip_position - current_tip_pose_.position_).norm() > IK_TOLERANCE)
@@ -373,7 +376,8 @@ Workspace Leg::generateWorkspace(void)
   while(true)
   {
     Pose current_pose = model_->getCurrentPose();
-    Eigen::Vector3d identity_tip_position = current_pose.inverseTransformVector(leg_stepper_->getIdentityTipPose().position_);
+    Eigen::Vector3d identity_tip_position = current_pose.inverseTransformVector(leg_stepper_->
+    getIdentityTipPose().position_);
     identity_tip_position[2] += search_height;
     
     // Set origin and target for linear interpolation
@@ -386,7 +390,8 @@ Workspace Leg::generateWorkspace(void)
       {
         number_iterations = roundToInt(MAX_WORKSPACE_RADIUS / MAX_POSITION_DELTA);
         origin_tip_position = identity_tip_position;
-        Eigen::Vector3d search_limit = (found_lower_limit ? MAX_WORKSPACE_RADIUS : -MAX_WORKSPACE_RADIUS) * Eigen::Vector3d::UnitZ();
+        Eigen::Vector3d search_limit = (found_lower_limit ? MAX_WORKSPACE_RADIUS : -MAX_WORKSPACE_RADIUS) * 
+        Eigen::Vector3d::UnitZ();
         target_tip_position = identity_tip_position + search_limit;
       }
       // Track to new workplane origin at search height
@@ -570,7 +575,8 @@ Eigen::Vector3d Leg::makeReachable(const Eigen::Vector3d& reference_tip_position
   // If test tip position is beyond limit, calculate new position along same workplane bearing within limits
   if (distance_to_test >  distance_to_limit)
   {
-    Eigen::Vector3d new_tip_position = Eigen::AngleAxisd(raw_bearing, Eigen::Vector3d::UnitZ()) * (Eigen::Vector3d::UnitX() * distance_to_limit);
+    Eigen::Vector3d new_tip_position = Eigen::AngleAxisd(raw_bearing, Eigen::Vector3d::UnitZ()) * 
+    (Eigen::Vector3d::UnitX() * distance_to_limit);
     new_tip_position[2] = test_tip_position[2];
     new_tip_position = pose.transformVector(new_tip_position);
     return new_tip_position;
@@ -686,7 +692,8 @@ void Leg::calculateTipForce(void)
 
   // Transpose and invert jacobian
   Eigen::MatrixXd identity = Eigen::MatrixXd::Identity(joint_count_, joint_count_);
-  Eigen::MatrixXd transformation = jacobian * ((jacobian.transpose()*jacobian + sqr(DLS_COEFFICIENT) * identity).inverse());
+  Eigen::MatrixXd transformation = jacobian * ((jacobian.transpose()*jacobian + sqr(DLS_COEFFICIENT) *
+  identity).inverse());
   
   Eigen::VectorXd raw_tip_force_leg_frame = transformation * joint_torques;
   Eigen::Quaterniond rotation = (first_joint->getPoseJointFrame()).rotation_;
@@ -694,9 +701,12 @@ void Leg::calculateTipForce(void)
   
   // Low pass filter and force gain applied to calculated raw tip force
   double s = 0.15; // Smoothing Factor
-  tip_force_calculated_[0] = s * raw_tip_force[0] * params_.force_gain.current_value + (1 - s) * tip_force_calculated_[0];
-  tip_force_calculated_[1] = s * raw_tip_force[1] * params_.force_gain.current_value + (1 - s) * tip_force_calculated_[1];
-  tip_force_calculated_[2] = s * raw_tip_force[2] * params_.force_gain.current_value + (1 - s) * tip_force_calculated_[2];
+  tip_force_calculated_[0] = s * raw_tip_force[0] * params_.force_gain.current_value + (1 - s) *
+  tip_force_calculated_[0];
+  tip_force_calculated_[1] = s * raw_tip_force[1] * params_.force_gain.current_value + (1 - s) * 
+  tip_force_calculated_[1];
+  tip_force_calculated_[2] = s * raw_tip_force[2] * params_.force_gain.current_value + (1 - s) * 
+  tip_force_calculated_[2];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -718,7 +728,8 @@ void Leg::touchdownDetection(void)
 Eigen::VectorXd Leg::solveIK(const Eigen::MatrixXd& delta, const bool& solve_rotation)
 {
   // Calculate Jacobian from DH matrices along kinematic chain
-  // ref: robotics.stackexchange.com/questions/2760/computing-inverse-kinematic-with-jacobian-matrices-for-6-dof-manipulator
+  // ref: robotics.stackexchange.com/questions/2760/computing-inverse-kinematic-with-jacobian-matrices-
+  // for-6-dof-manipulator
   std::shared_ptr<Joint> first_joint = joint_container_.begin()->second;
   Eigen::Vector3d pe = tip_->getTransformFromJoint(first_joint->id_number_).block<3, 1>(0, 3);
   Eigen::Vector3d z0(0, 0, 1);
@@ -763,15 +774,19 @@ Eigen::VectorXd Leg::solveIK(const Eigen::MatrixXd& delta, const bool& solve_rot
     double position_range_centre = joint->min_position_ + joint_position_range/2.0;
     if (joint_position_range != 0.0)
     {
-      position_limit_cost += sqr(abs(JOINT_LIMIT_COST_WEIGHT * (joint->desired_position_ - position_range_centre) / joint_position_range));
-      position_cost_gradient[i] = -sqr(JOINT_LIMIT_COST_WEIGHT) * (joint->desired_position_ - position_range_centre) / sqr(joint_position_range);
+      position_limit_cost += sqr(abs(JOINT_LIMIT_COST_WEIGHT * (joint->desired_position_ - position_range_centre) / 
+      joint_position_range));
+      position_cost_gradient[i] = -sqr(JOINT_LIMIT_COST_WEIGHT) * (joint->desired_position_ - position_range_centre) / 
+      sqr(joint_position_range);
     }
 
     // VELOCITY LIMITS
     double joint_velocity_range = 2 * joint->max_angular_speed_;
     double velocity_range_centre = 0.0;
-    velocity_limit_cost += sqr(abs(JOINT_LIMIT_COST_WEIGHT * (joint->desired_velocity_ - velocity_range_centre) / joint_velocity_range));
-    velocity_cost_gradient[i] = -sqr(JOINT_LIMIT_COST_WEIGHT) * (joint->desired_velocity_ - velocity_range_centre) / sqr(joint_velocity_range);
+    velocity_limit_cost += sqr(abs(JOINT_LIMIT_COST_WEIGHT * (joint->desired_velocity_ - velocity_range_centre) / 
+    joint_velocity_range));
+    velocity_cost_gradient[i] = -sqr(JOINT_LIMIT_COST_WEIGHT) * (joint->desired_velocity_ - velocity_range_centre) / 
+    sqr(joint_velocity_range);
   }
   position_cost_gradient *= (position_limit_cost == 0.0 ? 0.0 : 1.0 / sqrt(position_limit_cost));
   velocity_cost_gradient *= (velocity_limit_cost == 0.0 ? 0.0 : 1.0 / sqrt(velocity_limit_cost));
@@ -873,8 +888,10 @@ double Leg::applyIK(const bool& simulation)
     applyFK();
     
     // Generate rotation delta vector in reference to the base of the leg
-    Eigen::Vector3d desired_tip_direction = leg_frame_desired_tip_pose.rotation_._transformVector(Eigen::Vector3d::UnitX());
-    Eigen::Vector3d current_tip_direction = leg_frame_current_tip_pose.rotation_._transformVector(Eigen::Vector3d::UnitX());
+    Eigen::Vector3d desired_tip_direction = leg_frame_desired_tip_pose.rotation_.
+    _transformVector(Eigen::Vector3d::UnitX());
+    Eigen::Vector3d current_tip_direction = leg_frame_current_tip_pose.rotation_.
+    _transformVector(Eigen::Vector3d::UnitX());
     Eigen::Quaterniond difference = Eigen::Quaterniond::FromTwoVectors(current_tip_direction, desired_tip_direction);
     Eigen::AngleAxisd axis_rotation(difference.normalized());
     Eigen::Vector3d rotation_delta = axis_rotation.axis() * axis_rotation.angle();
@@ -974,7 +991,8 @@ Pose Leg::applyFK(const bool& set_current, const bool& use_actual)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Link::Link(std::shared_ptr<Leg> leg, std::shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params)
+Link::Link(std::shared_ptr<Leg> leg, std::shared_ptr<Joint> actuating_joint, const int& id_number,
+const Parameters& params)
   : parent_leg_(leg)
   , actuating_joint_(actuating_joint)
   , id_number_(id_number)
@@ -1007,7 +1025,8 @@ Link::Link(std::shared_ptr<Link> link)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Joint::Joint(std::shared_ptr<Leg> leg, std::shared_ptr<Link> reference_link, const int& id_number, const Parameters& params)
+Joint::Joint(std::shared_ptr<Leg> leg, std::shared_ptr<Link> reference_link, const int& id_number, 
+const Parameters& params)
   : parent_leg_(leg)
   , reference_link_(reference_link)
   , id_number_(id_number)

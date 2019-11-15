@@ -39,7 +39,7 @@ struct ExternalTarget
 {
   Pose pose_;              ///< The target tip pose
   double swing_clearance_; ///< The height of the swing trajectory clearance normal to walk plane
-  std::string frame_id_;        ///< The target tip pose reference frame id
+  std::string frame_id_;   ///< The target tip pose reference frame id
   ros::Time time_;         ///< The ros time of the request for the target tip pose
   Pose transform_;         ///< The transform between reference frames at time of request and current time
   bool defined_ = false;   ///< Flag denoting if external target object has been defined
@@ -162,7 +162,7 @@ public:
                       LimitMap* max_linear_acceleration_ptr = NULL,
                       LimitMap* max_angular_acceleration_ptr = NULL);
   
-  /// Generate maximum linear and angular speed/acceleration for each workspace radius in workspace map from pre-set 
+  /// Generate maximum linear and angular speed/acceleration for each workspace radius in workspace map from pre-set
   /// step cycle. These calculated values will accomodate overshoot of tip outside defined workspace whilst body 
   /// accelerates, effectively scaling usable workspace. The calculated values are either set as walk controller limits
   /// OR output to given pointer arguments.
@@ -192,7 +192,8 @@ public:
   /// @param[in] angular_velocity_input The velocity input given to the Syropod defining desired angular body motion
   /// @param[in] limit The LimitMap object which contains limit data for a range of bearings from 0-360 degrees
   /// @return The smallest interpolated limit for a given bearing from each of the Syropod legs
-  double getLimit(const Eigen::Vector2d& linear_velocity_input, const double& angular_velocity_input, const LimitMap& limit);
+  double getLimit(const Eigen::Vector2d& linear_velocity_input, const double& angular_velocity_input,
+  const LimitMap& limit);
 
   /// Updates all legs in the walk cycle. Calculates stride vectors for all legs from robot body velocity inputs and
   /// calls trajectory update functions for each leg to update individual tip positions. Also manages the overall walk
@@ -227,7 +228,7 @@ public:
   Pose calculateOdometry(const double& time_period);
 
 private:
-  std::shared_ptr<Model> model_;            ///< Pointer to robot model object
+  std::shared_ptr<Model> model_;       ///< Pointer to robot model object
   const Parameters& params_;           ///< Pointer to parameter data structure for storing parameter variables
   double time_delta_;                  ///< The time period of the ros cycle
 
@@ -235,22 +236,22 @@ private:
   PosingState pose_state_ = POSING_COMPLETE; ///< The current state of auto posing
 
   // Step cycle timing object
-  StepCycle step_;
+  StepCycle step_;                     ///< TBD
 
   // Workspace generation variables
-  LimitMap walkspace_;                ///< A map of interpolated radii for given bearings in degrees at default stance
-  Eigen::Vector3d walk_plane_;               ///< The co-efficients of an estimated planar walk surface
-  Eigen::Vector3d walk_plane_normal_;        ///< The normal of the estimated planar walk surface
-  bool regenerate_walkspace_ = false; ///< Flag denoting whether walkspace needs to be regenerated
+  LimitMap walkspace_;                 ///< A map of interpolated radii for given bearings in degrees at default stance
+  Eigen::Vector3d walk_plane_;         ///< The co-efficients of an estimated planar walk surface
+  Eigen::Vector3d walk_plane_normal_;  ///< The normal of the estimated planar walk surface
+  bool regenerate_walkspace_ = false;  ///< Flag denoting whether walkspace needs to be regenerated
 
   // Velocity/acceleration variables
-  Eigen::Vector2d desired_linear_velocity_;          ///< The desired linear velocity of the robot body
-  double desired_angular_velocity_;           ///< The desired angular velocity of the robot body
-  Pose odometry_ideal_;                       ///< The ideal odometry from the world frame
-  LimitMap max_linear_speed_;         ///< A map of max allowable linear body speeds for potential bearings
-  LimitMap max_angular_speed_;        ///< A map of max allowable angular speeds for potential bearings
-  LimitMap max_linear_acceleration_;  ///< A map of max allowable linear accelerations for potential bearings
-  LimitMap max_angular_acceleration_; ///< A map of max allowable angular accelerations for potential bearings
+  Eigen::Vector2d desired_linear_velocity_; ///< The desired linear velocity of the robot body
+  double desired_angular_velocity_;         ///< The desired angular velocity of the robot body
+  Pose odometry_ideal_;                     ///< The ideal odometry from the world frame
+  LimitMap max_linear_speed_;               ///< A map of max allowable linear body speeds for potential bearings
+  LimitMap max_angular_speed_;              ///< A map of max allowable angular speeds for potential bearings
+  LimitMap max_linear_acceleration_;        ///< A map of max allowable linear accelerations for potential bearings
+  LimitMap max_angular_acceleration_;       ///< A map of max allowable angular accelerations for potential bearings
 
   // Leg coordination variables
   int legs_at_correct_phase_ = 0;            ///< A count of legs currently at the correct phase per walk cycle state
@@ -347,7 +348,8 @@ public:
   inline double getStanceProgress(void) { return stance_progress_; };
 
   /// Returns true if leg has completed its first step whilst the walk state transitions from STOPPED to MOVING. 
-  /// @return Flag denoting whether the leg has completed its first step whilst the walk state transitions from STOPPED to MOVING
+  /// @return Flag denoting whether the leg has completed its first step whilst the walk state transitions from 
+  /// STOPPED to MOVING
   inline bool hasCompletedFirstStep(void) { return completed_first_step_; };
 
   /// Returns true if leg is in the correct step cycle phase per the walk controller state. 
@@ -479,30 +481,30 @@ private:
   std::shared_ptr<WalkController> walker_;  ///< Pointer to walk controller object
   std::shared_ptr<Leg> leg_;                ///< Pointer to the parent leg object
 
-  bool at_correct_phase_ = false;     ///< Flag denoting if the leg is at the correct phase per the walk state
-  bool completed_first_step_ = false; ///< Flag denoting if the leg has completed its first step  
-  bool touchdown_detection_ = false;  ///< Flag denoting whether touchdown detection is enabled
+  bool at_correct_phase_ = false;           ///< Flag denoting if the leg is at the correct phase per the walk state
+  bool completed_first_step_ = false;       ///< Flag denoting if the leg has completed its first step  
+  bool touchdown_detection_ = false;        ///< Flag denoting whether touchdown detection is enabled
 
-  int phase_ = 0;    ///< Step cycle phase
-  int phase_offset_; ///< Step cycle phase offset
+  int phase_ = 0;        ///< Step cycle phase
+  int phase_offset_;     ///< Step cycle phase offset
 
-  double step_progress_ = 0.0;      ///< The progress of the entire step cycle (0.0->1.0 || -1.0)
-  double swing_progress_ = -1.0;    ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
-  double stance_progress_ = -1.0;   ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
+  double step_progress_ = 0.0;        ///< The progress of the entire step cycle (0.0->1.0 || -1.0)
+  double swing_progress_ = -1.0;      ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
+  double stance_progress_ = -1.0;     ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
 
-  StepState step_state_ = STANCE; ///< The state of the step cycle
+  StepState step_state_ = STANCE;     ///< The state of the step cycle
 
-  Eigen::Vector3d swing_1_nodes_[5]; ///< An array of 3d control nodes defining the primary swing bezier curve
-  Eigen::Vector3d swing_2_nodes_[5]; ///< An array of 3d control nodes defining the secondary swing bezier curve
-  Eigen::Vector3d stance_nodes_[5];  ///< An array of 3d control nodes defining the stance bezier curve
+  Eigen::Vector3d swing_1_nodes_[5];  ///< An array of 3d control nodes defining the primary swing bezier curve
+  Eigen::Vector3d swing_2_nodes_[5];  ///< An array of 3d control nodes defining the secondary swing bezier curve
+  Eigen::Vector3d stance_nodes_[5];   ///< An array of 3d control nodes defining the stance bezier curve
 
   Eigen::Vector3d walk_plane_;        ///< A saved version of the estimated walk plane which is kept static during swing
   Eigen::Vector3d walk_plane_normal_; ///< The normal of the saved estimated planar walk surface
   Eigen::Vector3d stride_vector_;     ///< The desired stride vector
-  Eigen::Vector3d swing_clearance_;   ///< The position relative to the default tip position to achieve during swing period
+  Eigen::Vector3d swing_clearance_;   ///< Position relative to the default tip position to achieve during swing period
 
-  double swing_delta_t_ = 0.0;
-  double stance_delta_t_ = 0.0;
+  double swing_delta_t_ = 0.0;    
+  double stance_delta_t_ = 0.0;   
 
   Pose identity_tip_pose_;        ///< The user defined tip pose assuming a identity walk plane
   Pose default_tip_pose_;         ///< The default tip pose per the walk controller, updated with walk plane
@@ -515,9 +517,9 @@ private:
   
   Eigen::Vector3d current_tip_velocity_;   ///< The default tip velocity per the walk controller
   
-  Eigen::Vector3d swing_origin_tip_position_;  ///< The tip position used as the origin for the bezier curve during swing
-  Eigen::Vector3d swing_origin_tip_velocity_;  ///< The tip velocity used in the generation of bezier curve during swing
-  Eigen::Vector3d stance_origin_tip_position_; ///< The tip position used as the origin for the bezier curve during stance
+  Eigen::Vector3d swing_origin_tip_position_;  ///< Tip position used as the origin for the bezier curve during swing
+  Eigen::Vector3d swing_origin_tip_velocity_;  ///< Tip velocity used in the generation of bezier curve during swing
+  Eigen::Vector3d stance_origin_tip_position_; ///< Tip position used as the origin for the bezier curve during stance
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

@@ -157,7 +157,8 @@ public:
   /// @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_velocity"
   void bodyVelocityInputCallback(const geometry_msgs::Twist& input);
 
-  /// Callback for the input body pose velocity (x/y/z linear translation and roll/pitch/yaw angular rotation velocities).
+  /// Callback for the input body pose velocity (x/y/z linear translation and roll/pitch/yaw angular rotation
+  /// velocities).
   /// @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_pose"
   void bodyPoseInputCallback(const geometry_msgs::Twist& input);
 
@@ -177,7 +178,8 @@ public:
 
   /// Callback handling the cruise control mode and sending state messages to user interface. Determines cruise velocity
   /// from either parameters or current velocitiy inputs.
-  /// @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/cruise_control_mode"
+  /// @param[in] input The Int8 standard message provided by the subscribed ros topic 
+  /// "syropod_remote/cruise_control_mode"
   /// @see parameters_and_states.h
   void cruiseControlCallback(const std_msgs::Int8& input);
   
@@ -202,7 +204,8 @@ public:
   void primaryLegStateCallback(const std_msgs::Int8& input);
 
   /// Callback handling the toggling the state of the secondary selected leg.
-  /// @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/secondary_leg_state"
+  /// @param[in] input The Int8 standard message provided by the subscribed ros topic 
+  /// "syropod_remote/secondary_leg_state"
   /// @see parameters_and_states.h
   void secondaryLegStateCallback(const std_msgs::Int8& input);
 
@@ -236,7 +239,8 @@ public:
   void imuCallback(const sensor_msgs::Imu& data);
 
   /// Callback which handles acquisition of joint states from motor drivers. Attempts to populate joint objects with
-  /// available current position/velocity/effort and flags if all joint objects have received an initial current position.
+  /// available current position/velocity/effort and flags if all joint objects have received an initial current
+  /// position.
   /// @param[in] joint_states The JointState sensor message provided by the subscribed ros topic "/joint_states"
   void jointStatesCallback(const sensor_msgs::JointState& joint_states);
 
@@ -258,39 +262,39 @@ public:
   void targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& msg);
 
 private:
-  ros::Subscriber system_state_subscriber_;           ///< Subscriber for topic "/syropod_remote/system_state"
-  ros::Subscriber robot_state_subscriber_;            ///< Subscriber for topic "/syropod_remote/robot_state"
-  ros::Subscriber desired_velocity_subscriber_;       ///< Subscriber for topic "/syropod_remote/desired_velocity"
-  ros::Subscriber desired_pose_subscriber_;           ///< Subscriber for topic "/syropod_remote/desired_pose"
-  ros::Subscriber posing_mode_subscriber_;            ///< Subscriber for topic "/syropod_remote/posing_mode"
-  ros::Subscriber pose_reset_mode_subscriber_;        ///< Subscriber for topic "/syropod_remote/pose_reset_mode"
-  ros::Subscriber gait_selection_subscriber_;         ///< Subscriber for topic "/syropod_remote/gait_selection"
-  ros::Subscriber cruise_control_mode_subscriber_;    ///< Subscriber for topic "/syropod_remote/cruise_control_mode"
-  ros::Subscriber auto_navigation_mode_subscriber_;   ///< Subscriber for topic "/syropod_remote/auto_navigation_mode"
-  ros::Subscriber planner_mode_subscriber_;           ///< Subscirber for topic "/syropod_remote/planner_mode"
-  ros::Subscriber primary_leg_selection_subscriber_;  ///< Subscriber for topic "/syropod_remote/primary_leg_selection"
-  ros::Subscriber primary_leg_state_subscriber_;      ///< Subscriber for topic "/syropod_remote/primary_leg_state"
-  ros::Subscriber primary_tip_velocity_subscriber_;   ///< Subscriber for topic "/syropod_remote/primary_tip_velocity"
-  ros::Subscriber secondary_leg_selection_subscriber_;///< Subscriber for topic "/syropod_remote/secondary_leg_selection"
-  ros::Subscriber secondary_leg_state_subscriber_;    ///< Subscriber for topic "/syropod_remote/secondary_leg_state"
-  ros::Subscriber secondary_tip_velocity_subscriber_; ///< Subscriber for topic "/syropod_remote/secondary_tip_velocity"
-  ros::Subscriber parameter_selection_subscriber_;    ///< Subscriber for topic "/syropod_remote/parameter_selection"
-  ros::Subscriber parameter_adjustment_subscriber_;   ///< Subscriber for topic "/syropod_remote/parameter_adjustment"
+  ros::Subscriber system_state_subscriber_;            ///< Subscriber for topic /syropod_remote/system_state
+  ros::Subscriber robot_state_subscriber_;             ///< Subscriber for topic /syropod_remote/robot_state
+  ros::Subscriber desired_velocity_subscriber_;        ///< Subscriber for topic /syropod_remote/desired_velocity
+  ros::Subscriber desired_pose_subscriber_;            ///< Subscriber for topic /syropod_remote/desired_pose
+  ros::Subscriber posing_mode_subscriber_;             ///< Subscriber for topic /syropod_remote/posing_mode
+  ros::Subscriber pose_reset_mode_subscriber_;         ///< Subscriber for topic /syropod_remote/pose_reset_mode
+  ros::Subscriber gait_selection_subscriber_;          ///< Subscriber for topic /syropod_remote/gait_selection
+  ros::Subscriber cruise_control_mode_subscriber_;     ///< Subscriber for topic /syropod_remote/cruise_control_mode
+  ros::Subscriber auto_navigation_mode_subscriber_;    ///< Subscriber for topic /syropod_remote/auto_navigation_mode
+  ros::Subscriber planner_mode_subscriber_;            ///< Subscirber for topic /syropod_remote/planner_mode
+  ros::Subscriber primary_leg_selection_subscriber_;   ///< Subscriber for topic /syropod_remote/primary_leg_selection
+  ros::Subscriber primary_leg_state_subscriber_;       ///< Subscriber for topic /syropod_remote/primary_leg_state
+  ros::Subscriber primary_tip_velocity_subscriber_;    ///< Subscriber for topic /syropod_remote/primary_tip_velocity
+  ros::Subscriber secondary_leg_selection_subscriber_; ///< Subscriber for topic /syropod_remote/secondary_leg_selection
+  ros::Subscriber secondary_leg_state_subscriber_;     ///< Subscriber for topic /syropod_remote/secondary_leg_state
+  ros::Subscriber secondary_tip_velocity_subscriber_;  ///< Subscriber for topic /syropod_remote/secondary_tip_velocity
+  ros::Subscriber parameter_selection_subscriber_;     ///< Subscriber for topic /syropod_remote/parameter_selection
+  ros::Subscriber parameter_adjustment_subscriber_;    ///< Subscriber for topic /syropod_remote/parameter_adjustment
   
-  ros::Subscriber target_configuration_subscriber_;   ///< Subscriber for topic "/target_configuration"
-  ros::Subscriber target_body_pose_subscriber_;       ///< Subscriber for topic "/target_body_pose" 
-  ros::Subscriber target_tip_pose_subscriber_;        ///< Subscriber for topic "/target_tip_poses"
+  ros::Subscriber target_configuration_subscriber_;    ///< Subscriber for topic /target_configuration
+  ros::Subscriber target_body_pose_subscriber_;        ///< Subscriber for topic /target_body_pose
+  ros::Subscriber target_tip_pose_subscriber_;         ///< Subscriber for topic /target_tip_poses
   
-  ros::Subscriber imu_data_subscriber_;               ///< Subscriber for topic "/SYROPOD_TYPE/imu/data"
-  ros::Subscriber joint_state_subscriber_;            ///< Subscriber for topic "/joint_states"
-  ros::Subscriber tip_state_subscriber_;              ///< Subscriber for topic "/tip_states"
+  ros::Subscriber imu_data_subscriber_;                ///< Subscriber for topic /SYROPOD_TYPE/imu/data
+  ros::Subscriber joint_state_subscriber_;             ///< Subscriber for topic /joint_states
+  ros::Subscriber tip_state_subscriber_;               ///< Subscriber for topic /tip_states
 
-  ros::Publisher desired_joint_state_publisher_;      ///< Publisher for topic "/desired_joint_state"
-  ros::Publisher velocity_publisher_;                 ///< Publisher for topic "/shc/velocity"
-  ros::Publisher pose_publisher_;                     ///< Publisher for topic "/shc/pose"
-  ros::Publisher walkspace_publisher_;                ///< Publisher for topic "/shc/walkspace"
-  ros::Publisher rotation_pose_error_publisher_;      ///< Publisher for topic "/shc/rotation_pose_error"
-  ros::Publisher plan_step_request_publisher_;        ///< Publisher for topic "/shc/plan_step_request"
+  ros::Publisher desired_joint_state_publisher_;       ///< Publisher for topic /desired_joint_state
+  ros::Publisher velocity_publisher_;                  ///< Publisher for topic /shc/velocity
+  ros::Publisher pose_publisher_;                      ///< Publisher for topic /shc/pose
+  ros::Publisher walkspace_publisher_;                 ///< Publisher for topic /shc/walkspace
+  ros::Publisher rotation_pose_error_publisher_;       ///< Publisher for topic /shc/rotation_pose_error
+  ros::Publisher plan_step_request_publisher_;         ///< Publisher for topic /shc/plan_step_request
   
   tf2_ros::Buffer transform_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> transform_listener_;
@@ -303,8 +307,8 @@ private:
   std::shared_ptr<WalkController> walker_;           ///< Pointer to walk controller object
   std::shared_ptr<PoseController> poser_;            ///< Pointer to pose controller object
   std::shared_ptr<AdmittanceController> admittance_; ///< Pointer to admittance controller object
-  DebugVisualiser debug_visualiser_;            ///< Debug class object used for RVIZ visualization
-  Parameters params_;                           ///< Parameter data structure for storing parameter variables
+  DebugVisualiser debug_visualiser_;                 ///< Debug class object used for RVIZ visualization
+  Parameters params_;                                ///< Parameter data structure for storing parameter variables
 
   bool initialised_ = false; ///< Flags if the state controller has initialised
 
@@ -327,8 +331,8 @@ private:
   LegDesignation secondary_leg_selection_ = LEG_UNDESIGNATED; ///< Current secondary leg selection designation
   LegState primary_leg_state_ = WALKING;                      ///< State of primary leg selection
   LegState secondary_leg_state_ = WALKING;                    ///< State of secondary leg selection
-  std::shared_ptr<Leg> primary_leg_;                               ///< Pointer to leg object of primary leg selection
-  std::shared_ptr<Leg> secondary_leg_;                             ///< Pointer to leg object of secondary leg selection
+  std::shared_ptr<Leg> primary_leg_;                          ///< Pointer to leg object of primary leg selection
+  std::shared_ptr<Leg> secondary_leg_;                        ///< Pointer to leg object of secondary leg selection
 
   int manual_leg_count_ = 0;                  ///< Count of legs that are currently in manual manipulation mode
   double cruise_control_end_time_ = 0.0;      ///< End time of cruise control mode used for limiting purposes
@@ -344,17 +348,17 @@ private:
   bool target_tip_pose_acquired_ = false;       ///< Flag denoting if tip pose has been acquired from planner interface
   bool target_body_pose_acquired_ = false;      ///< Flag denoting if body pose has been acquiredfrom planner interface
   int plan_step_ = 0;                           ///< The plan step currently being requested/executed
-  std::string fixed_frame_id_;                       ///< The id of the fixed frame
+  std::string fixed_frame_id_;                  ///< The id of the fixed frame
 
-  Eigen::Vector2d linear_velocity_input_;            ///< Input for the desired linear velocity of the robot body
-  double angular_velocity_input_ = 0;         ///< Input for the desired angular velocity of the robot body
-  Eigen::Vector3d primary_tip_velocity_input_;       ///< Input for the desired linear velocity of the primary leg tip
-  Eigen::Vector3d secondary_tip_velocity_input_;     ///< Input for the desired linear velocity of the secondary leg tip
-  Eigen::Vector2d linear_cruise_velocity_;           ///< Desired constant linear body velocity for cruise control mode
-  double angular_cruise_velocity_;            ///< Desired constant angular body velocity for cruise control mode
+  Eigen::Vector2d linear_velocity_input_;          ///< Input for the desired linear velocity of the robot body
+  double angular_velocity_input_ = 0;              ///< Input for the desired angular velocity of the robot body
+  Eigen::Vector3d primary_tip_velocity_input_;     ///< Input for the desired linear velocity of the primary leg tip
+  Eigen::Vector3d secondary_tip_velocity_input_;   ///< Input for the desired linear velocity of the secondary leg tip
+  Eigen::Vector2d linear_cruise_velocity_;         ///< Desired constant linear body velocity for cruise control mode
+  double angular_cruise_velocity_;                 ///< Desired constant angular body velocity for cruise control mode
 
-  LegContainer::iterator leg_it_;     ///< Leg iteration member variable used to minimise code
-  JointContainer::iterator joint_it_; ///< Joint iteration member variable used to minimise code
+  LegContainer::iterator leg_it_;      ///< Leg iteration member variable used to minimise code
+  JointContainer::iterator joint_it_;  ///< Joint iteration member variable used to minimise code
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

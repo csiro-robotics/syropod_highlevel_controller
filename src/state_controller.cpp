@@ -24,7 +24,8 @@ StateController::StateController(void)
   model_->generate();
 
   debug_visualiser_.setTimeDelta(params_.time_delta.data);
-  transform_listener_ = std::allocate_shared<tf2_ros::TransformListener>(Eigen::aligned_allocator<tf2_ros::TransformListener>(), transform_buffer_);
+  transform_listener_ = std::allocate_shared<tf2_ros::TransformListener>
+  (Eigen::aligned_allocator<tf2_ros::TransformListener>(), transform_buffer_);
 
   // Hexapod Remote topic subscriptions
   system_state_subscriber_            = n.subscribe("syropod_remote/system_state", 1,
@@ -142,7 +143,8 @@ void StateController::init(void)
   walker_->init();
   poser_ = std::allocate_shared<PoseController>(Eigen::aligned_allocator<PoseController>(), model_, params_);
   poser_->init();
-  admittance_ = std::allocate_shared<AdmittanceController>(Eigen::aligned_allocator<AdmittanceController>(), model_, params_);
+  admittance_ = std::allocate_shared<AdmittanceController>(Eigen::aligned_allocator<AdmittanceController>(),
+  model_, params_);
 
   robot_state_ = UNKNOWN;
 
@@ -449,14 +451,15 @@ void StateController::adjustParameter(void)
     walker_->setLinearSpeedLimitMap(max_linear_speed_map);
     walker_->setAngularSpeedLimitMap(max_angular_speed_map);
     double max_linear_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
-    double max_angular_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
+    double max_angular_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_,
+    max_angular_speed_map);
     
     // Generate target velocities to achieve before changing step frequency
     Eigen::Vector2d target_linear_velocity;
     double target_angular_velocity;
     if (params_.velocity_input_mode.data == "throttle")
     {
-      target_linear_velocity = clamped(linear_velocity_input_, 1.0) * max_linear_speed;  // Forces input between -1.0/1.0
+      target_linear_velocity = clamped(linear_velocity_input_, 1.0) * max_linear_speed; // Forces input between -1.0/1.0
       target_angular_velocity = clamped(angular_velocity_input_, -1.0, 1.0) * max_angular_speed;
 
       // Scale linear velocity according to angular velocity (% of max) to keep stride velocities within limits
@@ -703,7 +706,8 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
+        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), 
+        fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_stepper->setExternalTarget(external_target);
       }
@@ -722,7 +726,8 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped default_transform;
-        default_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
+        default_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), 
+        fixed_frame_id_);
         external_target.transform_ = Pose(default_transform.transform);
         leg_stepper->setExternalDefault(external_target);
       }
@@ -741,7 +746,8 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform("base_link", ros::Time(0), frame_id, past, fixed_frame_id_);
+        target_transform = transform_buffer_.lookupTransform("base_link", ros::Time(0), frame_id, past, 
+        fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_poser->setExternalTarget(external_target);
       }
@@ -1001,7 +1007,8 @@ void StateController::publishFrameTransforms(void)
       base_link_to_joint.transform.translation.x = joint_robot_frame.position_[0];
       base_link_to_joint.transform.translation.y = joint_robot_frame.position_[1];
       base_link_to_joint.transform.translation.z = joint_robot_frame.position_[2];
-      Eigen::Quaterniond rotation = joint_robot_frame.rotation_ * Eigen::AngleAxisd(joint->desired_position_, Eigen::Vector3d::UnitZ());
+      Eigen::Quaterniond rotation = joint_robot_frame.rotation_ * Eigen::AngleAxisd(joint->desired_position_, 
+      Eigen::Vector3d::UnitZ());
       base_link_to_joint.transform.rotation.w = rotation.w();
       base_link_to_joint.transform.rotation.x = rotation.x();
       base_link_to_joint.transform.rotation.y = rotation.y();
@@ -1518,7 +1525,8 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
   {
     Eigen::Quaterniond orientation(data.orientation.w, data.orientation.x, data.orientation.y, data.orientation.z);
     Eigen::Vector3d angular_velocity(data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z);
-    Eigen::Vector3d linear_acceleration(data.linear_acceleration.x, data.linear_acceleration.y, data.linear_acceleration.z);
+    Eigen::Vector3d linear_acceleration(data.linear_acceleration.x, data.linear_acceleration.y, 
+    data.linear_acceleration.z);
     model_->setImuData(orientation, linear_acceleration, angular_velocity);
   }
 }
@@ -1589,8 +1597,10 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (get_wrench_values)
     {
-      Eigen::Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
-      Eigen::Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
+      Eigen::Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, 
+      tip_states.wrench[i].force.z);
+      Eigen::Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, 
+      tip_states.wrench[i].torque.z);
       if (leg_stepper != NULL)
       {
         leg_stepper->setTouchdownDetection(true);
@@ -1610,7 +1620,8 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
         // From step plane representation calculate position and orientation of plane relative to tip frame
         Eigen::Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
         Eigen::Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
-        Eigen::Quaterniond step_plane_orientation =  Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0,0,1.0), -step_plane_normal);
+        Eigen::Quaterniond step_plane_orientation =  Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0,0,1.0),
+        -step_plane_normal);
         
         // Transform into robot frame and store
         Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));

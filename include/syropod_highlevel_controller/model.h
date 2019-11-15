@@ -14,10 +14,10 @@
 #include "pose.h"
 #include "syropod_highlevel_controller/LegState.h"
 
-#define IK_TOLERANCE 0.005 ///< Tolerance between desired and resultant tip position from inverse/forward kinematics (m)
-#define HALF_BODY_DEPTH 0.05 ///< Threshold used to estimate if leg tip has broken the plane of the robot body (m)
-#define DLS_COEFFICIENT 0.02          ///< Coefficient used in Damped Least Squares method for inverse kinematics
-#define JOINT_LIMIT_COST_WEIGHT 0.1   ///< Gain used in determining cost weight for joints approaching limits
+#define IK_TOLERANCE 0.005          ///< Tolerance between desired & resultant tip position from IK/FK(m)
+#define HALF_BODY_DEPTH 0.05        ///< Threshold used to estimate if leg tip has broken the plane of the robot body(m)
+#define DLS_COEFFICIENT 0.02        ///< Coefficient used in Damped Least Squares method for inverse kinematics
+#define JOINT_LIMIT_COST_WEIGHT 0.1 ///< Gain used in determining cost weight for joints approaching limits
 
 #define BEARING_STEP 45          ///< Step to increment bearing in workspace generation algorithm (deg)
 #define MAX_POSITION_DELTA 0.002 ///< Position delta to increment search position in workspace generation algorithm (m)
@@ -53,7 +53,8 @@ public:
 /// This class serves as the top-level parent of each leg object and associated tip/joint/link objects. It contains data
 /// which is relevant to the robot body or the robot as a whole rather than leg dependent data.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-typedef std::map<int, std::shared_ptr<Leg>, std::less<int>, Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<Leg>>>> LegContainer;
+typedef Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<Leg>>> LegAlignedAllocator;
+typedef std::map<int, std::shared_ptr<Leg>, std::less<int>, LegAlignedAllocator> LegContainer;
 class Model : public std::enable_shared_from_this<Model>
 {
 public:
@@ -188,8 +189,10 @@ public:
 typedef std::vector<double> state_type; // Impedance state used in admittance controller
 typedef std::map<int, double> Workplane;
 typedef std::map<double, Workplane> Workspace;
-typedef std::map<int, std::shared_ptr<Joint>, std::less<int>, Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<Joint>>>> JointContainer;
-typedef std::map<int, std::shared_ptr<Link>, std::less<int>, Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<Link>>>> LinkContainer;
+typedef Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<Joint>>> JointAlignedAllocator;
+typedef std::map<int, std::shared_ptr<Joint>, std::less<int>, JointAlignedAllocator> JointContainer;
+typedef Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<Link>>> LinkAlignedAllocator;
+typedef std::map<int, std::shared_ptr<Link>, std::less<int>, LinkAlignedAllocator> LinkContainer;
 class Leg : public std::enable_shared_from_this<Leg>
 {
 public:
@@ -419,7 +422,10 @@ public:
   /// Returns pointer to joint requested via identification number input.
   /// @param[in] joint_id_number The identification name of the requested joint object pointer
   /// @return Pointer to joint requested via identification number input
-  inline std::shared_ptr<Joint> getJointByIDNumber(const int& joint_id_number) { return joint_container_[joint_id_number]; };
+  inline std::shared_ptr<Joint> getJointByIDNumber(const int& joint_id_number) 
+  {
+  return joint_container_[joint_id_number];
+  };
 
   /// Returns pointer to joint requested via identification name string input.
   /// @param[in] joint_id_name The identification name of the requested joint object pointer
@@ -486,11 +492,11 @@ public:
   Pose applyFK(const bool& set_current = true, const bool& use_actual = false);
 
 private:
-  std::shared_ptr<Model> model_;        ///< A pointer to the parent robot model object
-  const Parameters& params_;       ///< Pointer to parameter data structure for storing parameter variables
-  JointContainer joint_container_; ///< The container object for all child Joint objects
-  LinkContainer link_container_;   ///< The container object for all child Link objects
-  std::shared_ptr<Tip> tip_;            ///< A pointer to the child Tip object
+  std::shared_ptr<Model> model_;     ///< A pointer to the parent robot model object
+  const Parameters& params_;         ///< Pointer to parameter data structure for storing parameter variables
+  JointContainer joint_container_;   ///< The container object for all child Joint objects
+  LinkContainer link_container_;     ///< The container object for all child Link objects
+  std::shared_ptr<Tip> tip_;         ///< A pointer to the child Tip object
 
   std::shared_ptr<LegStepper> leg_stepper_;  ///< A pointer to the LegStepper object associated with this leg
   std::shared_ptr<LegPoser> leg_poser_;      ///< A pointer to the LegPoser object associated with this leg
@@ -505,11 +511,11 @@ private:
   ros::Publisher leg_state_publisher_;     ///< The ros publisher object that publishes state messages for this leg
   ros::Publisher asc_leg_state_publisher_; ///< The ros publisher object that publishes ASC state messages for this leg
 
-  Eigen::Vector3d admittance_delta_;    ///< The admittance controller tip position offset vector
-  double virtual_mass_;          ///< The virtual mass of the admittance controller virtual model of this leg
-  double virtual_stiffness_;     ///< The virtual stiffness of the admittance controller virtual model of this leg
-  double virtual_damping_ratio_; ///< The virtual damping ratio of the admittance controller virtual model of this leg
-  state_type admittance_state_;  ///< The admittance state of the admittance controller virtual model of this leg
+  Eigen::Vector3d admittance_delta_; ///< The admittance controller tip position offset vector
+  double virtual_mass_;              ///< The virtual mass of the admittance controller virtual model of this leg
+  double virtual_stiffness_;         ///< The virtual stiffness of the admittance controller virtual model of this leg
+  double virtual_damping_ratio_;     ///< The virtual damping ratio of the admittance controller virtual model of leg
+  state_type admittance_state_;      ///< The admittance state of the admittance controller virtual model of this leg
 
   Pose desired_tip_pose_;        ///< Desired tip pose before applying Inverse/Forward kinematics
   Pose current_tip_pose_;        ///< Current tip pose according to the model
@@ -517,13 +523,13 @@ private:
   Eigen::Vector3d desired_tip_velocity_; ///< Desired linear tip velocity before applying Inverse/Forward kinematics
   Eigen::Vector3d current_tip_velocity_; ///< Current linear tip velocity according to the model
 
-  int group_; ///< Leg stepping coordination group (Either 0 or 1)
+  int group_;       ///< Leg stepping coordination group (Either 0 or 1)
 
   Eigen::Vector3d tip_force_calculated_;  ///< Calculated force estimation on the tip
   Eigen::Vector3d tip_torque_calculated_; ///< Calculated torque estimation on the tip
   Eigen::Vector3d tip_force_measured_;    ///< Measured force estimation on the tip
   Eigen::Vector3d tip_torque_measured_;   ///< Measured torque estimation on the tip
-  Pose step_plane_pose_;           ///< Estimation of the pose of the stepping surface plane
+  Pose step_plane_pose_;                  ///< Estimation of the pose of the stepping surface plane
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
@@ -541,7 +547,7 @@ public:
   /// @param[in] actuating_joint A pointer to the actuating joint object, from which this link is moved
   /// @param[in] id_number The identification number for this link
   /// @param[in] params A pointer to the parameter data structure
-  Link(std::shared_ptr<Leg> leg, std::shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params);
+  Link(std::shared_ptr<Leg> leg,std::shared_ptr<Joint> actuating_joint, const int& id_number, const Parameters& params);
   
   /// Copy Constructor for Link object. Initialises member variables from existing Link object.
   /// @param[in] link A pointer to an existing link object
@@ -549,12 +555,12 @@ public:
 
   const std::shared_ptr<Leg> parent_leg_;        ///< A pointer to the parent leg object associated with this link
   const std::shared_ptr<Joint> actuating_joint_; ///< A pointer to the actuating Joint object associated with this link
-  const int id_number_;                     ///< The identification number for this link
+  const int id_number_;                          ///< The identification number for this link
   const std::string id_name_;                    ///< The identification name for this link
-  const double dh_parameter_r_;             ///< The DH parameter 'r' associated with this link
-  const double dh_parameter_theta_;         ///< The DH parameter 'theta' associated with this link
-  const double dh_parameter_d_;             ///< The DH parameter 'd' associated with this link
-  const double dh_parameter_alpha_;         ///< The DH parameter 'alpha' associated with this link
+  const double dh_parameter_r_;                  ///< The DH parameter 'r' associated with this link
+  const double dh_parameter_theta_;              ///< The DH parameter 'theta' associated with this link
+  const double dh_parameter_d_;                  ///< The DH parameter 'd' associated with this link
+  const double dh_parameter_alpha_;              ///< The DH parameter 'alpha' associated with this link
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -612,18 +618,18 @@ public:
 
   const std::shared_ptr<Leg> parent_leg_;      ///< A pointer to the parent leg object associated with this joint
   const std::shared_ptr<Link> reference_link_; ///< A pointer to the reference Link object associated with this joint
-  const int id_number_;                   ///< The identification number for this joint
+  const int id_number_;                        ///< The identification number for this joint
   const std::string id_name_;                  ///< The identification name for this joint
-  Eigen::Matrix4d current_transform_;            ///< The current transformation matrix between previous joint and this joint
-  Eigen::Matrix4d identity_transform_;           ///< The identity transformation matrix between previous joint and this joint
+  Eigen::Matrix4d current_transform_;          ///< The current transformation matrix between previous joint and joint
+  Eigen::Matrix4d identity_transform_;         ///< The identity transformation matrix between previous joint and joint
 
-  ros::Publisher desired_position_publisher_; ///< The ros publisher for publishing desired position values
+  ros::Publisher desired_position_publisher_;  ///< The ros publisher for publishing desired position values
 
-  const double min_position_ = 0.0;       ///< The minimum position allowed for this joint
-  const double max_position_ = 0.0;       ///< The maximum position allowed for this joint
+  const double min_position_ = 0.0;            ///< The minimum position allowed for this joint
+  const double max_position_ = 0.0;            ///< The maximum position allowed for this joint
   std::vector<double> packed_positions_ ;      ///< The defined position of this joint in a 'packed' state
-  const double unpacked_position_ = 0.0;  ///< The defined position of this joint in an 'unpacked' state
-  const double max_angular_speed_ = 0.0;  ///< The maximum angular speed of this joint
+  const double unpacked_position_ = 0.0;       ///< The defined position of this joint in an 'unpacked' state
+  const double max_angular_speed_ = 0.0;       ///< The maximum angular speed of this joint
 
   double desired_position_ = 0.0;      ///< The desired angular position of this joint
   double desired_velocity_ = 0.0;      ///< The desired angular velocity of this joint
@@ -689,11 +695,11 @@ public:
     return robot_frame_pose.transform(transform.inverse());
   };
 
-  const std::shared_ptr<Leg> parent_leg_;       ///< A pointer to the parent leg object associated with the tip
-  const std::shared_ptr<Link> reference_link_;  ///< A pointer to the reference Link object associated with the tip
-  const std::string id_name_;                   ///< The identification name for the tip
-  Eigen::Matrix4d current_transform_;             ///< The current transformation matrix between previous joint and the tip
-  Eigen::Matrix4d identity_transform_;            ///< The identity transformation matrix between previous joint and the tip
+  const std::shared_ptr<Leg> parent_leg_;      ///< A pointer to the parent leg object associated with the tip
+  const std::shared_ptr<Link> reference_link_; ///< A pointer to the reference Link object associated with the tip
+  const std::string id_name_;                  ///< The identification name for the tip
+  Eigen::Matrix4d current_transform_;          ///< The current transformation matrix between previous joint and tip
+  Eigen::Matrix4d identity_transform_;         ///< The identity transformation matrix between previous joint and tip
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
