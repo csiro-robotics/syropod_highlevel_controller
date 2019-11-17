@@ -33,7 +33,7 @@ public:
   /// and calls initialisation.
   /// @param[in] model Pointer to the robot model class object
   /// @param[in] params Pointer to the parameter struct object  
-  AdmittanceController(shared_ptr<Model> model, const Parameters& params);
+  AdmittanceController(std::shared_ptr<Model> model, const Parameters& params);
   
   /// Iterates through legs in the robot model and updates the tip position offset value for each.
   /// The calculation is achieved through the use of a classical Runge-Kutta ODE solver with a force input
@@ -48,7 +48,7 @@ public:
   /// adjacent legs.
   /// @param[in] leg A pointer to the leg object associated with the stiffness value to be updated
   /// @param[in] scale_reference A double ranging from 0.0->1.0 which controls the scaling of the stiffnesses
-  void updateStiffness(shared_ptr<Leg> leg, const double& scale_reference);
+  void updateStiffness(std::shared_ptr<Leg> leg, const double& scale_reference);
 
   /// Scales virtual stiffness of swinging leg and adjacent legs according to the walk cycle of the walk controller.
   /// The percentage vertical position difference of the swinging leg tip from it's default position is used as a
@@ -58,11 +58,11 @@ public:
   /// load stiffness value applied to the two adjacent legs. The reseting and addition of stiffness allows overlapping
   /// step cycles to JOINTLY add stiffness to simultaneously adjacent legs.
   /// @param[in] walker A pointer to the walk controller
-  void updateStiffness(shared_ptr<WalkController> walker);
+  void updateStiffness(std::shared_ptr<WalkController> walker);
 
 private:
-  shared_ptr<Model> model_;  ///< Pointer to the robot model object
-  const Parameters& params_; ///< Pointer to parameter data structure for storing parameter variables
+  std::shared_ptr<Model> model_;  ///< Pointer to the robot model object
+  const Parameters& params_;      ///< Pointer to parameter data structure for storing parameter variables
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

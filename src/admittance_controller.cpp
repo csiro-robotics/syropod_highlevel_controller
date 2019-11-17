@@ -11,7 +11,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-AdmittanceController::AdmittanceController(shared_ptr<Model> model, const Parameters& params)
+AdmittanceController::AdmittanceController(std::shared_ptr<Model> model, const Parameters& params)
   : model_(model)
   , params_(params)
 {
@@ -25,13 +25,14 @@ void AdmittanceController::updateAdmittance(void)
   LegContainer::iterator leg_it;
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
-    Vector3d admittance_delta = Vector3d::Zero();
-    Vector3d tip_force = params_.use_joint_effort.data ? leg->getTipForceCalculated() : leg->getTipForceMeasured();
+    std::shared_ptr<Leg> leg = leg_it->second;
+    Eigen::Vector3d admittance_delta = Eigen::Vector3d::Zero();
+    bool use_calculated_tip_force = params_.use_joint_effort.data;
+    Eigen::Vector3d tip_force = use_calculated_tip_force ? leg->getTipForceCalculated() : leg->getTipForceMeasured();
     tip_force *= params_.force_gain.current_value;
     for (int i = 0; i < 3; ++i)
     {
-      double force_input = max(tip_force[i], 0.0); // Use vertical component of tip force vector //TODO
+      double force_input = std::max(tip_force[i], 0.0); // Use vertical component of tip force vector //TODO
       double damping = params_.virtual_damping_ratio.current_value;
       double stiffness = params_.virtual_stiffness.current_value;
       double mass = params_.virtual_mass.current_value;
@@ -64,13 +65,13 @@ void AdmittanceController::updateAdmittance(void)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void AdmittanceController::updateStiffness(shared_ptr<Leg> leg, const double& scale_reference)
+void AdmittanceController::updateStiffness(std::shared_ptr<Leg> leg, const double& scale_reference)
 {
   int leg_id = leg->getIDNumber();
   int adjacent_leg_1_id = mod(leg_id - 1, model_->getLegCount());
   int adjacent_leg_2_id = mod(leg_id + 1, model_->getLegCount());
-  shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
-  shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
+  std::shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
+  std::shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
 
   // (X-1)+1 to change range from 0->1 to 1->scaler
   double virtual_stiffness = params_.virtual_stiffness.current_value;
@@ -92,21 +93,21 @@ void AdmittanceController::updateStiffness(shared_ptr<Leg> leg, const double& sc
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void AdmittanceController::updateStiffness(shared_ptr<WalkController> walker)
+void AdmittanceController::updateStiffness(std::shared_ptr<WalkController> walker)
 {
   // Reset virtual Stiffness each cycle
   LegContainer::iterator leg_it;
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
+    std::shared_ptr<Leg> leg = leg_it->second;
     leg->setVirtualStiffness(params_.virtual_stiffness.current_value);
   }
 
   // Calculate dynamic virtual stiffness
   for (leg_it = model_->getLegContainer()->begin(); leg_it != model_->getLegContainer()->end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<Leg> leg = leg_it->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (leg_stepper->getStepState() == SWING)
     {
       double z_diff = leg_stepper->getCurrentTipPose().position_[2] - leg_stepper->getDefaultTipPose().position_[2];
@@ -116,8 +117,8 @@ void AdmittanceController::updateStiffness(shared_ptr<WalkController> walker)
       int leg_id = leg->getIDNumber();
       int adjacent_leg_1_id = mod(leg_id - 1, model_->getLegCount());
       int adjacent_leg_2_id = mod(leg_id + 1, model_->getLegCount());
-      shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
-      shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
+      std::shared_ptr<Leg> adjacent_leg_1 = model_->getLegByIDNumber(adjacent_leg_1_id);
+      std::shared_ptr<Leg> adjacent_leg_2 = model_->getLegByIDNumber(adjacent_leg_2_id);
 
       // (X-1)+1 to change range from 0->1 to 1->scaler
       double virtual_stiffness = params_.virtual_stiffness.current_value;

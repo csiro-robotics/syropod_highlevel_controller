@@ -32,7 +32,7 @@ DebugVisualiser::DebugVisualiser(void)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
+void DebugVisualiser::generateRobotModel(std::shared_ptr<Model> model)
 {
   // Estimate of robot body length used in scaling markers
   if (marker_scale_ == 0)
@@ -56,13 +56,13 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
   leg_line_list.pose = Pose::Identity().toPoseMessage();
 
   geometry_msgs::Point point;
-  Vector3d previous_body_position = Vector3d::Zero();
-  Vector3d initial_body_position = Vector3d::Zero();
+  Eigen::Vector3d previous_body_position = Eigen::Vector3d::Zero();
+  Eigen::Vector3d initial_body_position = Eigen::Vector3d::Zero();
 
   LegContainer::iterator leg_it;
   for (leg_it = model->getLegContainer()->begin(); leg_it != model->getLegContainer()->end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
+    std::shared_ptr<Leg> leg = leg_it->second;
 
     // Generate line segment between 1st joint of each leg (creating body)
     point.x = previous_body_position[0];
@@ -70,14 +70,14 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
     point.z = previous_body_position[2];
     leg_line_list.points.push_back(point);
 
-    shared_ptr<Joint> first_joint = leg->getJointContainer()->begin()->second;
-    Vector3d first_joint_position = first_joint->getPoseRobotFrame().position_;
+    std::shared_ptr<Joint> first_joint = leg->getJointContainer()->begin()->second;
+    Eigen::Vector3d first_joint_position = first_joint->getPoseRobotFrame().position_;
     point.x = first_joint_position[0];
     point.y = first_joint_position[1];
     point.z = first_joint_position[2];
     leg_line_list.points.push_back(point);
 
-    Vector3d previous_joint_position = first_joint_position;
+    Eigen::Vector3d previous_joint_position = first_joint_position;
     previous_body_position = first_joint_position;
 
     if (leg->getIDNumber() == 0)
@@ -94,8 +94,8 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
       point.z = previous_joint_position[2];
       leg_line_list.points.push_back(point);
 
-      shared_ptr<Joint> joint = joint_it->second;
-      Vector3d joint_position = joint->getPoseRobotFrame().position_;
+      std::shared_ptr<Joint> joint = joint_it->second;
+      Eigen::Vector3d joint_position = joint->getPoseRobotFrame().position_;
       point.x = joint_position[0];
       point.y = joint_position[1];
       point.z = joint_position[2];
@@ -110,7 +110,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
     point.z = previous_joint_position[2];
     leg_line_list.points.push_back(point);
 
-    Vector3d tip_position = leg->getCurrentTipPose().position_;
+    Eigen::Vector3d tip_position = leg->getCurrentTipPose().position_;
     point.x = tip_position[0];
     point.y = tip_position[1];
     point.z = tip_position[2];
@@ -133,7 +133,7 @@ void DebugVisualiser::generateRobotModel(shared_ptr<Model> model)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector3d& walk_plane_normal)
+void DebugVisualiser::generateWalkPlane(const Eigen::Vector3d& walk_plane, const Eigen::Vector3d& walk_plane_normal)
 {
   visualization_msgs::Marker walk_plane_marker;
   walk_plane_marker.header.frame_id = "/walk_plane";
@@ -154,7 +154,8 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector
   walk_plane_marker.pose.position.y = 0.0;
   walk_plane_marker.pose.position.z = walk_plane[2];
   
-  Quaterniond walk_plane_orientation = Quaterniond::FromTwoVectors(Vector3d::UnitZ(), walk_plane_normal);
+  Eigen::Quaterniond walk_plane_orientation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(),
+  walk_plane_normal);
   walk_plane_marker.pose.orientation.w = walk_plane_orientation.w();
   walk_plane_marker.pose.orientation.x = walk_plane_orientation.x();
   walk_plane_marker.pose.orientation.y = walk_plane_orientation.y();
@@ -165,7 +166,7 @@ void DebugVisualiser::generateWalkPlane(const Vector3d& walk_plane, const Vector
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
+void DebugVisualiser::generateTipTrajectory(std::shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker tip_position_marker;
   tip_position_marker.header.frame_id = "/base_link";
@@ -180,7 +181,7 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
   tip_position_marker.lifetime = ros::Duration(TRAJECTORY_DURATION);
   tip_position_marker.pose = Pose::Identity().toPoseMessage();
 
-  Vector3d tip_position = leg->getCurrentTipPose().position_;
+  Eigen::Vector3d tip_position = leg->getCurrentTipPose().position_;
   geometry_msgs::Point point;
   point.x = tip_position[0];
   point.y = tip_position[1];
@@ -194,15 +195,15 @@ void DebugVisualiser::generateTipTrajectory(shared_ptr<Leg> leg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
+void DebugVisualiser::generateTerrainEstimate(std::shared_ptr<Model> model)
 {
   LegContainer::iterator leg_it;
   for (leg_it = model->getLegContainer()->begin(); leg_it != model->getLegContainer()->end(); ++leg_it)
   {
-    shared_ptr<Leg> leg = leg_it->second;
+    std::shared_ptr<Leg> leg = leg_it->second;
     if (leg->getLegStepper()->getSwingProgress() == 1.0)
     {
-      Vector3d tip_position = leg->getCurrentTipPose().position_;
+      Eigen::Vector3d tip_position = leg->getCurrentTipPose().position_;
       
       visualization_msgs::Marker terrain_marker;
       terrain_marker.header.frame_id = "/base_link";
@@ -216,7 +217,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
       terrain_marker.scale.z = tip_position[2] + 0.5;
       terrain_marker.color.r = 1; // RED
       terrain_marker.color.a = 0.5;
-      Pose pose(Vector3d(0, 0, -terrain_marker.scale.z / 2.0), model->getCurrentPose().rotation_.inverse());
+      Pose pose(Eigen::Vector3d(0, 0, -terrain_marker.scale.z / 2.0), model->getCurrentPose().rotation_.inverse());
       terrain_marker.pose = pose.toPoseMessage();
       
       geometry_msgs::Point point;
@@ -232,7 +233,7 @@ void DebugVisualiser::generateTerrainEstimate(shared_ptr<Model> model)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
+void DebugVisualiser::generateBezierCurves(std::shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker swing_1_nodes;
   swing_1_nodes.header.frame_id = "/walk_plane";
@@ -275,14 +276,14 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
   stance_nodes.color.a = 1;
   stance_nodes.pose = Pose::Identity().toPoseMessage();
 
-  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+  std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
   for (int i = 0; i < 5; ++i) // For each of 5 control nodes
   {
     geometry_msgs::Point point;
     if (leg_stepper->getStepState() == STANCE)
     {
-      Vector3d stance_node = leg_stepper->getStanceControlNode(i);
+      Eigen::Vector3d stance_node = leg_stepper->getStanceControlNode(i);
       point.x = stance_node[0];
       point.y = stance_node[1];
       point.z = stance_node[2];
@@ -291,13 +292,13 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
     }
     else if (leg_stepper->getStepState() == SWING)
     {
-      Vector3d swing_1_node = leg_stepper->getSwing1ControlNode(i);
+      Eigen::Vector3d swing_1_node = leg_stepper->getSwing1ControlNode(i);
       point.x = swing_1_node[0];
       point.y = swing_1_node[1];
       point.z = swing_1_node[2];
       ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
       swing_1_nodes.points.push_back(point);
-      Vector3d swing_2_node = leg_stepper->getSwing2ControlNode(i);
+      Eigen::Vector3d swing_2_node = leg_stepper->getSwing2ControlNode(i);
       point.x = swing_2_node[0];
       point.y = swing_2_node[1];
       point.z = swing_2_node[2];
@@ -313,9 +314,9 @@ void DebugVisualiser::generateBezierCurves(shared_ptr<Leg> leg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateDefaultTipPositions(shared_ptr<Leg> leg)
+void DebugVisualiser::generateDefaultTipPositions(std::shared_ptr<Leg> leg)
 {
-  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+  std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
   visualization_msgs::Marker default_tip_position;
   default_tip_position.header.frame_id = "/walk_plane";
@@ -341,9 +342,9 @@ void DebugVisualiser::generateDefaultTipPositions(shared_ptr<Leg> leg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateTargetTipPositions(shared_ptr<Leg> leg)
+void DebugVisualiser::generateTargetTipPositions(std::shared_ptr<Leg> leg)
 {
-  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+  std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
   visualization_msgs::Marker target_tip_position;
   target_tip_position.header.frame_id = "/walk_plane";
@@ -368,9 +369,9 @@ void DebugVisualiser::generateTargetTipPositions(shared_ptr<Leg> leg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateWalkspace(shared_ptr<Leg> leg, const LimitMap& walkspace)
+void DebugVisualiser::generateWalkspace(std::shared_ptr<Leg> leg, const LimitMap& walkspace)
 {
-  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+  std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
   
   visualization_msgs::Marker walkspace_marker;
   walkspace_marker.header.frame_id = "/walk_plane";
@@ -383,11 +384,11 @@ void DebugVisualiser::generateWalkspace(shared_ptr<Leg> leg, const LimitMap& wal
   walkspace_marker.color.g = 1;
   walkspace_marker.color.b = 1;
   walkspace_marker.color.a = 1;
-  Pose pose(Vector3d::Zero(), Quaterniond::FromTwoVectors(Vector3d::UnitZ(), leg_stepper->getWalkPlaneNormal()));
+  Pose pose(Eigen::Vector3d::Zero(), Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(),
+                                                                        leg_stepper->getWalkPlaneNormal()));
   walkspace_marker.pose = pose.toPoseMessage();
-  
   geometry_msgs::Point origin_point;
-  Vector3d walkspace_origin = leg_stepper->getDefaultTipPose().position_;
+  Eigen::Vector3d walkspace_origin = leg_stepper->getDefaultTipPose().position_;
   walkspace_origin = pose.inverseTransformVector(walkspace_origin);
   origin_point.x = walkspace_origin[0];
   origin_point.y = walkspace_origin[1];
@@ -415,13 +416,13 @@ void DebugVisualiser::generateWalkspace(shared_ptr<Leg> leg, const LimitMap& wal
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const double& body_clearance)
+void DebugVisualiser::generateWorkspace(std::shared_ptr<Leg> leg, const double& body_clearance)
 {
   Workspace workspace = leg->getWorkspace();
-  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+  std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
   
   visualization_msgs::MarkerArray workspace_cage_marker_array;
-  map<int, visualization_msgs::Marker> workspace_cage_markers;
+  std::map<int, visualization_msgs::Marker> workspace_cage_markers;
   
   visualization_msgs::MarkerArray workspace_marker_array;
   visualization_msgs::Marker workspace_marker;
@@ -443,8 +444,9 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const double& body_
     Workplane workplane = workspace_it->second;
     workspace_marker.id = workspace_id;
     geometry_msgs::Point origin_point;
-    Vector3d identity_tip_position = leg_stepper->getIdentityTipPose().position_ - Vector3d::UnitZ() * body_clearance;
-    Vector3d workplane_origin = identity_tip_position + Vector3d::UnitZ() * plane_height;
+    Eigen::Vector3d identity_tip_position = leg_stepper->getIdentityTipPose().position_ - 
+    Eigen::Vector3d::UnitZ() * body_clearance;
+    Eigen::Vector3d workplane_origin = identity_tip_position + Eigen::Vector3d::UnitZ() * plane_height;
     origin_point.x = workplane_origin[0];
     origin_point.y = workplane_origin[1];
     origin_point.z = workplane_origin[2];
@@ -474,7 +476,8 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const double& body_
           visualization_msgs::Marker workspace_cage_marker = workspace_marker;
           workspace_cage_marker.ns = leg->getIDName() + "_workspace_markers";
           workspace_cage_marker.id = bearing;
-          workspace_cage_markers.insert(map<int, visualization_msgs::Marker>::value_type(bearing, workspace_cage_marker));
+          workspace_cage_markers.insert(std::map<int, visualization_msgs::Marker>::value_type(bearing,
+          workspace_cage_marker));
         }
         workspace_cage_markers[bearing].points.push_back(point);
       }
@@ -485,7 +488,7 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const double& body_
     workspace_marker.points.clear();
     
     // Publish workspace cage markers
-    map<int, visualization_msgs::Marker>::iterator cage_it;
+    std::map<int, visualization_msgs::Marker>::iterator cage_it;
     for (cage_it = workspace_cage_markers.begin(); cage_it != workspace_cage_markers.end(); ++cage_it)
     {
       workspace_cage_marker_array.markers.push_back(cage_it->second);
@@ -498,10 +501,10 @@ void DebugVisualiser::generateWorkspace(shared_ptr<Leg> leg, const double& body_
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
+void DebugVisualiser::generateStride(std::shared_ptr<Leg> leg)
 {
-  shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-  Vector3d stride_vector = leg_stepper->getStrideVector();
+  std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+  Eigen::Vector3d stride_vector = leg_stepper->getStrideVector();
 
   visualization_msgs::Marker stride;
   stride.header.frame_id = "/walk_plane";
@@ -533,7 +536,7 @@ void DebugVisualiser::generateStride(shared_ptr<Leg> leg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
+void DebugVisualiser::generateTipForce(std::shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker tip_force;
   tip_force.header.frame_id = "/base_link";
@@ -541,7 +544,7 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
   tip_force.id = leg->getIDNumber();
   tip_force.type = visualization_msgs::Marker::ARROW;
   tip_force.action = visualization_msgs::Marker::ADD;
-  Vector3d tip_position = leg->getCurrentTipPose().position_;
+  Eigen::Vector3d tip_position = leg->getCurrentTipPose().position_;
   geometry_msgs::Point origin;
   geometry_msgs::Point target;
   origin.x = tip_position[0];
@@ -582,21 +585,21 @@ void DebugVisualiser::generateTipForce(shared_ptr<Leg> leg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateJointTorques(shared_ptr<Leg> leg)
+void DebugVisualiser::generateJointTorques(std::shared_ptr<Leg> leg)
 {
   JointContainer::iterator joint_it;
   int marker_id = leg->getIDNumber() * leg->getJointCount();
   for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
   {
-    shared_ptr<Joint> joint = joint_it->second;
+    std::shared_ptr<Joint> joint = joint_it->second;
     visualization_msgs::Marker joint_torque;
     joint_torque.header.frame_id = "/base_link";
     joint_torque.header.stamp = ros::Time::now();
     joint_torque.ns = "joint_torque_markers";
     joint_torque.type = visualization_msgs::Marker::SPHERE;
     joint_torque.action = visualization_msgs::Marker::ADD;
-    Vector3d joint_position = joint->getPoseRobotFrame().position_;
-    joint_torque.pose = Pose(joint_position, Quaterniond::Identity()).toPoseMessage();
+    Eigen::Vector3d joint_position = joint->getPoseRobotFrame().position_;
+    joint_torque.pose = Pose(joint_position, Eigen::Quaterniond::Identity()).toPoseMessage();
     double torque_maximum_ratio = clamped(abs(joint->current_effort_) * 5.0, 0.1, 1.0);
     double sphere_radius = 0.1 * sqrt(marker_scale_) * torque_maximum_ratio;
     
@@ -615,7 +618,7 @@ void DebugVisualiser::generateJointTorques(shared_ptr<Leg> leg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate)
+void DebugVisualiser::generateGravity(const Eigen::Vector3d& gravity_estimate)
 {
   visualization_msgs::Marker gravity;
   gravity.header.frame_id = "/base_link";
@@ -625,13 +628,13 @@ void DebugVisualiser::generateGravity(const Vector3d& gravity_estimate)
   gravity.type = visualization_msgs::Marker::ARROW;
   gravity.action = visualization_msgs::Marker::ADD;
   
-  Vector3d robot_position = Vector3d::Zero();
+  Eigen::Vector3d robot_position = Eigen::Vector3d::Zero();
   geometry_msgs::Point origin;
   origin.x = robot_position[0];
   origin.y = robot_position[1];
   origin.z = robot_position[2];
   
-  Vector3d direction_vector = gravity_estimate.normalized() * 0.1 * sqrt(marker_scale_); // Arrow Length  
+  Eigen::Vector3d direction_vector = gravity_estimate.normalized() * 0.1 * sqrt(marker_scale_); // Arrow Length  
   geometry_msgs::Point target;
   target = origin;
   target.x += direction_vector[0];

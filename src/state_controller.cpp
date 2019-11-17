@@ -18,13 +18,15 @@ StateController::StateController(void)
   initParameters();
 
   // Create robot model
-  shared_ptr<DebugVisualiser> debug_visualiser_ptr = 
-    allocate_shared<DebugVisualiser>(aligned_allocator<DebugVisualiser>(), debug_visualiser_);
-  model_ = allocate_shared<Model>(aligned_allocator<Model>(), params_, debug_visualiser_ptr);
+  std::shared_ptr<DebugVisualiser> debug_visualiser_ptr = 
+    std::allocate_shared<DebugVisualiser>(Eigen::aligned_allocator<DebugVisualiser>(), debug_visualiser_);
+  model_ = std::allocate_shared<Model>(Eigen::aligned_allocator<Model>(), params_, debug_visualiser_ptr);
   model_->generate();
 
   debug_visualiser_.setTimeDelta(params_.time_delta.data);
-  transform_listener_ = allocate_shared<TransformListener>(aligned_allocator<TransformListener>(), transform_buffer_);
+  transform_listener_ = 
+    std::allocate_shared<tf2_ros::TransformListener>(Eigen::aligned_allocator<tf2_ros::TransformListener>(),
+                                                     transform_buffer_);
 
   // Hexapod Remote topic subscriptions
   system_state_subscriber_            = n.subscribe("syropod_remote/system_state", 1,
@@ -92,8 +94,8 @@ StateController::StateController(void)
   // Set up individual leg state and desired joint state publishers within leg objects
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    string topic_name = "/shc/" + leg->getIDName() + "/state";
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::string topic_name = "/shc/" + leg->getIDName() + "/state";
     leg->setStatePublisher(n.advertise<syropod_highlevel_controller::LegState>(topic_name, 1000));
     leg->setASCStatePublisher(n.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); // TODO
     // If debugging in gazebo, setup joint command publishers
@@ -101,7 +103,7 @@ StateController::StateController(void)
     {
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
-        shared_ptr<Joint> joint = joint_it_->second;
+        std::shared_ptr<Joint> joint = joint_it_->second;
         joint->desired_position_publisher_ =
           n.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
       }
@@ -138,11 +140,12 @@ void StateController::init(void)
   }
 
   // Create controller objects and smart pointers
-  walker_ = allocate_shared<WalkController>(aligned_allocator<WalkController>(), model_, params_);
+  walker_ = std::allocate_shared<WalkController>(Eigen::aligned_allocator<WalkController>(), model_, params_);
   walker_->init();
-  poser_ = allocate_shared<PoseController>(aligned_allocator<PoseController>(), model_, params_);
+  poser_ = std::allocate_shared<PoseController>(Eigen::aligned_allocator<PoseController>(), model_, params_);
   poser_->init();
-  admittance_ = allocate_shared<AdmittanceController>(aligned_allocator<AdmittanceController>(), model_, params_);
+  admittance_ = 
+    std::allocate_shared<AdmittanceController>(Eigen::aligned_allocator<AdmittanceController>(), model_, params_);
 
   robot_state_ = UNKNOWN;
 
@@ -196,12 +199,12 @@ void StateController::transitionRobotState(void)
     int legs_ready = 0;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
+      std::shared_ptr<Leg> leg = leg_it_->second;
       int joints_packed = 0;
       int joints_ready = 0;
       for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
       {
-        shared_ptr<Joint> joint = joint_it_->second;
+        std::shared_ptr<Joint> joint = joint_it_->second;
         joints_packed += int(abs(joint->current_position_ - joint->packed_positions_.back()) < JOINT_TOLERANCE);
         joints_ready += int(abs(joint->current_position_ - joint->unpacked_position_) < JOINT_TOLERANCE);
       }
@@ -304,7 +307,7 @@ void StateController::transitionRobotState(void)
   else if (robot_state_ == READY && new_robot_state_ == RUNNING)
   {
     int progress = poser_->executeSequence(START_UP);
-    string progress_string = (progress == -1 ? "Generating Sequence" : (numberToString(progress) + "%"));
+    std::string progress_string = (progress == -1 ? "Generating Sequence" : (numberToString(progress) + "%"));
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod transitioning to RUNNING state (%s). . .\n", progress_string.c_str());
     if (progress == PROGRESS_COMPLETE)
     {
@@ -347,7 +350,7 @@ void StateController::transitionRobotState(void)
     }
     else
     {
-      linear_velocity_input_ = Vector2d::Zero();
+      linear_velocity_input_ = Eigen::Vector2d::Zero();
       angular_velocity_input_ = 0.0;
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to transition state . . .\n");
     }
@@ -448,15 +451,17 @@ void StateController::adjustParameter(void)
     walker_->generateLimits(new_step_cycle, &max_linear_speed_map, &max_angular_speed_map);
     walker_->setLinearSpeedLimitMap(max_linear_speed_map);
     walker_->setAngularSpeedLimitMap(max_angular_speed_map);
-    double max_linear_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
-    double max_angular_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
+    double max_linear_speed = 
+      walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
+    double max_angular_speed = 
+      walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
     
     // Generate target velocities to achieve before changing step frequency
-    Vector2d target_linear_velocity;
+    Eigen::Vector2d target_linear_velocity;
     double target_angular_velocity;
     if (params_.velocity_input_mode.data == "throttle")
     {
-      target_linear_velocity = clamped(linear_velocity_input_, 1.0) * max_linear_speed;  // Forces input between -1.0/1.0
+      target_linear_velocity = clamped(linear_velocity_input_, 1.0) * max_linear_speed; // Forces input between -1.0/1.0
       target_angular_velocity = clamped(angular_velocity_input_, -1.0, 1.0) * max_angular_speed;
 
       // Scale linear velocity according to angular velocity (% of max) to keep stride velocities within limits
@@ -515,7 +520,7 @@ void StateController::changeGait(void)
   // Force Syropod to stop walking
   else
   {
-    linear_velocity_input_ = Vector2d::Zero();
+    linear_velocity_input_ = Eigen::Vector2d::Zero();
     angular_velocity_input_ = 0.0;
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to change gait . . .\n");
   }
@@ -528,19 +533,19 @@ void StateController::legStateToggle(void)
   if (walker_->getWalkState() == STOPPED)
   {
     // Choose primary or secondary leg state to transition
-    shared_ptr<Leg> leg; //Transitioning leg
-    shared_ptr<LegState> new_leg_state;
+    std::shared_ptr<Leg> leg; //Transitioning leg
+    std::shared_ptr<LegState> new_leg_state;
     if (toggle_primary_leg_state_)
     {
       leg = model_->getLegByIDNumber(primary_leg_selection_);
-      new_leg_state = make_shared<LegState>(primary_leg_state_);
+      new_leg_state = std::make_shared<LegState>(primary_leg_state_);
     }
     else if (toggle_secondary_leg_state_)
     {
       leg = model_->getLegByIDNumber(secondary_leg_selection_);
-      new_leg_state = make_shared<LegState>(secondary_leg_state_);
+      new_leg_state = std::make_shared<LegState>(secondary_leg_state_);
     }
-    string leg_name = leg->getIDName();
+    std::string leg_name = leg->getIDName();
 
     // Calculate default pose for new loading pattern
     // poser_->calculateDefaultPose();
@@ -555,7 +560,7 @@ void StateController::legStateToggle(void)
                       "\n%s leg transitioning to MANUAL state . . .\n",
                       leg->getIDName().c_str());
         leg->setLegState(WALKING_TO_MANUAL);
-        shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+        std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
         leg_stepper->setSwingProgress(-1.0);
         leg_stepper->setStanceProgress(-1.0);
       }
@@ -627,7 +632,7 @@ void StateController::legStateToggle(void)
   else
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to transition leg state . . .\n");
-    linear_velocity_input_ = Vector2d::Zero();
+    linear_velocity_input_ = Eigen::Vector2d::Zero();
     angular_velocity_input_ = 0.0;
   }
 }
@@ -677,7 +682,7 @@ void StateController::executePlan(void)
   else
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nStopping Syropod to begin plan execution . . .\n");
-    linear_velocity_input_ = Vector2d(0.0, 0.0);
+    linear_velocity_input_ = Eigen::Vector2d(0.0, 0.0);
     angular_velocity_input_ = 0.0;
   }
 }
@@ -689,9 +694,9 @@ void StateController::generateExternalTargetTransforms(void)
   // Lookup transform between current walk plane frame and walk plane frame at time of tip target request
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     ExternalTarget external_target;
     
     // External target transform
@@ -699,11 +704,12 @@ void StateController::generateExternalTargetTransforms(void)
     if (external_target.defined_)
     {
       ros::Time past = external_target.time_;
-      string frame_id = external_target.frame_id_;
+      std::string frame_id = external_target.frame_id_;
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", Time(0), fixed_frame_id_);
+        target_transform = 
+          transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_stepper->setExternalTarget(external_target);
       }
@@ -718,11 +724,12 @@ void StateController::generateExternalTargetTransforms(void)
     if (external_target.defined_)
     {
       ros::Time past = external_target.time_;
-      string frame_id = external_target.frame_id_;
+      std::string frame_id = external_target.frame_id_;
       try
       {
         geometry_msgs::TransformStamped default_transform;
-        default_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", Time(0), fixed_frame_id_);
+        default_transform = 
+          transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(default_transform.transform);
         leg_stepper->setExternalDefault(external_target);
       }
@@ -737,11 +744,12 @@ void StateController::generateExternalTargetTransforms(void)
     if (external_target.defined_)
     {
       ros::Time past = external_target.time_;
-      string frame_id = external_target.frame_id_;
+      std::string frame_id = external_target.frame_id_;
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform("base_link", Time(0), frame_id, past, fixed_frame_id_);
+        target_transform = 
+          transform_buffer_.lookupTransform("base_link", ros::Time(0), frame_id, past, fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_poser->setExternalTarget(external_target);
       }
@@ -760,7 +768,7 @@ void StateController::publishDesiredJointState(void)
   sensor_msgs::JointState joint_state_msg;
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<Leg> leg = leg_it_->second;
     JointContainer::iterator joint_it;
     if (params_.combined_control_interface.data)
     {
@@ -771,7 +779,7 @@ void StateController::publishDesiredJointState(void)
     {
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
-        shared_ptr<Joint> joint = joint_it->second;
+        std::shared_ptr<Joint> joint = joint_it->second;
         std_msgs::Float64 position_command_msg;
         position_command_msg.data = joint->desired_position_;
         joint->desired_position_publisher_.publish(position_command_msg);
@@ -793,9 +801,9 @@ void StateController::publishLegState(void)
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     syropod_highlevel_controller::LegState msg;
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     msg.header.stamp = ros::Time::now();
     msg.name = leg->getIDName().c_str();
 
@@ -831,7 +839,7 @@ void StateController::publishLegState(void)
     // Joint positions/velocities
     for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
     {
-      shared_ptr<Joint> joint = joint_it_->second;
+      std::shared_ptr<Joint> joint = joint_it_->second;
       msg.joint_positions.push_back(joint->desired_position_);
       msg.joint_velocities.push_back(joint->desired_velocity_);
       msg.joint_efforts.push_back(joint->desired_effort_);
@@ -856,8 +864,8 @@ void StateController::publishLegState(void)
     msg.pose_delta = walker_->calculateOdometry(time_to_swing_end).toPoseMessage();
 
     // Leg specific auto pose
-    Vector3d position = leg_poser->getAutoPose().position_;
-    Quaterniond rotation = leg_poser->getAutoPose().rotation_;
+    Eigen::Vector3d position = leg_poser->getAutoPose().position_;
+    Eigen::Quaterniond rotation = leg_poser->getAutoPose().rotation_;
     msg.auto_pose = Pose(position, rotation).toPoseMessage();
 
     // Admittance controller
@@ -892,8 +900,8 @@ void StateController::publishVelocity(void)
 void StateController::publishPose(void)
 {
   geometry_msgs::Twist msg;
-  Vector3d position = model_->getCurrentPose().position_;
-  Quaterniond rotation = model_->getCurrentPose().rotation_;
+  Eigen::Vector3d position = model_->getCurrentPose().position_;
+  Eigen::Quaterniond rotation = model_->getCurrentPose().rotation_;
   msg.linear.x = position[0];
   msg.linear.y = position[1];
   msg.linear.z = position[2];
@@ -951,7 +959,7 @@ void StateController::publishFrameTransforms(void)
   try
   {
     fixed_frame_id_ = "odom";
-    transform_buffer_.lookupTransform("base_link", "odom", Time(0));
+    transform_buffer_.lookupTransform("base_link", "odom", ros::Time(0));
   }
   catch (tf2::TransformException &ex) 
   {
@@ -989,10 +997,10 @@ void StateController::publishFrameTransforms(void)
   // Base Link frame to Joint/Tip frames
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<Leg> leg = leg_it_->second;
     for (joint_it_ = leg->getJointContainer()->begin(); joint_it_ != leg->getJointContainer()->end(); ++joint_it_)
     {
-      shared_ptr<Joint> joint = joint_it_->second;
+      std::shared_ptr<Joint> joint = joint_it_->second;
       Pose joint_robot_frame = joint->getPoseRobotFrame();
       geometry_msgs::TransformStamped base_link_to_joint;
       base_link_to_joint.header.stamp = ros::Time::now();
@@ -1001,7 +1009,8 @@ void StateController::publishFrameTransforms(void)
       base_link_to_joint.transform.translation.x = joint_robot_frame.position_[0];
       base_link_to_joint.transform.translation.y = joint_robot_frame.position_[1];
       base_link_to_joint.transform.translation.z = joint_robot_frame.position_[2];
-      Quaterniond rotation = joint_robot_frame.rotation_ * AngleAxisd(joint->desired_position_, Vector3d::UnitZ());
+      Eigen::Quaterniond rotation = 
+        joint_robot_frame.rotation_ * Eigen::AngleAxisd(joint->desired_position_, Eigen::Vector3d::UnitZ());
       base_link_to_joint.transform.rotation.w = rotation.w();
       base_link_to_joint.transform.rotation.x = rotation.x();
       base_link_to_joint.transform.rotation.y = rotation.y();
@@ -1010,7 +1019,7 @@ void StateController::publishFrameTransforms(void)
     }
 
     geometry_msgs::TransformStamped base_link_to_tip;
-    shared_ptr<Tip> tip = leg->getTip();
+    std::shared_ptr<Tip> tip = leg->getTip();
     Pose tip_robot_frame = tip->getPoseRobotFrame();
     base_link_to_tip.header.stamp = ros::Time::now();
     base_link_to_tip.header.frame_id = "base_link";
@@ -1037,7 +1046,7 @@ void StateController::RVIZDebugging(void)
 
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<Leg> leg = leg_it_->second;
     debug_visualiser_.generateTipTrajectory(leg);
     debug_visualiser_.generateJointTorques(leg);
 
@@ -1108,11 +1117,11 @@ void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& inpu
 {
   if (robot_state_ == RUNNING)
   {
-    linear_velocity_input_ = Vector2d(input.linear.x, input.linear.y) * params_.body_velocity_scaler.data;
+    linear_velocity_input_ = Eigen::Vector2d(input.linear.x, input.linear.y) * params_.body_velocity_scaler.data;
     angular_velocity_input_ = input.angular.z * params_.body_velocity_scaler.data;
     if (params_.velocity_input_mode.data == "throttle" && linear_velocity_input_.norm() > 1.0)
     {
-      linear_velocity_input_ = min(1.0, linear_velocity_input_.norm()) * linear_velocity_input_.normalized();
+      linear_velocity_input_ = std::min(1.0, linear_velocity_input_.norm()) * linear_velocity_input_.normalized();
     }
   }
 }
@@ -1123,8 +1132,8 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
 {
   if (robot_state_ == RUNNING)
   {
-    Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
-    Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
+    Eigen::Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
+    Eigen::Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
     poser_->setManualPoseInput(translation_input, rotation_input);
   }
 }
@@ -1366,14 +1375,14 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
 
 void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point& input)
 {
-  primary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
+  primary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point& input)
 {
-  secondary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
+  secondary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1516,9 +1525,11 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
 {
   if (system_state_ != SUSPENDED && poser_ != NULL)
   {
-    Quaterniond orientation(data.orientation.w, data.orientation.x, data.orientation.y, data.orientation.z);
-    Vector3d angular_velocity(data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z);
-    Vector3d linear_acceleration(data.linear_acceleration.x, data.linear_acceleration.y, data.linear_acceleration.z);
+    Eigen::Quaterniond orientation(data.orientation.w, data.orientation.x, data.orientation.y, data.orientation.z);
+    Eigen::Vector3d angular_velocity(data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z);
+    Eigen::Vector3d linear_acceleration(data.linear_acceleration.x,
+                                        data.linear_acceleration.y, 
+                                        data.linear_acceleration.z);
     model_->setImuData(orientation, linear_acceleration, angular_velocity);
   }
 }
@@ -1533,11 +1544,11 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
   // Iterate through message and assign found state values to joint objects
   for (uint i = 0; i < joint_states.name.size(); ++i)
   {
-    string joint_name = joint_states.name[i];
-    string leg_name = joint_name.substr(0, joint_name.find("_"));
-    shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
+    std::string joint_name = joint_states.name[i];
+    std::string leg_name = joint_name.substr(0, joint_name.find("_"));
+    std::shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
     ROS_ASSERT(leg != NULL);
-    shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
+    std::shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
     ROS_ASSERT(joint != NULL);
     joint->current_position_ = joint_states.position[i];
     if (get_velocity_values)
@@ -1557,11 +1568,11 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
     joint_positions_initialised_ = true;
     for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
     {
-      shared_ptr<Leg> leg = leg_it_->second;
+      std::shared_ptr<Leg> leg = leg_it_->second;
       JointContainer::iterator joint_it;
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
       {
-        shared_ptr<Joint> joint = joint_it->second;
+        std::shared_ptr<Joint> joint = joint_it->second;
         if (joint->current_position_ == UNASSIGNED_VALUE)
         {
           joint_positions_initialised_ = false;
@@ -1579,18 +1590,22 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
   bool get_step_plane_values = tip_states.step_plane.size() > 0;
   
   // Iterate through message and assign found contact proximity value to leg objects
-  string error_string;
+  std::string error_string;
   for (uint i = 0; i < tip_states.name.size(); ++i)
   {
-    string tip_name = tip_states.name[i];
-    string leg_name = tip_name.substr(0, tip_name.find("_"));
-    shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
+    std::string tip_name = tip_states.name[i];
+    std::string leg_name = tip_name.substr(0, tip_name.find("_"));
+    std::shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
     ROS_ASSERT(leg != NULL);
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     if (get_wrench_values)
     {
-      Vector3d tip_force(tip_states.wrench[i].force.x, tip_states.wrench[i].force.y, tip_states.wrench[i].force.z);
-      Vector3d tip_torque(tip_states.wrench[i].torque.x, tip_states.wrench[i].torque.y, tip_states.wrench[i].torque.z);
+      Eigen::Vector3d tip_force(tip_states.wrench[i].force.x,
+                                tip_states.wrench[i].force.y,
+                                tip_states.wrench[i].force.z);
+      Eigen::Vector3d tip_torque(tip_states.wrench[i].torque.x,
+                                 tip_states.wrench[i].torque.y,
+                                 tip_states.wrench[i].torque.z);
       if (leg_stepper != NULL)
       {
         leg_stepper->setTouchdownDetection(true);
@@ -1608,9 +1623,10 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
       if (tip_states.step_plane[i].z != UNASSIGNED_VALUE)
       {
         // From step plane representation calculate position and orientation of plane relative to tip frame
-        Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
-        Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
-        Quaterniond step_plane_orientation =  Quaterniond::FromTwoVectors(Vector3d(0,0,1.0), -step_plane_normal);
+        Eigen::Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
+        Eigen::Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
+        Eigen::Quaterniond step_plane_orientation =  Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0,0,1.0),
+                                                                                        -step_plane_normal);
         
         // Transform into robot frame and store
         Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));
@@ -1643,9 +1659,9 @@ void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_b
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
-    shared_ptr<Leg> leg = leg_it_->second;
-    shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+    std::shared_ptr<Leg> leg = leg_it_->second;
+    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+    std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     leg_poser->setTargetTipPose(Pose::Undefined());
   }
   poser_->setTargetBodyPose(Pose(target_body_pose));
@@ -1660,11 +1676,11 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
   {
     for (uint i = 0; i < msg.name.size(); ++i)
     {
-      shared_ptr<Leg> leg = model_->getLegByIDName(msg.name[i]);
+      std::shared_ptr<Leg> leg = model_->getLegByIDName(msg.name[i]);
       if (leg != NULL)
       {
-        shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-        shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+        std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+        std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
 
         if (leg->getIDName() == msg.name[i])
         {
@@ -1800,12 +1816,12 @@ void StateController::initParameters(void)
   // Init all joint and link parameters per leg
   if (params_.leg_id.initialised && params_.joint_id.initialised && params_.link_id.initialised)
   {
-    vector<string>::iterator leg_name_it;
-    vector<string> leg_ids = params_.leg_id.data;
+    std::vector<std::string>::iterator leg_name_it;
+    std::vector<std::string> leg_ids = params_.leg_id.data;
     int leg_id_num = 0;
     for (leg_name_it = leg_ids.begin(); leg_name_it != leg_ids.end(); ++leg_name_it, ++leg_id_num)
     {
-      string leg_id_name = *leg_name_it;
+      std::string leg_id_name = *leg_name_it;
       params_.leg_stance_positions[leg_id_num].init(leg_id_name + "_stance_position");
       params_.link_parameters[leg_id_num][0].init(leg_id_name + "_base_link_parameters");
       uint joint_count = params_.leg_DOF.data[leg_id_name];
@@ -1820,10 +1836,10 @@ void StateController::initParameters(void)
       {
         for (uint i = 1; i < joint_count + 1; ++i)
         {
-          string link_name = params_.link_id.data[i];
-          string joint_name = params_.joint_id.data[i - 1];
-          string link_parameter_name = leg_id_name + "_" + link_name + "_link_parameters";
-          string joint_parameter_name = leg_id_name + "_" + joint_name + "_joint_parameters";
+          std::string link_name = params_.link_id.data[i];
+          std::string joint_name = params_.joint_id.data[i - 1];
+          std::string link_parameter_name = leg_id_name + "_" + link_name + "_link_parameters";
+          std::string joint_parameter_name = leg_id_name + "_" + joint_name + "_joint_parameters";
           params_.link_parameters[leg_id_num][i].init(link_parameter_name);
           params_.joint_parameters[leg_id_num][i - 1].init(joint_parameter_name);
         }
@@ -1912,7 +1928,7 @@ void StateController::initGaitParameters(const GaitDesignation& gait_selection)
       break;
   }
 
-  string base_gait_parameters_name = "/syropod/gait_parameters/";
+  std::string base_gait_parameters_name = "/syropod/gait_parameters/";
   params_.stance_phase.init("stance_phase", base_gait_parameters_name + params_.gait_type.data + "/");
   params_.swing_phase.init("swing_phase", base_gait_parameters_name + params_.gait_type.data + "/");
   params_.phase_offset.init("phase_offset", base_gait_parameters_name + params_.gait_type.data + "/");
@@ -1923,7 +1939,7 @@ void StateController::initGaitParameters(const GaitDesignation& gait_selection)
 
 void StateController::initAutoPoseParameters(void)
 {
-  string base_auto_pose_parameters_name = "/syropod/auto_pose_parameters/";
+  std::string base_auto_pose_parameters_name = "/syropod/auto_pose_parameters/";
   if (params_.auto_pose_type.data == "auto")
   {
     base_auto_pose_parameters_name += (params_.gait_type.data + "_pose/");

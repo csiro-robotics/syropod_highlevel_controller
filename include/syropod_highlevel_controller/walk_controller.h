@@ -15,7 +15,7 @@
 #include "model.h"
 
 class DebugVisualiser;
-typedef map<int, double> LimitMap;
+typedef std::map<int, double> LimitMap;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Object containing parameters which define the timing of the step cycle.
@@ -39,7 +39,7 @@ struct ExternalTarget
 {
   Pose pose_;              ///< The target tip pose
   double swing_clearance_; ///< The height of the swing trajectory clearance normal to walk plane
-  string frame_id_;        ///< The target tip pose reference frame id
+  std::string frame_id_;   ///< The target tip pose reference frame id
   ros::Time time_;         ///< The ros time of the request for the target tip pose
   Pose transform_;         ///< The transform between reference frames at time of request and current time
   bool defined_ = false;   ///< Flag denoting if external target object has been defined
@@ -51,13 +51,13 @@ struct ExternalTarget
 /// maximum body velocities and accelerations and transformation of input desired body velocities to individual tip
 /// stride vectors.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-class WalkController : public enable_shared_from_this<WalkController>
+class WalkController : public std::enable_shared_from_this<WalkController>
 {
 public:
   /// Constructor for the walk controller.
   /// @param[in] model A pointer to the robot model
   /// @param[in] params A copy of the parameter data structure
-  WalkController(shared_ptr<Model> model, const Parameters& params);
+  WalkController(std::shared_ptr<Model> model, const Parameters& params);
 
   /// Accessor for pointer to parameter data structure.
   /// @return Pointer to parameter data structure
@@ -85,7 +85,7 @@ public:
 
   /// Accessor for desired linear body velocity. 
   /// @return Desired linear body velocity
-  inline Vector2d getDesiredLinearVelocity(void) { return desired_linear_velocity_; };
+  inline Eigen::Vector2d getDesiredLinearVelocity(void) { return desired_linear_velocity_; };
 
   /// Accessor for desired angular body velocity. 
   /// @return Desired angular body velocity
@@ -101,11 +101,11 @@ public:
   
   /// Accessor for walk plane estimate. 
   /// @return Walk plane estimate
-  inline Vector3d getWalkPlane(void) { return walk_plane_; };
+  inline Eigen::Vector3d getWalkPlane(void) { return walk_plane_; };
   
   /// Accessor for normal to walk plane estimate. 
   /// @return Normal to walk plane estimate
-  inline Vector3d getWalkPlaneNormal(void) { return walk_plane_normal_; };
+  inline Eigen::Vector3d getWalkPlaneNormal(void) { return walk_plane_normal_; };
   
   /// Accessor for ideal odemetry pose.
   /// @return Ideal odometry pose
@@ -162,7 +162,7 @@ public:
                       LimitMap* max_linear_acceleration_ptr = NULL,
                       LimitMap* max_angular_acceleration_ptr = NULL);
   
-  /// Generate maximum linear and angular speed/acceleration for each workspace radius in workspace map from pre-set 
+  /// Generate maximum linear and angular speed/acceleration for each workspace radius in workspace map from pre-set
   /// step cycle. These calculated values will accomodate overshoot of tip outside defined workspace whilst body 
   /// accelerates, effectively scaling usable workspace. The calculated values are either set as walk controller limits
   /// OR output to given pointer arguments.
@@ -192,7 +192,8 @@ public:
   /// @param[in] angular_velocity_input The velocity input given to the Syropod defining desired angular body motion
   /// @param[in] limit The LimitMap object which contains limit data for a range of bearings from 0-360 degrees
   /// @return The smallest interpolated limit for a given bearing from each of the Syropod legs
-  double getLimit(const Vector2d& linear_velocity_input, const double& angular_velocity_input, const LimitMap& limit);
+  double getLimit(const Eigen::Vector2d& linear_velocity_input, const double& angular_velocity_input,
+  const LimitMap& limit);
 
   /// Updates all legs in the walk cycle. Calculates stride vectors for all legs from robot body velocity inputs and
   /// calls trajectory update functions for each leg to update individual tip positions. Also manages the overall walk
@@ -200,7 +201,7 @@ public:
   /// through stance and swing states.
   /// @param[in] linear_velocity_input An input for the desired linear velocity of the robot body in the x/y plane
   /// @param[in] angular_velocity_input An input for the desired angular velocity of the robot body about the z axis
-  void updateWalk(const Vector2d& linear_velocity_input, const double& angular_velocity_input);
+  void updateWalk(const Eigen::Vector2d& linear_velocity_input, const double& angular_velocity_input);
 
   /// Updates the tip position for legs in the manual state from tip velocity inputs. Two modes are available: joint
   /// control allows manipulation of joint positions directly but only works for 3DOF legs; tip control allows
@@ -209,8 +210,8 @@ public:
   /// @param[in] primary_tip_velocity_input The velocity input to move the 1st leg tip position in the robot frame
   /// @param[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation
   /// @param[in] secondary_tip_velocity_input The velocity input to move the 2nd leg tip position in the robot frame
-  void updateManual(const int& primary_leg_selection_ID, const Vector3d& primary_tip_velocity_input,
-                    const int& secondary_leg_selection_ID, const Vector3d& secondary_tip_velocity_input);
+  void updateManual(const int& primary_leg_selection_ID, const Eigen::Vector3d& primary_tip_velocity_input,
+                    const int& secondary_leg_selection_ID, const Eigen::Vector3d& secondary_tip_velocity_input);
   
   /// Calculates a estimated walk plane which best fits the default tip positions of legs in model.
   /// Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
@@ -219,7 +220,7 @@ public:
   
   /// Estimates the acceleration vector due to gravity.
   /// @return The estimated acceleration vector due to gravity
-  inline Vector3d estimateGravity(void) { return model_->estimateGravity(); };
+  inline Eigen::Vector3d estimateGravity(void) { return model_->estimateGravity(); };
   
   /// Calculates the change in pose over the desired time period assuming constant desired body velocity and walk plane.
   /// @param[in] time_period The period of time for which to estimate the odometry pose change
@@ -227,30 +228,29 @@ public:
   Pose calculateOdometry(const double& time_period);
 
 private:
-  shared_ptr<Model> model_;            ///< Pointer to robot model object
+  std::shared_ptr<Model> model_;       ///< Pointer to robot model object
   const Parameters& params_;           ///< Pointer to parameter data structure for storing parameter variables
   double time_delta_;                  ///< The time period of the ros cycle
 
   WalkState walk_state_ = STOPPED;           ///< The current walk cycle state
   PosingState pose_state_ = POSING_COMPLETE; ///< The current state of auto posing
 
-  // Step cycle timing object
-  StepCycle step_;
+  StepCycle step_;                     ///< Step cycle timing object
 
   // Workspace generation variables
-  LimitMap walkspace_;                ///< A map of interpolated radii for given bearings in degrees at default stance
-  Vector3d walk_plane_;               ///< The co-efficients of an estimated planar walk surface
-  Vector3d walk_plane_normal_;        ///< The normal of the estimated planar walk surface
-  bool regenerate_walkspace_ = false; ///< Flag denoting whether walkspace needs to be regenerated
+  LimitMap walkspace_;                 ///< A map of interpolated radii for given bearings in degrees at default stance
+  Eigen::Vector3d walk_plane_;         ///< The co-efficients of an estimated planar walk surface
+  Eigen::Vector3d walk_plane_normal_;  ///< The normal of the estimated planar walk surface
+  bool regenerate_walkspace_ = false;  ///< Flag denoting whether walkspace needs to be regenerated
 
   // Velocity/acceleration variables
-  Vector2d desired_linear_velocity_;          ///< The desired linear velocity of the robot body
-  double desired_angular_velocity_;           ///< The desired angular velocity of the robot body
-  Pose odometry_ideal_;                       ///< The ideal odometry from the world frame
-  LimitMap max_linear_speed_;         ///< A map of max allowable linear body speeds for potential bearings
-  LimitMap max_angular_speed_;        ///< A map of max allowable angular speeds for potential bearings
-  LimitMap max_linear_acceleration_;  ///< A map of max allowable linear accelerations for potential bearings
-  LimitMap max_angular_acceleration_; ///< A map of max allowable angular accelerations for potential bearings
+  Eigen::Vector2d desired_linear_velocity_; ///< The desired linear velocity of the robot body
+  double desired_angular_velocity_;         ///< The desired angular velocity of the robot body
+  Pose odometry_ideal_;                     ///< The ideal odometry from the world frame
+  LimitMap max_linear_speed_;               ///< A map of max allowable linear body speeds for potential bearings
+  LimitMap max_angular_speed_;              ///< A map of max allowable angular speeds for potential bearings
+  LimitMap max_linear_acceleration_;        ///< A map of max allowable linear accelerations for potential bearings
+  LimitMap max_angular_acceleration_;       ///< A map of max allowable angular accelerations for potential bearings
 
   // Leg coordination variables
   int legs_at_correct_phase_ = 0;            ///< A count of legs currently at the correct phase per walk cycle state
@@ -280,15 +280,15 @@ public:
   /// @param[in] walker A pointer to the walk controller
   /// @param[in] leg A pointer to the parent leg object
   /// @param[in] identity_tip_pose The default walking stance tip pose about which the step cycle is based
-  LegStepper(shared_ptr<WalkController> walker, shared_ptr<Leg> leg, const Pose& identity_tip_pose);
+  LegStepper(std::shared_ptr<WalkController> walker, std::shared_ptr<Leg> leg, const Pose& identity_tip_pose);
   
   /// Leg stepper object copy constructor, initialises member variables from reference leg stepper object.
   /// @param[in] leg_stepper The reference leg stepper object to copy
-  LegStepper(shared_ptr<LegStepper> leg_stepper);
+  LegStepper(std::shared_ptr<LegStepper> leg_stepper);
   
   /// Accessor for pointer to parent leg object.
   /// @return Pointer to parent leg object
-  inline shared_ptr<Leg> getParentLeg(void) { return leg_; };
+  inline std::shared_ptr<Leg> getParentLeg(void) { return leg_; };
 
   /// Accessor for the current tip pose according to the walk controller.
   /// @return Current tip pose accoding to the walk controller
@@ -312,11 +312,11 @@ public:
   
   /// Accessor for the saved estimation of the walk plane.
   /// @return Saved estimation of the walk plane
-  inline Vector3d getWalkPlane(void) { return walk_plane_; };
+  inline Eigen::Vector3d getWalkPlane(void) { return walk_plane_; };
   
   /// Accessor for the normal of the saved estimation of the walk plane.
   /// @return Normal of the saved estimation of the walk plane
-  inline Vector3d getWalkPlaneNormal(void) { return walk_plane_normal_; };
+  inline Eigen::Vector3d getWalkPlaneNormal(void) { return walk_plane_normal_; };
 
   /// Accessor for the current state of the step cycle.
   /// @return Current state of the step cycle
@@ -332,11 +332,11 @@ public:
 
   /// Accessor for the current stride vector used in the step cycle.
   /// @return Current stride vector used in the step cycle
-  inline Vector3d getStrideVector(void) { return stride_vector_; };
+  inline Eigen::Vector3d getStrideVector(void) { return stride_vector_; };
 
   /// Accessor for desired clearance of the leg tip with respect to default position during swing period.
   /// @return Desired clearance of the leg tip with respect to default position during swing period
-  inline Vector3d getSwingClearance(void) { return swing_clearance_; };
+  inline Eigen::Vector3d getSwingClearance(void) { return swing_clearance_; };
 
   /// Accessor for the current progress of the swing period in the step cycle (0.0 -> 1.0 || -1.0). 
   /// @return Current progress of the swing period in the step cycle (0.0 -> 1.0 || -1.0)
@@ -347,7 +347,8 @@ public:
   inline double getStanceProgress(void) { return stance_progress_; };
 
   /// Returns true if leg has completed its first step whilst the walk state transitions from STOPPED to MOVING. 
-  /// @return Flag denoting whether the leg has completed its first step whilst the walk state transitions from STOPPED to MOVING
+  /// @return Flag denoting whether the leg has completed its first step whilst the walk state transitions from 
+  /// STOPPED to MOVING
   inline bool hasCompletedFirstStep(void) { return completed_first_step_; };
 
   /// Returns true if leg is in the correct step cycle phase per the walk controller state. 
@@ -357,17 +358,17 @@ public:
   /// Accessor for control nodes in the primary swing bezier curve.
   /// @param[in] i Index of the control node
   /// @return Control node in the primary swing bezier curve of the given index
-  inline Vector3d getSwing1ControlNode(const int& i) { return swing_1_nodes_[i]; };
+  inline Eigen::Vector3d getSwing1ControlNode(const int& i) { return swing_1_nodes_[i]; };
 
   /// Accessor for control nodes in the secondary swing bezier curve.
   /// @param[in] i Index of the control node
   /// @return Control node in the secondary swing bezier curve of the given index
-  inline Vector3d getSwing2ControlNode(const int& i) { return swing_2_nodes_[i]; };
+  inline Eigen::Vector3d getSwing2ControlNode(const int& i) { return swing_2_nodes_[i]; };
 
   /// Accessor for control nodes in the stance bezier curve.
   /// @param[in] i Index of the control node
   /// @return Control node in the stance bezier curve of the given index
-  inline Vector3d getStanceControlNode(const int& i) { return stance_nodes_[i]; };
+  inline Eigen::Vector3d getStanceControlNode(const int& i) { return stance_nodes_[i]; };
   
   /// Accessor for the externally set target tip pose object.
   /// @return Externally set target tip pose object
@@ -379,7 +380,7 @@ public:
   
   /// Modifier for the pointer to the parent leg object.
   /// @param[in] parent_leg The new parent leg pointer
-  inline void setParentLeg(shared_ptr<Leg> parent_leg) { leg_ = parent_leg; };
+  inline void setParentLeg(std::shared_ptr<Leg> parent_leg) { leg_ = parent_leg; };
 
   /// Modifier for the current tip pose according to the walk controller.
   /// @param[in] current_tip_pose The new current tip pose
@@ -444,7 +445,7 @@ public:
   
   /// Calculates the lateral change in distance from identity tip position to new default tip position for a leg.
   /// @return The change from identity tip position to the new default tip position
-  Vector3d calculateStanceSpanChange(void);
+  Eigen::Vector3d calculateStanceSpanChange(void);
   
   /// Update Default Tip Position based on external definitions, stance span or tip position at beginning of stance.
   void updateDefaultTipPosition(void);
@@ -476,33 +477,33 @@ public:
   void forceNormalTouchdown(void);
 
 private:
-  shared_ptr<WalkController> walker_;  ///< Pointer to walk controller object
-  shared_ptr<Leg> leg_;                ///< Pointer to the parent leg object
+  std::shared_ptr<WalkController> walker_;  ///< Pointer to walk controller object
+  std::shared_ptr<Leg> leg_;                ///< Pointer to the parent leg object
 
-  bool at_correct_phase_ = false;     ///< Flag denoting if the leg is at the correct phase per the walk state
-  bool completed_first_step_ = false; ///< Flag denoting if the leg has completed its first step  
-  bool touchdown_detection_ = false;  ///< Flag denoting whether touchdown detection is enabled
+  bool at_correct_phase_ = false;           ///< Flag denoting if the leg is at the correct phase per the walk state
+  bool completed_first_step_ = false;       ///< Flag denoting if the leg has completed its first step  
+  bool touchdown_detection_ = false;        ///< Flag denoting whether touchdown detection is enabled
 
-  int phase_ = 0;    ///< Step cycle phase
-  int phase_offset_; ///< Step cycle phase offset
+  int phase_ = 0;        ///< Step cycle phase
+  int phase_offset_;     ///< Step cycle phase offset
 
-  double step_progress_ = 0.0;      ///< The progress of the entire step cycle (0.0->1.0 || -1.0)
-  double swing_progress_ = -1.0;    ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
-  double stance_progress_ = -1.0;   ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
+  double step_progress_ = 0.0;        ///< The progress of the entire step cycle (0.0->1.0 || -1.0)
+  double swing_progress_ = -1.0;      ///< The progress of the swing period in the step cycle. (0.0->1.0 || -1.0)
+  double stance_progress_ = -1.0;     ///< The progress of the stance period in the step cycle. (0.0->1.0 || -1.0)
 
-  StepState step_state_ = STANCE; ///< The state of the step cycle
+  StepState step_state_ = STANCE;     ///< The state of the step cycle
 
-  Vector3d swing_1_nodes_[5]; ///< An array of 3d control nodes defining the primary swing bezier curve
-  Vector3d swing_2_nodes_[5]; ///< An array of 3d control nodes defining the secondary swing bezier curve
-  Vector3d stance_nodes_[5];  ///< An array of 3d control nodes defining the stance bezier curve
+  Eigen::Vector3d swing_1_nodes_[5];  ///< An array of 3d control nodes defining the primary swing bezier curve
+  Eigen::Vector3d swing_2_nodes_[5];  ///< An array of 3d control nodes defining the secondary swing bezier curve
+  Eigen::Vector3d stance_nodes_[5];   ///< An array of 3d control nodes defining the stance bezier curve
 
-  Vector3d walk_plane_;        ///< A saved version of the estimated walk plane which is kept static during swing
-  Vector3d walk_plane_normal_; ///< The normal of the saved estimated planar walk surface
-  Vector3d stride_vector_;     ///< The desired stride vector
-  Vector3d swing_clearance_;   ///< The position relative to the default tip position to achieve during swing period
+  Eigen::Vector3d walk_plane_;        ///< A saved version of the estimated walk plane which is kept static during swing
+  Eigen::Vector3d walk_plane_normal_; ///< The normal of the saved estimated planar walk surface
+  Eigen::Vector3d stride_vector_;     ///< The desired stride vector
+  Eigen::Vector3d swing_clearance_;   ///< Position relative to the default tip position to achieve during swing period
 
-  double swing_delta_t_ = 0.0;
-  double stance_delta_t_ = 0.0;
+  double swing_delta_t_ = 0.0;    
+  double stance_delta_t_ = 0.0;   
 
   Pose identity_tip_pose_;        ///< The user defined tip pose assuming a identity walk plane
   Pose default_tip_pose_;         ///< The default tip pose per the walk controller, updated with walk plane
@@ -513,11 +514,11 @@ private:
   ExternalTarget external_target_;  ///< The externally set target tip pose to achieve at the end of a swing period
   ExternalTarget external_default_; ///< The externally set default tip pose which defines default stance while at rest
   
-  Vector3d current_tip_velocity_;   ///< The default tip velocity per the walk controller
+  Eigen::Vector3d current_tip_velocity_;   ///< The default tip velocity per the walk controller
   
-  Vector3d swing_origin_tip_position_;  ///< The tip position used as the origin for the bezier curve during swing
-  Vector3d swing_origin_tip_velocity_;  ///< The tip velocity used in the generation of bezier curve during swing
-  Vector3d stance_origin_tip_position_; ///< The tip position used as the origin for the bezier curve during stance
+  Eigen::Vector3d swing_origin_tip_position_;  ///< Tip position used as the origin for the bezier curve during swing
+  Eigen::Vector3d swing_origin_tip_velocity_;  ///< Tip velocity used in the generation of bezier curve during swing
+  Eigen::Vector3d stance_origin_tip_position_; ///< Tip position used as the origin for the bezier curve during stance
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
