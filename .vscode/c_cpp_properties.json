@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "/home/lu046/weaver_ws/devel/include/**",
+                "/opt/ros/melodic/include/**",
+                "/home/lu046/weaver_ws/src/realsense-ros/realsense2_camera/include/**",
+                "/home/lu046/weaver_ws/src/syropod_highlevel_controller/include/**",
+                "/home/lu046/weaver_ws/src/syropod_remote/include/**",
+                "/usr/include/**"
+            ],
+            "name": "ROS",
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}

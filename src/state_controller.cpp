@@ -1,4 +1,4 @@
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  *  @file    state_controller.cpp
  *  @brief   Top level controller that handles state of Syropod.
  *
@@ -19,20 +19,20 @@
 
 #include "syropod_highlevel_controller/state_controller.h"
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * StateController class constructor. Initialises parameters, creates robot model object, sets up ros topic
  * subscriptions and advertisments.
 ***********************************************************************************************************************/
 StateController::StateController(void)
 {
   ros::NodeHandle n;
-  
+
   // Get parameters from parameter server and initialises parameter map
   initParameters();
 
   // Create robot model
-  shared_ptr<DebugVisualiser> debug_visualiser_ptr = 
-    allocate_shared<DebugVisualiser>(aligned_allocator<DebugVisualiser>(), debug_visualiser_);
+  shared_ptr<DebugVisualiser> debug_visualiser_ptr =
+      allocate_shared<DebugVisualiser>(aligned_allocator<DebugVisualiser>(), debug_visualiser_);
   model_ = allocate_shared<Model>(aligned_allocator<Model>(), params_, debug_visualiser_ptr);
   model_->generate();
 
@@ -40,50 +40,62 @@ StateController::StateController(void)
   transform_listener_ = allocate_shared<TransformListener>(aligned_allocator<TransformListener>(), transform_buffer_);
 
   // Hexapod Remote topic subscriptions
-  system_state_subscriber_            = n.subscribe("syropod_remote/system_state", 1,
-                                                     &StateController::systemStateCallback, this);
-  robot_state_subscriber_             = n.subscribe("syropod_remote/robot_state", 1,
-                                                     &StateController::robotStateCallback, this);
-  desired_velocity_subscriber_        = n.subscribe("syropod_remote/desired_velocity", 1,
-                                                     &StateController::bodyVelocityInputCallback, this);
-  desired_pose_subscriber_            = n.subscribe("syropod_remote/desired_pose", 1,
-                                                     &StateController::bodyPoseInputCallback, this);
-  posing_mode_subscriber_             = n.subscribe("syropod_remote/posing_mode", 1,
-                                                     &StateController::posingModeCallback, this);
-  pose_reset_mode_subscriber_         = n.subscribe("syropod_remote/pose_reset_mode", 1,
-                                                     &StateController::poseResetCallback, this);
-  gait_selection_subscriber_          = n.subscribe("syropod_remote/gait_selection", 1,
-                                                     &StateController::gaitSelectionCallback, this);
-  cruise_control_mode_subscriber_     = n.subscribe("syropod_remote/cruise_control_mode", 1,
-                                                     &StateController::cruiseControlCallback, this);
-  planner_mode_subscriber_            = n.subscribe("syropod_remote/planner_mode", 1,
-                                                     &StateController::plannerModeCallback, this);
-  primary_leg_selection_subscriber_   = n.subscribe("syropod_remote/primary_leg_selection", 1,
-                                                     &StateController::primaryLegSelectionCallback, this);
-  primary_leg_state_subscriber_       = n.subscribe("syropod_remote/primary_leg_state", 1,
-                                                     &StateController::primaryLegStateCallback, this);
-  primary_tip_velocity_subscriber_    = n.subscribe("syropod_remote/primary_tip_velocity", 1,
-                                                     &StateController::primaryTipVelocityInputCallback, this);
+  system_state_subscriber_ = n.subscribe("syropod_remote/system_state", 1,
+                                         &StateController::systemStateCallback, this);
+  robot_state_subscriber_ = n.subscribe("syropod_remote/robot_state", 1,
+                                        &StateController::robotStateCallback, this);
+  desired_velocity_subscriber_ = n.subscribe("syropod_remote/desired_velocity", 1,
+                                             &StateController::bodyVelocityInputCallback, this);
+  desired_pose_subscriber_ = n.subscribe("syropod_remote/desired_pose", 1,
+                                         &StateController::bodyPoseInputCallback, this);
+  posing_mode_subscriber_ = n.subscribe("syropod_remote/posing_mode", 1,
+                                        &StateController::posingModeCallback, this);
+  pose_reset_mode_subscriber_ = n.subscribe("syropod_remote/pose_reset_mode", 1,
+                                            &StateController::poseResetCallback, this);
+  gait_selection_subscriber_ = n.subscribe("syropod_remote/gait_selection", 1,
+                                           &StateController::gaitSelectionCallback, this);
+  cruise_control_mode_subscriber_ = n.subscribe("syropod_remote/cruise_control_mode", 1,
+                                                &StateController::cruiseControlCallback, this);
+  planner_mode_subscriber_ = n.subscribe("syropod_remote/planner_mode", 1,
+                                         &StateController::plannerModeCallback, this);
+  primary_leg_selection_subscriber_ = n.subscribe("syropod_remote/primary_leg_selection", 1,
+                                                  &StateController::primaryLegSelectionCallback, this);
+  primary_leg_state_subscriber_ = n.subscribe("syropod_remote/primary_leg_state", 1,
+                                              &StateController::primaryLegStateCallback, this);
+  primary_tip_velocity_subscriber_ = n.subscribe("syropod_remote/primary_tip_velocity", 1,
+                                                 &StateController::primaryTipVelocityInputCallback, this);
   secondary_leg_selection_subscriber_ = n.subscribe("syropod_remote/secondary_leg_selection", 1,
-                                                     &StateController::secondaryLegSelectionCallback, this);
-  secondary_leg_state_subscriber_     = n.subscribe("syropod_remote/secondary_leg_state", 1,
-                                                     &StateController::secondaryLegStateCallback, this);
-  secondary_tip_velocity_subscriber_  = n.subscribe("syropod_remote/secondary_tip_velocity", 1,
-                                                     &StateController::secondaryTipVelocityInputCallback, this);
-  parameter_selection_subscriber_     = n.subscribe("syropod_remote/parameter_selection", 1,
-                                                     &StateController::parameterSelectionCallback, this);
-  parameter_adjustment_subscriber_    = n.subscribe("syropod_remote/parameter_adjustment", 1,
-                                                     &StateController::parameterAdjustCallback, this);
-  
+                                                    &StateController::secondaryLegSelectionCallback, this);
+  secondary_leg_state_subscriber_ = n.subscribe("syropod_remote/secondary_leg_state", 1,
+                                                &StateController::secondaryLegStateCallback, this);
+  secondary_tip_velocity_subscriber_ = n.subscribe("syropod_remote/secondary_tip_velocity", 1,
+                                                   &StateController::secondaryTipVelocityInputCallback, this);
+  parameter_selection_subscriber_ = n.subscribe("syropod_remote/parameter_selection", 1,
+                                                &StateController::parameterSelectionCallback, this);
+  parameter_adjustment_subscriber_ = n.subscribe("syropod_remote/parameter_adjustment", 1,
+                                                 &StateController::parameterAdjustCallback, this);
+
+  // subscribes to the current pose of the tips
+  AR_pose_sub = n.subscribe("/syropod_manipulation/AR/Pose", 1, &StateController::ARPoseCallback, this);
+  AL_pose_sub = n.subscribe("/syropod_manipulation/AL/Pose", 1, &StateController::ALPoseCallback, this);
+
+  // AR_position_sub_ = n.subscribe("/shc/AR/state", 1, &StateController::cbARPosition, this);
+  // AL_position_sub_ = n.subscribe("/shc/AL/state", 1, &StateController::cbALPosition, this);
+  // BR_position_sub_ = n.subscribe("/shc/BR/state", 1, &StateController::cbBRPosition, this);
+  // BL_position_sub_ = n.subscribe("/shc/BL/state", 1, &StateController::cbBLPosition, this);
+  // CR_position_sub_ = n.subscribe("/shc/CR/state", 1, &StateController::cbCRPosition, this);
+  // CL_position_sub_ = n.subscribe("/shc/CL/state", 1, &StateController::cbCLPosition, this);
+
+  // AR_position_pub_ = n.advertise<geometry_msgs::Pose>("/shc/AR/pose", 1);
+
   // Planner subscription/publisher
   target_configuration_subscriber_ = n.subscribe("/target_configuration", 1,
-                                                  &StateController::targetConfigurationCallback, this);
+                                                 &StateController::targetConfigurationCallback, this);
   target_body_pose_subscriber_ = n.subscribe("/target_body_pose", 1,
-                                              &StateController::targetBodyPoseCallback, this);
+                                             &StateController::targetBodyPoseCallback, this);
   target_tip_pose_subscriber_ = n.subscribe("/target_tip_poses", 100,
-                                             &StateController::targetTipPoseCallback, this);
+                                            &StateController::targetTipPoseCallback, this);
   plan_step_request_publisher_ = n.advertise<std_msgs::Int8>("/shc/plan_step_request", 1000);
-
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n.subscribe(params_.syropod_type.data + "/imu/data", 1, &StateController::imuCallback, this);
@@ -116,25 +128,25 @@ StateController::StateController(void)
       {
         shared_ptr<Joint> joint = joint_it_->second;
         joint->desired_position_publisher_ =
-          n.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
+            n.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
       }
     }
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * StateController object destructor
 ***********************************************************************************************************************/
 StateController::~StateController(void)
 {
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * StateController initialiser function. Initialises member variables: robot state, gait selection and initalisation
  * flag and creates sub controller objects: WalkController, PoseController and AdmittanceController.
 ***********************************************************************************************************************/
 void StateController::init(void)
-{  
+{
   // Set initial gait selection number for gait toggling
   if (params_.gait_type.data == "tripod_gait")
   {
@@ -165,7 +177,7 @@ void StateController::init(void)
   initialised_ = true;
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * The main loop of the state controller (called from the main ros loop).
  * Coordinates with other controllers to update based on current robot state, also calls for state transitions.
 ***********************************************************************************************************************/
@@ -195,7 +207,7 @@ void StateController::loop(void)
   {
     transitionRobotState();
   }
-  
+
   if (robot_state_ == RUNNING)
   {
     runningState();
@@ -296,7 +308,7 @@ void StateController::transitionRobotState(void)
   {
     transition_state_flag_ = false;
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod cannot transition from RUNNING state."
-                      " Set start_up_sequence parameter true to enable that functionality.\n");
+                                       " Set start_up_sequence parameter true to enable that functionality.\n");
   }
   // PACKED -> READY (Unpack Syropod)
   else if (robot_state_ == PACKED && new_robot_state_ == READY)
@@ -339,7 +351,7 @@ void StateController::transitionRobotState(void)
   // RUNNING -> READY (Initiate shut down sequence to step from walking stance to ready stance)
   else if (robot_state_ == RUNNING && new_robot_state_ == READY)
   {
-        // Force Syropod to stop walking
+    // Force Syropod to stop walking
     if (walker_->getWalkState() == STOPPED)
     {
       // Return any manually controlled legs before executing shutdown
@@ -386,7 +398,7 @@ void StateController::transitionRobotState(void)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Loops whilst robot is in RUNNING state.
  * Coordinates changes of gait, parameter adjustments, leg state toggling and the application of cruise control.
  * Updates the walk/pose controllers tip positions and applies inverse kinematics to the leg objects.
@@ -394,7 +406,7 @@ void StateController::transitionRobotState(void)
 void StateController::runningState(void)
 {
   bool update_tip_position = true;
-  
+
   // Force Syropod to stop walking
   if (transition_state_flag_)
   {
@@ -420,23 +432,23 @@ void StateController::runningState(void)
   }
   // Cruise control (constant velocity input)
   else if (cruise_control_mode_ == CRUISE_CONTROL_ON &&
-          (params_.cruise_control_time_limit.data == 0.0 ||
-           ros::Time::now().toSec() < cruise_control_end_time_))
+           (params_.cruise_control_time_limit.data == 0.0 ||
+            ros::Time::now().toSec() < cruise_control_end_time_))
   {
     linear_velocity_input_ = linear_cruise_velocity_;
     angular_velocity_input_ = angular_cruise_velocity_;
   }
-  
+
   // Dynamically adjust parameters and change stance if required
   if (parameter_adjust_flag_)
   {
     adjustParameter();
   }
-  
-  // Set true if already true or if walk state not STOPPED
-  update_tip_position = update_tip_position || walker_->getWalkState() != STOPPED; 
 
-  // Update tip positions unless Syropod is undergoing state transition, gait switch, parameter adjustment or 
+  // Set true if already true or if walk state not STOPPED
+  update_tip_position = update_tip_position || walker_->getWalkState() != STOPPED;
+
+  // Update tip positions unless Syropod is undergoing state transition, gait switch, parameter adjustment or
   // leg state transition (which all only occur once the Syropod has stopped walking)
   if (update_tip_position)
   {
@@ -446,22 +458,25 @@ void StateController::runningState(void)
     // Update tip positions for manually controlled legs
     walker_->updateManual(primary_leg_selection_, primary_tip_velocity_input_,
                           secondary_leg_selection_, secondary_tip_velocity_input_);
+    // Update tip position and rotation for manually controlled legs
+    walker_->updateManualPose(primary_leg_selection_, AR_pose_msg_,
+                              secondary_leg_selection_, AL_pose_msg_);
 
     // Pose controller takes current tip positions from walker and applies body posing
     poser_->updateStance();
-    
+
     // Model takes desired tip poses from pose controller and applies inverse/forwards kinematics
     model_->updateModel();
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Updates adjustment of parameters
  * @todo Implement smooth "whilst walking" adjustment of step_frequency
 ***********************************************************************************************************************/
 void StateController::adjustParameter(void)
 {
-  AdjustableParameter* p = dynamic_parameter_;
+  AdjustableParameter *p = dynamic_parameter_;
   p->current_value = new_parameter_value_;
   bool set_new_parameter = true;
   if (p->name == "step_frequency")
@@ -475,13 +490,13 @@ void StateController::adjustParameter(void)
     walker_->setAngularSpeedLimitMap(max_angular_speed_map);
     double max_linear_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
     double max_angular_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
-    
+
     // Generate target velocities to achieve before changing step frequency
     Vector2d target_linear_velocity;
     double target_angular_velocity;
     if (params_.velocity_input_mode.data == "throttle")
     {
-      target_linear_velocity = clamped(linear_velocity_input_, 1.0) * max_linear_speed;  // Forces input between -1.0/1.0
+      target_linear_velocity = clamped(linear_velocity_input_, 1.0) * max_linear_speed; // Forces input between -1.0/1.0
       target_angular_velocity = clamped(angular_velocity_input_, -1.0, 1.0) * max_angular_speed;
 
       // Scale linear velocity according to angular velocity (% of max) to keep stride velocities within limits
@@ -492,9 +507,9 @@ void StateController::adjustParameter(void)
       target_linear_velocity = clamped(linear_velocity_input_, max_linear_speed);
       target_angular_velocity = clamped(angular_velocity_input_, -max_angular_speed, max_angular_speed);
     }
-    
+
     // Set new parameter once within new limits
-    if (walker_->getDesiredLinearVelocity()[0] <= target_linear_velocity[0] && 
+    if (walker_->getDesiredLinearVelocity()[0] <= target_linear_velocity[0] &&
         walker_->getDesiredLinearVelocity()[1] <= target_linear_velocity[1] &&
         abs(walker_->getDesiredAngularVelocity()) <= abs(target_angular_velocity))
     {
@@ -508,16 +523,16 @@ void StateController::adjustParameter(void)
                         "\n[SHC] Slowing to safe speed before setting new parameter '%s'\n", p->name.c_str());
     }
   }
-  
+
   if (set_new_parameter)
   {
     parameter_adjust_flag_ = false;
     ROS_INFO("\n[SHC] Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
-                p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
+             p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Handles a gait change event. Forces robot velocity input to zero until it is in a STOPPED walk state and then updates
  * gait parameters based on the new gait selection and reinitialises the walk controller with the new parameters.
  * If required the pose controller is reinitialised with new 'auto posing' parameters.
@@ -549,7 +564,7 @@ void StateController::changeGait(void)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Handles a leg toggle event. Forces robot velocity input to zero until it is in a STOPPED walk state and then
  * calculates a new default pose based on estimated loading patterns. The leg that is changing state is assigned the
  * new state and any posing for the new state is executed via the pose controller.
@@ -608,7 +623,7 @@ void StateController::legStateToggle(void)
     // WALKING_TO_MANUAL -> MANUAL
     else if (leg->getLegState() == WALKING_TO_MANUAL)
     {
-      poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
+      poser_->setPoseResetMode(IMMEDIATE_ALL_RESET); // Set to ALL_RESET to force pose to new default pose
       int progress = poser_->poseForLegManipulation();
 
       //Update stiffness for transition to MANUAL state
@@ -632,7 +647,7 @@ void StateController::legStateToggle(void)
     // MANUAL_TO_WALKING -> WALKING
     else if (leg->getLegState() == MANUAL_TO_WALKING)
     {
-      poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
+      poser_->setPoseResetMode(IMMEDIATE_ALL_RESET); // Set to ALL_RESET to force pose to new default pose
       int progress = poser_->poseForLegManipulation();
 
       //Update stiffness for transition to WALKING state
@@ -663,7 +678,7 @@ void StateController::legStateToggle(void)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Publishes request to external planner interface for a new configuration step of a generated plan. Executes this plan
  * step by calling pose controller to transition to new configuration defined by an external planner.
 ***********************************************************************************************************************/
@@ -672,7 +687,7 @@ void StateController::executePlan(void)
   if (walker_->getWalkState() == STOPPED)
   {
     int progress;
-    
+
     // Publish request for step N of plan
     if (!target_configuration_acquired_ && !target_tip_pose_acquired_ && !target_body_pose_acquired_)
     {
@@ -715,7 +730,7 @@ void StateController::executePlan(void)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Generates transforms for external leg stepper targets based on frame id and time
 ***********************************************************************************************************************/
 void StateController::generateExternalTargetTransforms(void)
@@ -727,7 +742,7 @@ void StateController::generateExternalTargetTransforms(void)
     shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     ExternalTarget external_target;
-    
+
     // External target transform
     external_target = leg_stepper->getExternalTarget();
     if (external_target.defined_)
@@ -741,12 +756,12 @@ void StateController::generateExternalTargetTransforms(void)
         external_target.transform_ = Pose(target_transform.transform);
         leg_stepper->setExternalTarget(external_target);
       }
-      catch (tf2::TransformException &ex) 
+      catch (tf2::TransformException &ex)
       {
-        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
+        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n", ex.what());
       }
     }
-    
+
     // External default transform
     external_target = leg_stepper->getExternalDefault();
     if (external_target.defined_)
@@ -760,12 +775,12 @@ void StateController::generateExternalTargetTransforms(void)
         external_target.transform_ = Pose(default_transform.transform);
         leg_stepper->setExternalDefault(external_target);
       }
-      catch (tf2::TransformException &ex) 
+      catch (tf2::TransformException &ex)
       {
-        ROS_DEBUG("\n[SHC] Unable to look up external default transform -- (%s)\n",ex.what());
+        ROS_DEBUG("\n[SHC] Unable to look up external default transform -- (%s)\n", ex.what());
       }
     }
-    
+
     // External target transform for planner mode
     external_target = leg_poser->getExternalTarget();
     if (external_target.defined_)
@@ -779,15 +794,15 @@ void StateController::generateExternalTargetTransforms(void)
         external_target.transform_ = Pose(target_transform.transform);
         leg_poser->setExternalTarget(external_target);
       }
-      catch (tf2::TransformException &ex) 
+      catch (tf2::TransformException &ex)
       {
-        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
+        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n", ex.what());
       }
     }
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Iterates through leg objects and either collates joint state information for combined publishing and/or publishes the
  * desired joint position on the leg member publisher object.
 ***********************************************************************************************************************/
@@ -802,7 +817,7 @@ void StateController::publishDesiredJointState(void)
     {
       leg->generateDesiredJointStateMsg(&joint_state_msg);
     }
-    
+
     if (params_.individual_control_interface.data)
     {
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
@@ -821,7 +836,7 @@ void StateController::publishDesiredJointState(void)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Iterates through leg objects and collates state information for publishing on custom leg state message topic
  * @todo Remove ASC state messages in line with requested hardware changes to use legState message variable/s
 ***********************************************************************************************************************/
@@ -841,19 +856,19 @@ void StateController::publishLegState(void)
     msg.walker_tip_pose.header.stamp = ros::Time::now();
     msg.walker_tip_pose.header.frame_id = "walk_plane";
     msg.walker_tip_pose.pose = leg_stepper->getCurrentTipPose().toPoseMessage();
-    
+
     msg.target_tip_pose.header.stamp = ros::Time::now();
     msg.target_tip_pose.header.frame_id = "walk_plane";
     msg.target_tip_pose.pose = leg_stepper->getTargetTipPose().toPoseMessage();
-    
+
     msg.poser_tip_pose.header.stamp = ros::Time::now();
     msg.poser_tip_pose.header.frame_id = "base_link";
     msg.poser_tip_pose.pose = leg_poser->getCurrentTipPose().toPoseMessage();
-    
+
     msg.model_tip_pose.header.stamp = ros::Time::now();
     msg.model_tip_pose.header.frame_id = "base_link";
     msg.model_tip_pose.pose = leg->getCurrentTipPose().toPoseMessage();
-    
+
     msg.actual_tip_pose.header.stamp = ros::Time::now();
     msg.actual_tip_pose.header.frame_id = "base_link";
     msg.actual_tip_pose.pose = leg->applyFK(false, true).toPoseMessage();
@@ -911,7 +926,7 @@ void StateController::publishLegState(void)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Publishes current desired linear and angular body velocity for debugging
 ***********************************************************************************************************************/
 void StateController::publishVelocity(void)
@@ -926,7 +941,7 @@ void StateController::publishVelocity(void)
   velocity_publisher_.publish(msg);
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Publishes current pose (roll, pitch, yaw, x, y, z) for debugging
 ***********************************************************************************************************************/
 void StateController::publishPose(void)
@@ -943,7 +958,7 @@ void StateController::publishPose(void)
   pose_publisher_.publish(msg);
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Publishes details about current walkspace for debugging
 ***********************************************************************************************************************/
 void StateController::publishWalkspace(void)
@@ -957,12 +972,12 @@ void StateController::publishWalkspace(void)
     {
       msg.data.push_back(walkspace_it->second);
     }
-    
+
     walkspace_publisher_.publish(msg);
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Publishes imu pose rotation absement, position and velocity errors used in the PID controller, for debugging
 ***********************************************************************************************************************/
 void StateController::publishRotationPoseError(void)
@@ -981,7 +996,7 @@ void StateController::publishRotationPoseError(void)
   rotation_pose_error_publisher_.publish(msg);
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Publishes transforms linking odom, base_link and walk_plane frames.
 ***********************************************************************************************************************/
 void StateController::publishFrameTransforms(void)
@@ -989,17 +1004,17 @@ void StateController::publishFrameTransforms(void)
   Pose odom_ideal_to_walk_plane = walker_->getOdometryIdeal();
   Pose walk_plane_to_base_link = model_->getCurrentPose();
   Pose odom_ideal_to_base_link = odom_ideal_to_walk_plane.addPose(walk_plane_to_base_link);
-  
+
   // Broadcast ideal odom tf, if odom tf from perception does not exist on tf tree
   try
   {
     fixed_frame_id_ = "odom";
     transform_buffer_.lookupTransform("base_link", "odom", Time(0));
   }
-  catch (tf2::TransformException &ex) 
+  catch (tf2::TransformException &ex)
   {
     ROS_WARN_ONCE("\n[SHC] No odom transform exists in tf tree - using ideal odometry\n");
-    
+
     fixed_frame_id_ = "odom_ideal";
     geometry_msgs::TransformStamped odom_to_base_link;
     odom_to_base_link.header.stamp = ros::Time::now();
@@ -1014,7 +1029,7 @@ void StateController::publishFrameTransforms(void)
     odom_to_base_link.transform.rotation.z = odom_ideal_to_base_link.rotation_.z();
     transform_broadcaster_.sendTransform(odom_to_base_link);
   }
-  
+
   // Base Link frame to Walk Plane frame transform
   geometry_msgs::TransformStamped base_link_to_walk_plane;
   base_link_to_walk_plane.header.stamp = ros::Time::now();
@@ -1028,7 +1043,7 @@ void StateController::publishFrameTransforms(void)
   base_link_to_walk_plane.transform.rotation.y = (~walk_plane_to_base_link).rotation_.y();
   base_link_to_walk_plane.transform.rotation.z = (~walk_plane_to_base_link).rotation_.z();
   transform_broadcaster_.sendTransform(base_link_to_walk_plane);
-  
+
   // Base Link frame to Joint/Tip frames
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -1069,7 +1084,7 @@ void StateController::publishFrameTransforms(void)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Sets up velocities for and calls debug visualiser object to publish various debugging visualations via rviz
 ***********************************************************************************************************************/
 void StateController::RVIZDebugging(void)
@@ -1101,12 +1116,12 @@ void StateController::RVIZDebugging(void)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the desired system state. Sends message to user interface when system enters OPERATIONAL state.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/system_state"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::systemStateCallback(const std_msgs::Int8& input)
+void StateController::systemStateCallback(const std_msgs::Int8 &input)
 {
   new_system_state_ = static_cast<SystemState>(int(input.data));
   if (system_state_ != new_system_state_)
@@ -1119,12 +1134,12 @@ void StateController::systemStateCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the desired robot state.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/robot_state"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::robotStateCallback(const std_msgs::Int8& input)
+void StateController::robotStateCallback(const std_msgs::Int8 &input)
 {
   RobotState input_state = static_cast<RobotState>(int(input.data));
 
@@ -1152,11 +1167,11 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback for the input body velocity
  * @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_velocity"
 ***********************************************************************************************************************/
-void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& input)
+void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1169,11 +1184,11 @@ void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& inpu
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback for the input body pose velocity (x/y/z linear translation and roll/pitch/yaw angular rotation velocities)
  * @param[in] input The Twist geometry message provided by the subscribed ros topic "syropod_remote/desired_pose"
 ***********************************************************************************************************************/
-void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
+void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1183,12 +1198,12 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the desired posing mode and sending state messages to user interface.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/posing_mode"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::posingModeCallback(const std_msgs::Int8& input)
+void StateController::posingModeCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1198,38 +1213,38 @@ void StateController::posingModeCallback(const std_msgs::Int8& input)
       posing_mode_ = new_posing_mode;
       switch (posing_mode_) //Used only for user message, control handled by syropod_remote
       {
-        case (NO_POSING):
-          ROS_INFO("\nPosing mode set to NO_POSING. "
-                   "Body will not respond to manual posing input (except for reset commands).\n");
-          break;
-        case (X_Y_POSING):
-          ROS_INFO("\nPosing mode set to X_Y_POSING. "
-                   "Body will only respond to x/y translational manual posing input.\n");
-          break;
-        case (PITCH_ROLL_POSING):
-          ROS_INFO("\nPosing mode set to PITCH_ROLL_POSING. "
-                   "Body will only respond to pitch/roll rotational manual posing input.\n");
-          break;
-        case (Z_YAW_POSING):
-          ROS_INFO("\nPosing mode set to Z_YAW_POSING. "
-                   "Body will only respond to z translational and yaw rotational manual posing input.\n");
-          break;
-        case (EXTERNAL_POSING):
-          ROS_INFO("\nPosing mode set to EXTERNAL_POSING. "
-                   "Body will only respond to posing input from external source.\n");
-          break;
-        default:
-          break;
+      case (NO_POSING):
+        ROS_INFO("\nPosing mode set to NO_POSING. "
+                 "Body will not respond to manual posing input (except for reset commands).\n");
+        break;
+      case (X_Y_POSING):
+        ROS_INFO("\nPosing mode set to X_Y_POSING. "
+                 "Body will only respond to x/y translational manual posing input.\n");
+        break;
+      case (PITCH_ROLL_POSING):
+        ROS_INFO("\nPosing mode set to PITCH_ROLL_POSING. "
+                 "Body will only respond to pitch/roll rotational manual posing input.\n");
+        break;
+      case (Z_YAW_POSING):
+        ROS_INFO("\nPosing mode set to Z_YAW_POSING. "
+                 "Body will only respond to z translational and yaw rotational manual posing input.\n");
+        break;
+      case (EXTERNAL_POSING):
+        ROS_INFO("\nPosing mode set to EXTERNAL_POSING. "
+                 "Body will only respond to posing input from external source.\n");
+        break;
+      default:
+        break;
       }
     }
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling desired pose reset mode
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/pose_reset_mode"
 ***********************************************************************************************************************/
-void StateController::poseResetCallback(const std_msgs::Int8& input)
+void StateController::poseResetCallback(const std_msgs::Int8 &input)
 {
   if (system_state_ != SUSPENDED && poser_ != NULL)
   {
@@ -1240,12 +1255,12 @@ void StateController::poseResetCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the desired gait selection.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/gait_selection"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
+void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1258,13 +1273,13 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the cruise control mode and sending state messages to user interface. Determines cruise velocity
  * from either parameters or current velocitiy inputs.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/cruise_control_mode"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::cruiseControlCallback(const std_msgs::Int8& input)
+void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1303,12 +1318,12 @@ void StateController::cruiseControlCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the planner mode and sending state messages to user interface.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/planner_mode"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::plannerModeCallback(const std_msgs::Int8& input)
+void StateController::plannerModeCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1329,12 +1344,12 @@ void StateController::plannerModeCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the selection of the leg as the primary leg for manual manipulation.
  * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/primary_leg_selection"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::primaryLegSelectionCallback(const std_msgs::Int8& input)
+void StateController::primaryLegSelectionCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1355,12 +1370,12 @@ void StateController::primaryLegSelectionCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the selection of the leg as the secondary leg for manual manipulation.
  * @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/secondary_leg_selection"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::secondaryLegSelectionCallback(const std_msgs::Int8& input)
+void StateController::secondaryLegSelectionCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1381,12 +1396,12 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the toggling the state of the primary selected leg.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/primary_leg_state"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
+void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING && !transition_state_flag_)
   {
@@ -1401,7 +1416,7 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
       else if (toggle_secondary_leg_state_)
       {
         ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nCannot toggle primary leg state as secondary leg is currently "
-                          "transitioning states.\nPlease wait and try again.\n");
+                                           "transitioning states.\nPlease wait and try again.\n");
       }
       else
       {
@@ -1412,12 +1427,12 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the toggling the state of the secondary selected leg.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/secondary_leg_state"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
+void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING && !transition_state_flag_)
   {
@@ -1432,7 +1447,7 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
       else if (toggle_primary_leg_state_)
       {
         ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nCannot toggle secondary leg state as primary leg is currently "
-                          "transitioning states.\nPlease wait and try again.\n");
+                                           "transitioning states.\nPlease wait and try again.\n");
       }
       else
       {
@@ -1443,30 +1458,30 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback for the input manual tip velocity (in cartesian space) for the primary selected leg
  * @param[in] input The Point geometry message provided by the subscribed topic "syropod_remote/primary_tip_velocity"
 ***********************************************************************************************************************/
-void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point& input)
+void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point &input)
 {
   primary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback for the input manual tip velocity (in cartesian space) for the secondary selected leg
  * @param[in] input The Point geometry message provided by the subscribed topic "syropod_remote/secondary_tip_velocity"
 ***********************************************************************************************************************/
-void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point& input)
+void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point &input)
 {
   secondary_tip_velocity_input_ = Vector3d(input.x, input.y, input.z);
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the desired parameter selection and sending state messages to user interface.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/parameter_selection"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
+void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1487,13 +1502,13 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling the desired selected parameter adjustment. Sets a new value for the selected parameter by adding
  * or subtracting the (parameter defined) adjustment value according to the input direction and clamped with limits.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/parameter_adjustment"
  * @see parameters_and_states.h
 ***********************************************************************************************************************/
-void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
+void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1514,14 +1529,26 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
   }
 }
 
-/*******************************************************************************************************************//**
+void StateController::ARPoseCallback(const geometry_msgs::Pose &msg)
+{
+  AR_pose_msg_.position_ = Vector3d(msg.position.x, msg.position.y, msg.position.z);
+  AR_pose_msg_.rotation_ = Quaterniond(msg.orientation.w, msg.orientation.x, msg.orientation.y, msg.orientation.z);
+}
+
+void StateController::ALPoseCallback(const geometry_msgs::Pose &msg)
+{
+  AL_pose_msg_.position_ = Vector3d(msg.position.x, msg.position.y, msg.position.z);
+  AL_pose_msg_.rotation_ = Quaterniond(msg.orientation.w, msg.orientation.x, msg.orientation.y, msg.orientation.z);
+}
+
+/*******************************************************************************************************************/ /**
  * Callback handling new configurations from a dynamic reconfigure client and assigning new values for adjustment.
  * @param[in] config The new configuration sent from a dynamic reconfigure client (eg: rqt_reconfigure)
  * @param[in] level Unused
  * @see config/dynamic_parameter.cfg
 ***********************************************************************************************************************/
-void StateController::dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig& config,
-                                               const uint32_t& level)
+void StateController::dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig &config,
+                                               const uint32_t &level)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1606,11 +1633,11 @@ void StateController::dynamicParameterCallback(syropod_highlevel_controller::Dyn
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback handling input IMU data
  * @param[in] data The Imu sensor message provided by the subscribed ros topic "/SYROPOD_NAME/imu/data"
 ***********************************************************************************************************************/
-void StateController::imuCallback(const sensor_msgs::Imu& data)
+void StateController::imuCallback(const sensor_msgs::Imu &data)
 {
   if (system_state_ != SUSPENDED && poser_ != NULL)
   {
@@ -1621,12 +1648,12 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback which handles acquisition of joint states from motor drivers. Attempts to populate joint objects with
  * available current position/velocity/effort and flags if all joint objects have received an initial current position.
  * @param[in] joint_states The JointState sensor message provided by the subscribed ros topic "/joint_states"
 ***********************************************************************************************************************/
-void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_states)
+void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_states)
 {
   bool get_effort_values = (joint_states.effort.size() != 0);
   bool get_velocity_values = (joint_states.velocity.size() != 0);
@@ -1672,16 +1699,16 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback which handles acquisition of tip states from external sensors. Attempts to populate leg objects with
  * available current tip force/torque values and proxmity to walk surface.
  * @param[in] tip_states The TipState sensor message provided by the subscribed ros topic "/tip_states"
 ***********************************************************************************************************************/
-void StateController::tipStatesCallback(const syropod_highlevel_controller::TipState& tip_states)
+void StateController::tipStatesCallback(const syropod_highlevel_controller::TipState &tip_states)
 {
   bool get_wrench_values = tip_states.wrench.size() > 0;
   bool get_step_plane_values = tip_states.step_plane.size() > 0;
-  
+
   // Iterate through message and assign found contact proximity value to leg objects
   string error_string;
   for (uint i = 0; i < tip_states.name.size(); ++i)
@@ -1714,15 +1741,15 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
         // From step plane representation calculate position and orientation of plane relative to tip frame
         Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
         Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
-        Quaterniond step_plane_orientation =  Quaterniond::FromTwoVectors(Vector3d(0,0,1.0), -step_plane_normal);
-        
+        Quaterniond step_plane_orientation = Quaterniond::FromTwoVectors(Vector3d(0, 0, 1.0), -step_plane_normal);
+
         // Transform into robot frame and store
         Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));
-        leg->setStepPlanePose(step_plane_pose); 
+        leg->setStepPlanePose(step_plane_pose);
       }
       else
       {
-        leg->setStepPlanePose(Pose::Undefined()); 
+        leg->setStepPlanePose(Pose::Undefined());
         error_string += stringFormat("\nLost contact with tip range sensor/s of leg %s.\n", leg_name.c_str());
       }
     }
@@ -1733,21 +1760,21 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback which handles setting desired configuration for pose controller from planner interface.
  * @param[in] target_configuration The desired configuration that the planner requests transition to.
 ***********************************************************************************************************************/
-void StateController::targetConfigurationCallback(const sensor_msgs::JointState& target_configuration)
+void StateController::targetConfigurationCallback(const sensor_msgs::JointState &target_configuration)
 {
   poser_->setTargetConfiguration(target_configuration);
   target_configuration_acquired_ = true;
 }
-  
-/*******************************************************************************************************************//**
+
+/*******************************************************************************************************************/ /**
  * Callback which handles setting target body pose for pose controller from planner interface.
  * @param target_body_pose The desired configuration that the planner requests the body transition to.
 ***********************************************************************************************************************/
-void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_body_pose)
+void StateController::targetBodyPoseCallback(const geometry_msgs::Pose &target_body_pose)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -1760,11 +1787,11 @@ void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_b
   target_body_pose_acquired_ = true;
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Callback which handles externally set target tip poses to be reached at end of swing periods OR during planning mode
  * @param[in] msg The target tip pose message
 ***********************************************************************************************************************/
-void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& msg)
+void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose &msg)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1780,7 +1807,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
         {
           bool is_external_target = !msg.target.empty() && Pose(msg.target[i].pose) != Pose::Undefined();
           bool is_external_default = !msg.stance.empty() && Pose(msg.stance[i].pose) != Pose::Undefined();
-          
+
           // Create external target from message and send to walk/pose controller depending on walk state
           if (is_external_target)
           {
@@ -1802,7 +1829,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
               target_tip_pose_acquired_ = true;
             }
           }
-          
+
           // Create external default from message and send to walk/ controller if walking
           if (is_external_default && walker_->getWalkState() != STOPPED)
           {
@@ -1827,7 +1854,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
   }
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Acquires parameter values from the ros param server and initialises parameter objects. Also sets up dynamic
  * reconfigure server.
 ***********************************************************************************************************************/
@@ -1993,31 +2020,31 @@ void StateController::initParameters(void)
   initAutoPoseParameters();
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Acquires gait selection defined parameter values from the ros param server and initialises parameter objects.
  * @param[in] gait_selection The desired gait used to acquire associated parameters off the parameter server
 ***********************************************************************************************************************/
-void StateController::initGaitParameters(const GaitDesignation& gait_selection)
+void StateController::initGaitParameters(const GaitDesignation &gait_selection)
 {
   switch (gait_selection)
   {
-    case (TRIPOD_GAIT):
-      params_.gait_type.data = "tripod_gait";
-      break;
-    case (RIPPLE_GAIT):
-      params_.gait_type.data = "ripple_gait";
-      break;
-    case (WAVE_GAIT):
-      params_.gait_type.data = "wave_gait";
-      break;
-    case (AMBLE_GAIT):
-      params_.gait_type.data = "amble_gait";
-      break;
-    case (GAIT_UNDESIGNATED):
-      params_.gait_type.init("gait_type");
-      break;
-    default:
-      break;
+  case (TRIPOD_GAIT):
+    params_.gait_type.data = "tripod_gait";
+    break;
+  case (RIPPLE_GAIT):
+    params_.gait_type.data = "ripple_gait";
+    break;
+  case (WAVE_GAIT):
+    params_.gait_type.data = "wave_gait";
+    break;
+  case (AMBLE_GAIT):
+    params_.gait_type.data = "amble_gait";
+    break;
+  case (GAIT_UNDESIGNATED):
+    params_.gait_type.init("gait_type");
+    break;
+  default:
+    break;
   }
 
   string base_gait_parameters_name = "/syropod/gait_parameters/";
@@ -2027,7 +2054,7 @@ void StateController::initGaitParameters(const GaitDesignation& gait_selection)
   params_.offset_multiplier.init("offset_multiplier", base_gait_parameters_name + params_.gait_type.data + "/");
 }
 
-/*******************************************************************************************************************//**
+/*******************************************************************************************************************/ /**
  * Acquires auto pose parameter values from the ros param server and initialises parameter objects.
 ***********************************************************************************************************************/
 void StateController::initAutoPoseParameters(void)
