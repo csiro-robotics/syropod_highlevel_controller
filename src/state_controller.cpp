@@ -79,15 +79,6 @@ StateController::StateController(void)
   AR_pose_sub = n.subscribe("/syropod_manipulation/AR/Pose", 1, &StateController::ARPoseCallback, this);
   AL_pose_sub = n.subscribe("/syropod_manipulation/AL/Pose", 1, &StateController::ALPoseCallback, this);
 
-  // AR_position_sub_ = n.subscribe("/shc/AR/state", 1, &StateController::cbARPosition, this);
-  // AL_position_sub_ = n.subscribe("/shc/AL/state", 1, &StateController::cbALPosition, this);
-  // BR_position_sub_ = n.subscribe("/shc/BR/state", 1, &StateController::cbBRPosition, this);
-  // BL_position_sub_ = n.subscribe("/shc/BL/state", 1, &StateController::cbBLPosition, this);
-  // CR_position_sub_ = n.subscribe("/shc/CR/state", 1, &StateController::cbCRPosition, this);
-  // CL_position_sub_ = n.subscribe("/shc/CL/state", 1, &StateController::cbCLPosition, this);
-
-  // AR_position_pub_ = n.advertise<geometry_msgs::Pose>("/shc/AR/pose", 1);
-
   // Planner subscription/publisher
   target_configuration_subscriber_ = n.subscribe("/target_configuration", 1,
                                                  &StateController::targetConfigurationCallback, this);
@@ -282,8 +273,11 @@ void StateController::transitionRobotState(void)
     new_robot_state_ = robot_state_;
   }
   // PACKED -> RUNNING (Direct)
+
   else if (robot_state_ == PACKED && new_robot_state_ == READY && !params_.start_up_sequence.data)
   {
+    // ROS_INFO_STREAM("SHC robot_state_: " << robot_state_);
+    // ROS_INFO_STREAM("SHC new_robot_state_: " << new_robot_state_);
     int progress = poser_->directStartup();
     double throttle = params_.time_to_start.data / 5.0;
     ROS_INFO_THROTTLE(throttle, "\n[SHC] Syropod transitioning DIRECTLY to RUNNING state (%d%%). . .\n", progress);
@@ -458,6 +452,7 @@ void StateController::runningState(void)
     // Update tip positions for manually controlled legs
     walker_->updateManual(primary_leg_selection_, primary_tip_velocity_input_,
                           secondary_leg_selection_, secondary_tip_velocity_input_);
+
     // Update tip position and rotation for manually controlled legs
     walker_->updateManualPose(primary_leg_selection_, AR_pose_msg_,
                               secondary_leg_selection_, AL_pose_msg_);
@@ -1147,12 +1142,15 @@ void StateController::robotStateCallback(const std_msgs::Int8 &input)
   bool ready_for_transition = !(toggle_primary_leg_state_ || toggle_secondary_leg_state_ || parameter_adjust_flag_);
   if (transition_state_flag_ && !ready_for_transition)
   {
+    // ROS_INFO("Entering callback FLAG");
     transition_state_flag_ = false;
   }
 
   // Handle single step transitioning between multiple states
   if (input_state != robot_state_ && !transition_state_flag_)
   {
+
+
     new_robot_state_ = input_state;
     if (new_robot_state_ > robot_state_)
     {
@@ -1164,6 +1162,8 @@ void StateController::robotStateCallback(const std_msgs::Int8 &input)
       new_robot_state_ = static_cast<RobotState>(robot_state_ - 1);
       transition_state_flag_ = ready_for_transition;
     }
+    ROS_INFO_STREAM("callback SHC new_robot_state_ is: " << new_robot_state_);
+    ROS_INFO_STREAM("callback SHC robot_state_ is: " << robot_state_);
   }
 }
 

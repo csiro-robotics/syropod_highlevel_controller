@@ -203,30 +203,47 @@ public:
   double getLimit(const Vector2d &linear_velocity_input, const double &angular_velocity_input, const LimitMap &limit);
 
   /**
-    * Updates all legs in the walk cycle. Calculates stride vectors for all legs from robot body velocity inputs and
-    * calls trajectory update functions for each leg to update individual tip positions. Also manages the overall walk
-    * state via state machine and input velocities as well as the individual step state of each leg as they progress
-    * through stance and swing states.
-    * @params[in] linear_velocity_input An input for the desired linear velocity of the robot body in the x/y plane.
-    * @params[in] angular_velocity_input An input for the desired angular velocity of the robot body about the z axis.
-    */
+   * Updates all legs in the walk cycle. Calculates stride vectors for all legs from robot body velocity inputs and
+   * calls trajectory update functions for each leg to update individual tip positions. Also manages the overall walk
+   * state via state machine and input velocities as well as the individual step state of each leg as they progress
+   * through stance and swing states.
+   * @params[in] linear_velocity_input An input for the desired linear velocity of the robot body in the x/y plane.
+   * @params[in] angular_velocity_input An input for the desired angular velocity of the robot body about the z axis.
+   */
   void updateWalk(const Vector2d &linear_velocity_input, const double &angular_velocity_input);
 
   /**
-    * Updates the tip position for legs in the manual state from tip velocity inputs. Two modes are available: joint
-    * control allows manipulation of joint positions directly but only works for 3DOF legs; tip control allows
-    * manipulation of the tip in cartesian space in the robot frame.
-    * @params[in] primary_leg_selection_ID The designation of a leg selected (in the primary role) for manipulation.
-    * @params[in] primary_tip_velocity_input The velocity input to move the 1st leg tip position in the robot frame.
-    * @params[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
-    * @params[in] secondary_tip_velocity_input The velocity input to move the 2nd leg tip position in the robot frame.
-    */
+   * Updates the tip position for legs in the manual state from tip velocity inputs. Two modes are available: joint
+   * control allows manipulation of joint positions directly but only works for 3DOF legs; tip control allows
+   * manipulation of the tip in cartesian space in the robot frame.
+   * @params[in] primary_leg_selection_ID The designation of a leg selected (in the primary role) for manipulation.
+   * @params[in] primary_tip_velocity_input The velocity input to move the 1st leg tip position in the robot frame.
+   * @params[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
+   * @params[in] secondary_tip_velocity_input The velocity input to move the 2nd leg tip position in the robot frame.
+   */
   void updateManual(const int &primary_leg_selection_ID, const Vector3d &primary_tip_velocity_input,
                     const int &secondary_leg_selection_ID, const Vector3d &secondary_tip_velocity_input);
-
+                    
+  /**
+   * Updates the tip position for legs in the manual state from direct cartesian coordinates. Tip control allows
+   * manipulation of the tip in cartesian space in the robot frame.
+   * @param[in] primary_leg_selection_ID The designation of a leg selected (in the primary role) for manipulation.
+   * @param[in] primary_tip_pose_input The cartesian input to move the 1st leg tip position in the robot frame.
+   * @param[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
+   * @param[in] secondary_tip_pose_input The cartesian input to move the 2nd leg tip position in the robot frame.
+   */
   void updateManualPose(const int &primary_leg_selection_ID, const Pose &primary_tip_pose_input,
                         const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input);
 
+  /**
+   * Generates the leg motion path/trajectory using Bezier curves for the selected leg. 
+   * @param[in] primary_leg_selection_ID The designation of a leg selected (in the primary role) for manipulation.
+   * @param[in] primary_tip_pose_input The cartesian input to move the 1st leg tip position in the robot frame.
+   * @param[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
+   * @param[in] secondary_tip_pose_input The cartesian input to move the 2nd leg tip position in the robot frame.
+   */
+  void generateLegTrajectory(const int &primary_leg_selection_ID, const Pose &primary_tip_pose_input,
+                                const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input);
   /**
    * Calculates a estimated walk plane which best fits the default tip positions of legs in model.
    * Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.

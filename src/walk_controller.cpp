@@ -752,8 +752,16 @@ void WalkController::updateManual(const int &primary_leg_selection_ID, const Vec
   }
 }
 
+/*******************************************************************************************************************/ /**
+ * Updates the tip position for legs in the manual state from direct cartesian coordinates. Tip control allows
+ * manipulation of the tip in cartesian space in the robot frame.
+ * @param[in] primary_leg_selection_ID The designation of a leg selected (in the primary role) for manipulation.
+ * @param[in] primary_tip_pose_input The cartesian input to move the 1st leg tip position in the robot frame.
+ * @param[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
+ * @param[in] secondary_tip_pose_input The cartesian input to move the 2nd leg tip position in the robot frame.
+***********************************************************************************************************************/
 void WalkController::updateManualPose(const int &primary_leg_selection_ID, const Pose &primary_tip_pose_input,
-                                  const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input)
+                                      const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -778,12 +786,40 @@ void WalkController::updateManualPose(const int &primary_leg_selection_ID, const
       {
         if (params_.leg_manipulation_mode.data == "tip_control")
         {
-          leg_stepper->setCurrentTipPose(Pose(tip_position_input, tip_rotation_input));
+          // leg_stepper->setCurrentTipPose(Pose(tip_position_input, tip_rotation_input));
+          leg_stepper->setCurrentTipPose(Pose(tip_position_input, UNDEFINED_ROTATION));
         }
       }
     }
   }
 }
+
+// void WalkController::generateLegTrajectory(const int &primary_leg_selection_ID, const Pose &primary_tip_pose_input,
+//                                            const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input)
+// {
+//   ROS_INFO("entered generation function");
+//   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
+//   {
+//     shared_ptr<Leg> leg = leg_it_->second;
+//     shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
+//     if (leg->getLegState() == MANUAL)
+//     {
+//       Pose tip_position_input;
+//       int selected_leg_ID = leg->getIDNumber();
+//       if (selected_leg_ID == primary_leg_selection_ID)
+//       {
+//         tip_position_input = primary_tip_pose_input;
+//       }
+//       else if (selected_leg_ID == secondary_leg_selection_ID)
+//       {
+//         tip_position_input = secondary_tip_pose_input;
+//       }
+//       ROS_INFO("entering MAIN generation function");
+//       std::vector<Vector3d> trajectory_list;
+//       trajectory_list = leg_poser->generateSplineTrajectory(tip_position_input, Pose::Identity(), 3.0, true);
+//     }
+//   }
+// }
 
 /*******************************************************************************************************************/ /**
  * Calculates a estimated walk plane which best fits the default tip positions of legs in model.
