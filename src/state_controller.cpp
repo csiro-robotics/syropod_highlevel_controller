@@ -276,8 +276,6 @@ void StateController::transitionRobotState(void)
 
   else if (robot_state_ == PACKED && new_robot_state_ == READY && !params_.start_up_sequence.data)
   {
-    // ROS_INFO_STREAM("SHC robot_state_: " << robot_state_);
-    // ROS_INFO_STREAM("SHC new_robot_state_: " << new_robot_state_);
     int progress = poser_->directStartup();
     double throttle = params_.time_to_start.data / 5.0;
     ROS_INFO_THROTTLE(throttle, "\n[SHC] Syropod transitioning DIRECTLY to RUNNING state (%d%%). . .\n", progress);
@@ -1150,7 +1148,6 @@ void StateController::robotStateCallback(const std_msgs::Int8 &input)
   if (input_state != robot_state_ && !transition_state_flag_)
   {
 
-
     new_robot_state_ = input_state;
     if (new_robot_state_ > robot_state_)
     {
@@ -1162,8 +1159,6 @@ void StateController::robotStateCallback(const std_msgs::Int8 &input)
       new_robot_state_ = static_cast<RobotState>(robot_state_ - 1);
       transition_state_flag_ = ready_for_transition;
     }
-    ROS_INFO_STREAM("callback SHC new_robot_state_ is: " << new_robot_state_);
-    ROS_INFO_STREAM("callback SHC robot_state_ is: " << robot_state_);
   }
 }
 

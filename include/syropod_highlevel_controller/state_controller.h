@@ -297,7 +297,6 @@ public:
   void ARPoseCallback(const geometry_msgs::Pose &msg);
   void ALPoseCallback(const geometry_msgs::Pose &msg);
 
-
   /**
    * Callback handling new configurations from a dynamic reconfigure client and assigning new values for adjustment.
    * @param[in] config The new configuration sent from a dynamic reconfigure client (eg: rqt_reconfigure)
@@ -364,9 +363,9 @@ private:
   ros::Subscriber parameter_selection_subscriber_;     ///< Subscriber for topic "/syropod_remote/parameter_selection"
   ros::Subscriber parameter_adjustment_subscriber_;    ///< Subscriber for topic "/syropod_remote/parameter_adjustment"
 
-  ros::Subscriber AR_pose_sub; 
-  ros::Subscriber AL_pose_sub; 
-  
+  ros::Subscriber AR_pose_sub;
+  ros::Subscriber AL_pose_sub;
+
   // ros::Subscriber AR_position_sub_; ///< Subscriber for topic "/shc/AR/statet"
   // ros::Subscriber AL_position_sub_; ///< Subscriber for topic "/shc/AL/state"
   // ros::Subscriber BR_position_sub_; ///< Subscriber for topic "/shc/BR/state"

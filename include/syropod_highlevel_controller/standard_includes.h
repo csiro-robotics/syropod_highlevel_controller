@@ -360,7 +360,7 @@ inline string stringFormat(const string &format, Args... args)
 //////////////////////////////   ADDED NEW BEZIER FUNCTION   /////////////////////////////
 
 /**
- * Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
+ * @brief Returns a vector representing a 3d point at a given time input along a 2nd order bezier curve defined by input
  * control nodes.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
@@ -373,7 +373,7 @@ inline T quadraticBezier(const T *points, const double &t)
 }
 
 /**
- * Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
+ * @brief Returns a vector representing a 3d point at a given time input along a 2nd order bezier curve defined by input
  * control nodes. The curve will pass through the defined control points.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
@@ -388,7 +388,7 @@ inline Vector3d quadraticBezierCurveThroughControlPoint(const T *points, const d
 }
 
 /**
- * Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
+ * @brief Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input
  * control nodes. The curve will pass through the defined control points.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
@@ -412,13 +412,13 @@ inline Vector3d cubicBezierCurveThroughControlPoint(const T *points, const doubl
   }
   else
   {
-    ROS_INFO("Something terribly wrong is happening. New Control points for the Quartic Bezier is NOT being generated.");
+    ROS_INFO("Something terribly wrong is happening. New Control points for the Cubic Bezier is NOT being generated.");
     return Vector3d(0, 0, 0);
   }
 }
 
 /**
- * Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input
+ * @brief Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input
  * control nodes.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
@@ -432,7 +432,7 @@ inline T cubicBezier(const T *points, const double &t)
 }
 
 /**
- * Returns a vector representing a 3d point at a given time input along the derivative of a 3rd order bezier curve
+ * @brief Returns a vector representing a 3d point at a given time input along the derivative of a 3rd order bezier curve
  * defined by input control nodes.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
@@ -446,8 +446,10 @@ inline T cubicBezierDot(const T *points, const double &t)
 }
 
 /**
- * Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
- * control nodes. The curve will pass through the defined control points.
+ * @brief Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
+ * control nodes. Depending on the complexity of the target curve, it will generate points that will pass through
+ * the defined control points. If the target curve is too complex the generate point will approximately go near
+ * the control points. This is especially true for the 2nd control point.
  * @param[in] points An array of control node vectors.
  * @param[in] t A time input from 0.0 to 1.0.
  * @param[in] control_point_selection The control point that is being selected.
