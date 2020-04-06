@@ -274,6 +274,10 @@ public:
    * @param[in] input The Point geometry message provided by the topic "syropod_remote/secondary_tip_velocity"
    */
   void secondaryTipVelocityInputCallback(const geometry_msgs::Point &input);
+
+  void arTipPoseInputCallback(const geometry_msgs::Pose &msg);
+  void alTipPoseInputCallback(const geometry_msgs::Pose &msg);
+
   /**
    * Callback for the primary leg tip
    */
@@ -293,9 +297,6 @@ public:
    * @see parameters_and_states.h
    */
   void parameterAdjustCallback(const std_msgs::Int8 &input);
-
-  void ARPoseCallback(const geometry_msgs::Pose &msg);
-  void ALPoseCallback(const geometry_msgs::Pose &msg);
 
   /**
    * Callback handling new configurations from a dynamic reconfigure client and assigning new values for adjustment.
@@ -363,15 +364,8 @@ private:
   ros::Subscriber parameter_selection_subscriber_;     ///< Subscriber for topic "/syropod_remote/parameter_selection"
   ros::Subscriber parameter_adjustment_subscriber_;    ///< Subscriber for topic "/syropod_remote/parameter_adjustment"
 
-  ros::Subscriber AR_pose_sub;
-  ros::Subscriber AL_pose_sub;
-
-  // ros::Subscriber AR_position_sub_; ///< Subscriber for topic "/shc/AR/statet"
-  // ros::Subscriber AL_position_sub_; ///< Subscriber for topic "/shc/AL/state"
-  // ros::Subscriber BR_position_sub_; ///< Subscriber for topic "/shc/BR/state"
-  // ros::Subscriber BL_position_sub_; ///< Subscriber for topic "/shc/BL/statet"
-  // ros::Subscriber CR_position_sub_; ///< Subscriber for topic "/shc/CR/state"
-  // ros::Subscriber CL_position_sub_; ///< Subscriber for topic "/shc/VL/state"
+  ros::Subscriber ar_tip_pose_subscriber_;  ///< Subscriber for topic "/syropod_manipulation/AR/Pose"
+  ros::Subscriber al_tip_pose_subscriber_;  ///< Subscriber for topic "/syropod_manipulation/AL/Pose"
 
   ros::Subscriber target_configuration_subscriber_; ///< Subscriber for topic "/target_configuration"
   ros::Subscriber target_body_pose_subscriber_;     ///< Subscriber for topic "/target_body_pose"
@@ -455,8 +449,8 @@ private:
   LegContainer::iterator leg_it_;     ///< Leg iteration member variable used to minimise code
   JointContainer::iterator joint_it_; ///< Joint iteration member variable used to minimise code
 
-  Pose AR_pose_msg_;
-  Pose AL_pose_msg_;
+  Pose ar_pose_input_;
+  Pose al_pose_input_;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

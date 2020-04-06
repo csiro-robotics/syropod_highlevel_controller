@@ -75,9 +75,9 @@ StateController::StateController(void)
   parameter_adjustment_subscriber_ = n.subscribe("syropod_remote/parameter_adjustment", 1,
                                                  &StateController::parameterAdjustCallback, this);
 
-  // subscribes to the current pose of the tips
-  AR_pose_sub = n.subscribe("/syropod_manipulation/AR/Pose", 1, &StateController::ARPoseCallback, this);
-  AL_pose_sub = n.subscribe("/syropod_manipulation/AL/Pose", 1, &StateController::ALPoseCallback, this);
+  // Haxapod Leg Manipulation subscriptions. Subscribed to the desried tip positions.
+  ar_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AR/Pose", 1, &StateController::arTipPoseInputCallback, this);
+  al_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AL/Pose", 1, &StateController::alTipPoseInputCallback, this);
 
   // Planner subscription/publisher
   target_configuration_subscriber_ = n.subscribe("/target_configuration", 1,
@@ -451,9 +451,11 @@ void StateController::runningState(void)
     walker_->updateManual(primary_leg_selection_, primary_tip_velocity_input_,
                           secondary_leg_selection_, secondary_tip_velocity_input_);
 
-    // Update tip position and rotation for manually controlled legs
-    walker_->updateManualPose(primary_leg_selection_, AR_pose_msg_,
-                              secondary_leg_selection_, AL_pose_msg_);
+    // Controls tip position for manually controlled legs.
+    // Primary leg correspond to the front right leg and secondary leg is the front left leg.
+    // TODO: give access for the remaindering legs this feature if selected.
+    walker_->controlManualPose(primary_leg_selection_, ar_pose_input_,
+                               secondary_leg_selection_, al_pose_input_);
 
     // Pose controller takes current tip positions from walker and applies body posing
     poser_->updateStance();
@@ -1472,6 +1474,30 @@ void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Poi
 }
 
 /*******************************************************************************************************************/ /**
+ * Callback handling new configurations from a dynamic reconfigure client and assigning new values for adjustment.
+ * @param[in] config The new configuration sent from a dynamic reconfigure client (eg: rqt_reconfigure)
+ * @param[in] level Unused
+ * @see config/dynamic_parameter.cfg
+***********************************************************************************************************************/
+void StateController::arTipPoseInputCallback(const geometry_msgs::Pose &input)
+{
+  ar_pose_input_.position_ = Vector3d(input.position.x, input.position.y, input.position.z);
+  ar_pose_input_.rotation_ = Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
+}
+
+/*******************************************************************************************************************/ /**
+ * Callback handling new configurations from a dynamic reconfigure client and assigning new values for adjustment.
+ * @param[in] config The new configuration sent from a dynamic reconfigure client (eg: rqt_reconfigure)
+ * @param[in] level Unused
+ * @see config/dynamic_parameter.cfg
+***********************************************************************************************************************/
+void StateController::alTipPoseInputCallback(const geometry_msgs::Pose &input)
+{
+  al_pose_input_.position_ = Vector3d(input.position.x, input.position.y, input.position.z);
+  al_pose_input_.rotation_ = Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
+}
+
+/*******************************************************************************************************************/ /**
  * Callback handling the desired parameter selection and sending state messages to user interface.
  * @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/parameter_selection"
  * @see parameters_and_states.h
@@ -1522,18 +1548,6 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
       parameter_adjust_flag_ = true;
     }
   }
-}
-
-void StateController::ARPoseCallback(const geometry_msgs::Pose &msg)
-{
-  AR_pose_msg_.position_ = Vector3d(msg.position.x, msg.position.y, msg.position.z);
-  AR_pose_msg_.rotation_ = Quaterniond(msg.orientation.w, msg.orientation.x, msg.orientation.y, msg.orientation.z);
-}
-
-void StateController::ALPoseCallback(const geometry_msgs::Pose &msg)
-{
-  AL_pose_msg_.position_ = Vector3d(msg.position.x, msg.position.y, msg.position.z);
-  AL_pose_msg_.rotation_ = Quaterniond(msg.orientation.w, msg.orientation.x, msg.orientation.y, msg.orientation.z);
 }
 
 /*******************************************************************************************************************/ /**

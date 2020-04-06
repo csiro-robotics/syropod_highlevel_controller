@@ -223,27 +223,19 @@ public:
    */
   void updateManual(const int &primary_leg_selection_ID, const Vector3d &primary_tip_velocity_input,
                     const int &secondary_leg_selection_ID, const Vector3d &secondary_tip_velocity_input);
-                    
-  /**
-   * Updates the tip position for legs in the manual state from direct cartesian coordinates. Tip control allows
-   * manipulation of the tip in cartesian space in the robot frame.
-   * @param[in] primary_leg_selection_ID The designation of a leg selected (in the primary role) for manipulation.
-   * @param[in] primary_tip_pose_input The cartesian input to move the 1st leg tip position in the robot frame.
-   * @param[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
-   * @param[in] secondary_tip_pose_input The cartesian input to move the 2nd leg tip position in the robot frame.
-   */
-  void updateManualPose(const int &primary_leg_selection_ID, const Pose &primary_tip_pose_input,
-                        const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input);
 
   /**
-   * Generates the leg motion path/trajectory using Bezier curves for the selected leg. 
+   * Control the tip position for legs in the manual state from direct cartesian coordinates. Tip control allows
+   * manipulation of the tip in cartesian space in the robot frame.
    * @param[in] primary_leg_selection_ID The designation of a leg selected (in the primary role) for manipulation.
-   * @param[in] primary_tip_pose_input The cartesian input to move the 1st leg tip position in the robot frame.
+   * @param[in] primary_tip_pose_input The cartesian input to move the primary leg tip to a desired pose.
    * @param[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
-   * @param[in] secondary_tip_pose_input The cartesian input to move the 2nd leg tip position in the robot frame.
+   * @param[in] secondary_tip_pose_input  The cartesian input to move the secondary leg tip to a desired pose.
+   * @todo add orientation tip control and update the comment. WIP
    */
-  void generateLegTrajectory(const int &primary_leg_selection_ID, const Pose &primary_tip_pose_input,
-                                const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input);
+  void controlManualPose(const int &primary_leg_selection_ID, const Pose &primary_tip_pose_input,
+                         const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input);
+
   /**
    * Calculates a estimated walk plane which best fits the default tip positions of legs in model.
    * Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
