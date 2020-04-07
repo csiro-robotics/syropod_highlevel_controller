@@ -772,7 +772,6 @@ void WalkController::controlManualPose(const int &primary_leg_selection_ID, cons
       Vector3d tip_position_input;
       Quaterniond tip_rotation_input;
       int selected_leg_ID = leg->getIDNumber();
-
       if (selected_leg_ID == primary_leg_selection_ID)
       {
         tip_position_input = primary_tip_pose_input.position_;

@@ -75,7 +75,7 @@ StateController::StateController(void)
   parameter_adjustment_subscriber_ = n.subscribe("syropod_remote/parameter_adjustment", 1,
                                                  &StateController::parameterAdjustCallback, this);
 
-  // Haxapod Leg Manipulation subscriptions. Subscribed to the desried tip positions.
+  // Hexapod Leg Manipulation subscriptions. Subscribed to the desried tip positions.
   ar_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AR/Pose", 1, &StateController::arTipPoseInputCallback, this);
   al_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AL/Pose", 1, &StateController::alTipPoseInputCallback, this);
 
@@ -1474,10 +1474,9 @@ void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Poi
 }
 
 /*******************************************************************************************************************/ /**
- * Callback handling new configurations from a dynamic reconfigure client and assigning new values for adjustment.
- * @param[in] config The new configuration sent from a dynamic reconfigure client (eg: rqt_reconfigure)
- * @param[in] level Unused
- * @see config/dynamic_parameter.cfg
+ * Callback for the input manual tip position (in cartesian space) for the AR leg (front right leg)
+ * @param[in] input The Pose geometry message provided by the subscribed topic "/syropod_manipulation/AR/Pose"
+ * @see (https://confluence.csiro.au/display/CPS/Weaver+Diagrams)
 ***********************************************************************************************************************/
 void StateController::arTipPoseInputCallback(const geometry_msgs::Pose &input)
 {
@@ -1486,10 +1485,9 @@ void StateController::arTipPoseInputCallback(const geometry_msgs::Pose &input)
 }
 
 /*******************************************************************************************************************/ /**
- * Callback handling new configurations from a dynamic reconfigure client and assigning new values for adjustment.
- * @param[in] config The new configuration sent from a dynamic reconfigure client (eg: rqt_reconfigure)
- * @param[in] level Unused
- * @see config/dynamic_parameter.cfg
+ * Callback for the input manual tip position (in cartesian space) for the AL leg (front left leg).
+ * @param[in] input The Pose geometry message provided by the subscribed topic "/syropod_manipulation/AL/Pose"
+ * @see (https://confluence.csiro.au/display/CPS/Weaver+Diagrams)
 ***********************************************************************************************************************/
 void StateController::alTipPoseInputCallback(const geometry_msgs::Pose &input)
 {

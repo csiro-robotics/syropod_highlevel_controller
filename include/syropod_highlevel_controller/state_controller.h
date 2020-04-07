@@ -275,7 +275,18 @@ public:
    */
   void secondaryTipVelocityInputCallback(const geometry_msgs::Point &input);
 
+  /**
+   * Callback for the input manual tip position (in cartesian space) for the AR leg (front right leg)
+   * @param[in] input The Pose geometry message provided by the subscribed topic "/syropod_manipulation/AR/Pose"
+   * @see (https://confluence.csiro.au/display/CPS/Weaver+Diagrams)
+   */
   void arTipPoseInputCallback(const geometry_msgs::Pose &msg);
+
+  /**
+   * Callback for the input manual tip position (in cartesian space) for the AL leg (front left leg).
+   * @param[in] input The Pose geometry message provided by the subscribed topic "/syropod_manipulation/AL/Pose"
+   * @see (https://confluence.csiro.au/display/CPS/Weaver+Diagrams)
+   */
   void alTipPoseInputCallback(const geometry_msgs::Pose &msg);
 
   /**
@@ -364,8 +375,8 @@ private:
   ros::Subscriber parameter_selection_subscriber_;     ///< Subscriber for topic "/syropod_remote/parameter_selection"
   ros::Subscriber parameter_adjustment_subscriber_;    ///< Subscriber for topic "/syropod_remote/parameter_adjustment"
 
-  ros::Subscriber ar_tip_pose_subscriber_;  ///< Subscriber for topic "/syropod_manipulation/AR/Pose"
-  ros::Subscriber al_tip_pose_subscriber_;  ///< Subscriber for topic "/syropod_manipulation/AL/Pose"
+  ros::Subscriber ar_tip_pose_subscriber_; ///< Subscriber for topic "/syropod_manipulation/AR/Pose"
+  ros::Subscriber al_tip_pose_subscriber_; ///< Subscriber for topic "/syropod_manipulation/AL/Pose"
 
   ros::Subscriber target_configuration_subscriber_; ///< Subscriber for topic "/target_configuration"
   ros::Subscriber target_body_pose_subscriber_;     ///< Subscriber for topic "/target_body_pose"
