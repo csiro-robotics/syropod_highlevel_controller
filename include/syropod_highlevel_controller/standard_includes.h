@@ -54,17 +54,15 @@
 #define PROGRESS_COMPLETE 100            ///< Value denoting 100% and a completion of progress of various functions
 #define THROTTLE_PERIOD 5                ///< Default throttle period for all throttled rosconsole messages (seconds)
 
-#define UNDEFINED_ROTATION Eigen::Quaterniond(0,0,0,0)
+#define UNDEFINED_ROTATION Eigen::Quaterniond(0, 0, 0, 0)
 #define UNDEFINED_POSITION Eigen::Vector3d(double(INT_MAX), double(INT_MAX), double(INT_MAX))
 
 #define GRAVITY_ACCELERATION -9.81 ///< Approximate gravitational acceleration (m/s/s)
 
-using namespace std;
-
 /// Converts Degrees to Radians.
 /// @param[in] degrees Value in degrees to be converted to radians
 /// @return Value converted to radians from degrees
-inline double degreesToRadians(const double& degrees) { return degrees / 360.0 * 2.0 * M_PI; };
+inline double degreesToRadians(const double &degrees) { return degrees / 360.0 * 2.0 * M_PI; };
 
 /// Converts Radians to Degrees.
 /// @param[in] radians Value in radians to be converted to degrees
@@ -270,7 +268,7 @@ inline Eigen::Vector3d quaternionToEulerAngles(const Eigen::Quaterniond& rotatio
   /// occurs by checking is the angles of the 2nd and 3rd axes are greater than PI/2. If so all resultant euler
   /// angles are modified such that they range between -PI:PI.
 
-  if ((abs(result[1]) > M_PI/2 || abs(result[2]) > M_PI/2)) //Flipped
+  if ((abs(result[1]) > M_PI / 2 || abs(result[2]) > M_PI / 2)) //Flipped
   {
     result[0] -= M_PI;
     if (result[1] > M_PI/2.0)
@@ -290,7 +288,6 @@ inline Eigen::Vector3d quaternionToEulerAngles(const Eigen::Quaterniond& rotatio
       result[2] += M_PI;
     }
   }
-  
   return intrinsic ? result : Eigen::Vector3d(result[2], result[1], result[0]);
 }
 
@@ -298,7 +295,7 @@ inline Eigen::Vector3d quaternionToEulerAngles(const Eigen::Quaterniond& rotatio
 /// @param[in] number The input value
 /// @return String representation of the input value
 template <typename T>
-inline std::string numberToString(const T& number)
+inline std::string numberToString(const T &number)
 {
   std::ostringstream ss;
   ss << number;
@@ -308,14 +305,14 @@ inline std::string numberToString(const T& number)
 /// Returns a string formatted using the same input arguments as rosconsole.
 /// @param[in] format The input string
 /// @param[in] args The list of arguments to populate the format string
-/// @return Formatted string using the input and the list of arguments 
-template<typename ... Args>
-inline std::string stringFormat(const std::string& format, Args ... args)
+/// @return Formatted string using the input and the list of arguments
+template <typename... Args>
+inline std::string stringFormat(const std::string &format, Args... args)
 {
-  size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1;   // Extra space for '\0'
-  std::unique_ptr<char[]> buf(new char[ size ]);
-  snprintf(buf.get(), size, format.c_str(), args ...);
-  return std::string(buf.get(), buf.get() + size - 1);   // We don't want the '\0' inside
+  size_t size = snprintf(nullptr, 0, format.c_str(), args...) + 1; // Extra space for '\0'
+  std::unique_ptr<char[]> buf(new char[size]);
+  snprintf(buf.get(), size, format.c_str(), args...);
+  return std::string(buf.get(), buf.get() + size - 1); // We don't want the '\0' inside
 }
 
 ///  Returns a vector representing a 3d point at a given time input along a 2nd order bezier curve defined by input

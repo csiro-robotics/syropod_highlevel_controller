@@ -314,7 +314,7 @@ private:
   tf2_ros::TransformBroadcaster transform_broadcaster_;
 
   boost::recursive_mutex mutex_; ///< Mutex used in setup of dynamic reconfigure server
-  dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig> *dynamic_reconfigure_server_;
+  dynamic_reconfigure::Server<syropod_highlevel_controller::DynamicConfig>* dynamic_reconfigure_server_;
 
   std::shared_ptr<Model> model_;                     ///< Pointer to robot model object
   std::shared_ptr<WalkController> walker_;           ///< Pointer to walk controller object
@@ -323,21 +323,21 @@ private:
   DebugVisualiser debug_visualiser_;                 ///< Debug class object used for RVIZ visualization
   Parameters params_;                                ///< Parameter data structure for storing parameter variables
 
-  bool initialised_ = false; ///< Flags if the state controller has initialised
+   bool initialised_ = false; ///< Flags if the state controller has initialised
 
   SystemState system_state_ = SUSPENDED;     ///< Current state of the entire high-level controller system
   SystemState new_system_state_ = SUSPENDED; ///< Desired state of the entire high_level controller system
 
-  RobotState robot_state_ = UNKNOWN;     ///< Current state of the robot
-  RobotState new_robot_state_ = UNKNOWN; ///< Desired state of the robot
+  RobotState robot_state_ = UNKNOWN;         ///< Current state of the robot
+  RobotState new_robot_state_ = UNKNOWN;     ///< Desired state of the robot
 
-  GaitDesignation gait_selection_ = GAIT_UNDESIGNATED;         ///< Current gait selection for the walk cycle
-  PosingMode posing_mode_ = NO_POSING;                         ///< Current posing mode for manual posing
-  CruiseControlMode cruise_control_mode_ = CRUISE_CONTROL_OFF; ///< Current cruise control mode
-  PlannerMode planner_mode_ = PLANNER_MODE_OFF;                ///< Current planner mode
+  GaitDesignation gait_selection_ = GAIT_UNDESIGNATED;            ///< Current gait selection for the walk cycle
+  PosingMode posing_mode_ = NO_POSING;                            ///< Current posing mode for manual posing
+  CruiseControlMode cruise_control_mode_ = CRUISE_CONTROL_OFF;    ///< Current cruise control mode
+  PlannerMode planner_mode_ = PLANNER_MODE_OFF;                   ///< Current planner mode
 
   ParameterSelection parameter_selection_ = NO_PARAMETER_SELECTION; ///< Currently selected adjustable parameter
-  AdjustableParameter *dynamic_parameter_;                          ///< Pointer to the selected parameter object
+  AdjustableParameter* dynamic_parameter_;                          ///< Pointer to the selected parameter object
   double new_parameter_value_ = 0.0;                                ///< New value to assign to the selected parameter
 
   LegDesignation primary_leg_selection_ = LEG_UNDESIGNATED;   ///< Current primary leg selection designation

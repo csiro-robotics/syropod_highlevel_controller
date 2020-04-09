@@ -107,7 +107,7 @@ StateController::StateController(void)
       {
         std::shared_ptr<Joint> joint = joint_it_->second;
         joint->desired_position_publisher_ =
-            n.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
+          n.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
       }
     }
   }
@@ -122,7 +122,7 @@ StateController::~StateController(void)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::init(void)
-{
+{  
   // Set initial gait selection number for gait toggling
   if (params_.gait_type.data == "tripod_gait")
   {
@@ -146,8 +146,7 @@ void StateController::init(void)
   walker_->init();
   poser_ = std::allocate_shared<PoseController>(Eigen::aligned_allocator<PoseController>(), model_, params_);
   poser_->init();
-  admittance_ =
-      std::allocate_shared<AdmittanceController>(Eigen::aligned_allocator<AdmittanceController>(), model_, params_);
+  admittance_ = std::allocate_shared<AdmittanceController>(Eigen::aligned_allocator<AdmittanceController>(), model_, params_);
 
   robot_state_ = UNKNOWN;
 
@@ -182,7 +181,7 @@ void StateController::loop(void)
   {
     transitionRobotState();
   }
-
+  
   if (robot_state_ == RUNNING)
   {
     runningState();
@@ -281,7 +280,7 @@ void StateController::transitionRobotState(void)
   {
     transition_state_flag_ = false;
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nSyropod cannot transition from RUNNING state."
-                                       " Set start_up_sequence parameter true to enable that functionality.\n");
+                      " Set start_up_sequence parameter true to enable that functionality.\n");
   }
   // PACKED -> READY (Unpack Syropod)
   else if (robot_state_ == PACKED && new_robot_state_ == READY)
@@ -324,7 +323,7 @@ void StateController::transitionRobotState(void)
   // RUNNING -> READY (Initiate shut down sequence to step from walking stance to ready stance)
   else if (robot_state_ == RUNNING && new_robot_state_ == READY)
   {
-    // Force Syropod to stop walking
+        // Force Syropod to stop walking
     if (walker_->getWalkState() == STOPPED)
     {
       // Return any manually controlled legs before executing shutdown
@@ -375,8 +374,8 @@ void StateController::transitionRobotState(void)
 
 void StateController::runningState(void)
 {
-  bool update_tip_position = true;
-
+   bool update_tip_position = true;
+  
   // Force Syropod to stop walking
   if (transition_state_flag_)
   {
@@ -402,13 +401,13 @@ void StateController::runningState(void)
   }
   // Cruise control (constant velocity input)
   else if (cruise_control_mode_ == CRUISE_CONTROL_ON &&
-           (params_.cruise_control_time_limit.data == 0.0 ||
-            ros::Time::now().toSec() < cruise_control_end_time_))
+          (params_.cruise_control_time_limit.data == 0.0 ||
+           ros::Time::now().toSec() < cruise_control_end_time_))
   {
     linear_velocity_input_ = linear_cruise_velocity_;
     angular_velocity_input_ = angular_cruise_velocity_;
   }
-
+  
   // Dynamically adjust parameters and change stance if required
   if (parameter_adjust_flag_)
   {
@@ -416,9 +415,9 @@ void StateController::runningState(void)
   }
 
   // Set true if already true or if walk state not STOPPED
-  update_tip_position = update_tip_position || walker_->getWalkState() != STOPPED;
+  update_tip_position = update_tip_position || walker_->getWalkState() != STOPPED; 
 
-  // Update tip positions unless Syropod is undergoing state transition, gait switch, parameter adjustment or
+  // Update tip positions unless Syropod is undergoing state transition, gait switch, parameter adjustment or 
   // leg state transition (which all only occur once the Syropod has stopped walking)
   if (update_tip_position)
   {
@@ -437,7 +436,7 @@ void StateController::runningState(void)
 
     // Pose controller takes current tip positions from walker and applies body posing
     poser_->updateStance();
-
+    
     // Model takes desired tip poses from pose controller and applies inverse/forwards kinematics
     model_->updateModel();
   }
@@ -447,7 +446,7 @@ void StateController::runningState(void)
 
 void StateController::adjustParameter(void)
 {
-  AdjustableParameter *p = dynamic_parameter_;
+  AdjustableParameter* p = dynamic_parameter_;
   p->current_value = new_parameter_value_;
   bool set_new_parameter = true;
   if (p->name == "step_frequency")
@@ -459,10 +458,8 @@ void StateController::adjustParameter(void)
     walker_->generateLimits(new_step_cycle, &max_linear_speed_map, &max_angular_speed_map);
     walker_->setLinearSpeedLimitMap(max_linear_speed_map);
     walker_->setAngularSpeedLimitMap(max_angular_speed_map);
-    double max_linear_speed =
-        walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
-    double max_angular_speed =
-        walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
+    double max_linear_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
+    double max_angular_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
 
     // Generate target velocities to achieve before changing step frequency
     Eigen::Vector2d target_linear_velocity;
@@ -480,9 +477,9 @@ void StateController::adjustParameter(void)
       target_linear_velocity = clamped(linear_velocity_input_, max_linear_speed);
       target_angular_velocity = clamped(angular_velocity_input_, -max_angular_speed, max_angular_speed);
     }
-
+    
     // Set new parameter once within new limits
-    if (walker_->getDesiredLinearVelocity()[0] <= target_linear_velocity[0] &&
+    if (walker_->getDesiredLinearVelocity()[0] <= target_linear_velocity[0] && 
         walker_->getDesiredLinearVelocity()[1] <= target_linear_velocity[1] &&
         abs(walker_->getDesiredAngularVelocity()) <= abs(target_angular_velocity))
     {
@@ -496,12 +493,12 @@ void StateController::adjustParameter(void)
                         "\n[SHC] Slowing to safe speed before setting new parameter '%s'\n", p->name.c_str());
     }
   }
-
+  
   if (set_new_parameter)
   {
     parameter_adjust_flag_ = false;
     ROS_INFO("\n[SHC] Parameter '%s' set to %f. (Default: %f, Min: %f, Max: %f)\n",
-             p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
+                p->name.c_str(), p->current_value, p->default_value, p->min_value, p->max_value);
   }
 }
 
@@ -590,7 +587,7 @@ void StateController::legStateToggle(void)
     // WALKING_TO_MANUAL -> MANUAL
     else if (leg->getLegState() == WALKING_TO_MANUAL)
     {
-      poser_->setPoseResetMode(IMMEDIATE_ALL_RESET); // Set to ALL_RESET to force pose to new default pose
+      poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       int progress = poser_->poseForLegManipulation();
 
       //Update stiffness for transition to MANUAL state
@@ -614,7 +611,7 @@ void StateController::legStateToggle(void)
     // MANUAL_TO_WALKING -> WALKING
     else if (leg->getLegState() == MANUAL_TO_WALKING)
     {
-      poser_->setPoseResetMode(IMMEDIATE_ALL_RESET); // Set to ALL_RESET to force pose to new default pose
+      poser_->setPoseResetMode(IMMEDIATE_ALL_RESET);  // Set to ALL_RESET to force pose to new default pose
       int progress = poser_->poseForLegManipulation();
 
       //Update stiffness for transition to WALKING state
@@ -652,7 +649,7 @@ void StateController::executePlan(void)
   if (walker_->getWalkState() == STOPPED)
   {
     int progress;
-
+    
     // Publish request for step N of plan
     if (!target_configuration_acquired_ && !target_tip_pose_acquired_ && !target_body_pose_acquired_)
     {
@@ -706,7 +703,7 @@ void StateController::generateExternalTargetTransforms(void)
     std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     ExternalTarget external_target;
-
+    
     // External target transform
     external_target = leg_stepper->getExternalTarget();
     if (external_target.defined_)
@@ -716,17 +713,16 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform =
-            transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
+        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_stepper->setExternalTarget(external_target);
       }
-      catch (tf2::TransformException &ex)
+      catch (tf2::TransformException &ex) 
       {
-        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n", ex.what());
+        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
       }
     }
-
+    
     // External default transform
     external_target = leg_stepper->getExternalDefault();
     if (external_target.defined_)
@@ -736,17 +732,16 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped default_transform;
-        default_transform =
-            transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
+        default_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(default_transform.transform);
         leg_stepper->setExternalDefault(external_target);
       }
-      catch (tf2::TransformException &ex)
+      catch (tf2::TransformException &ex) 
       {
-        ROS_DEBUG("\n[SHC] Unable to look up external default transform -- (%s)\n", ex.what());
+        ROS_DEBUG("\n[SHC] Unable to look up external default transform -- (%s)\n",ex.what());
       }
     }
-
+    
     // External target transform for planner mode
     external_target = leg_poser->getExternalTarget();
     if (external_target.defined_)
@@ -756,14 +751,13 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform =
-            transform_buffer_.lookupTransform("base_link", ros::Time(0), frame_id, past, fixed_frame_id_);
+        target_transform = transform_buffer_.lookupTransform("base_link", ros::Time(0), frame_id, past, fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_poser->setExternalTarget(external_target);
       }
-      catch (tf2::TransformException &ex)
+      catch (tf2::TransformException &ex) 
       {
-        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n", ex.what());
+        ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
       }
     }
   }
@@ -782,7 +776,7 @@ void StateController::publishDesiredJointState(void)
     {
       leg->generateDesiredJointStateMsg(&joint_state_msg);
     }
-
+    
     if (params_.individual_control_interface.data)
     {
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
@@ -819,19 +813,19 @@ void StateController::publishLegState(void)
     msg.walker_tip_pose.header.stamp = ros::Time::now();
     msg.walker_tip_pose.header.frame_id = "walk_plane";
     msg.walker_tip_pose.pose = leg_stepper->getCurrentTipPose().toPoseMessage();
-
+    
     msg.target_tip_pose.header.stamp = ros::Time::now();
     msg.target_tip_pose.header.frame_id = "walk_plane";
     msg.target_tip_pose.pose = leg_stepper->getTargetTipPose().toPoseMessage();
-
+    
     msg.poser_tip_pose.header.stamp = ros::Time::now();
     msg.poser_tip_pose.header.frame_id = "base_link";
     msg.poser_tip_pose.pose = leg_poser->getCurrentTipPose().toPoseMessage();
-
+    
     msg.model_tip_pose.header.stamp = ros::Time::now();
     msg.model_tip_pose.header.frame_id = "base_link";
     msg.model_tip_pose.pose = leg->getCurrentTipPose().toPoseMessage();
-
+    
     msg.actual_tip_pose.header.stamp = ros::Time::now();
     msg.actual_tip_pose.header.frame_id = "base_link";
     msg.actual_tip_pose.pose = leg->applyFK(false, true).toPoseMessage();
@@ -932,7 +926,7 @@ void StateController::publishWalkspace(void)
     {
       msg.data.push_back(walkspace_it->second);
     }
-
+    
     walkspace_publisher_.publish(msg);
   }
 }
@@ -962,17 +956,17 @@ void StateController::publishFrameTransforms(void)
   Pose odom_ideal_to_walk_plane = walker_->getOdometryIdeal();
   Pose walk_plane_to_base_link = model_->getCurrentPose();
   Pose odom_ideal_to_base_link = odom_ideal_to_walk_plane.addPose(walk_plane_to_base_link);
-
+  
   // Broadcast ideal odom tf, if odom tf from perception does not exist on tf tree
   try
   {
     fixed_frame_id_ = "odom";
     transform_buffer_.lookupTransform("base_link", "odom", ros::Time(0));
   }
-  catch (tf2::TransformException &ex)
+  catch (tf2::TransformException &ex) 
   {
     ROS_WARN_ONCE("\n[SHC] No odom transform exists in tf tree - using ideal odometry\n");
-
+    
     fixed_frame_id_ = "odom_ideal";
     geometry_msgs::TransformStamped odom_to_base_link;
     odom_to_base_link.header.stamp = ros::Time::now();
@@ -987,7 +981,7 @@ void StateController::publishFrameTransforms(void)
     odom_to_base_link.transform.rotation.z = odom_ideal_to_base_link.rotation_.z();
     transform_broadcaster_.sendTransform(odom_to_base_link);
   }
-
+  
   // Base Link frame to Walk Plane frame transform
   geometry_msgs::TransformStamped base_link_to_walk_plane;
   base_link_to_walk_plane.header.stamp = ros::Time::now();
@@ -1001,7 +995,7 @@ void StateController::publishFrameTransforms(void)
   base_link_to_walk_plane.transform.rotation.y = (~walk_plane_to_base_link).rotation_.y();
   base_link_to_walk_plane.transform.rotation.z = (~walk_plane_to_base_link).rotation_.z();
   transform_broadcaster_.sendTransform(base_link_to_walk_plane);
-
+  
   // Base Link frame to Joint/Tip frames
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -1017,8 +1011,7 @@ void StateController::publishFrameTransforms(void)
       base_link_to_joint.transform.translation.x = joint_robot_frame.position_[0];
       base_link_to_joint.transform.translation.y = joint_robot_frame.position_[1];
       base_link_to_joint.transform.translation.z = joint_robot_frame.position_[2];
-      Eigen::Quaterniond rotation =
-          joint_robot_frame.rotation_ * Eigen::AngleAxisd(joint->desired_position_, Eigen::Vector3d::UnitZ());
+      Eigen::Quaterniond rotation = joint_robot_frame.rotation_ * Eigen::AngleAxisd(joint->desired_position_, Eigen::Vector3d::UnitZ());
       base_link_to_joint.transform.rotation.w = rotation.w();
       base_link_to_joint.transform.rotation.x = rotation.x();
       base_link_to_joint.transform.rotation.y = rotation.y();
@@ -1158,28 +1151,28 @@ void StateController::posingModeCallback(const std_msgs::Int8 &input)
       posing_mode_ = new_posing_mode;
       switch (posing_mode_) // Used only for user message, control handled by syropod_remote
       {
-      case (NO_POSING):
-        ROS_INFO("\nPosing mode set to NO_POSING. "
-                 "Body will not respond to manual posing input (except for reset commands).\n");
-        break;
-      case (X_Y_POSING):
-        ROS_INFO("\nPosing mode set to X_Y_POSING. "
-                 "Body will only respond to x/y translational manual posing input.\n");
-        break;
-      case (PITCH_ROLL_POSING):
-        ROS_INFO("\nPosing mode set to PITCH_ROLL_POSING. "
-                 "Body will only respond to pitch/roll rotational manual posing input.\n");
-        break;
-      case (Z_YAW_POSING):
-        ROS_INFO("\nPosing mode set to Z_YAW_POSING. "
-                 "Body will only respond to z translational and yaw rotational manual posing input.\n");
-        break;
-      case (EXTERNAL_POSING):
-        ROS_INFO("\nPosing mode set to EXTERNAL_POSING. "
-                 "Body will only respond to posing input from external source.\n");
-        break;
-      default:
-        break;
+        case (NO_POSING):
+          ROS_INFO("\nPosing mode set to NO_POSING. "
+                   "Body will not respond to manual posing input (except for reset commands).\n");
+          break;
+        case (X_Y_POSING):
+          ROS_INFO("\nPosing mode set to X_Y_POSING. "
+                   "Body will only respond to x/y translational manual posing input.\n");
+          break;
+        case (PITCH_ROLL_POSING):
+          ROS_INFO("\nPosing mode set to PITCH_ROLL_POSING. "
+                   "Body will only respond to pitch/roll rotational manual posing input.\n");
+          break;
+        case (Z_YAW_POSING):
+          ROS_INFO("\nPosing mode set to Z_YAW_POSING. "
+                   "Body will only respond to z translational and yaw rotational manual posing input.\n");
+          break;
+        case (EXTERNAL_POSING):
+          ROS_INFO("\nPosing mode set to EXTERNAL_POSING. "
+                   "Body will only respond to posing input from external source.\n");
+          break;
+        default:
+          break;
       }
     }
   }
@@ -1340,7 +1333,7 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
       else if (toggle_secondary_leg_state_)
       {
         ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nCannot toggle primary leg state as secondary leg is currently "
-                                           "transitioning states.\nPlease wait and try again.\n");
+                          "transitioning states.\nPlease wait and try again.\n");
       }
       else
       {
@@ -1368,7 +1361,7 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
       else if (toggle_primary_leg_state_)
       {
         ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nCannot toggle secondary leg state as primary leg is currently "
-                                           "transitioning states.\nPlease wait and try again.\n");
+                          "transitioning states.\nPlease wait and try again.\n");
       }
       else
       {
@@ -1411,7 +1404,7 @@ void StateController::alTipPoseInputCallback(const geometry_msgs::Pose &input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
+void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1434,7 +1427,7 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8 &input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::parameterAdjustCallback(const std_msgs::Int8 &input)
+void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1612,7 +1605,7 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
 {
   bool get_wrench_values = tip_states.wrench.size() > 0;
   bool get_step_plane_values = tip_states.step_plane.size() > 0;
-
+  
   // Iterate through message and assign found contact proximity value to leg objects
   std::string error_string;
   for (uint i = 0; i < tip_states.name.size(); ++i)
@@ -1654,11 +1647,11 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
 
         // Transform into robot frame and store
         Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));
-        leg->setStepPlanePose(step_plane_pose);
+        leg->setStepPlanePose(step_plane_pose); 
       }
       else
       {
-        leg->setStepPlanePose(Pose::Undefined());
+        leg->setStepPlanePose(Pose::Undefined()); 
         error_string += stringFormat("\nLost contact with tip range sensor/s of leg %s.\n", leg_name.c_str());
       }
     }
@@ -1676,6 +1669,8 @@ void StateController::targetConfigurationCallback(const sensor_msgs::JointState 
   poser_->setTargetConfiguration(target_configuration);
   target_configuration_acquired_ = true;
 }
+  
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1710,7 +1705,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
         {
           bool is_external_target = !msg.target.empty() && Pose(msg.target[i].pose) != Pose::Undefined();
           bool is_external_default = !msg.stance.empty() && Pose(msg.stance[i].pose) != Pose::Undefined();
-
+          
           // Create external target from message and send to walk/pose controller depending on walk state
           if (is_external_target)
           {
@@ -1732,7 +1727,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
               target_tip_pose_acquired_ = true;
             }
           }
-
+          
           // Create external default from message and send to walk/ controller if walking
           if (is_external_default && walker_->getWalkState() != STOPPED)
           {
@@ -1761,7 +1756,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
 
 void StateController::initParameters(void)
 {
-  // Control parameters
+ // Control parameters
   params_.time_delta.init("time_delta");
   params_.imu_posing.init("imu_posing");
   params_.auto_posing.init("auto_posing");
@@ -1871,7 +1866,7 @@ void StateController::initParameters(void)
     }
   }
 
-  // Generate adjustable parameter map for parameter adjustment selection
+   // Generate adjustable parameter map for parameter adjustment selection
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_FREQUENCY, &params_.step_frequency));
   params_.adjustable_map.insert(AdjustableMapType::value_type(SWING_HEIGHT, &params_.swing_height));
   params_.adjustable_map.insert(AdjustableMapType::value_type(SWING_WIDTH, &params_.swing_width));

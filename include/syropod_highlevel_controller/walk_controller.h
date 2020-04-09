@@ -456,7 +456,7 @@ public:
   /// Calculates the lateral change in distance from identity tip position to new default tip position for a leg.
   /// @return The change from identity tip position to the new default tip position
   Eigen::Vector3d calculateStanceSpanChange(void);
-
+  
   /// Update Default Tip Position based on external definitions, stance span or tip position at beginning of stance.
   void updateDefaultTipPosition(void);
 
@@ -512,8 +512,8 @@ private:
   Eigen::Vector3d stride_vector_;     ///< The desired stride vector
   Eigen::Vector3d swing_clearance_;   ///< Position relative to the default tip position to achieve during swing period
 
-  double swing_delta_t_ = 0.0;
-  double stance_delta_t_ = 0.0;
+  double swing_delta_t_ = 0.0;    
+  double stance_delta_t_ = 0.0;   
 
   Pose identity_tip_pose_; ///< The user defined tip pose assuming a identity walk plane
   Pose default_tip_pose_;  ///< The default tip pose per the walk controller, updated with walk plane
