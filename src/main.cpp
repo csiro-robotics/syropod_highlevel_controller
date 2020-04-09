@@ -1,34 +1,23 @@
-/*******************************************************************************************************************//**
- *  @file    main.cpp
- *  @brief   Top level file of Syropod High-Level Controller (SHC).
- *
- *  @author  Fletcher Talbot (fletcher.talbot@csiro.au)
- *  @date    April 2018
- *  @version 0.5.10
- *
- *  CSIRO Autonomous Systems Laboratory
- *  Queensland Centre for Advanced Technologies
- *  PO Box 883, Kenmore, QLD 4069, Australia
- *
- *  (c) Copyright CSIRO 2017
- *
- *  All rights reserved, no part of this program may be used
- *  without explicit permission of CSIRO
- *
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Copyright (c) 2019
+// Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+// ABN 41 687 119 230
+//
+// Author: Fletcher Talbot
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "syropod_highlevel_controller/state_controller.h"
 
 #define ACQUISTION_TIME 10 ///< Max time controller will wait to acquire intitial joint states (seconds)
 
-/*******************************************************************************************************************//**
- * Main loop. Sets up ros environment including the node handle, rosconsole messaging, loop rate etc. Also creates and
- * initialises the 'StateController', calls the state controller loop and publishers, and sends messages for the user
- * interface.
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Main loop. Sets up ros environment including the node handle, rosconsole messaging, loop rate etc. Also creates and
+/// initialises the 'StateController', calls the state controller loop and publishers, and sends messages for the user
+/// interface.
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[])
 {
-  ros::init(argc, argv, "shc");
+ ros::init(argc, argv, "shc");
   ros::NodeHandle n;
 
   StateController state;
@@ -62,15 +51,15 @@ int main(int argc, char* argv[])
     ros::console::notifyLoggerLevelsChanged();
   }
 
-  // Set ros rate from params
+   // Set ros rate from params
   ros::Rate r(roundToInt(1.0 / params.time_delta.data));
 
   // Wait specified time to aquire all published joint positions via callback
-  int spin = ACQUISTION_TIME / params.time_delta.data; //Spin cycles from time
+  int spin = ACQUISTION_TIME / params.time_delta.data; // Spin cycles from time
   while (spin--)
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nAcquiring robot state . . .\n");
-    // End wait if joints are intitialised or debugging in rviz (joint states will never initialise).
+    // End wait if joints are intitialised or debugging in rviz (joint states will never initialise)
     if (state.jointPositionsInitialised())
     {
       spin = 0;
@@ -145,5 +134,4 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-/***********************************************************************************************************************
-***********************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
