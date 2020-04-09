@@ -343,7 +343,7 @@ struct Parameters
   AdjustableParameter virtual_damping_ratio; ///< The virtual damping value used in admittance controller calculations
   AdjustableParameter force_gain;            ///< The value used to scale the default tip force input
 
-   // Gait parameters
+  // Gait parameters
   Parameter<int> stance_phase;                             ///< The ratio of the entire step cycle which is in 'stance'
   Parameter<int> swing_phase;                              ///< The ratio of the entire step cycle which is in 'swing'
   Parameter<int> phase_offset;                             ///< The phase offset between step cycles of successive legs

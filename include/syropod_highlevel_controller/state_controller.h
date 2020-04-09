@@ -49,7 +49,7 @@ public:
 
   /// Accessor for parameter member.
   /// @return Parameter data structure which contains parameter variables
-  inline const Parameters &getParameters(void) { return params_; };
+  inline const Parameters& getParameters(void) { return params_; };
 
   /// Accessor for system state member.
   /// @return Current state of the system

@@ -458,9 +458,11 @@ void StateController::adjustParameter(void)
     walker_->generateLimits(new_step_cycle, &max_linear_speed_map, &max_angular_speed_map);
     walker_->setLinearSpeedLimitMap(max_linear_speed_map);
     walker_->setAngularSpeedLimitMap(max_angular_speed_map);
-    double max_linear_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
-    double max_angular_speed = walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
-
+    double max_linear_speed = 
+      walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
+    double max_angular_speed = 
+      walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
+    
     // Generate target velocities to achieve before changing step frequency
     Eigen::Vector2d target_linear_velocity;
     double target_angular_velocity;
@@ -713,7 +715,8 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
+        target_transform = 
+          transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_stepper->setExternalTarget(external_target);
       }
@@ -732,7 +735,8 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped default_transform;
-        default_transform = transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
+        default_transform = 
+          transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(default_transform.transform);
         leg_stepper->setExternalDefault(external_target);
       }
@@ -751,7 +755,8 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = transform_buffer_.lookupTransform("base_link", ros::Time(0), frame_id, past, fixed_frame_id_);
+        target_transform = 
+          transform_buffer_.lookupTransform("base_link", ros::Time(0), frame_id, past, fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_poser->setExternalTarget(external_target);
       }
@@ -1011,7 +1016,8 @@ void StateController::publishFrameTransforms(void)
       base_link_to_joint.transform.translation.x = joint_robot_frame.position_[0];
       base_link_to_joint.transform.translation.y = joint_robot_frame.position_[1];
       base_link_to_joint.transform.translation.z = joint_robot_frame.position_[2];
-      Eigen::Quaterniond rotation = joint_robot_frame.rotation_ * Eigen::AngleAxisd(joint->desired_position_, Eigen::Vector3d::UnitZ());
+      Eigen::Quaterniond rotation = 
+        joint_robot_frame.rotation_ * Eigen::AngleAxisd(joint->desired_position_, Eigen::Vector3d::UnitZ());
       base_link_to_joint.transform.rotation.w = rotation.w();
       base_link_to_joint.transform.rotation.x = rotation.x();
       base_link_to_joint.transform.rotation.y = rotation.y();
@@ -1672,8 +1678,6 @@ void StateController::targetConfigurationCallback(const sensor_msgs::JointState 
   
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 void StateController::targetBodyPoseCallback(const geometry_msgs::Pose &target_body_pose)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
@@ -1756,7 +1760,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
 
 void StateController::initParameters(void)
 {
- // Control parameters
+  // Control parameters
   params_.time_delta.init("time_delta");
   params_.imu_posing.init("imu_posing");
   params_.auto_posing.init("auto_posing");
@@ -1866,7 +1870,7 @@ void StateController::initParameters(void)
     }
   }
 
-   // Generate adjustable parameter map for parameter adjustment selection
+  // Generate adjustable parameter map for parameter adjustment selection
   params_.adjustable_map.insert(AdjustableMapType::value_type(STEP_FREQUENCY, &params_.step_frequency));
   params_.adjustable_map.insert(AdjustableMapType::value_type(SWING_HEIGHT, &params_.swing_height));
   params_.adjustable_map.insert(AdjustableMapType::value_type(SWING_WIDTH, &params_.swing_width));
@@ -1928,23 +1932,23 @@ void StateController::initGaitParameters(const GaitDesignation &gait_selection)
 {
   switch (gait_selection)
   {
-  case (TRIPOD_GAIT):
-    params_.gait_type.data = "tripod_gait";
-    break;
-  case (RIPPLE_GAIT):
-    params_.gait_type.data = "ripple_gait";
-    break;
-  case (WAVE_GAIT):
-    params_.gait_type.data = "wave_gait";
-    break;
-  case (AMBLE_GAIT):
-    params_.gait_type.data = "amble_gait";
-    break;
-  case (GAIT_UNDESIGNATED):
-    params_.gait_type.init("gait_type");
-    break;
-  default:
-    break;
+    case (TRIPOD_GAIT):
+      params_.gait_type.data = "tripod_gait";
+      break;
+    case (RIPPLE_GAIT):
+      params_.gait_type.data = "ripple_gait";
+      break;
+    case (WAVE_GAIT):
+      params_.gait_type.data = "wave_gait";
+      break;
+    case (AMBLE_GAIT):
+      params_.gait_type.data = "amble_gait";
+      break;
+    case (GAIT_UNDESIGNATED):
+      params_.gait_type.init("gait_type");
+      break;
+    default:
+      break;
   }
 
   std::string base_gait_parameters_name = "/syropod/gait_parameters/";

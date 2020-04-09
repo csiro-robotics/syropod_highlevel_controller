@@ -183,7 +183,7 @@ public:
     return return_pose;
   };
   
-   /// Generates interpolation from this pose to target pose using control input between zero and one.
+  /// Generates interpolation from this pose to target pose using control input between zero and one.
   /// @param[in] control_input A value between 0.0 and 1.0 which defines the progress of interpolation
   /// @param[in] target_pose The target pose to which interpolation will return with control input of one
   /// @return The resultant interpolated pose
