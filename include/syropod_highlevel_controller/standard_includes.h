@@ -59,6 +59,8 @@
 
 #define GRAVITY_ACCELERATION -9.81 ///< Approximate gravitational acceleration (m/s/s)
 
+using namespace std;
+
 /// Converts Degrees to Radians.
 /// @param[in] degrees Value in degrees to be converted to radians
 /// @return Value converted to radians from degrees
