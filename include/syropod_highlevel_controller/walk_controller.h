@@ -220,8 +220,8 @@ public:
   /// @param[in] secondary_leg_selection_ID The designation of a leg selected (in the secondary role) for manipulation.
   /// @param[in] secondary_tip_pose_input  The cartesian input to move the secondary leg tip to a desired pose.
   /// @todo add orientation tip control and update the comment. WIP
-  void controlManualPose(const int &primary_leg_selection_ID, const Pose &primary_tip_pose_input,
-                         const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input);
+  void updateManual(const int &primary_leg_selection_ID, const Pose &primary_tip_pose_input,
+                    const int &secondary_leg_selection_ID, const Pose &secondary_tip_pose_input);
 
   /// Calculates a estimated walk plane which best fits the default tip positions of legs in model.
   /// Walk plane vector in form: [a, b, c] where plane equation equals: ax + by + c = z.
@@ -456,7 +456,7 @@ public:
   /// Calculates the lateral change in distance from identity tip position to new default tip position for a leg.
   /// @return The change from identity tip position to the new default tip position
   Eigen::Vector3d calculateStanceSpanChange(void);
-  
+
   /// Update Default Tip Position based on external definitions, stance span or tip position at beginning of stance.
   void updateDefaultTipPosition(void);
 
@@ -512,8 +512,8 @@ private:
   Eigen::Vector3d stride_vector_;     ///< The desired stride vector
   Eigen::Vector3d swing_clearance_;   ///< Position relative to the default tip position to achieve during swing period
 
-  double swing_delta_t_ = 0.0;    
-  double stance_delta_t_ = 0.0;   
+  double swing_delta_t_ = 0.0;
+  double stance_delta_t_ = 0.0;
 
   Pose identity_tip_pose_; ///< The user defined tip pose assuming a identity walk plane
   Pose default_tip_pose_;  ///< The default tip pose per the walk controller, updated with walk plane

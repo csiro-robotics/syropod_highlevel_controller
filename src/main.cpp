@@ -17,7 +17,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[])
 {
- ros::init(argc, argv, "shc");
+  ros::init(argc, argv, "shc");
   ros::NodeHandle n;
 
   StateController state;
@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
     ros::console::notifyLoggerLevelsChanged();
   }
 
-   // Set ros rate from params
+  // Set ros rate from params
   ros::Rate r(roundToInt(1.0 / params.time_delta.data));
 
   // Wait specified time to aquire all published joint positions via callback

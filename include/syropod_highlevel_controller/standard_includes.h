@@ -389,7 +389,7 @@ inline Eigen::Vector3d cubicBezierCurveThroughControlPoint(const T *points, cons
   }
   else
   {
-    ROS_INFO("Something terribly wrong is happening. New Control points for the Cubic Bezier is NOT being generated as expected.");
+    ROS_WARN("Something terribly wrong is happening. New Control points for the Cubic Bezier is NOT being generated as expected.");
     return Eigen::Vector3d(0, 0, 0);
   }
 }
@@ -453,7 +453,7 @@ inline Eigen::Vector3d quarticBezierCurveThroughControlPoint(const T *points, co
   }
   else
   {
-    ROS_INFO("Something terribly wrong. New Control points for the Quartic Bezier is NOT being generated as expected.");
+    ROS_WARN("Something terribly wrong. New Control points for the Quartic Bezier is NOT being generated as expected.");
     return Eigen::Vector3d(0, 0, 0);
   }
 }

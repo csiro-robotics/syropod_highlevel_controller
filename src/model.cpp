@@ -14,7 +14,12 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Model::Model(const Parameters &params, std::shared_ptr<DebugVisualiser> debug_visualiser)
-    : params_(params), debug_visualiser_(debug_visualiser), leg_count_(params_.leg_id.data.size()), time_delta_(params_.time_delta.data), current_pose_(Pose::Identity()), default_pose_(Pose::Identity())
+    : params_(params)
+    , debug_visualiser_(debug_visualiser)
+    , leg_count_(params_.leg_id.data.size())
+    , time_delta_(params_.time_delta.data)
+    , current_pose_(Pose::Identity())
+    , default_pose_(Pose::Identity())
 {
   imu_data_.orientation = UNDEFINED_ROTATION;
   imu_data_.linear_acceleration = Eigen::Vector3d::Zero();
@@ -24,7 +29,13 @@ Model::Model(const Parameters &params, std::shared_ptr<DebugVisualiser> debug_vi
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Model::Model(std::shared_ptr<Model> model)
-    : params_(model->params_), debug_visualiser_(model->debug_visualiser_), leg_count_(model->leg_count_), time_delta_(model->time_delta_), current_pose_(model->current_pose_), default_pose_(model->default_pose_), imu_data_(model->imu_data_)
+    : params_(model->params_)
+    , debug_visualiser_(model->debug_visualiser_)
+    , leg_count_(model->leg_count_)
+    , time_delta_(model->time_delta_)
+    , current_pose_(model->current_pose_)
+    , default_pose_(model->default_pose_)
+    , imu_data_(model->imu_data_)
 {
 }
 
@@ -156,7 +167,13 @@ Eigen::Vector3d Model::estimateGravity(void)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Leg::Leg(std::shared_ptr<Model> model, const int &id_number, const Parameters &params)
-    : model_(model), params_(params), id_number_(id_number), id_name_(params_.leg_id.data.at(id_number)), joint_count_(params_.leg_DOF.data.at(id_name_)), leg_state_(WALKING), admittance_delta_(Eigen::Vector3d::Zero()), admittance_state_(std::vector<double>(2))
+    : model_(model), params_(params)
+    , id_number_(id_number)
+    , id_name_(params_.leg_id.data.at(id_number))
+    , joint_count_(params_.leg_DOF.data.at(id_name_))
+    , leg_state_(WALKING)
+    , admittance_delta_(Eigen::Vector3d::Zero())
+    , admittance_state_(std::vector<double>(2))
 {
   desired_tip_pose_ = Pose::Undefined();
   desired_tip_velocity_ = Eigen::Vector3d::Zero();
@@ -173,7 +190,12 @@ Leg::Leg(std::shared_ptr<Model> model, const int &id_number, const Parameters &p
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Leg::Leg(std::shared_ptr<Leg> leg, std::shared_ptr<Model> model)
-    : params_(leg->params_), id_number_(leg->id_number_), id_name_(leg->id_name_), joint_count_(leg->joint_count_), leg_state_(leg->leg_state_), admittance_state_(leg->admittance_state_)
+    : params_(leg->params_)
+    , id_number_(leg->id_number_)
+    , id_name_(leg->id_name_)
+    , joint_count_(leg->joint_count_)
+    , leg_state_(leg->leg_state_)
+    , admittance_state_(leg->admittance_state_)
 {
   model_ = (model == NULL ? leg->model_ : model);
   leg_state_publisher_ = leg->leg_state_publisher_;
@@ -348,7 +370,6 @@ Workspace Leg::generateWorkspace(void)
   Eigen::Vector3d origin_tip_position, target_tip_position;
   double distance_from_origin;
   int number_iterations;
-  double raw_number_iterations;
 
   // Iterate through all legs and move legs along search bearings to kinematic limits
   while (true)
@@ -367,7 +388,6 @@ Workspace Leg::generateWorkspace(void)
       if (!found_lower_limit || !found_upper_limit)
       {
         number_iterations = roundToInt(MAX_WORKSPACE_RADIUS / MAX_POSITION_DELTA);
-        raw_number_iterations = MAX_WORKSPACE_RADIUS / MAX_POSITION_DELTA;
         origin_tip_position = identity_tip_position;
         Eigen::Vector3d search_limit =
             (found_lower_limit ? MAX_WORKSPACE_RADIUS : -MAX_WORKSPACE_RADIUS) * Eigen::Vector3d::UnitZ();
@@ -379,7 +399,6 @@ Workspace Leg::generateWorkspace(void)
         number_iterations = roundToInt(search_height_delta / MAX_POSITION_DELTA);
         // Removes chance for zero iterations
         number_iterations = std::max(1, number_iterations);
-        raw_number_iterations = search_height_delta / MAX_POSITION_DELTA;
         origin_tip_position = current_tip_pose_.position_;
         target_tip_position = identity_tip_position;
       }
@@ -470,7 +489,6 @@ Workspace Leg::generateWorkspace(void)
         else
         {
           workspace_generation_complete = true;
-          ;
         }
       }
     }
@@ -684,9 +702,9 @@ void Leg::calculateTipForce(void)
 
   // Low pass filter and force gain applied to calculated raw tip force
   double s = 0.15; // Smoothing Factor
-  tip_force_calculated_[0] = s * raw_tip_force[0] * params_.force_gain.current_value + (1 - s) * tip_force_calculated_[0];
-  tip_force_calculated_[1] = s * raw_tip_force[1] * params_.force_gain.current_value + (1 - s) * tip_force_calculated_[1];
-  tip_force_calculated_[2] = s * raw_tip_force[2] * params_.force_gain.current_value + (1 - s) * tip_force_calculated_[2];
+  tip_force_calculated_[0] = s*raw_tip_force[0]*params_.force_gain.current_value + (1 - s)*tip_force_calculated_[0];
+  tip_force_calculated_[1] = s*raw_tip_force[1]*params_.force_gain.current_value + (1 - s)*tip_force_calculated_[1];
+  tip_force_calculated_[2] = s*raw_tip_force[2]*params_.force_gain.current_value + (1 - s)*tip_force_calculated_[2];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -973,7 +991,14 @@ Pose Leg::applyFK(const bool &set_current, const bool &use_actual)
 
 Link::Link(std::shared_ptr<Leg> leg, std::shared_ptr<Joint> actuating_joint,
            const int &id_number, const Parameters &params)
-    : parent_leg_(leg), actuating_joint_(actuating_joint), id_number_(id_number), id_name_(leg->getIDName() + "_" + params.link_id.data[id_number_] + "_link"), dh_parameter_r_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("r")), dh_parameter_theta_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("theta")), dh_parameter_d_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("d")), dh_parameter_alpha_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("alpha"))
+    : parent_leg_(leg)
+    , actuating_joint_(actuating_joint)
+    , id_number_(id_number)
+    , id_name_(leg->getIDName() + "_" + params.link_id.data[id_number_] + "_link")
+    , dh_parameter_r_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("r"))
+    , dh_parameter_theta_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("theta"))
+    , dh_parameter_d_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("d"))
+    , dh_parameter_alpha_(params.link_parameters[leg->getIDNumber()][id_number_].data.at("alpha"))
 {
   if (!params.link_parameters[leg->getIDNumber()][id_number_].initialised)
   {
@@ -985,7 +1010,14 @@ Link::Link(std::shared_ptr<Leg> leg, std::shared_ptr<Joint> actuating_joint,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Link::Link(std::shared_ptr<Link> link)
-    : parent_leg_(link->parent_leg_), actuating_joint_(link->actuating_joint_), id_number_(link->id_number_), id_name_(link->id_name_), dh_parameter_r_(link->dh_parameter_r_), dh_parameter_theta_(link->dh_parameter_theta_), dh_parameter_d_(link->dh_parameter_d_), dh_parameter_alpha_(link->dh_parameter_alpha_)
+    : parent_leg_(link->parent_leg_)
+    , actuating_joint_(link->actuating_joint_)
+    , id_number_(link->id_number_)
+    , id_name_(link->id_name_)
+    , dh_parameter_r_(link->dh_parameter_r_)
+    , dh_parameter_theta_(link->dh_parameter_theta_)
+    , dh_parameter_d_(link->dh_parameter_d_)
+    , dh_parameter_alpha_(link->dh_parameter_alpha_)
 {
 }
 
@@ -993,7 +1025,14 @@ Link::Link(std::shared_ptr<Link> link)
 
 Joint::Joint(std::shared_ptr<Leg> leg, std::shared_ptr<Link> reference_link,
              const int &id_number, const Parameters &params)
-    : parent_leg_(leg), reference_link_(reference_link), id_number_(id_number), id_name_(leg->getIDName() + "_" + params.joint_id.data[id_number_ - 1] + "_joint"), min_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("min")), max_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max")), unpacked_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("unpacked")), max_angular_speed_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max_vel"))
+    : parent_leg_(leg)
+    , reference_link_(reference_link)
+    , id_number_(id_number)
+    , id_name_(leg->getIDName() + "_" + params.joint_id.data[id_number_ - 1] + "_joint")
+    , min_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("min"))
+    , max_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max"))
+    , unpacked_position_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("unpacked"))
+    , max_angular_speed_(params.joint_parameters[leg->getIDNumber()][id_number_ - 1].data.at("max_vel"))
 {
   default_position_ = clamped(0.0, min_position_, max_position_);
 
@@ -1035,7 +1074,15 @@ Joint::Joint(std::shared_ptr<Leg> leg, std::shared_ptr<Link> reference_link,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Joint::Joint(std::shared_ptr<Joint> joint)
-    : parent_leg_(joint->parent_leg_), reference_link_(joint->reference_link_), id_number_(joint->id_number_), id_name_(joint->id_name_), min_position_(joint->min_position_), max_position_(joint->max_position_), packed_positions_(joint->packed_positions_), unpacked_position_(joint->unpacked_position_), max_angular_speed_(joint->max_angular_speed_)
+    : parent_leg_(joint->parent_leg_)
+    , reference_link_(joint->reference_link_)
+    , id_number_(joint->id_number_)
+    , id_name_(joint->id_name_)
+    , min_position_(joint->min_position_)
+    , max_position_(joint->max_position_)
+    , packed_positions_(joint->packed_positions_)
+    , unpacked_position_(joint->unpacked_position_)
+    , max_angular_speed_(joint->max_angular_speed_)
 {
   current_transform_ = joint->current_transform_;
   identity_transform_ = joint->identity_transform_;

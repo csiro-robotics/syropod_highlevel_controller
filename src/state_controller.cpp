@@ -64,8 +64,10 @@ StateController::StateController(void)
   parameter_adjustment_subscriber_ = n.subscribe("syropod_remote/parameter_adjustment", 1,
                                                  &StateController::parameterAdjustCallback, this);
   // Hexapod Leg Manipulation topic subscriptions
-  ar_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AR/Pose", 1, &StateController::arTipPoseInputCallback, this);
-  al_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AL/Pose", 1, &StateController::alTipPoseInputCallback, this);
+  primary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AR/Pose", 1,
+                                             &StateController::primaryTipPoseInputCallback, this);
+  secondary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AL/Pose", 1,
+                                               &StateController::secondaryTipPoseInputCallback, this);
 
   // Planner subscription/publisher
   target_configuration_subscriber_ = n.subscribe("/target_configuration", 1,
@@ -146,7 +148,8 @@ void StateController::init(void)
   walker_->init();
   poser_ = std::allocate_shared<PoseController>(Eigen::aligned_allocator<PoseController>(), model_, params_);
   poser_->init();
-  admittance_ = std::allocate_shared<AdmittanceController>(Eigen::aligned_allocator<AdmittanceController>(), model_, params_);
+  admittance_ = 
+    std::allocate_shared<AdmittanceController>(Eigen::aligned_allocator<AdmittanceController>(), model_, params_);
 
   robot_state_ = UNKNOWN;
 
@@ -374,7 +377,7 @@ void StateController::transitionRobotState(void)
 
 void StateController::runningState(void)
 {
-   bool update_tip_position = true;
+  bool update_tip_position = true;
   
   // Force Syropod to stop walking
   if (transition_state_flag_)
@@ -431,8 +434,8 @@ void StateController::runningState(void)
     // Controls tip position for manually controlled legs.
     // Primary leg correspond to the front right leg and secondary leg is the front left leg.
     // TODO: give access for the remaindering legs this feature if selected.
-    walker_->controlManualPose(primary_leg_selection_, ar_pose_input_,
-                               secondary_leg_selection_, al_pose_input_);
+    walker_->updateManual(primary_leg_selection_, primary_pose_input_,
+                          secondary_leg_selection_, secondary_pose_input_);
 
     // Pose controller takes current tip positions from walker and applies body posing
     poser_->updateStance();
@@ -1394,18 +1397,20 @@ void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Poi
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::arTipPoseInputCallback(const geometry_msgs::Pose &input)
+void StateController::primaryTipPoseInputCallback(const geometry_msgs::Pose &input)
 {
-  ar_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
-  ar_pose_input_.rotation_ = Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
+  primary_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
+  primary_pose_input_.rotation_ = 
+    Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::alTipPoseInputCallback(const geometry_msgs::Pose &input)
+void StateController::secondaryTipPoseInputCallback(const geometry_msgs::Pose &input)
 {
-  al_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
-  al_pose_input_.rotation_ = Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
+  secondary_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
+  secondary_pose_input_.rotation_ = 
+    Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

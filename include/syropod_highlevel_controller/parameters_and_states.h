@@ -270,7 +270,7 @@ public:
 typedef std::map<ParameterSelection, AdjustableParameter*> AdjustableMapType;
 struct Parameters
 {
-   AdjustableMapType adjustable_map;  ///< Map between adjustable parameter designations and associated Parameter object
+  AdjustableMapType adjustable_map;  ///< Map between adjustable parameter designations and associated Parameter object
 
   // Control parameters
   Parameter<double> time_delta;        ///< The period of time between successive ros cycles
