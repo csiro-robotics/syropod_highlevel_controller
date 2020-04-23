@@ -251,19 +251,19 @@ void WalkController::generateLimits(StepCycle step,
   if (max_linear_speed_ptr)
   {
     max_linear_speed_ptr->clear();
-  };
+  }
   if (max_linear_acceleration_ptr)
   {
     max_linear_acceleration_ptr->clear();
-  };
+  }
   if (max_angular_speed_ptr)
   {
     max_angular_speed_ptr->clear();
-  };
+  }
   if (max_angular_acceleration_ptr)
   {
     max_angular_acceleration_ptr->clear();
-  };
+  }
 
   // Set step offset and check if leg starts in swing period (i.e. forced to stance for the 1st step cycle)
   // If so find this max 'stance extension' period which is used in acceleration calculations
@@ -794,7 +794,13 @@ Pose WalkController::calculateOdometry(const double &time_period)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 LegStepper::LegStepper(std::shared_ptr<WalkController> walker, std::shared_ptr<Leg> leg, const Pose &identity_tip_pose)
-    : walker_(walker), leg_(leg), identity_tip_pose_(identity_tip_pose), default_tip_pose_(identity_tip_pose), current_tip_pose_(default_tip_pose_), origin_tip_pose_(current_tip_pose_), target_tip_pose_(default_tip_pose_)
+    : walker_(walker)
+    , leg_(leg)
+    , identity_tip_pose_(identity_tip_pose)
+    , default_tip_pose_(identity_tip_pose)
+    , current_tip_pose_(default_tip_pose_)
+    , origin_tip_pose_(current_tip_pose_)
+    , target_tip_pose_(default_tip_pose_)
 {
   walk_plane_ = Eigen::Vector3d::Zero();
   walk_plane_normal_ = Eigen::Vector3d::UnitZ();
@@ -816,7 +822,13 @@ LegStepper::LegStepper(std::shared_ptr<WalkController> walker, std::shared_ptr<L
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 LegStepper::LegStepper(std::shared_ptr<LegStepper> leg_stepper)
-    : walker_(leg_stepper->walker_), leg_(leg_stepper->leg_), identity_tip_pose_(leg_stepper->identity_tip_pose_), default_tip_pose_(leg_stepper->default_tip_pose_), current_tip_pose_(leg_stepper->current_tip_pose_), origin_tip_pose_(leg_stepper->origin_tip_pose_), target_tip_pose_(leg_stepper->target_tip_pose_)
+    : walker_(leg_stepper->walker_),
+     leg_(leg_stepper->leg_)
+     , identity_tip_pose_(leg_stepper->identity_tip_pose_)
+     , default_tip_pose_(leg_stepper->default_tip_pose_)
+     , current_tip_pose_(leg_stepper->current_tip_pose_)
+     , origin_tip_pose_(leg_stepper->origin_tip_pose_)
+     , target_tip_pose_(leg_stepper->target_tip_pose_)
 {
   walk_plane_ = leg_stepper->walk_plane_;
   walk_plane_normal_ = leg_stepper->walk_plane_normal_;
