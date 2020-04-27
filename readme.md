@@ -100,12 +100,12 @@ For information on parameters see readme in config folder.
 ### Syropod Manipulation:
 * AR Leg Tip Position:
     * Description: The desired position of leg AR in Cartesian space.   
-    * Topic: */syropod_manipulation/AR/Pose*
+    * Topic: */syropod_manipulation/primary/Pose*
     * Type:  geometry_msgs::Pose
 
 * AL Leg Tip Position:
     * Description: The desired position of leg AL in Cartesian space.   
-    * Topic: */syropod_manipulation/AL/Pose*
+    * Topic: */syropod_manipulation/secondary/Pose*
     * Type:  geometry_msgs::Pose
 
 ### Motor and Sensor Inputs

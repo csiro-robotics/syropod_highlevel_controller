@@ -734,9 +734,7 @@ void WalkController::updateManual(const int &primary_leg_selection_ID, const Pos
       {
         if (params_.leg_manipulation_mode.data == "tip_control")
         {
-          
           // TODO add orientation control
-          // leg_stepper->setCurrentTipPose(Pose(tip_position_input, tip_rotation_input));
           leg_stepper->setCurrentTipPose(Pose(tip_position_input, UNDEFINED_ROTATION));
         }
       }
@@ -1095,7 +1093,7 @@ void LegStepper::updateTipPosition(void)
           target_tip_pose_.position_ += getProjection(difference, walk_plane_normal_);
         }
         // Shift target toward step surface by defined distance and rely on step surface contact detection (REACTIVE)
-        else
+        else 
         {
           target_tip_pose_.position_ -= walker_->getStepDepth() * Eigen::Vector3d::UnitZ();
         }

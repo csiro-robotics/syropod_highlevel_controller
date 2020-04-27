@@ -291,8 +291,8 @@ private:
   ros::Subscriber parameter_selection_subscriber_;     ///< Subscriber for topic /syropod_remote/parameter_selection
   ros::Subscriber parameter_adjustment_subscriber_;    ///< Subscriber for topic /syropod_remote/parameter_adjustment
 
-  ros::Subscriber primary_tip_pose_subscriber_; ///< Subscriber for topic /syropod_manipulation/AR/Pose
-  ros::Subscriber secondary_tip_pose_subscriber_; ///< Subscriber for topic /syropod_manipulation/AL/Pose
+  ros::Subscriber primary_tip_pose_subscriber_;   ///< Subscriber for topic /syropod_manipulation/primary/pose
+  ros::Subscriber secondary_tip_pose_subscriber_; ///< Subscriber for topic /syropod_manipulation/secondary/pose
 
   ros::Subscriber target_configuration_subscriber_; ///< Subscriber for topic /target_configuration
   ros::Subscriber target_body_pose_subscriber_;     ///< Subscriber for topic /target_body_pose
@@ -373,8 +373,8 @@ private:
   LegContainer::iterator leg_it_;     ///< Leg iteration member variable used to minimise code
   JointContainer::iterator joint_it_; ///< Joint iteration member variable used to minimise code
 
-  Pose primary_pose_input_; ///< Input for the desired pose of the leg tip AR
-  Pose secondary_pose_input_; ///< Input for the desired pose of the leg tip AR
+  Pose primary_pose_input_;   ///< Input for the desired pose of primary leg tip 
+  Pose secondary_pose_input_; ///< Input for the desired pose of secondary the leg tip
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
