@@ -735,6 +735,7 @@ void WalkController::updateManual(const int &primary_leg_selection_ID, const Pos
         if (params_.leg_manipulation_mode.data == "tip_control")
         {
           // TODO add orientation control
+          // leg_stepper->setCurrentTipPose(Pose(tip_position_input, tip_rotation_input));
           leg_stepper->setCurrentTipPose(Pose(tip_position_input, UNDEFINED_ROTATION));
         }
       }
