@@ -217,12 +217,14 @@ public:
   /// @param[in] input The Point geometry message provided by the topic "syropod_remote/secondary_tip_velocity"
   void secondaryTipVelocityInputCallback(const geometry_msgs::Point &input);
 
-  /// Callback for the input manual tip position (in cartesian space) for the primary selected leg. 
-  /// @param[in] input The Pose geometry message provided by the subscribed topic "/syropod_manipulation/primary/pose"
+  /// Callback for the input manual tip pose (in cartesian space) for the primary selected leg. 
+  /// @param[in] input The Pose geometry message provided by the subscribed topic
+  /// "/syropod_manipulation/primary_tip_pose"
   void  primaryTipPoseInputCallback(const geometry_msgs::Pose &msg);
 
-  /// Callback for the input manual tip position (in cartesian space) for the secondary selected leg. 
-  /// @param[in] input The Pose geometry message provided by the subscribed topic "/syropod_manipulation/secondary/Ppse"
+  /// Callback for the input manual tip pose (in cartesian space) for the secondary selected leg. 
+  /// @param[in] input The Pose geometry message provided by the subscribed topic
+  /// "/syropod_manipulation/secondary_tip_pose"
   void  secondaryTipPoseInputCallback(const geometry_msgs::Pose &msg);
 
   /// Callback handling the desired parameter selection and sending state messages to user interface.
@@ -289,8 +291,8 @@ private:
   ros::Subscriber parameter_selection_subscriber_;     ///< Subscriber for topic /syropod_remote/parameter_selection
   ros::Subscriber parameter_adjustment_subscriber_;    ///< Subscriber for topic /syropod_remote/parameter_adjustment
 
-  ros::Subscriber primary_tip_pose_subscriber_;   ///< Subscriber for topic /syropod_manipulation/primary/pose
-  ros::Subscriber secondary_tip_pose_subscriber_; ///< Subscriber for topic /syropod_manipulation/secondary/pose
+  ros::Subscriber primary_tip_pose_subscriber_;   ///< Subscriber for topic /syropod_manipulation/primary_tip_pose
+  ros::Subscriber secondary_tip_pose_subscriber_; ///< Subscriber for topic /syropod_manipulation/secondary_tip_pose
 
   ros::Subscriber target_configuration_subscriber_; ///< Subscriber for topic /target_configuration
   ros::Subscriber target_body_pose_subscriber_;     ///< Subscriber for topic /target_body_pose
