@@ -5,9 +5,9 @@
   <version>0.5.10</version>
   <description>The syropod_highlevel_controller package</description>
 
-  <maintainer email="fletcher.talbot@csiro.au">tal058</maintainer>
+  <maintainer email="shc-support@csiro.au"></maintainer>
 
-  <license>TODO</license>
+  <license>CSIRO Open Source Software Licence Agreement (Ref: LICENSE file)</license>
 
   <buildtool_depend>catkin</buildtool_depend>
 
