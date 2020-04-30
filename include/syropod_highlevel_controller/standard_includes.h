@@ -51,10 +51,10 @@
 #include <memory>
 
 #define UNASSIGNED_VALUE double(INT_MAX) ///< Value used to determine if variable has been assigned
-#define PROGRESS_COMPLETE 100 ///< Value denoting 100% and a completion of progress of various functions
-#define THROTTLE_PERIOD 5  ///< Default throttle period for all throttled rosconsole messages (seconds)
+#define PROGRESS_COMPLETE 100            ///< Value denoting 100% and a completion of progress of various functions
+#define THROTTLE_PERIOD 5                ///< Default throttle period for all throttled rosconsole messages (seconds)
 
-#define UNDEFINED_ROTATION Eigen::Quaterniond(0,0,0,0)
+#define UNDEFINED_ROTATION Eigen::Quaterniond(0, 0, 0, 0)
 #define UNDEFINED_POSITION Eigen::Vector3d(double(INT_MAX), double(INT_MAX), double(INT_MAX))
 
 #define GRAVITY_ACCELERATION -9.81 ///< Approximate gravitational acceleration (m/s/s)
@@ -62,7 +62,7 @@
 /// Converts Degrees to Radians.
 /// @param[in] degrees Value in degrees to be converted to radians
 /// @return Value converted to radians from degrees
-inline double degreesToRadians(const double& degrees) { return degrees / 360.0 * 2.0 * M_PI; };
+inline double degreesToRadians(const double &degrees) { return degrees / 360.0 * 2.0 * M_PI; };
 
 /// Converts Radians to Degrees.
 /// @param[in] radians Value in radians to be converted to degrees
@@ -268,7 +268,7 @@ inline Eigen::Vector3d quaternionToEulerAngles(const Eigen::Quaterniond& rotatio
   /// occurs by checking is the angles of the 2nd and 3rd axes are greater than PI/2. If so all resultant euler
   /// angles are modified such that they range between -PI:PI.
 
-  if ((abs(result[1]) > M_PI/2 || abs(result[2]) > M_PI/2)) //Flipped
+  if ((abs(result[1]) > M_PI / 2 || abs(result[2]) > M_PI / 2)) //Flipped
   {
     result[0] -= M_PI;
     if (result[1] > M_PI/2.0)
@@ -288,7 +288,6 @@ inline Eigen::Vector3d quaternionToEulerAngles(const Eigen::Quaterniond& rotatio
       result[2] += M_PI;
     }
   }
-  
   return intrinsic ? result : Eigen::Vector3d(result[2], result[1], result[0]);
 }
 
@@ -296,7 +295,7 @@ inline Eigen::Vector3d quaternionToEulerAngles(const Eigen::Quaterniond& rotatio
 /// @param[in] number The input value
 /// @return String representation of the input value
 template <typename T>
-inline std::string numberToString(const T& number)
+inline std::string numberToString(const T &number)
 {
   std::ostringstream ss;
   ss << number;
@@ -306,14 +305,38 @@ inline std::string numberToString(const T& number)
 /// Returns a string formatted using the same input arguments as rosconsole.
 /// @param[in] format The input string
 /// @param[in] args The list of arguments to populate the format string
-/// @return Formatted string using the input and the list of arguments 
-template<typename ... Args>
-inline std::string stringFormat(const std::string& format, Args ... args)
+/// @return Formatted string using the input and the list of arguments
+template <typename... Args>
+inline std::string stringFormat(const std::string &format, Args... args)
 {
-  size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1;   // Extra space for '\0'
-  std::unique_ptr<char[]> buf(new char[ size ]);
-  snprintf(buf.get(), size, format.c_str(), args ...);
-  return std::string(buf.get(), buf.get() + size - 1);   // We don't want the '\0' inside
+  size_t size = snprintf(nullptr, 0, format.c_str(), args...) + 1; // Extra space for '\0'
+  std::unique_ptr<char[]> buf(new char[size]);
+  snprintf(buf.get(), size, format.c_str(), args...);
+  return std::string(buf.get(), buf.get() + size - 1); // We don't want the '\0' inside
+}
+
+///  Returns a vector representing a 3d point at a given time input along a 2nd order bezier curve defined by input
+///  control nodes.
+///  @param[in] points An array of control node vectors.
+///  @param[in] t A time input from 0.0 to 1.0.
+template <class T>
+inline T quadraticBezier(const T *points, const double &t)
+{
+  double s = 1.0 - t;
+  return points[0] * (s * s) + points[1] * (2.0 * t * s) + points[2] * (t * t);
+}
+
+/// Returns a vector representing a 3d point at a given time input along a 2nd order bezier curved. The generated point
+/// is on a curve that is guided to pass through the defined control points.
+/// @param[in] points An array of control node vectors.
+/// @param[in] t A time input from 0.0 to 1.0.
+/// @return Vector representation generated using the given input array of control node vectors and the time input
+template <class T>
+inline Eigen::Vector3d quadraticBezierCurveThroughControlPoint(const T *points, const double &t)
+{
+  double s = 1.0 - t;
+  return (points[1] - points[0] * (s * s) - points[2] * (t * t)) /
+         (2.0 * t * s);
 }
 
 /// Returns a vector representing a 3d point at a given time input along a 3rd order bezier curve defined by input
@@ -342,6 +365,35 @@ inline T cubicBezierDot(const T* points, const double& t)
           3 * t * t * (points[3] - points[2]));
 }
 
+/// Returns a vector representing a 3d point at a given time input along a 3rd order bezier curved. The generated point
+/// is on a curve that is guided to pass through the defined control points.
+/// @param[in] points An array of control node vectors.
+/// @param[in] t A time input from 0.0 to 1.0.
+/// @param[in] control_point_selection The control point that is being selected to have the curve passed through.
+/// @return Vector representation generated using the given input array of control node vectors and the time input
+template <class T>
+inline Eigen::Vector3d cubicBezierCurveThroughControlPoint(const T *points, const double &t, const unsigned int &control_point_selection)
+{
+  double s = 1.0 - t;
+  if (control_point_selection == 1)
+  {
+    return (points[1] - points[0] * (s * s * s) - points[2] * (3.0 * t * t * s) -
+            points[3] * (t * t * t)) /
+           (3.0 * t * s * s);
+  }
+  else if (control_point_selection == 2)
+  {
+    return (points[2] - points[0] * (s * s * s) - points[1] * (3.0 * t * s * s) -
+            points[3] * (t * t * t)) /
+           (3.0 * t * t * s);
+  }
+  else
+  {
+    ROS_WARN("Something terribly wrong is happening. New Control points for the Cubic Bezier is NOT being generated as expected.");
+    return Eigen::Vector3d(0, 0, 0);
+  }
+}
+
 /// Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
 /// control nodes.
 /// @param[in] points An array of control node vectors
@@ -368,6 +420,44 @@ inline T quarticBezierDot(const T* points, const double& t)
           12.0 * s * t * t * (points[3] - points[2]) + 4.0 * t * t * t * (points[4] - points[3]));
 }
 
+/// Returns a vector representing a 3d point at a given time input along a 4th order bezier curve defined by input
+/// control nodes. Depending on the complexity of the target curve, it will generate points that will pass through
+/// the defined control points. If the target curve is too complex the generate point will approximately go near
+/// the control points. This behaviour is especially true for the 2nd control point.Iit's recommended to split
+/// the curve into different parts and use the lower order Bezier curves.
+/// @param[in] points An array of control node vectors.
+/// @param[in] t A time input from 0.0 to 1.0.
+/// @param[in] control_point_selection The control point that is being selected to have the curve passed through.
+/// @return Vector representation generated using the given input array of control node vectors and the time input
+template <class T>
+inline Eigen::Vector3d quarticBezierCurveThroughControlPoint(const T *points, const double &t, const unsigned int &control_point_selection)
+{
+  double s = 1.0 - t;
+  if (control_point_selection == 1)
+  {
+    return (points[1] - points[0] * (s * s * s * s) - points[2] * (6.0 * t * t * s * s) -
+            points[3] * (4.0 * t * t * t * s) - points[4] * (t * t * t * t)) /
+           (4.0 * t * s * s * s);
+  }
+  else if (control_point_selection == 2)
+  {
+    return (points[2] - points[0] * (s * s * s * s) - points[1] * (4.0 * t * s * s * s) -
+            points[3] * (4.0 * t * t * t * s) - points[4] * (t * t * t * t)) /
+           (6.0 * t * t * s * s);
+  }
+  else if (control_point_selection == 3)
+  {
+    return (points[3] - points[0] * (s * s * s * s) - points[1] * (4.0 * t * s * s * s) -
+            points[2] * (6.0 * t * t * s * s) - points[4] * (t * t * t * t)) /
+           (4.0 * t * t * t * s);
+  }
+  else
+  {
+    ROS_WARN("Something terribly wrong. New Control points for the Quartic Bezier is NOT being generated as expected.");
+    return Eigen::Vector3d(0, 0, 0);
+  }
+}
+
 /// Generates a classical Denavit–Hartenberg (DH) matrix from DH parameters.
 /// @param[in] d The DH parameter representing offset along previous z-axis to the common normal
 /// @param[in] theta The DH parameter representing angle about previous z axis, from old x-axis to new x-axis
@@ -387,3 +477,4 @@ inline Eigen::Matrix4d createDHMatrix(const double& d, const double& theta, cons
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif // SYROPOD_HIGHLEVEL_CONTROLLER_STANDARD_INCLUDES_H
+

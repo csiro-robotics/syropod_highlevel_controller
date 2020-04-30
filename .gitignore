@@ -40,6 +40,7 @@
 *.pyc
 *.idea
 *.sublime*
+*.vscode
 
 # Others
 *~

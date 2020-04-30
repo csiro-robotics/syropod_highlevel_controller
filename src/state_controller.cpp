@@ -13,66 +13,71 @@
 StateController::StateController(void)
 {
   ros::NodeHandle n;
-  
+
   // Get parameters from parameter server and initialises parameter map
   initParameters();
 
   // Create robot model
-  std::shared_ptr<DebugVisualiser> debug_visualiser_ptr = 
-    std::allocate_shared<DebugVisualiser>(Eigen::aligned_allocator<DebugVisualiser>(), debug_visualiser_);
+  std::shared_ptr<DebugVisualiser> debug_visualiser_ptr =
+      std::allocate_shared<DebugVisualiser>(Eigen::aligned_allocator<DebugVisualiser>(), debug_visualiser_);
   model_ = std::allocate_shared<Model>(Eigen::aligned_allocator<Model>(), params_, debug_visualiser_ptr);
   model_->generate();
 
   debug_visualiser_.setTimeDelta(params_.time_delta.data);
-  transform_listener_ = 
-    std::allocate_shared<tf2_ros::TransformListener>(Eigen::aligned_allocator<tf2_ros::TransformListener>(),
-                                                     transform_buffer_);
+  transform_listener_ =
+      std::allocate_shared<tf2_ros::TransformListener>(Eigen::aligned_allocator<tf2_ros::TransformListener>(),
+                                                       transform_buffer_);
 
   // Hexapod Remote topic subscriptions
-  system_state_subscriber_            = n.subscribe("syropod_remote/system_state", 1,
-                                                     &StateController::systemStateCallback, this);
-  robot_state_subscriber_             = n.subscribe("syropod_remote/robot_state", 1,
-                                                     &StateController::robotStateCallback, this);
-  desired_velocity_subscriber_        = n.subscribe("syropod_remote/desired_velocity", 1,
-                                                     &StateController::bodyVelocityInputCallback, this);
-  desired_pose_subscriber_            = n.subscribe("syropod_remote/desired_pose", 1,
-                                                     &StateController::bodyPoseInputCallback, this);
-  posing_mode_subscriber_             = n.subscribe("syropod_remote/posing_mode", 1,
-                                                     &StateController::posingModeCallback, this);
-  pose_reset_mode_subscriber_         = n.subscribe("syropod_remote/pose_reset_mode", 1,
-                                                     &StateController::poseResetCallback, this);
-  gait_selection_subscriber_          = n.subscribe("syropod_remote/gait_selection", 1,
-                                                     &StateController::gaitSelectionCallback, this);
-  cruise_control_mode_subscriber_     = n.subscribe("syropod_remote/cruise_control_mode", 1,
-                                                     &StateController::cruiseControlCallback, this);
-  planner_mode_subscriber_            = n.subscribe("syropod_remote/planner_mode", 1,
-                                                     &StateController::plannerModeCallback, this);
-  primary_leg_selection_subscriber_   = n.subscribe("syropod_remote/primary_leg_selection", 1,
-                                                     &StateController::primaryLegSelectionCallback, this);
-  primary_leg_state_subscriber_       = n.subscribe("syropod_remote/primary_leg_state", 1,
-                                                     &StateController::primaryLegStateCallback, this);
-  primary_tip_velocity_subscriber_    = n.subscribe("syropod_remote/primary_tip_velocity", 1,
-                                                     &StateController::primaryTipVelocityInputCallback, this);
+  system_state_subscriber_ = n.subscribe("syropod_remote/system_state", 1,
+                                         &StateController::systemStateCallback, this);
+  robot_state_subscriber_ = n.subscribe("syropod_remote/robot_state", 1,
+                                        &StateController::robotStateCallback, this);
+  desired_velocity_subscriber_ = n.subscribe("syropod_remote/desired_velocity", 1,
+                                             &StateController::bodyVelocityInputCallback, this);
+  desired_pose_subscriber_ = n.subscribe("syropod_remote/desired_pose", 1,
+                                         &StateController::bodyPoseInputCallback, this);
+  posing_mode_subscriber_ = n.subscribe("syropod_remote/posing_mode", 1,
+                                        &StateController::posingModeCallback, this);
+  pose_reset_mode_subscriber_ = n.subscribe("syropod_remote/pose_reset_mode", 1,
+                                            &StateController::poseResetCallback, this);
+  gait_selection_subscriber_ = n.subscribe("syropod_remote/gait_selection", 1,
+                                           &StateController::gaitSelectionCallback, this);
+  cruise_control_mode_subscriber_ = n.subscribe("syropod_remote/cruise_control_mode", 1,
+                                                &StateController::cruiseControlCallback, this);
+  planner_mode_subscriber_ = n.subscribe("syropod_remote/planner_mode", 1,
+                                         &StateController::plannerModeCallback, this);
+  primary_leg_selection_subscriber_ = n.subscribe("syropod_remote/primary_leg_selection", 1,
+                                                  &StateController::primaryLegSelectionCallback, this);
+  primary_leg_state_subscriber_ = n.subscribe("syropod_remote/primary_leg_state", 1,
+                                              &StateController::primaryLegStateCallback, this);
+  primary_tip_velocity_subscriber_ = n.subscribe("syropod_remote/primary_tip_velocity", 1,
+                                                 &StateController::primaryTipVelocityInputCallback, this);
   secondary_leg_selection_subscriber_ = n.subscribe("syropod_remote/secondary_leg_selection", 1,
-                                                     &StateController::secondaryLegSelectionCallback, this);
-  secondary_leg_state_subscriber_     = n.subscribe("syropod_remote/secondary_leg_state", 1,
-                                                     &StateController::secondaryLegStateCallback, this);
-  secondary_tip_velocity_subscriber_  = n.subscribe("syropod_remote/secondary_tip_velocity", 1,
-                                                     &StateController::secondaryTipVelocityInputCallback, this);
-  parameter_selection_subscriber_     = n.subscribe("syropod_remote/parameter_selection", 1,
-                                                     &StateController::parameterSelectionCallback, this);
-  parameter_adjustment_subscriber_    = n.subscribe("syropod_remote/parameter_adjustment", 1,
-                                                     &StateController::parameterAdjustCallback, this);
-  
+                                                    &StateController::secondaryLegSelectionCallback, this);
+  secondary_leg_state_subscriber_ = n.subscribe("syropod_remote/secondary_leg_state", 1,
+                                                &StateController::secondaryLegStateCallback, this);
+  secondary_tip_velocity_subscriber_ = n.subscribe("syropod_remote/secondary_tip_velocity", 1,
+                                                   &StateController::secondaryTipVelocityInputCallback, this);
+  parameter_selection_subscriber_ = n.subscribe("syropod_remote/parameter_selection", 1,
+                                                &StateController::parameterSelectionCallback, this);
+  parameter_adjustment_subscriber_ = n.subscribe("syropod_remote/parameter_adjustment", 1,
+                                                 &StateController::parameterAdjustCallback, this);
+
+  // Hexapod Leg Manipulation topic subscriptions
+  primary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/primary_tip_pose", 1,
+                                             &StateController::primaryTipPoseInputCallback, this);
+  secondary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/secondary_tip_pose", 1,
+                                               &StateController::secondaryTipPoseInputCallback, this);
+
   // Planner subscription/publisher
   target_configuration_subscriber_ = n.subscribe("/target_configuration", 1,
-                                                  &StateController::targetConfigurationCallback, this);
+                                                 &StateController::targetConfigurationCallback, this);
   target_body_pose_subscriber_ = n.subscribe("/target_body_pose", 1,
-                                              &StateController::targetBodyPoseCallback, this);
+                                             &StateController::targetBodyPoseCallback, this);
   target_tip_pose_subscriber_ = n.subscribe("/target_tip_poses", 100,
-                                             &StateController::targetTipPoseCallback, this);
+                                            &StateController::targetTipPoseCallback, this);
   plan_step_request_publisher_ = n.advertise<std_msgs::Int8>("/shc/plan_step_request", 1000);
-
 
   // Motor and other sensor topic subscriptions
   imu_data_subscriber_ = n.subscribe(params_.syropod_type.data + "/imu/data", 1, &StateController::imuCallback, this);
@@ -412,7 +417,7 @@ void StateController::runningState(void)
   {
     adjustParameter();
   }
-  
+
   // Set true if already true or if walk state not STOPPED
   update_tip_position = update_tip_position || walker_->getWalkState() != STOPPED; 
 
@@ -426,6 +431,12 @@ void StateController::runningState(void)
     // Update tip positions for manually controlled legs
     walker_->updateManual(primary_leg_selection_, primary_tip_velocity_input_,
                           secondary_leg_selection_, secondary_tip_velocity_input_);
+
+    // Controls tip position for manually controlled legs.
+    // Primary leg correspond to the front right leg and secondary leg is the front left leg.
+    // TODO: give access for the remaindering legs this feature if selected.
+    walker_->updateManual(primary_leg_selection_, primary_pose_input_,
+                          secondary_leg_selection_, secondary_pose_input_);
 
     // Pose controller takes current tip positions from walker and applies body posing
     poser_->updateStance();
@@ -1068,7 +1079,7 @@ void StateController::RVIZDebugging(void)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::systemStateCallback(const std_msgs::Int8& input)
+void StateController::systemStateCallback(const std_msgs::Int8 &input)
 {
   new_system_state_ = static_cast<SystemState>(int(input.data));
   if (system_state_ != new_system_state_)
@@ -1083,7 +1094,7 @@ void StateController::systemStateCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::robotStateCallback(const std_msgs::Int8& input)
+void StateController::robotStateCallback(const std_msgs::Int8 &input)
 {
   RobotState input_state = static_cast<RobotState>(int(input.data));
 
@@ -1113,7 +1124,7 @@ void StateController::robotStateCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& input)
+void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1128,7 +1139,7 @@ void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist& inpu
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
+void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1140,7 +1151,7 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::posingModeCallback(const std_msgs::Int8& input)
+void StateController::posingModeCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1179,7 +1190,7 @@ void StateController::posingModeCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::poseResetCallback(const std_msgs::Int8& input)
+void StateController::poseResetCallback(const std_msgs::Int8 &input)
 {
   if (system_state_ != SUSPENDED && poser_ != NULL)
   {
@@ -1192,7 +1203,7 @@ void StateController::poseResetCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
+void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1207,7 +1218,7 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::cruiseControlCallback(const std_msgs::Int8& input)
+void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1248,7 +1259,7 @@ void StateController::cruiseControlCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::plannerModeCallback(const std_msgs::Int8& input)
+void StateController::plannerModeCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1271,7 +1282,7 @@ void StateController::plannerModeCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::primaryLegSelectionCallback(const std_msgs::Int8& input)
+void StateController::primaryLegSelectionCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1294,7 +1305,7 @@ void StateController::primaryLegSelectionCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::secondaryLegSelectionCallback(const std_msgs::Int8& input)
+void StateController::secondaryLegSelectionCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1317,7 +1328,7 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
+void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING && !transition_state_flag_)
   {
@@ -1345,7 +1356,7 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
+void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
 {
   if (robot_state_ == RUNNING && !transition_state_flag_)
   {
@@ -1373,16 +1384,34 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point& input)
+void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point &input)
 {
   primary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point& input)
+void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point &input)
 {
   secondary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void StateController::primaryTipPoseInputCallback(const geometry_msgs::Pose &input)
+{
+  primary_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
+  primary_pose_input_.rotation_ = 
+    Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void StateController::secondaryTipPoseInputCallback(const geometry_msgs::Pose &input)
+{
+  secondary_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
+  secondary_pose_input_.rotation_ = 
+    Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1433,8 +1462,8 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig& config,
-                                               const uint32_t& level)
+void StateController::dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig &config,
+                                               const uint32_t &level)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1521,14 +1550,14 @@ void StateController::dynamicParameterCallback(syropod_highlevel_controller::Dyn
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::imuCallback(const sensor_msgs::Imu& data)
+void StateController::imuCallback(const sensor_msgs::Imu &data)
 {
   if (system_state_ != SUSPENDED && poser_ != NULL)
   {
     Eigen::Quaterniond orientation(data.orientation.w, data.orientation.x, data.orientation.y, data.orientation.z);
     Eigen::Vector3d angular_velocity(data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z);
     Eigen::Vector3d linear_acceleration(data.linear_acceleration.x,
-                                        data.linear_acceleration.y, 
+                                        data.linear_acceleration.y,
                                         data.linear_acceleration.z);
     model_->setImuData(orientation, linear_acceleration, angular_velocity);
   }
@@ -1536,7 +1565,7 @@ void StateController::imuCallback(const sensor_msgs::Imu& data)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_states)
+void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_states)
 {
   bool get_effort_values = (joint_states.effort.size() != 0);
   bool get_velocity_values = (joint_states.velocity.size() != 0);
@@ -1584,7 +1613,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState& joint_s
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::tipStatesCallback(const syropod_highlevel_controller::TipState& tip_states)
+void StateController::tipStatesCallback(const syropod_highlevel_controller::TipState &tip_states)
 {
   bool get_wrench_values = tip_states.wrench.size() > 0;
   bool get_step_plane_values = tip_states.step_plane.size() > 0;
@@ -1625,9 +1654,9 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
         // From step plane representation calculate position and orientation of plane relative to tip frame
         Eigen::Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
         Eigen::Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
-        Eigen::Quaterniond step_plane_orientation =  Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0,0,1.0),
-                                                                                        -step_plane_normal);
-        
+        Eigen::Quaterniond step_plane_orientation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0, 0, 1.0),
+                                                                                       -step_plane_normal);
+
         // Transform into robot frame and store
         Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));
         leg->setStepPlanePose(step_plane_pose); 
@@ -1647,7 +1676,7 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::targetConfigurationCallback(const sensor_msgs::JointState& target_configuration)
+void StateController::targetConfigurationCallback(const sensor_msgs::JointState &target_configuration)
 {
   poser_->setTargetConfiguration(target_configuration);
   target_configuration_acquired_ = true;
@@ -1655,7 +1684,7 @@ void StateController::targetConfigurationCallback(const sensor_msgs::JointState&
   
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_body_pose)
+void StateController::targetBodyPoseCallback(const geometry_msgs::Pose &target_body_pose)
 {
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -1670,7 +1699,7 @@ void StateController::targetBodyPoseCallback(const geometry_msgs::Pose& target_b
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose& msg)
+void StateController::targetTipPoseCallback(const syropod_highlevel_controller::TargetTipPose &msg)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1905,7 +1934,7 @@ void StateController::initParameters(void)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::initGaitParameters(const GaitDesignation& gait_selection)
+void StateController::initGaitParameters(const GaitDesignation &gait_selection)
 {
   switch (gait_selection)
   {
