@@ -97,6 +97,17 @@ For information on parameters see readme in config folder.
     * Topic: */syropod\_remote/parameter\_adjustment*
     * Type: std_msgs::Int8
 
+### Syropod Manipulation:
+* Primary Leg Tip Pose:
+    * Description: The desired pose for the leg selected for primary manipulation within Cartesian space.   
+    * Topic: */syropod_manipulation/primary_tip_pose*
+    * Type:  geometry_msgs::Pose
+
+* Secondary Leg Tip Pose:
+    * Description: The desired pose for the leg selected for secondary manipulation within Cartesian space.   
+    * Topic: */syropod_manipulation/secondary_tip_pose*
+    * Type:  geometry_msgs::Pose
+
 ### Motor and Sensor Inputs
 * IMU Data:
     * Description: The input data from onboard IMU.
@@ -267,3 +278,11 @@ Note: Version control commenced at v0.4.0. No changes were logged before this ve
     - Added correct generation of 'walkspace', fit within leg workspace
     - Fixed issues with externally set target/default tip poses
     - Refactored published tf tree order for use with perception based odometry
+- v0.5.11
+    - Added more Bezier curve functionalities:
+        - Quadratic Bezier and curve to pass through control nodes.
+        - Cubic Bezier to pass through control nodes.
+        - Quartic Bezier to pass through control nodes.
+    - Added feature to move the leg to desired position based on direct Cartesian coordinates in the robot frame.
+    - Added topics that subscribes to topics published by Syropod Manipulation package.
+

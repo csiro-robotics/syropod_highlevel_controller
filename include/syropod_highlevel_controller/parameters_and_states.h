@@ -26,12 +26,12 @@ enum SystemState
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum RobotState
 {
-  PACKED,             ///< The robot is in a 'packed' state with all joints at defined 'packed' positions
-  READY,              ///< The robot is in a 'ready' state with all joints at defined 'unpacked' positions
-  RUNNING,            ///< The robot is in a 'running' state. This state is where all posing and walking occurs
-  ROBOT_STATE_COUNT,  ///< Misc enum defining number of Robot States
-  UNKNOWN = -1,       ///< The robot is in an initial 'unknown' state, controller will estimate an actual state from it
-  OFF = -2,           ///< The robot is in 'off' state. Only used as alternative to 'running' state for direct start up
+  PACKED,            ///< The robot is in a 'packed' state with all joints at defined 'packed' positions
+  READY,             ///< The robot is in a 'ready' state with all joints at defined 'unpacked' positions
+  RUNNING,           ///< The robot is in a 'running' state. This state is where all posing and walking occurs
+  ROBOT_STATE_COUNT, ///< Misc enum defining number of Robot States
+  UNKNOWN = -1,      ///< The robot is in an initial 'unknown' state, controller will estimate an actual state from it
+  OFF = -2,          ///< The robot is in 'off' state. Only used as alternative to 'running' state for direct start up
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +88,7 @@ enum LegState
 {
   WALKING,                ///< The leg is in a 'walking' state - participates in walking cycle
   MANUAL,                 ///< The leg is in a 'manual' state - able to move via manual manipulation inputs
-  LEG_STATE_COUNT,        ///< Misc enum defining number of LegStates  
+  LEG_STATE_COUNT,        ///< Misc enum defining number of LegStates
   WALKING_TO_MANUAL = -1, ///< The leg is in 'walking to manual' state - transitioning from 'walking' to 'manual' state
   MANUAL_TO_WALKING = -2, ///< The leg is in 'manual to walking' state - transitioning from 'manual' to 'walking' state
 };
@@ -199,9 +199,9 @@ public:
   /// @param[in] name_input The unique name of the parameter to look for on ros parameter server
   /// @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
   /// @param[in] required_input Bool denoting if this parameter is required to be initialised
-  inline void init(const std::string& name_input,
-                   const std::string& base_parameter_name = "/syropod/parameters/",
-                   const bool& required_input = true)
+  inline void init(const std::string &name_input,
+                   const std::string &base_parameter_name = "/syropod/parameters/",
+                   const bool &required_input = true)
   {
     ros::NodeHandle n;
     name = name_input;
@@ -211,10 +211,10 @@ public:
                    " Check config file is loaded and type is correct\n", name.c_str());
   }
 
-  std::string name;              ///< Name of the parameter
-  T data;                        ///< Data which defines parameter
-  bool required = true;          ///< Denotes if this parameter is required to be initialised
-  bool initialised = false;      ///< Denotes if this parameter has been initialised
+  std::string name;         ///< Name of the parameter
+  T data;                   ///< Data which defines parameter
+  bool required = true;     ///< Denotes if this parameter is required to be initialised
+  bool initialised = false; ///< Denotes if this parameter has been initialised
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -383,4 +383,3 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif // SYROPOD_HIGHLEVEL_CONTROLLER_PARAMETERS_AND_STATES_H
-
