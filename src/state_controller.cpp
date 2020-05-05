@@ -63,10 +63,11 @@ StateController::StateController(void)
                                                 &StateController::parameterSelectionCallback, this);
   parameter_adjustment_subscriber_ = n.subscribe("syropod_remote/parameter_adjustment", 1,
                                                  &StateController::parameterAdjustCallback, this);
+
   // Hexapod Leg Manipulation topic subscriptions
-  primary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AR/Pose", 1,
+  primary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/primary_tip_pose", 1,
                                              &StateController::primaryTipPoseInputCallback, this);
-  secondary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/AL/Pose", 1,
+  secondary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/secondary_tip_pose", 1,
                                                &StateController::secondaryTipPoseInputCallback, this);
 
   // Planner subscription/publisher

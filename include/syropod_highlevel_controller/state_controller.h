@@ -217,14 +217,14 @@ public:
   /// @param[in] input The Point geometry message provided by the topic "syropod_remote/secondary_tip_velocity"
   void secondaryTipVelocityInputCallback(const geometry_msgs::Point &input);
 
-  /// Callback for the input manual tip position (in cartesian space) for the AR leg (front right leg)
-  /// @param[in] input The Pose geometry message provided by the subscribed topic "/syropod_manipulation/AR/Pose"
-  /// @see (https://confluence.csiro.au/display/CPS/Weaver+Diagrams)
+  /// Callback for the input manual tip pose (in cartesian space) for the primary selected leg. 
+  /// @param[in] input The Pose geometry message provided by the subscribed topic
+  /// "/syropod_manipulation/primary_tip_pose"
   void  primaryTipPoseInputCallback(const geometry_msgs::Pose &msg);
 
-  /// Callback for the input manual tip position (in cartesian space) for the AL leg (front left leg).
-  /// @param[in] input The Pose geometry message provided by the subscribed topic "/syropod_manipulation/AL/Pose"
-  /// @see (https://confluence.csiro.au/display/CPS/Weaver+Diagrams)
+  /// Callback for the input manual tip pose (in cartesian space) for the secondary selected leg. 
+  /// @param[in] input The Pose geometry message provided by the subscribed topic
+  /// "/syropod_manipulation/secondary_tip_pose"
   void  secondaryTipPoseInputCallback(const geometry_msgs::Pose &msg);
 
   /// Callback handling the desired parameter selection and sending state messages to user interface.
@@ -291,8 +291,8 @@ private:
   ros::Subscriber parameter_selection_subscriber_;     ///< Subscriber for topic /syropod_remote/parameter_selection
   ros::Subscriber parameter_adjustment_subscriber_;    ///< Subscriber for topic /syropod_remote/parameter_adjustment
 
-  ros::Subscriber primary_tip_pose_subscriber_; ///< Subscriber for topic /syropod_manipulation/AR/Pose
-  ros::Subscriber secondary_tip_pose_subscriber_; ///< Subscriber for topic /syropod_manipulation/AL/Pose
+  ros::Subscriber primary_tip_pose_subscriber_;   ///< Subscriber for topic /syropod_manipulation/primary_tip_pose
+  ros::Subscriber secondary_tip_pose_subscriber_; ///< Subscriber for topic /syropod_manipulation/secondary_tip_pose
 
   ros::Subscriber target_configuration_subscriber_; ///< Subscriber for topic /target_configuration
   ros::Subscriber target_body_pose_subscriber_;     ///< Subscriber for topic /target_body_pose
@@ -373,8 +373,8 @@ private:
   LegContainer::iterator leg_it_;     ///< Leg iteration member variable used to minimise code
   JointContainer::iterator joint_it_; ///< Joint iteration member variable used to minimise code
 
-  Pose primary_pose_input_; ///< Input for the desired pose of the leg tip AR
-  Pose secondary_pose_input_; ///< Input for the desired pose of the leg tip AR
+  Pose primary_pose_input_;   ///< Input for the desired pose of primary leg tip 
+  Pose secondary_pose_input_; ///< Input for the desired pose of secondary the leg tip
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
