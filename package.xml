@@ -1,34 +1,26 @@
 <?xml version="1.0"?>
-<package>
+<package format="2">
 
   <name>syropod_highlevel_controller</name>
   <version>0.5.10</version>
   <description>The syropod_highlevel_controller package</description>
 
-  <maintainer email="fletcher.talbot@csiro.au">tal058</maintainer>
+  <maintainer email="shc-support@csiro.au"></maintainer>
 
-  <license>TODO</license>
+  <license>CSIRO Open Source Software Licence Agreement (Ref: LICENSE file)</license>
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>roscpp</build_depend>
-  <build_depend>rospy</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>dynamixel_msgs</build_depend>
-  <build_depend>dynamixel_controllers</build_depend>
-  <build_depend>message_generation</build_depend>
-  <build_depend>dynamic_reconfigure</build_depend>
+  <depend>roscpp</depend>
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>dynamixel_msgs</depend>
+  <depend>dynamixel_controllers</depend>
+  <depend>dynamic_reconfigure</depend>
 
-  <run_depend>roscpp</run_depend>
-  <run_depend>rospy</run_depend>
-  <run_depend>std_msgs</run_depend>
-  <run_depend>sensor_msgs</run_depend>
-  <run_depend>geometry_msgs</run_depend>
-  <run_depend>dynamixel_msgs</run_depend>
-  <run_depend>dynamixel_controllers</run_depend>
-  <run_depend>message_runtime</run_depend>
-  <run_depend>dynamic_reconfigure</run_depend>
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
 
 </package>
