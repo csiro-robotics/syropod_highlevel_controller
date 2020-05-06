@@ -792,7 +792,7 @@ void StateController::publishDesiredJointState(void)
       {
         std::shared_ptr<Joint> joint = joint_it->second;
         std_msgs::Float64 position_command_msg;
-        position_command_msg.data = joint->desired_position_;
+        position_command_msg.data = joint->desired_position_ + joint->offset_;
         joint->desired_position_publisher_.publish(position_command_msg);
       }
     }
@@ -1579,7 +1579,7 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_s
     ROS_ASSERT(leg != NULL);
     std::shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
     ROS_ASSERT(joint != NULL);
-    joint->current_position_ = joint_states.position[i];
+    joint->current_position_ = joint_states.position[i] - joint->offset_;
     if (get_velocity_values)
     {
       joint->current_velocity_ = joint_states.velocity[i];

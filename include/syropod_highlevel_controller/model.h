@@ -627,6 +627,7 @@ public:
 
   const double min_position_ = 0.0;            ///< The minimum position allowed for this joint
   const double max_position_ = 0.0;            ///< The maximum position allowed for this joint
+  const double offset_ = 0.0;                  ///< The position offset applied at output of SHC
   std::vector<double> packed_positions_ ;      ///< The defined position of this joint in a 'packed' state
   const double unpacked_position_ = 0.0;       ///< The defined position of this joint in an 'unpacked' state
   const double max_angular_speed_ = 0.0;       ///< The maximum angular speed of this joint
