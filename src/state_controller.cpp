@@ -661,7 +661,7 @@ void StateController::executePlan(void)
     {
       ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\n[SHC]\tWaiting for plan step %d to be published . . .\n", plan_step_);
       std_msgs::Int8 msg;
-      msg.data = plan_step_;
+      msg.data = static_cast<int8_t>(plan_step_);
       plan_step_request_publisher_.publish(msg);
       model_->updateModel();
     }
@@ -933,7 +933,7 @@ void StateController::publishWalkspace(void)
     LimitMap::iterator walkspace_it;
     for (walkspace_it = walkspace_map.begin(); walkspace_it != walkspace_map.end(); ++walkspace_it)
     {
-      msg.data.push_back(walkspace_it->second);
+      msg.data.push_back(static_cast<float>(walkspace_it->second));
     }
     
     walkspace_publisher_.publish(msg);
@@ -946,15 +946,15 @@ void StateController::publishRotationPoseError(void)
 {
   std_msgs::Float32MultiArray msg;
   msg.data.clear();
-  msg.data.push_back(poser_->getRotationAbsementError()[0]);
-  msg.data.push_back(poser_->getRotationAbsementError()[1]);
-  msg.data.push_back(poser_->getRotationAbsementError()[2]);
-  msg.data.push_back(poser_->getRotationPositionError()[0]);
-  msg.data.push_back(poser_->getRotationPositionError()[1]);
-  msg.data.push_back(poser_->getRotationPositionError()[2]);
-  msg.data.push_back(poser_->getRotationVelocityError()[0]);
-  msg.data.push_back(poser_->getRotationVelocityError()[1]);
-  msg.data.push_back(poser_->getRotationVelocityError()[2]);
+  msg.data.push_back(static_cast<float>(poser_->getRotationAbsementError()[0]));
+  msg.data.push_back(static_cast<float>(poser_->getRotationAbsementError()[1]));
+  msg.data.push_back(static_cast<float>(poser_->getRotationAbsementError()[2]));
+  msg.data.push_back(static_cast<float>(poser_->getRotationPositionError()[0]));
+  msg.data.push_back(static_cast<float>(poser_->getRotationPositionError()[1]));
+  msg.data.push_back(static_cast<float>(poser_->getRotationPositionError()[2]));
+  msg.data.push_back(static_cast<float>(poser_->getRotationVelocityError()[0]));
+  msg.data.push_back(static_cast<float>(poser_->getRotationVelocityError()[1]));
+  msg.data.push_back(static_cast<float>(poser_->getRotationVelocityError()[2]));
   rotation_pose_error_publisher_.publish(msg);
 }
 
@@ -1462,8 +1462,7 @@ void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StateController::dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig &config,
-                                               const uint32_t &level)
+void StateController::dynamicParameterCallback(syropod_highlevel_controller::DynamicConfig &config, const uint32_t&)
 {
   if (robot_state_ == RUNNING)
   {
@@ -1721,8 +1720,8 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
           {
             ExternalTarget external_target;
             external_target.pose_ = Pose(msg.target[i].pose);
-            bool swing_clearance = msg.swing_clearance.size() > 0.0;
-            external_target.swing_clearance_ = swing_clearance ? msg.swing_clearance[i] : 0.0;
+            bool swing_clearance = msg.swing_clearance.size() > 0;
+            external_target.swing_clearance_ = static_cast<double>(swing_clearance ? msg.swing_clearance[i] : 0.0);
             external_target.time_ = msg.target[i].header.stamp;
             external_target.frame_id_ = msg.target[i].header.frame_id;
             external_target.transform_ = Pose::Identity(); // Correctly set from tf tree in main loop

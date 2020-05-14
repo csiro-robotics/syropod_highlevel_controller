@@ -55,7 +55,7 @@ int main(int argc, char* argv[])
   ros::Rate r(roundToInt(1.0 / params.time_delta.data));
 
   // Wait specified time to aquire all published joint positions via callback
-  int spin = ACQUISTION_TIME / params.time_delta.data; // Spin cycles from time
+  int spin = static_cast<int>(ACQUISTION_TIME / params.time_delta.data); // Spin cycles from time
   while (spin--)
   {
     ROS_INFO_THROTTLE(THROTTLE_PERIOD, "\nAcquiring robot state . . .\n");

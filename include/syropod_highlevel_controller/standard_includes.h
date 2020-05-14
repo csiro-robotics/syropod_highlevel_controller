@@ -39,7 +39,6 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 
-#include <Eigen/Eigen>
 #include <Eigen/StdVector>
 #include <Eigen/Geometry>
 
@@ -62,41 +61,41 @@
 /// Converts Degrees to Radians.
 /// @param[in] degrees Value in degrees to be converted to radians
 /// @return Value converted to radians from degrees
-inline double degreesToRadians(const double &degrees) { return degrees / 360.0 * 2.0 * M_PI; };
+inline double degreesToRadians(const double &degrees) { return degrees / 360.0 * 2.0 * M_PI; }
 
 /// Converts Radians to Degrees.
 /// @param[in] radians Value in radians to be converted to degrees
 /// @return Value converted to degrees from radians
-inline double radiansToDegrees(const double& radians) { return (radians / (2.0 * M_PI)) * 360.0; };
+inline double radiansToDegrees(const double& radians) { return (radians / (2.0 * M_PI)) * 360.0; }
 
 /// Performs the modulo operation with adherence to Euclidean division.
 /// @param[in] a The dividend for the operation
 /// @param[in] b The divisor for the operation
 /// @return The result after performing modulo operation with adherence to Euclidean division
 template <class T>
-inline T mod(const T& a, const T& b) { return (a % b + b) % b; };
+inline T mod(const T& a, const T& b) { return (a % b + b) % b; }
 
 /// Performs the square operation.
 /// @param[in] val The value to be squared
 /// @return The result after squaring the value
 template <class T>
-inline T sqr(const T& val) { return val * val; };
+inline T sqr(const T& val) { return val * val; }
 
 /// Returns 1 or -1 depending on the sign of the input.
 /// @param[in] val The input value
 /// @return 1 or -1 depending on the sign of the input
 template <class T>
-inline T sign(const T& val) { return (val > 0 ? 1 : -1); };
+inline T sign(const T& val) { return (val > 0 ? 1 : -1); }
 
 /// Rounds the input number to the nearest integer.
 /// @param[in] x The input number
 /// @return Nearest integer to the input number
-inline int roundToInt(const double& x) { return (x >= 0 ? int(x + 0.5) : -int(0.5 - x)); };
+inline int roundToInt(const double& x) { return (x >= 0 ? int(x + 0.5) : -int(0.5 - x)); }
 
 /// Rounds the input number to the nearest EVEN integer.
 /// @param[in] x The input number
 /// @return Nearest even integer to the input number
-inline int roundToEvenInt(const double& x) { return (int(x) % 2 == 0 ? int(x) : int(x) + 1); };
+inline int roundToEvenInt(const double& x) { return (int(x) % 2 == 0 ? int(x) : int(x) + 1); }
 
 /// Returns the input value 'clamped' within min and max limits.
 /// @param[in] value The input value

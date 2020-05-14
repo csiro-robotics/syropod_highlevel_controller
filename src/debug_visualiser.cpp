@@ -243,9 +243,10 @@ void DebugVisualiser::generateBezierCurves(std::shared_ptr<Leg> leg)
   swing_1_nodes.action = visualization_msgs::Marker::ADD;
   swing_1_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
   swing_1_nodes.scale.x = 0.02 * sqrt(marker_scale_);
-  swing_1_nodes.color.g = 1; // YELLOW
-  swing_1_nodes.color.r = 1;
-  swing_1_nodes.color.a = 1;
+  swing_1_nodes.scale.y = 0.02 * sqrt(marker_scale_);
+  swing_1_nodes.scale.z = 0.02 * sqrt(marker_scale_);
+  swing_1_nodes.color.g = 1;
+  swing_1_nodes.color.a = 0.5;
   swing_1_nodes.pose = Pose::Identity().toPoseMessage();
 
   visualization_msgs::Marker swing_2_nodes;
@@ -258,9 +259,8 @@ void DebugVisualiser::generateBezierCurves(std::shared_ptr<Leg> leg)
   swing_2_nodes.scale.x = 0.02 * sqrt(marker_scale_);
   swing_2_nodes.scale.y = 0.02 * sqrt(marker_scale_);
   swing_2_nodes.scale.z = 0.02 * sqrt(marker_scale_);
-  swing_2_nodes.color.r = 1; // YELLOW
-  swing_2_nodes.color.g = 1;
-  swing_2_nodes.color.a = 1;
+  swing_2_nodes.color.r = 1;
+  swing_2_nodes.color.a = 0.5;
   swing_2_nodes.pose = Pose::Identity().toPoseMessage();
 
   visualization_msgs::Marker stance_nodes;
@@ -271,9 +271,10 @@ void DebugVisualiser::generateBezierCurves(std::shared_ptr<Leg> leg)
   stance_nodes.action = visualization_msgs::Marker::ADD;
   stance_nodes.type = visualization_msgs::Marker::SPHERE_LIST;
   stance_nodes.scale.x = 0.02 * sqrt(marker_scale_);
-  stance_nodes.color.r = 1; // YELLOW
-  stance_nodes.color.g = 1;
-  stance_nodes.color.a = 1;
+  stance_nodes.scale.y = 0.02 * sqrt(marker_scale_);
+  stance_nodes.scale.z = 0.02 * sqrt(marker_scale_);
+  stance_nodes.color.b = 1;
+  stance_nodes.color.a = 0.5;
   stance_nodes.pose = Pose::Identity().toPoseMessage();
 
   std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
@@ -281,30 +282,24 @@ void DebugVisualiser::generateBezierCurves(std::shared_ptr<Leg> leg)
   for (int i = 0; i < 5; ++i) // For each of 5 control nodes
   {
     geometry_msgs::Point point;
-    if (leg_stepper->getStepState() == STANCE)
-    {
-      Eigen::Vector3d stance_node = leg_stepper->getStanceControlNode(i);
-      point.x = stance_node[0];
-      point.y = stance_node[1];
-      point.z = stance_node[2];
-      ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
-      stance_nodes.points.push_back(point);
-    }
-    else if (leg_stepper->getStepState() == SWING)
-    {
-      Eigen::Vector3d swing_1_node = leg_stepper->getSwing1ControlNode(i);
-      point.x = swing_1_node[0];
-      point.y = swing_1_node[1];
-      point.z = swing_1_node[2];
-      ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
-      swing_1_nodes.points.push_back(point);
-      Eigen::Vector3d swing_2_node = leg_stepper->getSwing2ControlNode(i);
-      point.x = swing_2_node[0];
-      point.y = swing_2_node[1];
-      point.z = swing_2_node[2];
-      ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
-      swing_2_nodes.points.push_back(point);
-    }
+    Eigen::Vector3d stance_node = leg_stepper->getStanceControlNode(i);
+    point.x = stance_node[0];
+    point.y = stance_node[1];
+    point.z = stance_node[2];
+    ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
+    stance_nodes.points.push_back(point);
+    Eigen::Vector3d swing_1_node = leg_stepper->getSwing1ControlNode(i);
+    point.x = swing_1_node[0];
+    point.y = swing_1_node[1];
+    point.z = swing_1_node[2];
+    ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
+    swing_1_nodes.points.push_back(point);
+    Eigen::Vector3d swing_2_node = leg_stepper->getSwing2ControlNode(i);
+    point.x = swing_2_node[0];
+    point.y = swing_2_node[1];
+    point.z = swing_2_node[2];
+    ROS_ASSERT(point.x + point.y + point.z < 1e3); // Check that point has valid values
+    swing_2_nodes.points.push_back(point);
   }
 
   bezier_curve_publisher_.publish(stance_nodes);
@@ -600,7 +595,7 @@ void DebugVisualiser::generateJointTorques(std::shared_ptr<Leg> leg)
     joint_torque.action = visualization_msgs::Marker::ADD;
     Eigen::Vector3d joint_position = joint->getPoseRobotFrame().position_;
     joint_torque.pose = Pose(joint_position, Eigen::Quaterniond::Identity()).toPoseMessage();
-    double torque_maximum_ratio = clamped(abs(joint->current_effort_) * 5.0, 0.1, 1.0);
+    float torque_maximum_ratio = static_cast<float>(clamped(abs(joint->current_effort_) * 5.0, 0.1, 1.0));
     double sphere_radius = 0.1 * sqrt(marker_scale_) * torque_maximum_ratio;
     
     // Actual value
@@ -609,9 +604,9 @@ void DebugVisualiser::generateJointTorques(std::shared_ptr<Leg> leg)
     joint_torque.scale.y = sphere_radius;
     joint_torque.scale.z = sphere_radius;
     joint_torque.color.r = torque_maximum_ratio;
-    joint_torque.color.g = 1.0 - torque_maximum_ratio;
-    joint_torque.color.b = 0.0;
-    joint_torque.color.a = 1.0;
+    joint_torque.color.g = 1.0f - torque_maximum_ratio;
+    joint_torque.color.b = 0.0f;
+    joint_torque.color.a = 1.0f;
     joint_torque_publisher_.publish(joint_torque);
   }
 }

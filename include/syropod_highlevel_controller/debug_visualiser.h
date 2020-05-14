@@ -15,7 +15,7 @@
 #include "walk_controller.h"
 
 #define ID_LIMIT 10000                    ///< Id value limit to prevent overflow
-#define TRAJECTORY_DURATION 10            ///< Time for trajectory markers to exist (sec)
+#define TRAJECTORY_DURATION 1             ///< Time for trajectory markers to exist (sec)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// This class handles generation and publishing of visualisations for display in rviz for debugging purposes.

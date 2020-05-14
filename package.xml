@@ -2,8 +2,8 @@
 <package format="2">
 
   <name>syropod_highlevel_controller</name>
-  <version>0.5.10</version>
-  <description>The syropod_highlevel_controller package</description>
+  <version>0.0.0</version>
+  <description>Highlevel controller for CSIRO Syropods (multi-legged robots)</description>
 
   <maintainer email="shc-support@csiro.au"></maintainer>
 
