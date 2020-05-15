@@ -6,10 +6,10 @@
 // Author: Fletcher Talbot
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/syropod_highlevel_controller/model.h"
-#include "../include/syropod_highlevel_controller/walk_controller.h"
-#include "../include/syropod_highlevel_controller/pose_controller.h"
-#include "../include/syropod_highlevel_controller/debug_visualiser.h"
+#include "syropod_highlevel_controller/model.h"
+#include "syropod_highlevel_controller/walk_controller.h"
+#include "syropod_highlevel_controller/pose_controller.h"
+#include "syropod_highlevel_controller/debug_visualiser.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
