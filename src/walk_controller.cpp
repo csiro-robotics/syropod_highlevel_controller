@@ -6,9 +6,9 @@
 // Author: Fletcher Talbot
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/syropod_highlevel_controller/walk_controller.h"
-#include "../include/syropod_highlevel_controller/pose_controller.h"
-#include "../include/syropod_highlevel_controller/debug_visualiser.h"
+#include "syropod_highlevel_controller/walk_controller.h"
+#include "syropod_highlevel_controller/pose_controller.h"
+#include "syropod_highlevel_controller/debug_visualiser.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -72,16 +72,16 @@ void WalkController::generateWalkspace(void)
     // Get distance and bearing to adjacent legs from this leg
     double distance_to_adjacent_leg_1 = Eigen::Vector3d(default_tip_position - adjacent_1_tip_position).norm() / 2.0;
     double distance_to_adjacent_leg_2 = Eigen::Vector3d(default_tip_position - adjacent_2_tip_position).norm() / 2.0;
-    int bearing_to_adjacent_leg_1 = radiansToDegrees(atan2(adjacent_1_tip_position[1] - default_tip_position[1],
-                                                           adjacent_1_tip_position[0] - default_tip_position[0]));
-    int bearing_to_adjacent_leg_2 = radiansToDegrees(atan2(adjacent_2_tip_position[1] - default_tip_position[1],
-                                                           adjacent_2_tip_position[0] - default_tip_position[0]));
+    double bearing_to_adjacent_leg_1 = radiansToDegrees(atan2(adjacent_1_tip_position[1] - default_tip_position[1],
+                                                              adjacent_1_tip_position[0] - default_tip_position[0]));
+    double bearing_to_adjacent_leg_2 = radiansToDegrees(atan2(adjacent_2_tip_position[1] - default_tip_position[1],
+                                                              adjacent_2_tip_position[0] - default_tip_position[0]));
 
     // Populate walkspace
     for (int bearing = 0; bearing <= 360; bearing += BEARING_STEP)
     {
-      int bearing_diff_1 = abs(mod(bearing_to_adjacent_leg_1, 360) - bearing);
-      int bearing_diff_2 = abs(mod(bearing_to_adjacent_leg_2, 360) - bearing);
+      int bearing_diff_1 = abs(mod(static_cast<int>(bearing_to_adjacent_leg_1), 360) - bearing);
+      int bearing_diff_2 = abs(mod(static_cast<int>(bearing_to_adjacent_leg_2), 360) - bearing);
       double distance_to_overlap_1 = UNASSIGNED_VALUE;
       double distance_to_overlap_2 = UNASSIGNED_VALUE;
       if ((bearing_diff_1 < 90 || bearing_diff_1 > 270) && distance_to_adjacent_leg_1 > 0.0)
@@ -365,7 +365,7 @@ void WalkController::generateLimits(StepCycle step,
 StepCycle WalkController::generateStepCycle(const bool set_step_cycle)
 {
   StepCycle step;
-  step.stance_end_ = params_.stance_phase.data * 0.5;
+  step.stance_end_ = static_cast<int>(params_.stance_phase.data * 0.5);
   step.swing_start_ = step.stance_end_;
   step.swing_end_ = step.swing_start_ + params_.swing_phase.data;
   step.stance_start_ = step.swing_end_;
@@ -816,7 +816,7 @@ LegStepper::LegStepper(std::shared_ptr<WalkController> walker, std::shared_ptr<L
     swing_2_nodes_[i] = Eigen::Vector3d::Zero();
     stance_nodes_[i] = Eigen::Vector3d::Zero();
   }
-};
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -855,14 +855,14 @@ LegStepper::LegStepper(std::shared_ptr<LegStepper> leg_stepper)
     swing_2_nodes_[i] = leg_stepper->swing_2_nodes_[i];
     stance_nodes_[i] = leg_stepper->stance_nodes_[i];
   }
-};
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void LegStepper::updatePhase(void)
 {
   StepCycle step = walker_->getStepCycle();
-  phase_ = step_progress_ * step.period_;
+  phase_ = static_cast<int>(step_progress_ * step.period_);
   updateStepState();
 }
 
@@ -1032,12 +1032,12 @@ void LegStepper::updateTipPosition(void)
   ROS_ASSERT(modified_stance_period != 0);
 
   // Calculates number of iterations for ENTIRE swing period and time delta used for EACH bezier curve time input
-  int swing_iterations = (double(step.swing_period_) / step.period_) / (step.frequency_ * time_delta);
+  int swing_iterations = int((double(step.swing_period_) / step.period_) / (step.frequency_ * time_delta));
   swing_iterations = roundToEvenInt(swing_iterations); // Must be even
   swing_delta_t_ = 1.0 / (swing_iterations / 2.0);     // 1 sec divided by number of iterations for each bezier curve
 
   // Calculates number of iterations for stance period and time delta used for bezier curve time input
-  int stance_iterations = (double(modified_stance_period) / step.period_) / (step.frequency_ * time_delta);
+  int stance_iterations = int((double(modified_stance_period) / step.period_) / (step.frequency_ * time_delta));
   stance_delta_t_ = 1.0 / stance_iterations; // 1 second divided by number of iterations
 
   // Generate default target
@@ -1255,7 +1255,6 @@ void LegStepper::generatePrimarySwingControlNodes(void)
   swing_1_nodes_[2] = swing_origin_tip_position_ + 2.0 * stance_node_seperation;
   // Set for acceleration continuity at transition between swing curves (C2 Smoothness for symetric curves)
   swing_1_nodes_[3] = (mid_tip_position + swing_1_nodes_[2]) / 2.0;
-  swing_1_nodes_[3][1] = mid_tip_position[1];
   swing_1_nodes_[3][2] = mid_tip_position[2];
   // Set to default tip position so max swing height and transition to 2nd swing curve occurs at default tip position
   swing_1_nodes_[4] = mid_tip_position;

@@ -6,8 +6,8 @@
 // Author: Fletcher Talbot
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/syropod_highlevel_controller/pose_controller.h"
-#include "../include/syropod_highlevel_controller/walk_controller.h"
+#include "syropod_highlevel_controller/pose_controller.h"
+#include "syropod_highlevel_controller/walk_controller.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -621,7 +621,7 @@ int PoseController::packLegs(const double& time_to_pack) // Simultaneous leg coo
   {
     std::shared_ptr<Leg> leg = leg_it_->second;
     std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
-    number_pack_steps = model_->getLegByIDNumber(0)->getJointByIDNumber(1)->packed_positions_.size();
+    number_pack_steps = static_cast<int>(model_->getLegByIDNumber(0)->getJointByIDNumber(1)->packed_positions_.size());
     
     // Generate unpacked configuration
     if (!executing_transition_)
@@ -1415,7 +1415,7 @@ Pose AutoPoser::updatePose(int phase)
     }
 
     double delta_t = 1.0 / (num_iterations / 2.0);
-    int offset = (first_half ? 0 : num_iterations / 2.0); // Offsets iteration count for second half of posing cycle
+    int offset = static_cast<int>((first_half ? 0 : num_iterations / 2.0)); // Offsets iterations for 2nd half of cycle
     double time_input = (iteration - offset) * delta_t;
 
     Eigen::Vector3d position = quarticBezier(position_control_nodes, time_input);

@@ -6,17 +6,17 @@
 // Author: Fletcher Talbot
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/syropod_highlevel_controller/model.h"
-#include "../include/syropod_highlevel_controller/walk_controller.h"
-#include "../include/syropod_highlevel_controller/pose_controller.h"
-#include "../include/syropod_highlevel_controller/debug_visualiser.h"
+#include "syropod_highlevel_controller/model.h"
+#include "syropod_highlevel_controller/walk_controller.h"
+#include "syropod_highlevel_controller/pose_controller.h"
+#include "syropod_highlevel_controller/debug_visualiser.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Model::Model(const Parameters &params, std::shared_ptr<DebugVisualiser> debug_visualiser)
     : params_(params)
     , debug_visualiser_(debug_visualiser)
-    , leg_count_(params_.leg_id.data.size())
+    , leg_count_(static_cast<int>(params_.leg_id.data.size()))
     , time_delta_(params_.time_delta.data)
     , current_pose_(Pose::Identity())
     , default_pose_(Pose::Identity())
