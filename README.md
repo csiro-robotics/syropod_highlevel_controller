@@ -6,7 +6,9 @@ Syropod High-level controller for CSIRO multi-legged robots (Syropods) is a vers
 
 Current version: v0.5.11
 
-[![Gizmo Wizmo Zero](https://i.imgur.com/HCrmRDS.gif "CSIRO Syropods")](https://research.csiro.au/robotics/our-work/research-areas/legged-robots/)
+<p align="center">
+<a href="https://research.csiro.au/robotics/our-work/research-areas/legged-robots/"><img alt="Gizmo Wizmo Zero" align="center" width="500" src="https://i.imgur.com/HCrmRDS.gif"/></a>
+</p>
 
 ## Getting Started
 
@@ -16,7 +18,9 @@ Please refer to the readme in the launch folder of individual platforms for info
 
 Video overview of [OpenSHC](https://youtu.be/-E7-2UMP5XU):
 
-[![OpenSHC](https://i.imgur.com/Fp9MQe7.jpg "OpenSHC")](https://youtu.be/-E7-2UMP5XU)
+<p align="center">
+<a href="https://youtu.be/-E7-2UMP5XU"><img alt="OpenSHC" align="center" width="500" src="https://i.imgur.com/Fp9MQe7.jpg"/></a>
+</p>
 
 ### Requirements
 
@@ -43,7 +47,9 @@ If you use this work in an academic context, please cite the following publicati
 
 ## Features
 
-[![Bullet Syropod](https://i.imgur.com/cHAZ10Y.gif "Bullet Syropod")](https://research.csiro.au/robotics/our-work/research-areas/legged-robots/)
+<p align="center">
+<a href="https://research.csiro.au/robotics/our-work/research-areas/legged-robots/"><img alt="Bullet Syropod" align="center" width="500" src="https://i.imgur.com/cHAZ10Y.gif"/></a>
+</p>
 
 * Fully configurable for a variety of platform designs with differing physical characteristics, including up to eight legs each with up to 5 degrees of freedom.
 * Four dynamically switchable gait options (Wave, Amble, Ripple and Tripod) plus ability to easily design custom gaits. (see config/readme.md)
