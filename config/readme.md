@@ -1,4 +1,7 @@
 # Syropod Parameter File 
+
+[![Syropod Banner](https://i.imgur.com/QyMTwG3.jpg "CSIRO Robotics")](https://research.csiro.au/robotics/)
+
 *config/\*SYROPOD_NAME\*.yaml*
 
 ## Control Parameters:

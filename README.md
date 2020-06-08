@@ -2,9 +2,10 @@
 
 [![Syropod Banner](https://i.imgur.com/QyMTwG3.jpg "CSIRO Robotics")](https://research.csiro.au/robotics/)
 
-Syropod High-level controller for CSIRO multi-legged robots (Syropods) is a versatile high-level controller capable of generating gaits for quasi-static multilegged robots.
+[![Version](https://img.shields.io/badge/Current%20version-0.5.11-orange "Version")]() [![License](
+https://img.shields.io/badge/License-BSD%2FMIT-blue "License")](https://github.com/csiro-robotics/syropod_highlevel_controller/blob/feature/update_readme/LICENSE)
 
-Current version: v0.5.11
+Syropod High-level Controller (SHC) is a versatile controller capable of generating body poses and gaits for quasi-static multilegged robots.
 
 <p align="center">
 <a href="https://research.csiro.au/robotics/our-work/research-areas/legged-robots/"><img alt="Gizmo Wizmo Zero" align="center" width="500" src="https://i.imgur.com/HCrmRDS.gif"/></a>
@@ -43,7 +44,22 @@ catkin build
 
 ### Publications
 
-If you use this work in an academic context, please cite the following publication(s):
+The details of OpenSHC is published in the following article:
+
+*Benjamin Tam, Fletcher Talbot, Ryan Steindl, Alberto Elfes, and Navinda Kottege, "OpenSHC: A Versatile Multilegged Robot Controller", [arXiv:2006.04424](https://arxiv.org/abs/2006.04424) [cs.RO], June 2020*
+
+#### How to cite
+
+```bibtex
+@article{tam2020openshc,
+    title={OpenSHC: A Versatile Multilegged Robot Controller},
+    author={Benjamin Tam and Fletcher Talbot and Ryan Steindl and Alberto Elfes and Navinda Kottege},
+    year={2020},
+    eprint={2006.04424},
+    archivePrefix={arXiv},
+    primaryClass={cs.RO}
+}
+```
 
 ## Features
 
