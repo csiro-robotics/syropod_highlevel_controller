@@ -19,7 +19,7 @@ Please refer to the readme in the launch folder of individual platforms for info
 Video overview of [OpenSHC](https://youtu.be/-E7-2UMP5XU):
 
 <p align="center">
-<a href="https://youtu.be/-E7-2UMP5XU"><img alt="OpenSHC" align="center" width="500" src="https://i.imgur.com/Fp9MQe7.jpg"/></a>
+<a href="https://youtu.be/-E7-2UMP5XU"><img alt="OpenSHC" align="center" width="500" src="https://imgur.com/VBabLVr.jpg"/></a>
 </p>
 
 ### Requirements
@@ -232,6 +232,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release details.
 
 * Fletcher Talbot
 * Ryan Steindl
+* Thomas Molnar
 * Thomas Lowe
 * Oshada Jayasinghe
 * Navinda Kottege
@@ -242,4 +243,4 @@ This project is licensed under the CSIRO Open Source Software Licence Agreement 
 
 ## Issues
 
-Please report bugs using [Issue Tracker](https://github.com/csiro-robotics/syropod_remote/issues) or contact us via email [shc-support@csiro.au](mailto:shc-support@csiro.au).
+Please report bugs using [Issue Tracker](https://github.com/csiro-robotics/syropod_highlevel_controller/issues) or contact us via email [shc-support@csiro.au](mailto:shc-support@csiro.au).
