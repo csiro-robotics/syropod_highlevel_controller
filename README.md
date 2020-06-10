@@ -5,7 +5,7 @@
 [![Version](https://img.shields.io/badge/Current%20version-0.5.11-orange "Version")]() [![License](
 https://img.shields.io/badge/License-BSD%2FMIT-blue "License")](https://github.com/csiro-robotics/syropod_highlevel_controller/blob/feature/update_readme/LICENSE)
 
-Syropod High-level Controller (SHC) is a versatile controller capable of generating body poses and gaits for quasi-static multilegged robots.
+Syropod High-level Controller (SHC) is a versatile controller capable of generating body poses and gaits for quasi-static multilegged robots. This ROS package implemented in C++ can be easily deployed on legged robots with different sensor, leg and joint configurations. SHC is designed to generate foot tip trajectories for a given gait sequence, step clearance, step frequency and input body velocity. Input sensors such as IMU and joint effort feedback can be utilised by the controller to provide robust trajectories even in inclined and uneven terrain. SHC was developed at CSIRO’s Robotics and Autonomous Systems Group to support its ongoing legged robot locomotion research. It is now being released as an open-sourced package, along with tutorials, for the benefit of the wider community as OpenSHC. The banner image and the video clip below shows a number of CSIRO's legged robots running SHC.
 
 <p align="center">
 <a href="https://research.csiro.au/robotics/our-work/research-areas/legged-robots/"><img alt="Gizmo Wizmo Zero" align="center" width="500" src="https://i.imgur.com/HCrmRDS.gif"/></a>
@@ -13,9 +13,9 @@ Syropod High-level Controller (SHC) is a versatile controller capable of generat
 
 ## Getting Started
 
-If you haven't looked at the tutorials for using Syropod High-level Controller, see [SHC Tutorials](https://github.com/csiro-robotics/shc_tutorials).
+If you haven't looked at the tutorials for using OpenSHC, see [OpenSHC Tutorials](https://github.com/csiro-robotics/shc_tutorials).
 
-Please refer to the readme in the launch folder of individual platforms for information on setting up the platform for use with Syropod High-level Controller.
+Please refer to the readme in the launch folder of individual platforms for information on setting up the platform for use with OpenSHC.
 
 Video overview of [OpenSHC](https://youtu.be/-E7-2UMP5XU):
 
@@ -30,7 +30,7 @@ Video overview of [OpenSHC](https://youtu.be/-E7-2UMP5XU):
 
 ### Dependencies
 
-* syropod_highlevel_controller requires a robot specific configuration and launch repository such as [Bullet Syropod](https://github.com/csiro-robotics/bullet_syropod) to run. Please refer to that readme for more information.
+* OpenSHC requires a robot specific configuration and launch repository such as [Bullet Syropod](https://github.com/csiro-robotics/bullet_syropod) to run. Please refer to that readme for more information.
 
 ### Installation
 
