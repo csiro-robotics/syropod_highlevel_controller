@@ -16,8 +16,6 @@
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
-  <depend>dynamixel_msgs</depend>
-  <depend>dynamixel_controllers</depend>
   <depend>dynamic_reconfigure</depend>
 
   <build_depend>message_generation</build_depend>
