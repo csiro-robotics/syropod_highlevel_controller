@@ -11,6 +11,18 @@ Syropod High-level Controller (SHC) is a versatile controller capable of generat
 <a href="https://research.csiro.au/robotics/our-work/research-areas/legged-robots/"><img alt="Gizmo Wizmo Zero" align="center" width="500" src="https://i.imgur.com/HCrmRDS.gif"/></a>
 </p>
 
+## Table of Contents
+
+* [Getting Started](#Getting-Started)
+* [Features](#Features)
+* [Config Files](#Config-Files)
+* [Nodes](#Nodes)
+* [Changelog](#Changelog)
+* [Authors](#Authors)
+* [License](#License)
+* [Contributing](#Contributing)
+* [Issues](#Issues)
+
 ## Getting Started
 
 If you haven't looked at the tutorials for using OpenSHC, see [OpenSHC Tutorials](https://github.com/csiro-robotics/shc_tutorials).
@@ -256,6 +268,10 @@ See [CHANGELOG.md](CHANGELOG.md) for release details.
 ## License
 
 This project is licensed under the CSIRO Open Source Software Licence Agreement (variation of the BSD / MIT License) - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Thank you for being interested in contributing. We encourage the community to create new features and to fix bugs. If it is a new feature, please create a new issue via the [Issue Tracker](https://github.com/csiro-robotics/syropod_highlevel_controller/issues) and describe the intended feature so that we can discuss the implementation. Else, search for the existing issue and comment on your proposed work. Please fork the repo, work on your changes and then send a pull request.
 
 ## Issues
 
