@@ -16,6 +16,7 @@ syropod:
 
       pose_negation_phase_starts: {AR: 1, BR: 11, CR: 9, CL: 3, BL: 5, AL: 7}
       pose_negation_phase_ends:   {AR: 3, BR: 1, CR: 11, CL: 5, BL: 7, AL: 9}
+      negation_transition_ratio:  {AR: 0, BR: 0, CR:  0, CL: 0, BL: 0, AL: 0}
 
       roll_amplitudes:    [-0.015,  0.015,  0.015,  0.015, -0.015, -0.015]
       pitch_amplitudes:   [ 0.020, -0.020,  0.000,  0.020, -0.020,  0.000]
@@ -36,6 +37,7 @@ syropod:
 
       pose_negation_phase_starts: {AR: 1, BR: 3, CR: 1, CL: 3, BL: 1, AL: 3}
       pose_negation_phase_ends:   {AR: 3, BR: 1, CR: 3, CL: 1, BL: 3, AL: 1}
+      negation_transition_ratio:  {AR: 0, BR: 0, CR: 0, CL: 0, BL: 0, AL: 0}
 
       roll_amplitudes:    [-0.015, 0.015]
       pitch_amplitudes:   [0.000,  0.000]
@@ -56,6 +58,7 @@ syropod:
 
       pose_negation_phase_starts: {AR: 0, BR: 2, CR: 4, CL: 1, BL: 5, AL: 3}
       pose_negation_phase_ends:   {AR: 2, BR: 4, CR: 0, CL: 3, BL: 1, AL: 5}
+      negation_transition_ratio:  {AR: 0, BR: 0, CR: 0, CL: 0, BL: 0, AL: 0}
 
       roll_amplitudes:    [-0.015,  0.015, -0.015,  0.015, -0.015, 0.015]
       pitch_amplitudes:   [-0.020,  0.020,  0.000, -0.020,  0.020, 0.000]
@@ -76,6 +79,7 @@ syropod:
 
       pose_negation_phase_starts: {AR: 0, BR: 2, CR: 1, CL: 0, BL: 2, AL: 1}
       pose_negation_phase_ends:   {AR: 1, BR: 0, CR: 2, CL: 1, BL: 0, AL: 2}
+      negation_transition_ratio:  {AR: 0, BR: 0, CR: 0, CL: 0, BL: 0, AL: 0}
 
       roll_amplitudes:    [0.000, 0.000, 0.000]
       pitch_amplitudes:   [0.000, 0.000, 0.000]

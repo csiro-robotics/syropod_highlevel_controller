@@ -3,9 +3,9 @@
 <launch>
 	<include file="$(find syropod_remote)/launch/syropod_remote.launch" />
 	
-	<rosparam file="$(find default_syropod)/config/default.yaml" command="load"/>
-	<rosparam file="$(find default_syropod)/config/gait.yaml" command="load"/>
-	<rosparam file="$(find default_syropod)/config/auto_pose.yaml" command="load"/>
+	<rosparam file="$(find syropod_highlevel_controller)/config/default.yaml" command="load"/>
+	<rosparam file="$(find syropod_highlevel_controller)/config/gait.yaml" command="load"/>
+	<rosparam file="$(find syropod_highlevel_controller)/config/auto_pose.yaml" command="load"/>
 	
 	<node name="syropod_highlevel_controller" pkg="syropod_highlevel_controller" type="syropod_highlevel_controller_node" output="screen"/>
 	

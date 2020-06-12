@@ -22,30 +22,30 @@ syropod:
 ########################################################################################################################
     # Model parameters
     syropod_type: default
-    leg_id:   [AR, BR, CR, CL, BL, AL] # leg_id_name (clockwise from front right leg)
-    joint_id: [coxa, femur, tibia] # joint_id_name
-    link_id:  [base, coxa, femur, tibia] # link_id_name (always start with base) 
-    leg_DOF:  {AL: 3, AR: 3, BL: 3, BR: 3, CL: 3, CR: 3} # leg_id_name: degrees_of_freedom (num joints) 
+    leg_id:       [AR, BR, CR, CL, BL, AL] # leg_id_name (clockwise from front right leg)
+    joint_id:     [coxa, femur, tibia] # joint_id_name
+    link_id:      [base, coxa, femur, tibia] # link_id_name (always start with base) 
+    leg_DOF:      {AL: 3, AR: 3, BL: 3, BR: 3, CL: 3, CR: 3} # leg_id_name: degrees_of_freedom (num joints) 
 
     # Joint parameters:
-    AR_coxa_joint_parameters:  {min: -0.550, max:  0.550, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
-    AR_femur_joint_parameters: {min: -1.500, max:  1.500, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
-    AR_tibia_joint_parameters: {min: -2.355, max: -0.100, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
-    BR_coxa_joint_parameters:  {min: -0.550, max:  0.550, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
-    BR_femur_joint_parameters: {min: -1.500, max:  1.500, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
-    BR_tibia_joint_parameters: {min: -2.355, max: -0.100, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
-    CR_coxa_joint_parameters:  {min: -0.550, max:  0.550, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
-    CR_femur_joint_parameters: {min: -1.500, max:  1.500, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
-    CR_tibia_joint_parameters: {min: -2.355, max: -0.100, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
-    AL_coxa_joint_parameters:  {min: -0.550, max:  0.550, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
-    AL_femur_joint_parameters: {min: -1.500, max:  1.500, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
-    AL_tibia_joint_parameters: {min: -2.355, max: -0.100, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
-    BL_coxa_joint_parameters:  {min: -0.550, max:  0.550, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
-    BL_femur_joint_parameters: {min: -1.500, max:  1.500, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
-    BL_tibia_joint_parameters: {min: -2.355, max: -0.100, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
-    CL_coxa_joint_parameters:  {min: -0.550, max:  0.550, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
-    CL_femur_joint_parameters: {min: -1.500, max:  1.500, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
-    CL_tibia_joint_parameters: {min: -2.355, max: -0.100, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
+    AR_coxa_joint_parameters:  {min: -0.550, max:  0.550, offset:  0.000, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
+    AR_femur_joint_parameters: {min: -1.500, max:  1.500, offset:  0.000, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
+    AR_tibia_joint_parameters: {min: -2.355, max: -0.100, offset:  0.000, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
+    BR_coxa_joint_parameters:  {min: -0.550, max:  0.550, offset:  0.000, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
+    BR_femur_joint_parameters: {min: -1.500, max:  1.500, offset:  0.000, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
+    BR_tibia_joint_parameters: {min: -2.355, max: -0.100, offset:  0.000, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
+    CR_coxa_joint_parameters:  {min: -0.550, max:  0.550, offset:  0.000, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
+    CR_femur_joint_parameters: {min: -1.500, max:  1.500, offset:  0.000, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
+    CR_tibia_joint_parameters: {min: -2.355, max: -0.100, offset:  0.000, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
+    AL_coxa_joint_parameters:  {min: -0.550, max:  0.550, offset:  0.000, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
+    AL_femur_joint_parameters: {min: -1.500, max:  1.500, offset:  0.000, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
+    AL_tibia_joint_parameters: {min: -2.355, max: -0.100, offset:  0.000, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
+    BL_coxa_joint_parameters:  {min: -0.550, max:  0.550, offset:  0.000, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
+    BL_femur_joint_parameters: {min: -1.500, max:  1.500, offset:  0.000, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
+    BL_tibia_joint_parameters: {min: -2.355, max: -0.100, offset:  0.000, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
+    CL_coxa_joint_parameters:  {min: -0.550, max:  0.550, offset:  0.000, packed: -1.571, unpacked:  0.000, max_vel: 5.000}
+    CL_femur_joint_parameters: {min: -1.500, max:  1.500, offset:  0.000, packed:  1.900, unpacked:  0.785, max_vel: 5.000}
+    CL_tibia_joint_parameters: {min: -2.355, max: -0.100, offset:  0.000, packed:  1.200, unpacked: -1.138, max_vel: 5.000}
     
     # Link DH parameters: en.wikipedia.org/wiki/Denavit–Hartenberg_parameters
     AR_base_link_parameters:  {d:  0.000, theta: -0.523, r:  0.050, alpha:  0.000}
@@ -79,10 +79,12 @@ syropod:
 
 ########################################################################################################################
     # Walker parameters
-    gait_type: tripod_gait
+    gait_type:            tripod_gait
+    body_clearance:       0.100
     step_frequency:       {default:  1.000, min:  0.001, max:  2.000, step:  0.100} #Reconfigurable
-    step_clearance:       {default:  0.020, min:  0.010, max:  0.050, step:  0.005} #Reconfigurable
-    body_clearance:       {default:  0.100, min:  0.010, max:  0.150, step:  0.010} #Reconfigurable
+    swing_height:         {default:  0.020, min:  0.010, max:  0.050, step:  0.005} #Reconfigurable
+    swing_width:          {default:  0.000, min: -0.300, max:  0.300, step:  0.010} #Reconfigurable
+    step_depth:           {default:  0.000, min:  0.000, max:  0.000, step:  0.000} #Reconfigurable
     stance_span_modifier: {default:  0.000, min: -1.000, max:  1.000, step:  0.100} #Reconfigurable
 
     velocity_input_mode:       throttle #real
@@ -99,9 +101,11 @@ syropod:
     BL_stance_position: {x:  0.000, y:  0.150}
     AL_stance_position: {x:  0.130, y:  0.075}
 
-    gravity_aligned_tips: false
-    touchdown_threshold:  0.9
-    liftoff_threshold:    0.1
+    overlapping_walkspaces: false
+    force_normal_touchdown: false
+    gravity_aligned_tips:   false
+    touchdown_threshold:    0.9
+    liftoff_threshold:      0.1
 
 ########################################################################################################################
     # Poser parameters
