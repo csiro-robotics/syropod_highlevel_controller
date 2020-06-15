@@ -2,8 +2,8 @@
 
 [![Syropod Banner](https://i.imgur.com/QyMTwG3.jpg "CSIRO Robotics")](https://research.csiro.au/robotics/)
 
-[![Version](https://img.shields.io/badge/Current%20version-0.5.11-orange "Version")]() [![License](
-https://img.shields.io/badge/License-BSD%2FMIT-blue "License")](https://github.com/csiro-robotics/syropod_highlevel_controller/blob/feature/update_readme/LICENSE)
+[![Version](https://img.shields.io/badge/Current%20version-0.5.11-orange "Version")](https://github.com/csiro-robotics/syropod_highlevel_controller) [![License](
+https://img.shields.io/badge/License-BSD%2FMIT-blue "License")](https://github.com/csiro-robotics/syropod_highlevel_controller/blob/master/LICENSE)
 
 Syropod High-level Controller (SHC) is a versatile controller capable of generating body poses and gaits for quasi-static multilegged robots. This ROS package implemented in C++ can be easily deployed on legged robots with different sensor, leg and joint configurations. SHC is designed to generate foot tip trajectories for a given gait sequence, step clearance, step frequency and input body velocity. Input sensors such as IMU and joint effort feedback can be utilised by the controller to provide robust trajectories even in inclined and uneven terrain. SHC was developed at [CSIRO’s Robotics and Autonomous Systems Group](https://research.csiro.au/robotics/) to support its ongoing legged robot locomotion research. It is now being released as an open-sourced package, along with tutorials, for the benefit of the wider community as OpenSHC. The banner image and the video clip below shows a number of CSIRO's legged robots running SHC.
 
