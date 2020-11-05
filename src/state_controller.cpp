@@ -1563,7 +1563,6 @@ void StateController::imuCallback(const sensor_msgs::Imu &data)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_states)
 {
   bool get_effort_values = (joint_states.effort.size() != 0);
@@ -1575,18 +1574,22 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_s
     std::string joint_name = joint_states.name[i];
     std::string leg_name = joint_name.substr(0, joint_name.find("_"));
     std::shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
-    ROS_ASSERT(leg != NULL);
-    std::shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
-    ROS_ASSERT(joint != NULL);
-    joint->current_position_ = joint_states.position[i] - joint->offset_;
-    if (get_velocity_values)
+    if (leg != NULL)
     {
-      joint->current_velocity_ = joint_states.velocity[i];
-    }
-    if (get_effort_values)
-    {
-      joint->current_effort_ = joint_states.effort[i];
-      joint->desired_effort_ = joint->current_effort_; // HACK
+      std::shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
+      if (joint != NULL)
+      {
+        joint->current_position_ = joint_states.position[i] - joint->offset_;
+        if (get_velocity_values)
+        {
+          joint->current_velocity_ = joint_states.velocity[i];
+        }
+        if (get_effort_values)
+        {
+          joint->current_effort_ = joint_states.effort[i];
+          joint->desired_effort_ = joint->current_effort_; // HACK
+        }
+      }
     }
   }
 
@@ -1624,46 +1627,48 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     std::string tip_name = tip_states.name[i];
     std::string leg_name = tip_name.substr(0, tip_name.find("_"));
     std::shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
-    ROS_ASSERT(leg != NULL);
-    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    if (get_wrench_values)
+    if (leg != NULL)
     {
-      Eigen::Vector3d tip_force(tip_states.wrench[i].force.x,
-                                tip_states.wrench[i].force.y,
-                                tip_states.wrench[i].force.z);
-      Eigen::Vector3d tip_torque(tip_states.wrench[i].torque.x,
-                                 tip_states.wrench[i].torque.y,
-                                 tip_states.wrench[i].torque.z);
-      if (leg_stepper != NULL)
+      std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      if (get_wrench_values)
       {
-        leg_stepper->setTouchdownDetection(true);
+        Eigen::Vector3d tip_force(tip_states.wrench[i].force.x,
+                                  tip_states.wrench[i].force.y,
+                                  tip_states.wrench[i].force.z);
+        Eigen::Vector3d tip_torque(tip_states.wrench[i].torque.x,
+                                  tip_states.wrench[i].torque.y,
+                                  tip_states.wrench[i].torque.z);
+        if (leg_stepper != NULL)
+        {
+          leg_stepper->setTouchdownDetection(true);
+        }
+        leg->setTipForceMeasured(tip_force);
+        leg->setTipTorqueMeasured(tip_torque);
+        leg->touchdownDetection();
       }
-      leg->setTipForceMeasured(tip_force);
-      leg->setTipTorqueMeasured(tip_torque);
-      leg->touchdownDetection();
-    }
-    if (get_step_plane_values)
-    {
-      if (leg_stepper != NULL)
+      if (get_step_plane_values)
       {
-        leg_stepper->setTouchdownDetection(true);
-      }
-      if (tip_states.step_plane[i].z != UNASSIGNED_VALUE)
-      {
-        // From step plane representation calculate position and orientation of plane relative to tip frame
-        Eigen::Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
-        Eigen::Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
-        Eigen::Quaterniond step_plane_orientation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0, 0, 1.0),
-                                                                                       -step_plane_normal);
+        if (leg_stepper != NULL)
+        {
+          leg_stepper->setTouchdownDetection(true);
+        }
+        if (tip_states.step_plane[i].z != UNASSIGNED_VALUE)
+        {
+          // From step plane representation calculate position and orientation of plane relative to tip frame
+          Eigen::Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
+          Eigen::Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
+          Eigen::Quaterniond step_plane_orientation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0, 0, 1.0),
+                                                                                        -step_plane_normal);
 
-        // Transform into robot frame and store
-        Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));
-        leg->setStepPlanePose(step_plane_pose);
-      }
-      else
-      {
-        leg->setStepPlanePose(Pose::Undefined());
-        error_string += stringFormat("\nLost contact with tip range sensor/s of leg %s.\n", leg_name.c_str());
+          // Transform into robot frame and store
+          Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));
+          leg->setStepPlanePose(step_plane_pose);
+        }
+        else
+        {
+          leg->setStepPlanePose(Pose::Undefined());
+          error_string += stringFormat("\nLost contact with tip range sensor/s of leg %s.\n", leg_name.c_str());
+        }
       }
     }
   }
