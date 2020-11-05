@@ -65,44 +65,44 @@ StateController::StateController(void)
                                                  &StateController::parameterAdjustCallback, this);
 
   // Hexapod Leg Manipulation topic subscriptions
-  primary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/primary_tip_pose", 1,
+  primary_tip_pose_subscriber_ = n.subscribe("syropod_manipulation/primary_tip_pose", 1,
                                              &StateController::primaryTipPoseInputCallback, this);
-  secondary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/secondary_tip_pose", 1,
+  secondary_tip_pose_subscriber_ = n.subscribe("syropod_manipulation/secondary_tip_pose", 1,
                                                &StateController::secondaryTipPoseInputCallback, this);
 
   // Planner subscription/publisher
-  target_configuration_subscriber_ = n.subscribe("/target_configuration", 1,
+  target_configuration_subscriber_ = n.subscribe("target_configuration", 1,
                                                  &StateController::targetConfigurationCallback, this);
-  target_body_pose_subscriber_ = n.subscribe("/target_body_pose", 1,
+  target_body_pose_subscriber_ = n.subscribe("target_body_pose", 1,
                                              &StateController::targetBodyPoseCallback, this);
-  target_tip_pose_subscriber_ = n.subscribe("/target_tip_poses", 100,
+  target_tip_pose_subscriber_ = n.subscribe("target_tip_poses", 100,
                                             &StateController::targetTipPoseCallback, this);
-  plan_step_request_publisher_ = n.advertise<std_msgs::Int8>("/shc/plan_step_request", 1000);
+  plan_step_request_publisher_ = n.advertise<std_msgs::Int8>("shc/plan_step_request", 1000);
 
   // Motor and other sensor topic subscriptions
-  imu_data_subscriber_ = n.subscribe(params_.syropod_type.data + "/imu/data", 1, &StateController::imuCallback, this);
-  joint_state_subscriber_ = n.subscribe("/joint_states", 100, &StateController::jointStatesCallback, this);
-  tip_state_subscriber_ = n.subscribe("/tip_states", 1, &StateController::tipStatesCallback, this);
+  imu_data_subscriber_ = n.subscribe(params_.syropod_type.data + "imu/data", 1, &StateController::imuCallback, this);
+  joint_state_subscriber_ = n.subscribe("joint_states", 100, &StateController::jointStatesCallback, this);
+  tip_state_subscriber_ = n.subscribe("tip_states", 1, &StateController::tipStatesCallback, this);
 
   // Set up debugging publishers
-  velocity_publisher_ = n.advertise<geometry_msgs::Twist>("/shc/velocity", 1000);
-  pose_publisher_ = n.advertise<geometry_msgs::Twist>("/shc/pose", 1000);
-  walkspace_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/shc/walkspace", 1000);
-  rotation_pose_error_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/shc/rotation_pose_error", 1000);
+  velocity_publisher_ = n.advertise<geometry_msgs::Twist>("shc/velocity", 1000);
+  pose_publisher_ = n.advertise<geometry_msgs::Twist>("shc/pose", 1000);
+  walkspace_publisher_ = n.advertise<std_msgs::Float32MultiArray>("shc/walkspace", 1000);
+  rotation_pose_error_publisher_ = n.advertise<std_msgs::Float32MultiArray>("shc/rotation_pose_error", 1000);
 
   // Set up combined desired joint state publisher
   if (params_.combined_control_interface.data)
   {
-    desired_joint_state_publisher_ = n.advertise<sensor_msgs::JointState>("/desired_joint_states", 1);
+    desired_joint_state_publisher_ = n.advertise<sensor_msgs::JointState>("desired_joint_states", 1);
   }
 
   // Set up individual leg state and desired joint state publishers within leg objects
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     std::shared_ptr<Leg> leg = leg_it_->second;
-    std::string topic_name = "/shc/" + leg->getIDName() + "/state";
+    std::string topic_name = "shc/" + leg->getIDName() + "/state";
     leg->setStatePublisher(n.advertise<syropod_highlevel_controller::LegState>(topic_name, 1000));
-    leg->setASCStatePublisher(n.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); // TODO
+    leg->setASCStatePublisher(n.advertise<std_msgs::Bool>("leg_state_" + leg->getIDName() + "_bool", 1)); // TODO
     // If debugging in gazebo, setup joint command publishers
     if (params_.individual_control_interface.data)
     {
@@ -110,7 +110,7 @@ StateController::StateController(void)
       {
         std::shared_ptr<Joint> joint = joint_it_->second;
         joint->desired_position_publisher_ =
-          n.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
+          n.advertise<std_msgs::Float64>(joint->id_name_ + "/command", 1000);
       }
     }
   }
@@ -1961,7 +1961,7 @@ void StateController::initGaitParameters(const GaitDesignation &gait_selection)
       break;
   }
 
-  std::string base_gait_parameters_name = "/syropod/gait_parameters/";
+  std::string base_gait_parameters_name = "syropod/gait_parameters/";
   params_.stance_phase.init("stance_phase", base_gait_parameters_name + params_.gait_type.data + "/");
   params_.swing_phase.init("swing_phase", base_gait_parameters_name + params_.gait_type.data + "/");
   params_.phase_offset.init("phase_offset", base_gait_parameters_name + params_.gait_type.data + "/");
@@ -1972,7 +1972,7 @@ void StateController::initGaitParameters(const GaitDesignation &gait_selection)
 
 void StateController::initAutoPoseParameters(void)
 {
-  std::string base_auto_pose_parameters_name = "/syropod/auto_pose_parameters/";
+  std::string base_auto_pose_parameters_name = "syropod/auto_pose_parameters/";
   if (params_.auto_pose_type.data == "auto")
   {
     base_auto_pose_parameters_name += (params_.gait_type.data + "_pose/");

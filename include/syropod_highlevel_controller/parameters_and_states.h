@@ -200,7 +200,7 @@ public:
   /// @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
   /// @param[in] required_input Bool denoting if this parameter is required to be initialised
   inline void init(const std::string &name_input,
-                   const std::string &base_parameter_name = "/syropod/parameters/",
+                   const std::string &base_parameter_name = "syropod/parameters/",
                    const bool &required_input = true)
   {
     ros::NodeHandle n;
@@ -232,14 +232,14 @@ public:
   /// @param[in] base_parameter_name The base parameter name prepended to 'name_input' common to all parameters
   /// @param[in] required_input Bool denoting if this parameter is required to be initialised
   inline void init(const std::string& name_input,
-                   const std::string& base_parameter_name = "/syropod/parameters/",
+                   const std::string& base_parameter_name = "syropod/parameters/",
                    const bool& required_input = true)
   {
     ros::NodeHandle n;
     name = name_input;
     required = required_input;
     initialised = n.getParam(base_parameter_name + name_input, data);
-    ROS_ERROR_COND(!initialised && required_input, "Error reading parameter/s %s from rosparam."
+    ROS_ERROR_COND(!initialised && required_input, "Error reading parameter/s %s%s from rosparam."
                    " Check config file is loaded and type is correct\n", name.c_str());
 
     if (initialised)
@@ -324,7 +324,7 @@ struct Parameters
   Parameter<std::string> auto_pose_type;             ///< String denoting the default auto posing cycle type
   Parameter<bool> start_up_sequence;                 ///< Flag allowing execution of start up and shutdown sequences
   Parameter<double> time_to_start;                   ///< The time to complete a direct start up
-  
+
   Parameter<std::map<std::string, double>> rotation_pid_gains; ///< PID gains used in imu based automatic posing
   Parameter<std::map<std::string, double>> max_translation;    ///< The maximum allowable linear translation positions
   Parameter<double> max_translation_velocity;                  ///< The maximum allowable linear translation velocity
