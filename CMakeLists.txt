@@ -78,12 +78,12 @@ generate_dynamic_reconfigure_options(config/Dynamic.cfg)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS 
-    roscpp 
-    message_runtime 
-    std_msgs 
-    sensor_msgs 
-    geometry_msgs 
+  CATKIN_DEPENDS
+    roscpp
+    message_runtime
+    std_msgs
+    sensor_msgs
+    geometry_msgs
     dynamic_reconfigure
   DEPENDS
     Eigen3
@@ -100,7 +100,7 @@ configure_file(shc_config.in.h "${CMAKE_CURRENT_BINARY_DIR}/shc_config.h")
 ## Your package locations should be listed before other locations
 include_directories(
   include
-  ${catkin_INCLUDE_DIRS} 
+  ${catkin_INCLUDE_DIRS}
   SYSTEM
   ${Eigen3_INCLUDE_DIRS}
 )
@@ -153,7 +153,7 @@ add_executable(${PROJECT_NAME}_node include ${SOURCES} ${GENERATED_FILES})
 # ${PROJECT_NAME}_EXPORTED_TARGETS is only availabe because we have generated messages for this package.
 add_dependencies(${PROJECT_NAME}_node ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencfg)
 
- 
+
 # Add include directories to the target
 # For executables, all includes can be private (see set(SOURCES ...) above).
 target_include_directories(${PROJECT_NAME}_node
@@ -163,7 +163,7 @@ target_include_directories(${PROJECT_NAME}_node
     # Add parent directory to support include pattern: #include <project_dir/header.h>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/..>
   )
-  
+
 # Add catkin include directories and system include directories.
 # Always add ${catkin_INCLUDE_DIRS} with the SYSTEM argument
 # These dependenties should be private as much as possible.
@@ -171,7 +171,7 @@ target_include_directories(${PROJECT_NAME}_node SYSTEM
   PRIVATE
     "${catkin_INCLUDE_DIRS}"
   )
-  
+
 # Link dependencies.
 # Properly defined targets will also have their include directories and those of dependencies added by this command.
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES})
@@ -194,7 +194,11 @@ install(TARGETS ${PROJECT_NAME}_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   INCLUDES DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )
-
+# Header installation
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)
+# Config and Launch file installation
 install(DIRECTORY config launch rviz_cfg
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )

@@ -58,18 +58,20 @@ catkin build
 
 The details of OpenSHC is published in the following article:
 
-*Benjamin Tam, Fletcher Talbot, Ryan Steindl, Alberto Elfes, and Navinda Kottege, "OpenSHC: A Versatile Multilegged Robot Controller", [arXiv:2006.04424](https://arxiv.org/abs/2006.04424) [cs.RO], June 2020*
+*B. Tam, F. Talbot, R. Steindl, A. Elfes and N. Kottege, "OpenSHC: A Versatile Multilegged Robot Controller," in IEEE Access, vol. 8, pp. 188908-188926, 2020, doi: [10.1109/ACCESS.2020.3031019](https://doi.org/10.1109/ACCESS.2020.3031019).*
 
 #### How to cite
 
 ```bibtex
 @article{tam2020openshc,
-    title={OpenSHC: A Versatile Multilegged Robot Controller},
     author={Benjamin Tam and Fletcher Talbot and Ryan Steindl and Alberto Elfes and Navinda Kottege},
+    title={OpenSHC: A Versatile Multilegged Robot Controller},
+    journal={IEEE Access},
     year={2020},
-    eprint={2006.04424},
-    archivePrefix={arXiv},
-    primaryClass={cs.RO}
+    volume={8},
+    number={},
+    pages={188908-188926},
+    doi={10.1109/ACCESS.2020.3031019}
 }
 ```
 

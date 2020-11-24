@@ -67,44 +67,44 @@ StateController::StateController(void)
                                                  &StateController::parameterAdjustCallback, this);
 
   // Hexapod Leg Manipulation topic subscriptions
-  primary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/primary_tip_pose", 1,
+  primary_tip_pose_subscriber_ = n.subscribe("syropod_manipulation/primary_tip_pose", 1,
                                              &StateController::primaryTipPoseInputCallback, this);
-  secondary_tip_pose_subscriber_ = n.subscribe("/syropod_manipulation/secondary_tip_pose", 1,
+  secondary_tip_pose_subscriber_ = n.subscribe("syropod_manipulation/secondary_tip_pose", 1,
                                                &StateController::secondaryTipPoseInputCallback, this);
 
   // Planner subscription/publisher
-  target_configuration_subscriber_ = n.subscribe("/target_configuration", 1,
+  target_configuration_subscriber_ = n.subscribe("target_configuration", 1,
                                                  &StateController::targetConfigurationCallback, this);
-  target_body_pose_subscriber_ = n.subscribe("/target_body_pose", 1,
+  target_body_pose_subscriber_ = n.subscribe("target_body_pose", 1,
                                              &StateController::targetBodyPoseCallback, this);
-  target_tip_pose_subscriber_ = n.subscribe("/target_tip_poses", 100,
+  target_tip_pose_subscriber_ = n.subscribe("target_tip_poses", 100,
                                             &StateController::targetTipPoseCallback, this);
-  plan_step_request_publisher_ = n.advertise<std_msgs::Int8>("/shc/plan_step_request", 1000);
+  plan_step_request_publisher_ = n.advertise<std_msgs::Int8>("shc/plan_step_request", 1000);
 
   // Motor and other sensor topic subscriptions
-  imu_data_subscriber_ = n.subscribe(params_.syropod_type.data + "/imu/data", 1, &StateController::imuCallback, this);
-  joint_state_subscriber_ = n.subscribe("/joint_states", 100, &StateController::jointStatesCallback, this);
-  tip_state_subscriber_ = n.subscribe("/tip_states", 1, &StateController::tipStatesCallback, this);
+  imu_data_subscriber_ = n.subscribe("imu/data", 1, &StateController::imuCallback, this);
+  joint_state_subscriber_ = n.subscribe("joint_states", 100, &StateController::jointStatesCallback, this);
+  tip_state_subscriber_ = n.subscribe("tip_states", 1, &StateController::tipStatesCallback, this);
 
   // Set up debugging publishers
-  velocity_publisher_ = n.advertise<geometry_msgs::Twist>("/shc/velocity", 1000);
-  pose_publisher_ = n.advertise<geometry_msgs::Twist>("/shc/pose", 1000);
-  walkspace_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/shc/walkspace", 1000);
-  rotation_pose_error_publisher_ = n.advertise<std_msgs::Float32MultiArray>("/shc/rotation_pose_error", 1000);
+  velocity_publisher_ = n.advertise<geometry_msgs::Twist>("shc/velocity", 1000);
+  pose_publisher_ = n.advertise<geometry_msgs::Twist>("shc/pose", 1000);
+  walkspace_publisher_ = n.advertise<std_msgs::Float32MultiArray>("shc/walkspace", 1000);
+  rotation_pose_error_publisher_ = n.advertise<std_msgs::Float32MultiArray>("shc/rotation_pose_error", 1000);
 
   // Set up combined desired joint state publisher
   if (params_.combined_control_interface.data)
   {
-    desired_joint_state_publisher_ = n.advertise<sensor_msgs::JointState>("/desired_joint_states", 1);
+    desired_joint_state_publisher_ = n.advertise<sensor_msgs::JointState>("desired_joint_states", 1);
   }
 
   // Set up individual leg state and desired joint state publishers within leg objects
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
     std::shared_ptr<Leg> leg = leg_it_->second;
-    std::string topic_name = "/shc/" + leg->getIDName() + "/state";
+    std::string topic_name = "shc/" + leg->getIDName() + "/state";
     leg->setStatePublisher(n.advertise<syropod_highlevel_controller::LegState>(topic_name, 1000));
-    leg->setASCStatePublisher(n.advertise<std_msgs::Bool>("/leg_state_" + leg->getIDName() + "_bool", 1)); // TODO
+    leg->setASCStatePublisher(n.advertise<std_msgs::Bool>("leg_state_" + leg->getIDName() + "_bool", 1)); // TODO
     // If debugging in gazebo, setup joint command publishers
     if (params_.individual_control_interface.data)
     {
@@ -112,7 +112,7 @@ StateController::StateController(void)
       {
         std::shared_ptr<Joint> joint = joint_it_->second;
         joint->desired_position_publisher_ =
-          n.advertise<std_msgs::Float64>("/syropod/" + joint->id_name_ + "/command", 1000);
+          n.advertise<std_msgs::Float64>(joint->id_name_ + "/command", 1000);
       }
     }
   }
@@ -151,7 +151,7 @@ void StateController::init(void)
   walker_->init();
   poser_ = std::allocate_shared<PoseController>(Eigen::aligned_allocator<PoseController>(), model_, params_);
   poser_->init();
-  admittance_ = 
+  admittance_ =
     std::allocate_shared<AdmittanceController>(Eigen::aligned_allocator<AdmittanceController>(), model_, params_);
 
   robot_state_ = UNKNOWN;
@@ -381,7 +381,7 @@ void StateController::transitionRobotState(void)
 void StateController::runningState(void)
 {
   bool update_tip_position = true;
-  
+
   // Force Syropod to stop walking
   if (transition_state_flag_)
   {
@@ -413,7 +413,7 @@ void StateController::runningState(void)
     linear_velocity_input_ = linear_cruise_velocity_;
     angular_velocity_input_ = angular_cruise_velocity_;
   }
-  
+
   // Dynamically adjust parameters and change stance if required
   if (parameter_adjust_flag_)
   {
@@ -421,9 +421,9 @@ void StateController::runningState(void)
   }
 
   // Set true if already true or if walk state not STOPPED
-  update_tip_position = update_tip_position || walker_->getWalkState() != STOPPED; 
+  update_tip_position = update_tip_position || walker_->getWalkState() != STOPPED;
 
-  // Update tip positions unless Syropod is undergoing state transition, gait switch, parameter adjustment or 
+  // Update tip positions unless Syropod is undergoing state transition, gait switch, parameter adjustment or
   // leg state transition (which all only occur once the Syropod has stopped walking)
   if (update_tip_position)
   {
@@ -442,7 +442,7 @@ void StateController::runningState(void)
 
     // Pose controller takes current tip positions from walker and applies body posing
     poser_->updateStance();
-    
+
     // Model takes desired tip poses from pose controller and applies inverse/forwards kinematics
     model_->updateModel();
   }
@@ -464,11 +464,11 @@ void StateController::adjustParameter(void)
     walker_->generateLimits(new_step_cycle, &max_linear_speed_map, &max_angular_speed_map);
     walker_->setLinearSpeedLimitMap(max_linear_speed_map);
     walker_->setAngularSpeedLimitMap(max_angular_speed_map);
-    double max_linear_speed = 
+    double max_linear_speed =
       walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_linear_speed_map);
-    double max_angular_speed = 
+    double max_angular_speed =
       walker_->getLimit(linear_velocity_input_, angular_velocity_input_, max_angular_speed_map);
-    
+
     // Generate target velocities to achieve before changing step frequency
     Eigen::Vector2d target_linear_velocity;
     double target_angular_velocity;
@@ -485,9 +485,9 @@ void StateController::adjustParameter(void)
       target_linear_velocity = clamped(linear_velocity_input_, max_linear_speed);
       target_angular_velocity = clamped(angular_velocity_input_, -max_angular_speed, max_angular_speed);
     }
-    
+
     // Set new parameter once within new limits
-    if (walker_->getDesiredLinearVelocity()[0] <= target_linear_velocity[0] && 
+    if (walker_->getDesiredLinearVelocity()[0] <= target_linear_velocity[0] &&
         walker_->getDesiredLinearVelocity()[1] <= target_linear_velocity[1] &&
         abs(walker_->getDesiredAngularVelocity()) <= abs(target_angular_velocity))
     {
@@ -501,7 +501,7 @@ void StateController::adjustParameter(void)
                         "\n[SHC] Slowing to safe speed before setting new parameter '%s'\n", p->name.c_str());
     }
   }
-  
+
   if (set_new_parameter)
   {
     parameter_adjust_flag_ = false;
@@ -657,7 +657,7 @@ void StateController::executePlan(void)
   if (walker_->getWalkState() == STOPPED)
   {
     int progress;
-    
+
     // Publish request for step N of plan
     if (!target_configuration_acquired_ && !target_tip_pose_acquired_ && !target_body_pose_acquired_)
     {
@@ -711,7 +711,7 @@ void StateController::generateExternalTargetTransforms(void)
     std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
     std::shared_ptr<LegPoser> leg_poser = leg->getLegPoser();
     ExternalTarget external_target;
-    
+
     // External target transform
     external_target = leg_stepper->getExternalTarget();
     if (external_target.defined_)
@@ -721,17 +721,17 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = 
+        target_transform =
           transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_stepper->setExternalTarget(external_target);
       }
-      catch (tf2::TransformException &ex) 
+      catch (tf2::TransformException &ex)
       {
         ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
       }
     }
-    
+
     // External default transform
     external_target = leg_stepper->getExternalDefault();
     if (external_target.defined_)
@@ -741,17 +741,17 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped default_transform;
-        default_transform = 
+        default_transform =
           transform_buffer_.lookupTransform(frame_id, past, "walk_plane", ros::Time(0), fixed_frame_id_);
         external_target.transform_ = Pose(default_transform.transform);
         leg_stepper->setExternalDefault(external_target);
       }
-      catch (tf2::TransformException &ex) 
+      catch (tf2::TransformException &ex)
       {
         ROS_DEBUG("\n[SHC] Unable to look up external default transform -- (%s)\n",ex.what());
       }
     }
-    
+
     // External target transform for planner mode
     external_target = leg_poser->getExternalTarget();
     if (external_target.defined_)
@@ -761,12 +761,12 @@ void StateController::generateExternalTargetTransforms(void)
       try
       {
         geometry_msgs::TransformStamped target_transform;
-        target_transform = 
+        target_transform =
           transform_buffer_.lookupTransform("base_link", ros::Time(0), frame_id, past, fixed_frame_id_);
         external_target.transform_ = Pose(target_transform.transform);
         leg_poser->setExternalTarget(external_target);
       }
-      catch (tf2::TransformException &ex) 
+      catch (tf2::TransformException &ex)
       {
         ROS_DEBUG("\n[SHC] Unable to look up external target transform -- (%s)\n",ex.what());
       }
@@ -787,7 +787,7 @@ void StateController::publishDesiredJointState(void)
     {
       leg->generateDesiredJointStateMsg(&joint_state_msg);
     }
-    
+
     if (params_.individual_control_interface.data)
     {
       for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
@@ -824,19 +824,19 @@ void StateController::publishLegState(void)
     msg.walker_tip_pose.header.stamp = ros::Time::now();
     msg.walker_tip_pose.header.frame_id = "walk_plane";
     msg.walker_tip_pose.pose = leg_stepper->getCurrentTipPose().toPoseMessage();
-    
+
     msg.target_tip_pose.header.stamp = ros::Time::now();
     msg.target_tip_pose.header.frame_id = "walk_plane";
     msg.target_tip_pose.pose = leg_stepper->getTargetTipPose().toPoseMessage();
-    
+
     msg.poser_tip_pose.header.stamp = ros::Time::now();
     msg.poser_tip_pose.header.frame_id = "base_link";
     msg.poser_tip_pose.pose = leg_poser->getCurrentTipPose().toPoseMessage();
-    
+
     msg.model_tip_pose.header.stamp = ros::Time::now();
     msg.model_tip_pose.header.frame_id = "base_link";
     msg.model_tip_pose.pose = leg->getCurrentTipPose().toPoseMessage();
-    
+
     msg.actual_tip_pose.header.stamp = ros::Time::now();
     msg.actual_tip_pose.header.frame_id = "base_link";
     msg.actual_tip_pose.pose = leg->applyFK(false, true).toPoseMessage();
@@ -937,7 +937,7 @@ void StateController::publishWalkspace(void)
     {
       msg.data.push_back(static_cast<float>(walkspace_it->second));
     }
-    
+
     walkspace_publisher_.publish(msg);
   }
 }
@@ -967,17 +967,17 @@ void StateController::publishFrameTransforms(void)
   Pose odom_ideal_to_walk_plane = walker_->getOdometryIdeal();
   Pose walk_plane_to_base_link = model_->getCurrentPose();
   Pose odom_ideal_to_base_link = odom_ideal_to_walk_plane.addPose(walk_plane_to_base_link);
-  
+
   // Broadcast ideal odom tf, if odom tf from perception does not exist on tf tree
   try
   {
     fixed_frame_id_ = "odom";
     transform_buffer_.lookupTransform("base_link", "odom", ros::Time(0));
   }
-  catch (tf2::TransformException &ex) 
+  catch (tf2::TransformException &ex)
   {
     ROS_WARN_ONCE("\n[SHC] No odom transform exists in tf tree - using ideal odometry\n");
-    
+
     fixed_frame_id_ = "odom_ideal";
     geometry_msgs::TransformStamped odom_to_base_link;
     odom_to_base_link.header.stamp = ros::Time::now();
@@ -992,7 +992,7 @@ void StateController::publishFrameTransforms(void)
     odom_to_base_link.transform.rotation.z = odom_ideal_to_base_link.rotation_.z();
     transform_broadcaster_.sendTransform(odom_to_base_link);
   }
-  
+
   // Base Link frame to Walk Plane frame transform
   geometry_msgs::TransformStamped base_link_to_walk_plane;
   base_link_to_walk_plane.header.stamp = ros::Time::now();
@@ -1006,7 +1006,7 @@ void StateController::publishFrameTransforms(void)
   base_link_to_walk_plane.transform.rotation.y = (~walk_plane_to_base_link).rotation_.y();
   base_link_to_walk_plane.transform.rotation.z = (~walk_plane_to_base_link).rotation_.z();
   transform_broadcaster_.sendTransform(base_link_to_walk_plane);
-  
+
   // Base Link frame to Joint/Tip frames
   for (leg_it_ = model_->getLegContainer()->begin(); leg_it_ != model_->getLegContainer()->end(); ++leg_it_)
   {
@@ -1022,7 +1022,7 @@ void StateController::publishFrameTransforms(void)
       base_link_to_joint.transform.translation.x = joint_robot_frame.position_[0];
       base_link_to_joint.transform.translation.y = joint_robot_frame.position_[1];
       base_link_to_joint.transform.translation.z = joint_robot_frame.position_[2];
-      Eigen::Quaterniond rotation = 
+      Eigen::Quaterniond rotation =
         joint_robot_frame.rotation_ * Eigen::AngleAxisd(joint->desired_position_, Eigen::Vector3d::UnitZ());
       base_link_to_joint.transform.rotation.w = rotation.w();
       base_link_to_joint.transform.rotation.x = rotation.x();
@@ -1598,7 +1598,6 @@ void StateController::imuCallback(const sensor_msgs::Imu &data)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_states)
 {
   bool get_effort_values = (joint_states.effort.size() != 0);
@@ -1610,18 +1609,22 @@ void StateController::jointStatesCallback(const sensor_msgs::JointState &joint_s
     std::string joint_name = joint_states.name[i];
     std::string leg_name = joint_name.substr(0, joint_name.find("_"));
     std::shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
-    ROS_ASSERT(leg != NULL);
-    std::shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
-    ROS_ASSERT(joint != NULL);
-    joint->current_position_ = joint_states.position[i] - joint->offset_;
-    if (get_velocity_values)
+    if (leg != NULL)
     {
-      joint->current_velocity_ = joint_states.velocity[i];
-    }
-    if (get_effort_values)
-    {
-      joint->current_effort_ = joint_states.effort[i];
-      joint->desired_effort_ = joint->current_effort_; // HACK
+      std::shared_ptr<Joint> joint = leg->getJointByIDName(joint_name);
+      if (joint != NULL)
+      {
+        joint->current_position_ = joint_states.position[i] - joint->offset_;
+        if (get_velocity_values)
+        {
+          joint->current_velocity_ = joint_states.velocity[i];
+        }
+        if (get_effort_values)
+        {
+          joint->current_effort_ = joint_states.effort[i];
+          joint->desired_effort_ = joint->current_effort_; // HACK
+        }
+      }
     }
   }
 
@@ -1651,7 +1654,7 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
 {
   bool get_wrench_values = tip_states.wrench.size() > 0;
   bool get_step_plane_values = tip_states.step_plane.size() > 0;
-  
+
   // Iterate through message and assign found contact proximity value to leg objects
   std::string error_string;
   for (uint i = 0; i < tip_states.name.size(); ++i)
@@ -1659,46 +1662,48 @@ void StateController::tipStatesCallback(const syropod_highlevel_controller::TipS
     std::string tip_name = tip_states.name[i];
     std::string leg_name = tip_name.substr(0, tip_name.find("_"));
     std::shared_ptr<Leg> leg = model_->getLegByIDName(leg_name);
-    ROS_ASSERT(leg != NULL);
-    std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
-    if (get_wrench_values)
+    if (leg != NULL)
     {
-      Eigen::Vector3d tip_force(tip_states.wrench[i].force.x,
-                                tip_states.wrench[i].force.y,
-                                tip_states.wrench[i].force.z);
-      Eigen::Vector3d tip_torque(tip_states.wrench[i].torque.x,
-                                 tip_states.wrench[i].torque.y,
-                                 tip_states.wrench[i].torque.z);
-      if (leg_stepper != NULL)
+      std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
+      if (get_wrench_values)
       {
-        leg_stepper->setTouchdownDetection(true);
+        Eigen::Vector3d tip_force(tip_states.wrench[i].force.x,
+                                  tip_states.wrench[i].force.y,
+                                  tip_states.wrench[i].force.z);
+        Eigen::Vector3d tip_torque(tip_states.wrench[i].torque.x,
+                                  tip_states.wrench[i].torque.y,
+                                  tip_states.wrench[i].torque.z);
+        if (leg_stepper != NULL)
+        {
+          leg_stepper->setTouchdownDetection(true);
+        }
+        leg->setTipForceMeasured(tip_force);
+        leg->setTipTorqueMeasured(tip_torque);
+        leg->touchdownDetection();
       }
-      leg->setTipForceMeasured(tip_force);
-      leg->setTipTorqueMeasured(tip_torque);
-      leg->touchdownDetection();
-    }
-    if (get_step_plane_values)
-    {
-      if (leg_stepper != NULL)
+      if (get_step_plane_values)
       {
-        leg_stepper->setTouchdownDetection(true);
-      }
-      if (tip_states.step_plane[i].z != UNASSIGNED_VALUE)
-      {
-        // From step plane representation calculate position and orientation of plane relative to tip frame
-        Eigen::Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
-        Eigen::Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
-        Eigen::Quaterniond step_plane_orientation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0, 0, 1.0),
-                                                                                       -step_plane_normal);
+        if (leg_stepper != NULL)
+        {
+          leg_stepper->setTouchdownDetection(true);
+        }
+        if (tip_states.step_plane[i].z != UNASSIGNED_VALUE)
+        {
+          // From step plane representation calculate position and orientation of plane relative to tip frame
+          Eigen::Vector3d step_plane_position(tip_states.step_plane[i].z, 0.0, 0.0);
+          Eigen::Vector3d step_plane_normal(tip_states.step_plane[i].x, tip_states.step_plane[i].y, -1.0);
+          Eigen::Quaterniond step_plane_orientation = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d(0, 0, 1.0),
+                                                                                        -step_plane_normal);
 
-        // Transform into robot frame and store
-        Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));
-        leg->setStepPlanePose(step_plane_pose); 
-      }
-      else
-      {
-        leg->setStepPlanePose(Pose::Undefined()); 
-        error_string += stringFormat("\nLost contact with tip range sensor/s of leg %s.\n", leg_name.c_str());
+          // Transform into robot frame and store
+          Pose step_plane_pose = leg->getTip()->getPoseRobotFrame(Pose(step_plane_position, step_plane_orientation));
+          leg->setStepPlanePose(step_plane_pose);
+        }
+        else
+        {
+          leg->setStepPlanePose(Pose::Undefined());
+          error_string += stringFormat("\nLost contact with tip range sensor/s of leg %s.\n", leg_name.c_str());
+        }
       }
     }
   }
@@ -1715,7 +1720,7 @@ void StateController::targetConfigurationCallback(const sensor_msgs::JointState 
   poser_->setTargetConfiguration(target_configuration);
   target_configuration_acquired_ = true;
 }
-  
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::targetBodyPoseCallback(const geometry_msgs::Pose &target_body_pose)
@@ -1749,7 +1754,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
         {
           bool is_external_target = !msg.target.empty() && Pose(msg.target[i].pose) != Pose::Undefined();
           bool is_external_default = !msg.stance.empty() && Pose(msg.stance[i].pose) != Pose::Undefined();
-          
+
           // Create external target from message and send to walk/pose controller depending on walk state
           if (is_external_target)
           {
@@ -1771,7 +1776,7 @@ void StateController::targetTipPoseCallback(const syropod_highlevel_controller::
               target_tip_pose_acquired_ = true;
             }
           }
-          
+
           // Create external default from message and send to walk/ controller if walking
           if (is_external_default && walker_->getWalkState() != STOPPED)
           {
@@ -1991,7 +1996,7 @@ void StateController::initGaitParameters(const GaitDesignation &gait_selection)
       break;
   }
 
-  std::string base_gait_parameters_name = "/syropod/gait_parameters/";
+  std::string base_gait_parameters_name = "syropod/gait_parameters/";
   params_.stance_phase.init("stance_phase", base_gait_parameters_name + params_.gait_type.data + "/");
   params_.swing_phase.init("swing_phase", base_gait_parameters_name + params_.gait_type.data + "/");
   params_.phase_offset.init("phase_offset", base_gait_parameters_name + params_.gait_type.data + "/");
@@ -2002,7 +2007,7 @@ void StateController::initGaitParameters(const GaitDesignation &gait_selection)
 
 void StateController::initAutoPoseParameters(void)
 {
-  std::string base_auto_pose_parameters_name = "/syropod/auto_pose_parameters/";
+  std::string base_auto_pose_parameters_name = "syropod/auto_pose_parameters/";
   if (params_.auto_pose_type.data == "auto")
   {
     base_auto_pose_parameters_name += (params_.gait_type.data + "_pose/");
