@@ -4,10 +4,10 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Bezier Curves1/Status1
+        - /Global Options1
         - /Workspace1/Namespaces1
       Splitter Ratio: 0.5
-    Tree Height: 1796
+    Tree Height: 346
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -69,216 +69,27 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
-      Enabled: true
+      Enabled: false
       Links:
-        AL_basem_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AL_coxa_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AL_coxat_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AL_femur_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AL_tarsus_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AL_tibia_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AR_basem_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AR_coxa_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AR_coxat_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AR_femur_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AR_tarsus_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        AR_tibia_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
         All Links Enabled: true
-        BL_basem_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BL_coxa_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BL_coxat_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BL_femur_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BL_tarsus_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BL_tibia_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BR_basem_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BR_coxa_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BR_coxat_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BR_femur_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BR_tarsus_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        BR_tibia_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CL_basem_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CL_coxa_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CL_coxat_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CL_femur_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CL_tarsus_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CL_tibia_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CR_basem_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CR_coxa_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CR_coxat_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CR_femur_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CR_tarsus_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        CR_tibia_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        dummy_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
       Name: RobotModel
       Robot Description: robot_description
       TF Prefix: ""
       Update Interval: 0
-      Value: true
+      Value: false
       Visual Enabled: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /shc/debug/robot_model
       Name: Model
       Namespaces:
-        {}
+        robot_model: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /shc/debug/joint_torque
@@ -308,7 +119,9 @@ Visualization Manager:
       Marker Topic: /shc/debug/bezier_curves
       Name: Bezier Curves
       Namespaces:
-        {}
+        primary_swing_control_nodes: true
+        secondary_swing_control_nodes: true
+        stance_control_nodes: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -320,13 +133,18 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: false
+      Enabled: true
       Marker Topic: /shc/debug/workspace
       Name: Workspace
       Namespaces:
-        {}
+        AL_workspace_markers: true
+        AR_workspace_markers: true
+        BL_workspace_markers: true
+        BR_workspace_markers: true
+        CL_workspace_markers: true
+        CR_workspace_markers: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /shc/debug/default_tip_positions
@@ -369,7 +187,7 @@ Visualization Manager:
       Value: false
   Enabled: true
   Global Options:
-    Background Color: 48; 48; 48
+    Background Color: 235; 235; 235
     Default Light: true
     Fixed Frame: odom_ideal
     Frame Rate: 30
@@ -395,7 +213,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.4596679210662842
+      Distance: 2
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -410,10 +228,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.45479816198349
+      Pitch: 0.5235999822616577
       Target Frame: walk_plane
       Value: Orbit (rviz)
-      Yaw: 5.195681095123291
+      Yaw: 0.7853981852531433
     Saved:
       - Class: rviz/Orbit
         Distance: 2
@@ -455,13 +273,28 @@ Visualization Manager:
         Target Frame: walk_plane
         Value: Orbit (rviz)
         Yaw: 0.7853981852531433
+      - Angle: 0
+        Class: rviz/TopDownOrtho
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.05999999865889549
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
+        Invert Z Axis: false
+        Name: TopDownOrtho
+        Near Clip Distance: 0.009999999776482582
+        Scale: 1973.822509765625
+        Target Frame: walk_plane
+        Value: TopDownOrtho (rviz)
+        X: 0
+        Y: 0
 Window Geometry:
   Displays:
     collapsed: true
   Height: 2096
   Hide Left Dock: true
   Hide Right Dock: true
-  QMainWindow State: 000000ff00000000fd000000040000000000000389000007abfc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000005b000007ab000000ef00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c000002610000000100000110000003b0fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000044000003b0000000d400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000003bc0000004cfc0100000002fb0000000800540069006d00650000000000000003bc0000043e00fffffffb0000000800540069006d0065010000000000000450000000000000000000000f00000007ab00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd000000040000000000000389000007abfc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000005b000007ab000000ef00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c000002610000000100000152000007abfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000005b000007ab000000d400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000003bc0000004cfc0100000002fb0000000800540069006d00650000000000000003bc0000043e00fffffffb0000000800540069006d0065010000000000000450000000000000000000000f00000007ab00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -469,7 +302,7 @@ Window Geometry:
   Tool Properties:
     collapsed: false
   Views:
-    collapsed: false
+    collapsed: true
   Width: 3840
   X: 0
   Y: 0

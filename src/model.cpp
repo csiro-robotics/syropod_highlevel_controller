@@ -498,7 +498,7 @@ Workspace Leg::generateWorkspace(void)
       std::shared_ptr<DebugVisualiser> debug = model_->getDebugVisualiser();
       debug->generateRobotModel(model_);
       debug->generateWorkspace(shared_from_this(), params_.body_clearance.data);
-      ros::Rate r(100);
+      ros::Rate r(500);
       ros::spinOnce();
       r.sleep();
     }

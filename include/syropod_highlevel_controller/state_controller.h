@@ -55,6 +55,10 @@ public:
   /// @return Current state of the system
   inline SystemState getSystemState(void) { return system_state_; };
 
+  /// Accessor for deadman state.
+  /// @return Current deadman state
+  inline bool getDeadman(void) { return deadman_; };
+
   /// Returns true if all joint objects in model have been initialised with a current position.
   /// @return Flag denoting whether all joint objects in model have been initialised with a current position
   inline bool jointPositionsInitialised(void) { return joint_positions_initialised_; };
@@ -148,6 +152,11 @@ public:
   /// @see parameters_and_states.h
   void systemStateCallback(const std_msgs::Int8 &input);
 
+  /// Callback handling the deadman state.
+  /// @param[in] input The Bool standard message provided by the subscribed ros topic "syropod_remote/deadman_secondary"
+  /// @see parameters_and_states.h
+  void deadmanCallback(const std_msgs::Bool &input);
+
   /// Callback handling the desired robot state.
   /// @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/robot_state"
   /// @see parameters_and_states.h
@@ -220,12 +229,12 @@ public:
   /// Callback for the input manual tip pose (in cartesian space) for the primary selected leg. 
   /// @param[in] input The Pose geometry message provided by the subscribed topic
   /// "/syropod_manipulation/primary_tip_pose"
-  void  primaryTipPoseInputCallback(const geometry_msgs::Pose &msg);
+  void primaryTipPoseInputCallback(const geometry_msgs::Pose &msg);
 
   /// Callback for the input manual tip pose (in cartesian space) for the secondary selected leg. 
   /// @param[in] input The Pose geometry message provided by the subscribed topic
   /// "/syropod_manipulation/secondary_tip_pose"
-  void  secondaryTipPoseInputCallback(const geometry_msgs::Pose &msg);
+  void secondaryTipPoseInputCallback(const geometry_msgs::Pose &msg);
 
   /// Callback handling the desired parameter selection and sending state messages to user interface.
   /// @param[in] input The Int8 standard message provided by the subscribed topic "syropod_remote/parameter_selection"
@@ -273,6 +282,7 @@ public:
 
 private:
   ros::Subscriber system_state_subscriber_;            ///< Subscriber for topic /syropod_remote/system_state
+  ros::Subscriber deadman_subscriber_;                 ///< Subscriber for topic /syropod_remote/deadman_secondary
   ros::Subscriber robot_state_subscriber_;             ///< Subscriber for topic /syropod_remote/robot_state
   ros::Subscriber desired_velocity_subscriber_;        ///< Subscriber for topic /syropod_remote/desired_velocity
   ros::Subscriber desired_pose_subscriber_;            ///< Subscriber for topic /syropod_remote/desired_pose
@@ -323,7 +333,8 @@ private:
   DebugVisualiser debug_visualiser_;                 ///< Debug class object used for RVIZ visualization
   Parameters params_;                                ///< Parameter data structure for storing parameter variables
 
-   bool initialised_ = false; ///< Flags if the state controller has initialised
+  bool initialised_ = false; ///< Flags if the state controller has initialised
+  bool deadman_ = false;     ///< Flag denoting whether the state controller is enabled via deadman user input
 
   SystemState system_state_ = SUSPENDED;     ///< Current state of the entire high-level controller system
   SystemState new_system_state_ = SUSPENDED; ///< Desired state of the entire high_level controller system

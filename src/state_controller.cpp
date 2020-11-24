@@ -31,6 +31,8 @@ StateController::StateController(void)
   // Hexapod Remote topic subscriptions
   system_state_subscriber_ = n.subscribe("syropod_remote/system_state", 1,
                                          &StateController::systemStateCallback, this);
+  deadman_subscriber_ = n.subscribe("syropod_remote/deadman_secondary", 1,
+                                    &StateController::deadmanCallback, this);
   robot_state_subscriber_ = n.subscribe("syropod_remote/robot_state", 1,
                                         &StateController::robotStateCallback, this);
   desired_velocity_subscriber_ = n.subscribe("syropod_remote/desired_velocity", 1,
@@ -125,7 +127,7 @@ StateController::~StateController(void)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::init(void)
-{  
+{
   // Set initial gait selection number for gait toggling
   if (params_.gait_type.data == "tripod_gait")
   {
@@ -185,7 +187,7 @@ void StateController::loop(void)
   {
     transitionRobotState();
   }
-  
+
   if (robot_state_ == RUNNING)
   {
     runningState();
@@ -512,7 +514,7 @@ void StateController::adjustParameter(void)
 
 void StateController::changeGait(void)
 {
-  if (walker_->getWalkState() == STOPPED)
+  if (walker_->getWalkState() == STOPPED && getDeadman())
   {
     initGaitParameters(gait_selection_);
     walker_->generateStepCycle();
@@ -541,7 +543,7 @@ void StateController::changeGait(void)
 
 void StateController::legStateToggle(void)
 {
-  if (walker_->getWalkState() == STOPPED)
+  if (walker_->getWalkState() == STOPPED && getDeadman())
   {
     // Choose primary or secondary leg state to transition
     std::shared_ptr<Leg> leg; //Transitioning leg
@@ -559,7 +561,7 @@ void StateController::legStateToggle(void)
     std::string leg_name = leg->getIDName();
 
     // Calculate default pose for new loading pattern
-    // poser_->calculateDefaultPose();
+    poser_->calculateDefaultPose();
 
     // Set new leg state and transition position if required
     // WALKING -> WALKING_TO_MANUAL
@@ -1094,6 +1096,14 @@ void StateController::systemStateCallback(const std_msgs::Int8 &input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void StateController::deadmanCallback(const std_msgs::Bool &input)
+{
+  deadman_ = input.data;
+  ROS_INFO("%s", deadman_ ? "TRUE", "FALSE");
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void StateController::robotStateCallback(const std_msgs::Int8 &input)
 {
   RobotState input_state = static_cast<RobotState>(int(input.data));
@@ -1126,7 +1136,7 @@ void StateController::robotStateCallback(const std_msgs::Int8 &input)
 
 void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist &input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && getDeadman())
   {
     linear_velocity_input_ = Eigen::Vector2d(input.linear.x, input.linear.y) * params_.body_velocity_scaler.data;
     angular_velocity_input_ = input.angular.z * params_.body_velocity_scaler.data;
@@ -1135,13 +1145,18 @@ void StateController::bodyVelocityInputCallback(const geometry_msgs::Twist &inpu
       linear_velocity_input_ = std::min(1.0, linear_velocity_input_.norm()) * linear_velocity_input_.normalized();
     }
   }
+  else
+  {
+    linear_velocity_input_ = Eigen::Vector2d::Zero();
+    angular_velocity_input_ = 0.0;
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && getDeadman())
   {
     Eigen::Vector3d rotation_input(input.angular.x, input.angular.y, input.angular.z);
     Eigen::Vector3d translation_input(input.linear.x, input.linear.y, input.linear.z);
@@ -1153,7 +1168,7 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &input)
 
 void StateController::posingModeCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && getDeadman())
   {
     PosingMode new_posing_mode = static_cast<PosingMode>(int(input.data));
     if (new_posing_mode != posing_mode_)
@@ -1192,7 +1207,7 @@ void StateController::posingModeCallback(const std_msgs::Int8 &input)
 
 void StateController::poseResetCallback(const std_msgs::Int8 &input)
 {
-  if (system_state_ != SUSPENDED && poser_ != NULL)
+  if (system_state_ != SUSPENDED && poser_ != NULL && getDeadman())
   {
     if (poser_->getPoseResetMode() != IMMEDIATE_ALL_RESET)
     {
@@ -1205,7 +1220,7 @@ void StateController::poseResetCallback(const std_msgs::Int8 &input)
 
 void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && getDeadman())
   {
     GaitDesignation new_gait_selection = static_cast<GaitDesignation>(int(input.data));
     if (new_gait_selection != gait_selection_ && new_gait_selection != GAIT_UNDESIGNATED)
@@ -1220,7 +1235,7 @@ void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 
 void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && getDeadman())
   {
     CruiseControlMode new_cruise_control_mode = static_cast<CruiseControlMode>(int(input.data));
     if (new_cruise_control_mode != cruise_control_mode_)
@@ -1261,7 +1276,7 @@ void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
 
 void StateController::plannerModeCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && getDeadman())
   {
     PlannerMode new_planner_mode = static_cast<PlannerMode>(int(input.data));
     if (new_planner_mode != planner_mode_)
@@ -1330,7 +1345,7 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8 &input)
 
 void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING && !transition_state_flag_)
+  if (robot_state_ == RUNNING && !transition_state_flag_ && getDeadman())
   {
     LegState newPrimaryLegState = static_cast<LegState>(int(input.data));
     if (newPrimaryLegState != primary_leg_state_)
@@ -1358,7 +1373,7 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
 
 void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING && !transition_state_flag_)
+  if (robot_state_ == RUNNING && !transition_state_flag_ && getDeadman())
   {
     LegState newSecondaryLegState = static_cast<LegState>(int(input.data));
     if (newSecondaryLegState != secondary_leg_state_)
@@ -1386,39 +1401,59 @@ void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
 
 void StateController::primaryTipVelocityInputCallback(const geometry_msgs::Point &input)
 {
-  primary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
+  if (getDeadman())
+  {
+    primary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
+  }
+  else
+  {
+    primary_tip_velocity_input_ = Eigen::Vector3d::Zero();
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::secondaryTipVelocityInputCallback(const geometry_msgs::Point &input)
 {
-  secondary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
+  if (getDeadman())
+  {
+    secondary_tip_velocity_input_ = Eigen::Vector3d(input.x, input.y, input.z);
+  }
+  else
+  {
+    secondary_tip_velocity_input_ = Eigen::Vector3d::Zero();
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::primaryTipPoseInputCallback(const geometry_msgs::Pose &input)
 {
-  primary_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
-  primary_pose_input_.rotation_ = 
-    Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
+  if (getDeadman())
+  {
+    primary_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
+    primary_pose_input_.rotation_ = 
+      Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::secondaryTipPoseInputCallback(const geometry_msgs::Pose &input)
 {
-  secondary_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
-  secondary_pose_input_.rotation_ = 
-    Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
+  if (getDeadman())
+  {
+    secondary_pose_input_.position_ = Eigen::Vector3d(input.position.x, input.position.y, input.position.z);
+    secondary_pose_input_.rotation_ = 
+      Eigen::Quaterniond(input.orientation.w, input.orientation.x, input.orientation.y, input.orientation.z);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && getDeadman())
   {
     ParameterSelection new_parameter_selection = static_cast<ParameterSelection>(int(input.data));
     if (new_parameter_selection != parameter_selection_)
@@ -1441,7 +1476,7 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
 
 void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
 {
-  if (robot_state_ == RUNNING)
+  if (robot_state_ == RUNNING && getDeadman())
   {
     int adjust_direction = input.data; // -1 || 0 || 1 (Decrease, no adjustment, increase)
     if (adjust_direction != 0.0 && !parameter_adjust_flag_ && parameter_selection_ != NO_PARAMETER_SELECTION)

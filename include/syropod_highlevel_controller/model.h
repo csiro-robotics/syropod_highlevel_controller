@@ -19,10 +19,10 @@
 #define DLS_COEFFICIENT 0.02        ///< Coefficient used in Damped Least Squares method for inverse kinematics
 #define JOINT_LIMIT_COST_WEIGHT 0.1 ///< Gain used in determining cost weight for joints approaching limits
 
-#define BEARING_STEP 45          ///< Step to increment bearing in workspace generation algorithm (deg)
+#define BEARING_STEP 10          ///< Step to increment bearing in workspace generation algorithm (deg)
 #define MAX_POSITION_DELTA 0.002 ///< Position delta to increment search position in workspace generation algorithm (m)
 #define MAX_WORKSPACE_RADIUS 1.0 ///< Maximum radius allowed in workspace polygedron plane (m)
-#define WORKSPACE_LAYERS 10      ///< Number of planes in workspace polyhedron
+#define WORKSPACE_LAYERS 20      ///< Number of planes in workspace polyhedron
 
 class Leg;
 class Joint;

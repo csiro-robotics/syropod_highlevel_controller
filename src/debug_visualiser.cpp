@@ -49,9 +49,9 @@ void DebugVisualiser::generateRobotModel(std::shared_ptr<Model> model)
   leg_line_list.type = visualization_msgs::Marker::LINE_LIST;
   leg_line_list.frame_locked = true;
   leg_line_list.scale.x = 0.01 * sqrt(marker_scale_);
-  leg_line_list.color.r = 1; // WHITE
-  leg_line_list.color.g = 1;
-  leg_line_list.color.b = 1;
+  leg_line_list.color.r = 0; // WHITE
+  leg_line_list.color.g = 0;
+  leg_line_list.color.b = 0;
   leg_line_list.color.a = 1;
   leg_line_list.pose = Pose::Identity().toPoseMessage();
 
@@ -376,8 +376,8 @@ void DebugVisualiser::generateWalkspace(std::shared_ptr<Leg> leg, const LimitMap
   walkspace_marker.type = visualization_msgs::Marker::LINE_STRIP;
   walkspace_marker.action = visualization_msgs::Marker::ADD;
   walkspace_marker.scale.x = 0.002 * sqrt(marker_scale_);
-  walkspace_marker.color.g = 1;
-  walkspace_marker.color.b = 1;
+  walkspace_marker.color.r = 1.0;
+//   walkspace_marker.color.b = 1;
   walkspace_marker.color.a = 1;
   Pose pose(Eigen::Vector3d::Zero(), Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(),
                                                                         leg_stepper->getWalkPlaneNormal()));
