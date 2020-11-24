@@ -1099,7 +1099,7 @@ void StateController::systemStateCallback(const std_msgs::Int8 &input)
 void StateController::deadmanCallback(const std_msgs::Bool &input)
 {
   deadman_ = input.data;
-  ROS_INFO("%s", deadman_ ? "TRUE", "FALSE");
+  ROS_INFO("%s", deadman_ ? "TRUE" : "FALSE");
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
