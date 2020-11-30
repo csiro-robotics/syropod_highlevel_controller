@@ -31,6 +31,8 @@ StateController::StateController(void)
   // Hexapod Remote topic subscriptions
   system_state_subscriber_ = n.subscribe("syropod_remote/system_state", 1,
                                          &StateController::systemStateCallback, this);
+  drive_deadman_subscriber_ = n.subscribe("syropod_remote/deadman_primary", 1,
+                                           &StateController::driveDeadmanCallback, this);
   deadman_subscriber_ = n.subscribe("syropod_remote/deadman_secondary", 1,
                                     &StateController::deadmanCallback, this);
   robot_state_subscriber_ = n.subscribe("syropod_remote/robot_state", 1,
@@ -514,7 +516,7 @@ void StateController::adjustParameter(void)
 
 void StateController::changeGait(void)
 {
-  if (walker_->getWalkState() == STOPPED && getDeadman())
+  if (walker_->getWalkState() == STOPPED)
   {
     initGaitParameters(gait_selection_);
     walker_->generateStepCycle();
@@ -790,7 +792,9 @@ void StateController::publishDesiredJointState(void)
 
     if (params_.individual_control_interface.data)
     {
-      for (joint_it = leg->getJointContainer()->begin(); joint_it != leg->getJointContainer()->end(); ++joint_it)
+      // HACK to allow TigerX to drive and walk by removing control of last two joints from SHC
+      JointContainer::iterator end_it = std::prev(leg->getJointContainer()->end(), drive_deadman_ ? 2 : 0);
+      for (joint_it = leg->getJointContainer()->begin(); joint_it != end_it; ++joint_it)
       {
         std::shared_ptr<Joint> joint = joint_it->second;
         std_msgs::Float64 position_command_msg;
@@ -1099,7 +1103,13 @@ void StateController::systemStateCallback(const std_msgs::Int8 &input)
 void StateController::deadmanCallback(const std_msgs::Bool &input)
 {
   deadman_ = input.data;
-  ROS_INFO("%s", deadman_ ? "TRUE" : "FALSE");
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void StateController::driveDeadmanCallback(const std_msgs::Bool &input)
+{
+  drive_deadman_ = input.data;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1168,7 +1178,7 @@ void StateController::bodyPoseInputCallback(const geometry_msgs::Twist &input)
 
 void StateController::posingModeCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING && getDeadman())
+  if (robot_state_ == RUNNING)
   {
     PosingMode new_posing_mode = static_cast<PosingMode>(int(input.data));
     if (new_posing_mode != posing_mode_)
@@ -1220,7 +1230,7 @@ void StateController::poseResetCallback(const std_msgs::Int8 &input)
 
 void StateController::gaitSelectionCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING && getDeadman())
+  if (robot_state_ == RUNNING)
   {
     GaitDesignation new_gait_selection = static_cast<GaitDesignation>(int(input.data));
     if (new_gait_selection != gait_selection_ && new_gait_selection != GAIT_UNDESIGNATED)
@@ -1276,7 +1286,7 @@ void StateController::cruiseControlCallback(const std_msgs::Int8 &input)
 
 void StateController::plannerModeCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING && getDeadman())
+  if (robot_state_ == RUNNING)
   {
     PlannerMode new_planner_mode = static_cast<PlannerMode>(int(input.data));
     if (new_planner_mode != planner_mode_)
@@ -1345,7 +1355,7 @@ void StateController::secondaryLegSelectionCallback(const std_msgs::Int8 &input)
 
 void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING && !transition_state_flag_ && getDeadman())
+  if (robot_state_ == RUNNING && !transition_state_flag_)
   {
     LegState newPrimaryLegState = static_cast<LegState>(int(input.data));
     if (newPrimaryLegState != primary_leg_state_)
@@ -1373,7 +1383,7 @@ void StateController::primaryLegStateCallback(const std_msgs::Int8 &input)
 
 void StateController::secondaryLegStateCallback(const std_msgs::Int8 &input)
 {
-  if (robot_state_ == RUNNING && !transition_state_flag_ && getDeadman())
+  if (robot_state_ == RUNNING && !transition_state_flag_)
   {
     LegState newSecondaryLegState = static_cast<LegState>(int(input.data));
     if (newSecondaryLegState != secondary_leg_state_)
@@ -1453,7 +1463,7 @@ void StateController::secondaryTipPoseInputCallback(const geometry_msgs::Pose &i
 
 void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
 {
-  if (robot_state_ == RUNNING && getDeadman())
+  if (robot_state_ == RUNNING)
   {
     ParameterSelection new_parameter_selection = static_cast<ParameterSelection>(int(input.data));
     if (new_parameter_selection != parameter_selection_)
@@ -1476,7 +1486,7 @@ void StateController::parameterSelectionCallback(const std_msgs::Int8& input)
 
 void StateController::parameterAdjustCallback(const std_msgs::Int8& input)
 {
-  if (robot_state_ == RUNNING && getDeadman())
+  if (robot_state_ == RUNNING)
   {
     int adjust_direction = input.data; // -1 || 0 || 1 (Decrease, no adjustment, increase)
     if (adjust_direction != 0.0 && !parameter_adjust_flag_ && parameter_selection_ != NO_PARAMETER_SELECTION)

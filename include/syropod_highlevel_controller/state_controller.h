@@ -156,6 +156,11 @@ public:
   /// @param[in] input The Bool standard message provided by the subscribed ros topic "syropod_remote/deadman_secondary"
   /// @see parameters_and_states.h
   void deadmanCallback(const std_msgs::Bool &input);
+  
+  /// Callback handling the deadman state for the drive controller
+  /// @param[in] input The Bool standard message provided by the subscribed ros topic "syropod_remote/deadman_secondary"
+  /// @see parameters_and_states.h
+  void driveDeadmanCallback(const std_msgs::Bool &input);
 
   /// Callback handling the desired robot state.
   /// @param[in] input The Int8 standard message provided by the subscribed ros topic "syropod_remote/robot_state"
@@ -283,6 +288,7 @@ public:
 private:
   ros::Subscriber system_state_subscriber_;            ///< Subscriber for topic /syropod_remote/system_state
   ros::Subscriber deadman_subscriber_;                 ///< Subscriber for topic /syropod_remote/deadman_secondary
+  ros::Subscriber drive_deadman_subscriber_;           ///< Subscriber for topic /syropod_remote/deadman_primary
   ros::Subscriber robot_state_subscriber_;             ///< Subscriber for topic /syropod_remote/robot_state
   ros::Subscriber desired_velocity_subscriber_;        ///< Subscriber for topic /syropod_remote/desired_velocity
   ros::Subscriber desired_pose_subscriber_;            ///< Subscriber for topic /syropod_remote/desired_pose
@@ -333,8 +339,9 @@ private:
   DebugVisualiser debug_visualiser_;                 ///< Debug class object used for RVIZ visualization
   Parameters params_;                                ///< Parameter data structure for storing parameter variables
 
-  bool initialised_ = false; ///< Flags if the state controller has initialised
-  bool deadman_ = false;     ///< Flag denoting whether the state controller is enabled via deadman user input
+  bool initialised_ = false;   ///< Flags if the state controller has initialised
+  bool deadman_ = false;       ///< Flag denoting whether the state controller is enabled via deadman user input
+  bool drive_deadman_ = false; ///< Flag denoting whether drive control is active
 
   SystemState system_state_ = SUSPENDED;     ///< Current state of the entire high-level controller system
   SystemState new_system_state_ = SUSPENDED; ///< Desired state of the entire high_level controller system
