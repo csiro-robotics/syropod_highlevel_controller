@@ -354,7 +354,7 @@ void WalkController::generateLimits(StepCycle step,
       max_angular_speed_ptr->insert(LimitMap::value_type(it->first, max_angular_speed));
     }
     if (max_angular_acceleration_ptr)
-    {
+    { 
       max_angular_acceleration_ptr->insert(LimitMap::value_type(it->first, max_angular_acceleration));
     }
   }
@@ -603,6 +603,7 @@ void WalkController::updateWalk(const Eigen::Vector2d &linear_velocity_input, co
     }
     else if (walk_state_ == STOPPING)
     {
+      ROS_DEBUG("STOPPING"); // HACK This prevents an unknown bug from seg faulting the node
       // All legs must attempt at least one step to achieve default tip position after ending a swing
       bool zero_body_velocity = leg_stepper->getStrideVector().norm() == 0;
       Eigen::Vector3d walk_plane_normal = leg_stepper->getWalkPlaneNormal();
