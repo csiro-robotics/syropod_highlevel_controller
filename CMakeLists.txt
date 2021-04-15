@@ -177,7 +177,7 @@ target_include_directories(${PROJECT_NAME}_node SYSTEM
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES})
 
 # Enable clang-tidy
-clang_tidy_target(${PROJECT_NAME} EXCLUDE_MATCHES ".*\\.in($|\\..*)")
+clang_tidy_target(${PROJECT_NAME}_node EXCLUDE_MATCHES ".*\\.in($|\\..*)")
 
 # Setup folder display with the target for Visual Studio. This should always be done to match
 # the on disk layout of the source files.

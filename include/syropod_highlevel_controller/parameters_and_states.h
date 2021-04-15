@@ -239,7 +239,7 @@ public:
     name = name_input;
     required = required_input;
     initialised = n.getParam(base_parameter_name + name_input, data);
-    ROS_ERROR_COND(!initialised && required_input, "Error reading parameter/s %s%s from rosparam."
+    ROS_ERROR_COND(!initialised && required_input, "Error reading parameter/s %s from rosparam."
                    " Check config file is loaded and type is correct\n", name.c_str());
 
     if (initialised)
