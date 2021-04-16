@@ -37,8 +37,9 @@ Video overview of [OpenSHC](https://youtu.be/-E7-2UMP5XU):
 
 ### Requirements
 
-* Ubuntu 18.04 LTS
-* ROS Melodic
+* Ubuntu 18.04 LTS and ROS Melodic; or
+* Ubuntu 20.04 LTS and ROS Noetic
+
 
 ### Dependencies
 
