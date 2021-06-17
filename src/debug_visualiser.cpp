@@ -41,7 +41,7 @@ void DebugVisualiser::generateRobotModel(std::shared_ptr<Model> model)
   }
   
   visualization_msgs::Marker leg_line_list;
-  leg_line_list.header.frame_id = "/base_link";
+  leg_line_list.header.frame_id = "base_link";
   leg_line_list.header.stamp = ros::Time(0);
   leg_line_list.ns = "robot_model";
   leg_line_list.action = visualization_msgs::Marker::ADD;
@@ -136,7 +136,7 @@ void DebugVisualiser::generateRobotModel(std::shared_ptr<Model> model)
 void DebugVisualiser::generateWalkPlane(const Eigen::Vector3d& walk_plane, const Eigen::Vector3d& walk_plane_normal)
 {
   visualization_msgs::Marker walk_plane_marker;
-  walk_plane_marker.header.frame_id = "/walk_plane";
+  walk_plane_marker.header.frame_id = "walk_plane";
   walk_plane_marker.header.stamp = ros::Time::now();
   walk_plane_marker.ns = "walk_plane_marker";
   walk_plane_marker.id = 0;
@@ -169,7 +169,7 @@ void DebugVisualiser::generateWalkPlane(const Eigen::Vector3d& walk_plane, const
 void DebugVisualiser::generateTipTrajectory(std::shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker tip_position_marker;
-  tip_position_marker.header.frame_id = "/base_link";
+  tip_position_marker.header.frame_id = "base_link";
   tip_position_marker.header.stamp = ros::Time::now();
   tip_position_marker.ns = "tip_trajectory_markers";
   tip_position_marker.id = tip_position_id_;
@@ -206,7 +206,7 @@ void DebugVisualiser::generateTerrainEstimate(std::shared_ptr<Model> model)
       Eigen::Vector3d tip_position = leg->getCurrentTipPose().position_;
       
       visualization_msgs::Marker terrain_marker;
-      terrain_marker.header.frame_id = "/base_link";
+      terrain_marker.header.frame_id = "base_link";
       terrain_marker.header.stamp = ros::Time::now();
       terrain_marker.ns = "terrain_markers";
       terrain_marker.id = terrain_marker_id_;
@@ -236,7 +236,7 @@ void DebugVisualiser::generateTerrainEstimate(std::shared_ptr<Model> model)
 void DebugVisualiser::generateBezierCurves(std::shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker swing_1_nodes;
-  swing_1_nodes.header.frame_id = "/walk_plane";
+  swing_1_nodes.header.frame_id = "walk_plane";
   swing_1_nodes.header.stamp = ros::Time::now();
   swing_1_nodes.ns = "primary_swing_control_nodes";
   swing_1_nodes.id = leg->getIDNumber();
@@ -250,7 +250,7 @@ void DebugVisualiser::generateBezierCurves(std::shared_ptr<Leg> leg)
   swing_1_nodes.pose = Pose::Identity().toPoseMessage();
 
   visualization_msgs::Marker swing_2_nodes;
-  swing_2_nodes.header.frame_id = "/walk_plane";
+  swing_2_nodes.header.frame_id = "walk_plane";
   swing_2_nodes.header.stamp = ros::Time::now();
   swing_2_nodes.ns = "secondary_swing_control_nodes";
   swing_2_nodes.id = leg->getIDNumber();
@@ -264,7 +264,7 @@ void DebugVisualiser::generateBezierCurves(std::shared_ptr<Leg> leg)
   swing_2_nodes.pose = Pose::Identity().toPoseMessage();
 
   visualization_msgs::Marker stance_nodes;
-  stance_nodes.header.frame_id = "/walk_plane";
+  stance_nodes.header.frame_id = "walk_plane";
   stance_nodes.header.stamp = ros::Time::now();
   stance_nodes.ns = "stance_control_nodes";
   stance_nodes.id = leg->getIDNumber();
@@ -314,7 +314,7 @@ void DebugVisualiser::generateDefaultTipPositions(std::shared_ptr<Leg> leg)
   std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
   visualization_msgs::Marker default_tip_position;
-  default_tip_position.header.frame_id = "/walk_plane";
+  default_tip_position.header.frame_id = "walk_plane";
   default_tip_position.header.stamp = ros::Time::now();
   default_tip_position.ns = "default_tip_position_markers";
   default_tip_position.id = leg->getIDNumber();
@@ -342,7 +342,7 @@ void DebugVisualiser::generateTargetTipPositions(std::shared_ptr<Leg> leg)
   std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
 
   visualization_msgs::Marker target_tip_position;
-  target_tip_position.header.frame_id = "/walk_plane";
+  target_tip_position.header.frame_id = "walk_plane";
   target_tip_position.header.stamp = ros::Time::now();
   target_tip_position.ns = "target_tip_position_markers";
   target_tip_position.id = leg->getIDNumber();
@@ -369,7 +369,7 @@ void DebugVisualiser::generateWalkspace(std::shared_ptr<Leg> leg, const LimitMap
   std::shared_ptr<LegStepper> leg_stepper = leg->getLegStepper();
   
   visualization_msgs::Marker walkspace_marker;
-  walkspace_marker.header.frame_id = "/walk_plane";
+  walkspace_marker.header.frame_id = "walk_plane";
   walkspace_marker.header.stamp = ros::Time::now();
   walkspace_marker.ns = "walkspace_markers";
   walkspace_marker.id = leg->getIDNumber();
@@ -421,7 +421,7 @@ void DebugVisualiser::generateWorkspace(std::shared_ptr<Leg> leg, const double& 
   
   visualization_msgs::MarkerArray workspace_marker_array;
   visualization_msgs::Marker workspace_marker;
-  workspace_marker.header.frame_id = "/base_link";
+  workspace_marker.header.frame_id = "base_link";
   workspace_marker.header.stamp = ros::Time(0);
   workspace_marker.ns = leg->getIDName() + "_workspace_markers";
   workspace_marker.type = visualization_msgs::Marker::LINE_STRIP;
@@ -502,7 +502,7 @@ void DebugVisualiser::generateStride(std::shared_ptr<Leg> leg)
   Eigen::Vector3d stride_vector = leg_stepper->getStrideVector();
 
   visualization_msgs::Marker stride;
-  stride.header.frame_id = "/walk_plane";
+  stride.header.frame_id = "walk_plane";
   stride.header.stamp = ros::Time::now();
   stride.ns = "stride_markers";
   stride.id = leg->getIDNumber();
@@ -534,7 +534,7 @@ void DebugVisualiser::generateStride(std::shared_ptr<Leg> leg)
 void DebugVisualiser::generateTipForce(std::shared_ptr<Leg> leg)
 {
   visualization_msgs::Marker tip_force;
-  tip_force.header.frame_id = "/base_link";
+  tip_force.header.frame_id = "base_link";
   tip_force.header.stamp = ros::Time::now();
   tip_force.id = leg->getIDNumber();
   tip_force.type = visualization_msgs::Marker::ARROW;
@@ -588,7 +588,7 @@ void DebugVisualiser::generateJointTorques(std::shared_ptr<Leg> leg)
   {
     std::shared_ptr<Joint> joint = joint_it->second;
     visualization_msgs::Marker joint_torque;
-    joint_torque.header.frame_id = "/base_link";
+    joint_torque.header.frame_id = "base_link";
     joint_torque.header.stamp = ros::Time::now();
     joint_torque.ns = "joint_torque_markers";
     joint_torque.type = visualization_msgs::Marker::SPHERE;
@@ -616,7 +616,7 @@ void DebugVisualiser::generateJointTorques(std::shared_ptr<Leg> leg)
 void DebugVisualiser::generateGravity(const Eigen::Vector3d& gravity_estimate)
 {
   visualization_msgs::Marker gravity;
-  gravity.header.frame_id = "/base_link";
+  gravity.header.frame_id = "base_link";
   gravity.header.stamp = ros::Time::now();
   gravity.ns = "gravity_marker";
   gravity.id = 0;

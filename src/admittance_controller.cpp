@@ -41,7 +41,7 @@ void AdmittanceController::updateAdmittance(void)
       double virtual_damping = damping * 2 * sqrt(mass * stiffness);
       boost::numeric::odeint::runge_kutta4<state_type> stepper;
       integrate_const(stepper,
-                      [&](const state_type & x, state_type & dxdt, double t)
+                      [&](const state_type & x, state_type & dxdt, double /*t*/)
                       {
                         dxdt[0] = x[1];
                         dxdt[1] = -force_input / mass - virtual_damping / mass * x[1] - stiffness / mass * x[0];

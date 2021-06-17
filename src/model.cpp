@@ -1049,7 +1049,7 @@ Joint::Joint(std::shared_ptr<Leg> leg, std::shared_ptr<Link> reference_link,
       packed_positions_.push_back(joint_parameters.at(packed_position_key));
       get_next_packed_position = (packed_position_key != "packed");
     }
-    catch (std::out_of_range)
+    catch (const std::out_of_range &e)
     {
       get_next_packed_position = (packed_position_key == "packed");
     }
